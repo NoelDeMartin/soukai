@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "es2015",
+    "moduleResolution": "node",
+    "lib": ["es2017.object", "es6", "dom"],
+    "noImplicitThis": true,
+    "removeComments": true,
+    "pretty": true,
+    "strictNullChecks": true,
+    "inlineSourceMap": true,
+    "declaration": true,
+    "suppressImplicitAnyIndexErrors": true,
+    "allowSyntheticDefaultImports": true,
+    "rootDir": "src",
+    "baseUrl": "src",
+    "outDir": "dist/modules",
+    "declarationDir": "dist/types",
+    "paths": {
+      "*": ["*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+  ]
+}

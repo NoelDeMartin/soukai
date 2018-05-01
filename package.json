@@ -1,0 +1,29 @@
+{
+  "name": "soukai",
+  "version": "0.0.1",
+  "description": "Soukai ODM",
+  "scripts": {
+    "compile": "tsc",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NoelDeMartin/soukai.git"
+  },
+  "keywords": [
+    "odm"
+  ],
+  "author": "Noel De Martin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NoelDeMartin/soukai/issues"
+  },
+  "homepage": "https://github.com/NoelDeMartin/soukai#readme",
+  "devDependencies": {
+    "@types/jest": "^22.2.3",
+    "@types/webpack-env": "^1.13.6",
+    "jest": "^22.4.3",
+    "ts-jest": "^22.4.4",
+    "typescript": "^2.8.3"
+  }
+}

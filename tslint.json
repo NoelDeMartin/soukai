@@ -1,0 +1,11 @@
+{
+    "extends": "tslint:recommended",
+    "rules": {
+        "quotemark": [true, "single"],
+        "no-console": false,
+        "arrow-parens": false,
+        "interface-name": false,
+        "no-angle-bracket-type-assertion": false,
+        "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore"]
+    }
+}
