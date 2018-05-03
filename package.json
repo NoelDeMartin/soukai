@@ -4,7 +4,10 @@
   "description": "Soukai ODM",
   "scripts": {
     "compile": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "docs:dev": "vuepress dev docs",
+    "docs:build": "vuepress build docs",
+    "docs:publish": "scripts/publish-docs.sh"
   },
   "repository": {
     "type": "git",
@@ -24,6 +27,7 @@
     "@types/webpack-env": "^1.13.6",
     "jest": "^22.4.3",
     "ts-jest": "^22.4.4",
-    "typescript": "^2.8.3"
+    "typescript": "^2.8.3",
+    "vuepress": "^0.8.4"
   }
 }
