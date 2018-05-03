@@ -149,26 +149,30 @@ export default abstract class Model {
     }
 
     public static all<T extends Model>(): Promise<T[]> {
-        return Soukai.engine.readAll(this.collection)
+        return Soukai.engine.readMany(this.collection)
             .then(models => models.map(attributes => new (<any> this)(attributes, true)));
     }
 
-    protected get classDef(): typeof Model {
+    private get classDef(): typeof Model {
         return (<any> this.constructor);
     }
 
-    protected static get instance(): Model {
+    private static get instance(): Model {
         return new (<any> this)();
     }
 
-    protected attributes: Soukai.Attributes | Soukai.Document;
-    protected dirty: Soukai.Attributes;
-    protected exists: boolean;
+    private exists: boolean;
+    private attributes: Soukai.Attributes | Soukai.Document;
+    private dirtyAttributes: Soukai.Attributes;
+    private removedAttributes: string[];
+
+    [attribute: string]: any;
 
     constructor(attributes: Soukai.Attributes | Soukai.Document, exists = false) {
-        this.attributes = {...attributes};
         this.exists = exists;
-        this.dirty = exists ? {} : {...attributes};
+        this.attributes = {...attributes};
+        this.dirtyAttributes = exists ? {} : {...attributes};
+        this.removedAttributes = [];
 
         return new Proxy(this, {
             get(target, key) {
@@ -185,9 +189,21 @@ export default abstract class Model {
 
     public update<T extends Model>(attributes: Soukai.Attributes): Promise<T> {
         this.attributes = { ...this.attributes, ...attributes };
-        this.dirty = { ...this.dirty, ...attributes };
+        this.dirtyAttributes = { ...this.dirtyAttributes, ...attributes };
 
         return this.save();
+    }
+
+    public setAttribute(attribute: string, value: any): void {
+        this.attributes[attribute] = value;
+        this.dirtyAttributes[attribute] = value;
+    }
+
+    public unsetAttribute(attribute: string): void {
+        if (this.attributes.hasOwnProperty(attribute)) {
+            delete this.attributes[attribute];
+            this.removedAttributes.push(attribute);
+        }
     }
 
     public delete<T extends Model>(): Promise<T> {
@@ -208,21 +224,24 @@ export default abstract class Model {
             return Soukai.engine.update(
                 this.classDef.collection,
                 this.attributes.id,
-                this.dirty,
+                { ...this.dirtyAttributes },
+                [ ...this.removedAttributes],
             )
                 .then(() => {
-                    this.dirty = {};
+                    this.dirtyAttributes = {};
+                    this.removedAttributes = [];
 
                     return <any> this;
                 });
         } else {
             return Soukai.engine.create(
                 this.classDef.collection,
-                this.attributes,
+                { ...this.attributes },
             )
                 .then(id => {
                     this.attributes.id = id;
-                    this.dirty = {};
+                    this.dirtyAttributes = {};
+                    this.removedAttributes = [];
                     this.exists = true;
 
                     return <any> this;

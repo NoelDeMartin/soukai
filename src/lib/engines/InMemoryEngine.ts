@@ -28,16 +28,24 @@ export default class implements Engine {
         }
     }
 
-    public readAll(collectionName: string): Promise<Soukai.Document[]> {
+    public readMany(collectionName: string): Promise<Soukai.Document[]> {
         const collection = this.collection(collectionName);
         return Promise.resolve(Object.values(collection.documents));
     }
 
-    public update(collectionName: string, id: Soukai.PrimaryKey, attributes: Soukai.Attributes): Promise<void> {
+    public update(
+        collectionName: string,
+        id: Soukai.PrimaryKey,
+        dirtyAttributes: Soukai.Attributes,
+        removedAttributes: string[],
+    ): Promise<void> {
         const collection = this.collection(collectionName);
         if (id in collection.documents) {
             const document = collection.documents[id];
-            collection.documents[id] = { ...document, ...attributes };
+            collection.documents[id] = { ...document, ...dirtyAttributes };
+            for (const attribute of removedAttributes) {
+                delete collection.documents[id][attribute];
+            }
             return Promise.resolve();
         } else {
             return Promise.reject(new ModelNotFound(id));

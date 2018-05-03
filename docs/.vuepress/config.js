@@ -3,6 +3,7 @@ module.exports = {
     description: 'Javascript Object Document Mapper',
     base: '/soukai/',
     themeConfig: {
+        repo: 'noeldemartin/soukai',
         nav: [
             {
                 text: 'Guide',

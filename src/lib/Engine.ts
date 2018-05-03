@@ -4,9 +4,14 @@ export default interface Engine {
 
     readOne(collection: string, id: Soukai.PrimaryKey): Promise<Soukai.Document>;
 
-    readAll(collection: string): Promise<Soukai.Document[]>;
+    readMany(collection: string): Promise<Soukai.Document[]>;
 
-    update(collection: string, id: Soukai.PrimaryKey, attributes: Soukai.Attributes): Promise<void>;
+    update(
+        collection: string,
+        id: Soukai.PrimaryKey,
+        dirtyAttributes: Soukai.Attributes,
+        removedAttributes: string[],
+    ): Promise<void>;
 
     delete(collection: string, id: Soukai.PrimaryKey): Promise<void>;
 

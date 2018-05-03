@@ -34,9 +34,9 @@ export default class implements Engine {
             });
     }
 
-    public readAll(collection: string): Promise<Soukai.Document[]> {
+    public readMany(collection: string): Promise<Soukai.Document[]> {
         console.log('READ ALL', collection);
-        return this.engine.readAll(collection)
+        return this.engine.readMany(collection)
             .then(documents => {
                 console.log('FOUND', documents);
                 return documents;
@@ -47,9 +47,14 @@ export default class implements Engine {
             });
     }
 
-    public update(collection: string, id: Soukai.PrimaryKey, attributes: Soukai.Attributes): Promise<void> {
-        console.log('UPDATE', collection, id, attributes);
-        return this.engine.update(collection, id, attributes)
+    public update(
+        collection: string,
+        id: Soukai.PrimaryKey,
+        dirtyAttributes: Soukai.Attributes,
+        removedAttributes: string[],
+    ): Promise<void> {
+        console.log('UPDATE', collection, id, dirtyAttributes, removedAttributes);
+        return this.engine.update(collection, id, dirtyAttributes, removedAttributes)
             .then(() => console.log('UPDATED'))
             .catch(error => {
                 console.error(error);

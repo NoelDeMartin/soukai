@@ -1,10 +1,12 @@
+import Faker from 'faker';
+
 import Engine from '../../../src/lib/Engine';
 
 export default jest.fn<jest.Mocked<Engine>>(() => {
     return {
-        create: jest.fn(() => Promise.resolve(1)),
-        readOne: jest.fn(() => Promise.resolve({})),
-        readAll: jest.fn(() => Promise.resolve([])),
+        create: jest.fn(() => Promise.resolve(Faker.random.uuid())),
+        readOne: jest.fn(() => Promise.resolve({ id: Faker.random.uuid() })),
+        readMany: jest.fn(() => Promise.resolve([])),
         update: jest.fn(() => Promise.resolve()),
         delete: jest.fn(() => Promise.resolve()),
     };

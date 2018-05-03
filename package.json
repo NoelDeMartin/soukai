@@ -23,8 +23,10 @@
   },
   "homepage": "https://github.com/NoelDeMartin/soukai#readme",
   "devDependencies": {
+    "@types/faker": "^4.1.2",
     "@types/jest": "^22.2.3",
     "@types/webpack-env": "^1.13.6",
+    "faker": "^4.1.0",
     "jest": "^22.4.3",
     "ts-jest": "^22.4.4",
     "typescript": "^2.8.3",
