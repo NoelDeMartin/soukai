@@ -1,5 +1,5 @@
-import ModelBootTests from './lib/suites/ModelBootTests';
 import ModelCRUDTests from './lib/suites/ModelCRUDTests';
+import ModelDefinitionTests from './lib/suites/ModelDefinitionTests';
 
-ModelBootTests.run();
+ModelDefinitionTests.run();
 ModelCRUDTests.run();

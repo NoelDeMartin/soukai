@@ -19,7 +19,7 @@ export interface FieldDefinition {
     required: boolean;
 
     // Used with FieldType.Array
-    item?: FieldDefinition;
+    items?: FieldDefinition;
 
     // Used with FieldType.Object
     fields?: {
@@ -31,7 +31,7 @@ export interface FieldDefinition {
 
 }
 
-function validateFieldDefinition(model: string, field: string, definition: any): FieldDefinition {
+function validateFieldDefinition(model: string, field: string, definition: any, hasRequired: boolean = true): FieldDefinition {
     let fieldDefinition: FieldDefinition = <any> {};
 
     if (TYPE_VALUES.indexOf(definition) !== -1) {
@@ -51,7 +51,9 @@ function validateFieldDefinition(model: string, field: string, definition: any):
         throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
     }
 
-    fieldDefinition.required = !!fieldDefinition.required;
+    if (hasRequired) {
+        fieldDefinition.required = !!fieldDefinition.required;
+    }
 
     switch (fieldDefinition.type) {
         case FieldType.Object:
@@ -69,12 +71,12 @@ function validateFieldDefinition(model: string, field: string, definition: any):
             }
             break;
         case FieldType.Array:
-            if (typeof fieldDefinition.item !== 'undefined') {
-                fieldDefinition.item = validateFieldDefinition(model, 'item', fieldDefinition.item);
+            if (typeof fieldDefinition.items !== 'undefined') {
+                fieldDefinition.items = validateFieldDefinition(model, 'items', fieldDefinition.items, false);
             } else {
                 throw new InvalidModelDefinition(
                     model,
-                    `Field definition of type array requires item attribute ${field}`,
+                    `Field definition of type array requires items attribute ${field}`,
                 );
             }
             break;
@@ -87,7 +89,9 @@ export default abstract class Model {
 
     public static collection: string;
 
-    public static fieldDefinitions: { [field: string]: FieldDefinition };
+    public static timestamps: string[] | boolean;
+
+    public static fields: { [field: string]: FieldDefinition } | any;
 
     public static boot<T extends Model>(name: string): void {
         const classDef = (<any> this);
@@ -101,19 +105,24 @@ export default abstract class Model {
         }
 
         // Validate timestamps
-        if (typeof classDef.timestamps === 'boolean') {
-            if (classDef.timestamps) {
+        if (typeof classDef.timestamps === 'boolean' || typeof classDef.timestamps === 'undefined') {
+            if (typeof classDef.timestamps === 'undefined' || classDef.timestamps) {
                 fieldDefinitions.created_at = { type: FieldType.Date, required: false, auto: true };
                 fieldDefinitions.updated_at = { type: FieldType.Date, required: false, auto: true };
+                classDef.timestamps = ['created_at', 'updated_at'];
+            } else {
+                classDef.timestamps = [];
             }
-        } else if (typeof classDef.timestamps !== 'undefined' && Array.isArray(classDef.timestamps)) {
-            classDef.timestamps.each(field => {
-                if (!(field in ['created_at', 'updated_at'])) {
+        } else if (Array.isArray(classDef.timestamps)) {
+            for (const field of classDef.timestamps) {
+                if (['created_at', 'updated_at'].indexOf(field) === -1) {
                     throw new InvalidModelDefinition(name, `Invalid timestamp field defined (${field})`);
                 }
 
                 fieldDefinitions[field] = { type: FieldType.Date, required: false, auto: true };
-            });
+            };
+        } else {
+            throw new InvalidModelDefinition(name, `Invalid timestamps definition`);
         }
 
         // Validate fields
@@ -125,7 +134,7 @@ export default abstract class Model {
             }
         }
 
-        classDef.fieldDefinitions = fieldDefinitions;
+        classDef.fields = fieldDefinitions;
     }
 
     public static create<T extends Model>(attributes: Soukai.Attributes = {}): Promise<T> {
