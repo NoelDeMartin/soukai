@@ -1,7 +1,7 @@
-import ModelNotFound from '../errors/ModelNotFound';
 import Engine from '../Engine';
+import DocumentNotFound from '../errors/DocumentNotFound';
 
-interface Collection {
+export interface Collection {
     incrementalCount: number;
     documents: {
         [id: string]: Soukai.Document,
@@ -12,10 +12,14 @@ export default class implements Engine {
 
     private db: { [collection: string]: Collection } = {};
 
+    public get database(): { [collection: string]: Collection } {
+        return this.db;
+    }
+
     public create(collectionName: string, attributes: Soukai.Attributes): Promise<Soukai.PrimaryKey> {
         const collection = this.collection(collectionName);
-        const id = (collection.incrementalCount++).toString();
-        collection.documents[id] = { ...{ id }, ...attributes.id };
+        const id = (++collection.incrementalCount).toString();
+        collection.documents[id] = { ...attributes, ...{ id } };
         return Promise.resolve(id);
     }
 
@@ -24,7 +28,7 @@ export default class implements Engine {
         if (id in collection.documents) {
             return Promise.resolve(collection.documents[id]);
         } else {
-            return Promise.reject(new ModelNotFound(id));
+            return Promise.reject(new DocumentNotFound(id));
         }
     }
 
@@ -48,7 +52,7 @@ export default class implements Engine {
             }
             return Promise.resolve();
         } else {
-            return Promise.reject(new ModelNotFound(id));
+            return Promise.reject(new DocumentNotFound(id));
         }
     }
 
@@ -58,7 +62,7 @@ export default class implements Engine {
             delete collection.documents[id];
             return Promise.resolve();
         } else {
-            return Promise.reject(new ModelNotFound(id));
+            return Promise.reject(new DocumentNotFound(id));
         }
     }
 
