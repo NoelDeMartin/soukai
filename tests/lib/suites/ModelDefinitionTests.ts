@@ -37,7 +37,6 @@ export default class extends TestSuite {
             created_at: {
                 type: FieldType.Date,
                 required: false,
-                auto: true,
             },
         });
     }
@@ -132,12 +131,10 @@ export default class extends TestSuite {
             created_at: {
                 type: FieldType.Date,
                 required: false,
-                auto: true,
             },
             updated_at: {
                 type: FieldType.Date,
                 required: false,
-                auto: true,
             },
         });
     }
@@ -151,12 +148,10 @@ export default class extends TestSuite {
             created_at: {
                 type: FieldType.Date,
                 required: false,
-                auto: true,
             },
             updated_at: {
                 type: FieldType.Date,
                 required: false,
-                auto: true,
             },
         });
     }
@@ -183,6 +178,20 @@ export default class extends TestSuite {
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow('object requires fields attribute');
+    }
+
+    public testInvalidTimestampField(): void {
+        class StubModel extends Model {
+            static timestamps = ['created_at'];
+
+            static fields = {
+                created_at: FieldType.Date,
+            };
+        }
+
+        const loadModel = () => Soukai.loadModel('Stub', StubModel);
+        expect(loadModel).toThrow(InvalidModelDefinition);
+        expect(loadModel).toThrow('created_at field cannot be defined because it\'s being used as an automatic timestamp');
     }
 
 }

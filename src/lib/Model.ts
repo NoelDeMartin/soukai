@@ -13,6 +13,8 @@ export enum FieldType {
 
 const TYPE_VALUES = Object.values(FieldType);
 
+const TIMESTAMP_FIELDS = ['created_at', 'updated_at'];
+
 export interface FieldDefinition {
 
     type: FieldType;
@@ -25,9 +27,6 @@ export interface FieldDefinition {
     fields?: {
         [field: string]: FieldDefinition,
     };
-
-    // Custom field properties
-    [prop: string]: any;
 
 }
 
@@ -44,8 +43,8 @@ function validateFieldDefinition(model: string, field: string, definition: any, 
 
     if (typeof fieldDefinition.type === 'undefined') {
         fieldDefinition = <any> {
-            fields: fieldDefinition,
             type: FieldType.Object,
+            fields: fieldDefinition,
         };
     } else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1) {
         throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
@@ -107,29 +106,37 @@ export default abstract class Model {
         // Validate timestamps
         if (typeof classDef.timestamps === 'boolean' || typeof classDef.timestamps === 'undefined') {
             if (typeof classDef.timestamps === 'undefined' || classDef.timestamps) {
-                fieldDefinitions.created_at = { type: FieldType.Date, required: false, auto: true };
-                fieldDefinitions.updated_at = { type: FieldType.Date, required: false, auto: true };
-                classDef.timestamps = ['created_at', 'updated_at'];
+                for (const field of TIMESTAMP_FIELDS) {
+                    fieldDefinitions[field] = { type: FieldType.Date, required: false };
+                }
+                classDef.timestamps = TIMESTAMP_FIELDS;
             } else {
                 classDef.timestamps = [];
             }
         } else if (Array.isArray(classDef.timestamps)) {
             for (const field of classDef.timestamps) {
-                if (['created_at', 'updated_at'].indexOf(field) === -1) {
+                if (TIMESTAMP_FIELDS.indexOf(field) === -1) {
                     throw new InvalidModelDefinition(name, `Invalid timestamp field defined (${field})`);
                 }
 
-                fieldDefinitions[field] = { type: FieldType.Date, required: false, auto: true };
+                fieldDefinitions[field] = { type: FieldType.Date, required: false };
             };
         } else {
-            throw new InvalidModelDefinition(name, `Invalid timestamps definition`);
+            throw new InvalidModelDefinition(name, 'Invalid timestamps definition');
         }
 
         // Validate fields
         if (typeof classDef.fields !== 'undefined') {
             for (const field in classDef.fields) {
                 if (classDef.fields.hasOwnProperty(field)) {
-                    fieldDefinitions[field] = validateFieldDefinition(name, field, classDef.fields[field]);
+                    if (classDef.timestamps.indexOf(field) !== -1) {
+                        throw new InvalidModelDefinition(
+                            name,
+                            `Field ${field} field cannot be defined because it's being used as an automatic timestamp`
+                        );
+                    } else {
+                        fieldDefinitions[field] = validateFieldDefinition(name, field, classDef.fields[field]);
+                    }
                 }
             }
         }

@@ -11,17 +11,23 @@ class StubModel extends Model {
     static collection = Faker.lorem.word();
 }
 
+// TODO test automatic timestamps
+
 export default class extends TestSuite {
 
     static title: string = 'CRUD';
 
     private mockEngine: jest.Mocked<Engine>;
 
+    constructor() {
+        super();
+        Soukai.loadModel('Stub', StubModel);
+    }
+
     public setUp(): void {
         MockEngine.mockClear();
 
         Soukai.useEngine(this.mockEngine = new MockEngine());
-        Soukai.loadModel('Stub', StubModel);
     }
 
     public testCreate(): Promise<void> {
