@@ -9,16 +9,16 @@ export class Soukai {
         this._engine = engine;
     }
 
+    public loadModel(name: string, model: typeof Model): void {
+        model.boot(name);
+    }
+
     public loadModels(models: { [name: string]: typeof Model}): void {
         for (const name in models) {
             if (models.hasOwnProperty(name)) {
                 this.loadModel(name, models[name]);
             }
         }
-    }
-
-    public loadModel(name: string, model: typeof Model): void {
-        model.boot(name);
     }
 
     public get engine(): Engine {

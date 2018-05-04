@@ -16,11 +16,11 @@ TODO
 
 TODO
 
-### Soukai.loadModels
+### Soukai.loadModel
 
 TODO
 
-### Soukai.loadModel
+### Soukai.loadModels
 
 TODO
 
@@ -76,17 +76,49 @@ TODO
 
 TODO
 
-## Engines
-
-### Engine
+### model.touch
 
 TODO
 
-### InMemoryEngine
+## Engine
+
+### engine.create
 
 TODO
 
-### LogEngine
+### engine.readOne
+
+TODO
+
+### engine.readMany
+
+TODO
+
+### engine.update
+
+TODO
+
+### engine.delete
+
+TODO
+
+## InMemoryEngine
+
+TODO
+
+## LogEngine
+
+TODO
+
+## SoukaiError
+
+TODO
+
+## DocumentNotFound
+
+TODO
+
+## InvalidModelDefinition
 
 TODO
 

@@ -30,60 +30,6 @@ export interface FieldDefinition {
 
 }
 
-function validateFieldDefinition(model: string, field: string, definition: any, hasRequired: boolean = true): FieldDefinition {
-    let fieldDefinition: FieldDefinition = <any> {};
-
-    if (TYPE_VALUES.indexOf(definition) !== -1) {
-        fieldDefinition.type = definition;
-    } else if (typeof definition === 'object') {
-        fieldDefinition = definition;
-    } else {
-        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
-    }
-
-    if (typeof fieldDefinition.type === 'undefined') {
-        fieldDefinition = <any> {
-            type: FieldType.Object,
-            fields: fieldDefinition,
-        };
-    } else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1) {
-        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
-    }
-
-    if (hasRequired) {
-        fieldDefinition.required = !!fieldDefinition.required;
-    }
-
-    switch (fieldDefinition.type) {
-        case FieldType.Object:
-            if (typeof fieldDefinition.fields !== 'undefined') {
-                for (const f in fieldDefinition.fields) {
-                    if (fieldDefinition.fields.hasOwnProperty(f)) {
-                        fieldDefinition.fields[f] = validateFieldDefinition(model, f, fieldDefinition.fields[f]);
-                    }
-                }
-            } else {
-                throw new InvalidModelDefinition(
-                    model,
-                    `Field definition of type object requires fields attribute ${field}`,
-                );
-            }
-            break;
-        case FieldType.Array:
-            if (typeof fieldDefinition.items !== 'undefined') {
-                fieldDefinition.items = validateFieldDefinition(model, 'items', fieldDefinition.items, false);
-            } else {
-                throw new InvalidModelDefinition(
-                    model,
-                    `Field definition of type array requires items attribute ${field}`,
-                );
-            }
-            break;
-    }
-
-    return fieldDefinition;
-}
-
 export default abstract class Model {
 
     public static collection: string;
@@ -160,10 +106,6 @@ export default abstract class Model {
             .then(models => models.map(attributes => new (<any> this)(attributes, true)));
     }
 
-    private get classDef(): typeof Model {
-        return (<any> this.constructor);
-    }
-
     private static get instance(): Model {
         return new (<any> this)();
     }
@@ -181,6 +123,16 @@ export default abstract class Model {
         this.dirtyAttributes = exists ? {} : {...attributes};
         this.removedAttributes = [];
 
+        if (!exists && this.hasAutomaticTimestamp('created_at')) {
+            this.attributes.created_at = new Date();
+            this.dirtyAttributes.created_at = this.attributes.created_at;
+        }
+
+        if (!exists && this.hasAutomaticTimestamp('updated_at')) {
+            this.attributes.updated_at = new Date();
+            this.dirtyAttributes.updated_at = this.attributes.updated_at;
+        }
+
         return new Proxy(this, {
             get(target, key) {
                 if (key in target) {
@@ -197,6 +149,7 @@ export default abstract class Model {
     public update<T extends Model>(attributes: Soukai.Attributes): Promise<T> {
         this.attributes = { ...this.attributes, ...attributes };
         this.dirtyAttributes = { ...this.dirtyAttributes, ...attributes };
+        this.touch();
 
         return this.save();
     }
@@ -204,12 +157,14 @@ export default abstract class Model {
     public setAttribute(attribute: string, value: any): void {
         this.attributes[attribute] = value;
         this.dirtyAttributes[attribute] = value;
+        this.touch();
     }
 
     public unsetAttribute(attribute: string): void {
         if (this.attributes.hasOwnProperty(attribute)) {
             delete this.attributes[attribute];
             this.removedAttributes.push(attribute);
+            this.touch();
         }
     }
 
@@ -231,8 +186,8 @@ export default abstract class Model {
             return Soukai.engine.update(
                 this.classDef.collection,
                 this.attributes.id,
-                { ...this.dirtyAttributes },
-                [ ...this.removedAttributes],
+                convertAttributesToJson(this.dirtyAttributes, this.classDef.fields),
+                [ ...this.removedAttributes ],
             )
                 .then(() => {
                     this.dirtyAttributes = {};
@@ -243,7 +198,7 @@ export default abstract class Model {
         } else {
             return Soukai.engine.create(
                 this.classDef.collection,
-                { ...this.attributes },
+                convertAttributesToJson(this.attributes, this.classDef.fields),
             )
                 .then(id => {
                     this.attributes.id = id;
@@ -256,4 +211,114 @@ export default abstract class Model {
         }
     }
 
+    public touch(): void {
+        if (this.hasAutomaticTimestamp('updated_at')) {
+            this.attributes.updated_at = new Date();
+            this.dirtyAttributes.updated_at = this.attributes.updated_at;
+        }
+    }
+
+    private get classDef(): typeof Model {
+        return (<any> this.constructor);
+    }
+
+    private hasAutomaticTimestamp(timestamp: string): boolean {
+        return (<string[]> this.classDef.timestamps).indexOf(timestamp) !== -1;
+    }
+
+}
+
+
+function validateFieldDefinition(model: string, field: string, definition: any, hasRequired: boolean = true): FieldDefinition {
+    let fieldDefinition: FieldDefinition = <any> {};
+
+    if (TYPE_VALUES.indexOf(definition) !== -1) {
+        fieldDefinition.type = definition;
+    } else if (typeof definition === 'object') {
+        fieldDefinition = definition;
+    } else {
+        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
+    }
+
+    if (typeof fieldDefinition.type === 'undefined') {
+        fieldDefinition = <any> {
+            type: FieldType.Object,
+            fields: fieldDefinition,
+        };
+    } else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1) {
+        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
+    }
+
+    if (hasRequired) {
+        fieldDefinition.required = !!fieldDefinition.required;
+    }
+
+    switch (fieldDefinition.type) {
+        case FieldType.Object:
+            if (typeof fieldDefinition.fields !== 'undefined') {
+                for (const f in fieldDefinition.fields) {
+                    if (fieldDefinition.fields.hasOwnProperty(f)) {
+                        fieldDefinition.fields[f] = validateFieldDefinition(model, f, fieldDefinition.fields[f]);
+                    }
+                }
+            } else {
+                throw new InvalidModelDefinition(
+                    model,
+                    `Field definition of type object requires fields attribute ${field}`,
+                );
+            }
+            break;
+        case FieldType.Array:
+            if (typeof fieldDefinition.items !== 'undefined') {
+                fieldDefinition.items = validateFieldDefinition(model, 'items', fieldDefinition.items, false);
+            } else {
+                throw new InvalidModelDefinition(
+                    model,
+                    `Field definition of type array requires items attribute ${field}`,
+                );
+            }
+            break;
+    }
+
+    return fieldDefinition;
+}
+
+function convertAttributesToJson(attributes: Soukai.Attributes, fields: { [field: string]: FieldDefinition }): Object {
+    const json = {};
+
+    for (const field in attributes) {
+        const attribute = attributes[field];
+        if (fields.hasOwnProperty(field)) {
+            json[field] = convertAttributeToJson(attribute, fields[field]);
+        } else {
+            switch (typeof attribute) {
+                case 'object':
+                    json[field] = attribute.toString();
+                    break;
+                case 'undefined':
+                case 'symbol':
+                case 'function':
+                    // Nothing to do here
+                    break;
+                default:
+                    json[field] = attribute;
+                    break;
+            }
+        }
+    }
+
+    return json;
+}
+
+function convertAttributeToJson(attribute: any, definition: FieldDefinition): any {
+    switch (definition.type) {
+        case FieldType.Date:
+            return attribute.getTime();
+        case FieldType.Object:
+            return convertAttributesToJson(attribute, <any> definition.fields);
+        case FieldType.Array:
+            return attribute.map(attr => convertAttributeToJson(attr, <any> definition.items));
+        default:
+            return attribute;
+    }
 }
