@@ -39,6 +39,40 @@ export default class extends TestSuite {
 
         return StubModel.create(attributes).then(model => {
             expect(model).toBeInstanceOf(StubModel);
+            expect(model.existsInDatabase()).toBe(true);
+            expect(model.id).toBe(id);
+            expect(model.name).toBe(name);
+            expect(model.created_at).toBeInstanceOf(Date);
+            expect(now - seconds(model.created_at)).toBeLessThan(1);
+            expect(model.updated_at).toBeInstanceOf(Date);
+            expect(now - seconds(model.updated_at)).toBeLessThan(1);
+            expect(this.mockEngine.create).toHaveBeenCalledTimes(1);
+            expect(this.mockEngine.create).toHaveBeenCalledWith(
+                StubModel.collection,
+                {
+                    ...attributes,
+                    ...{
+                        created_at: model.created_at.getTime(),
+                        updated_at: model.updated_at.getTime(),
+                    },
+                },
+            );
+        });
+    }
+
+    public testCreateInstance(): Promise<void> {
+        const id = Faker.random.uuid();
+        const name = Faker.name.firstName();
+        const attributes = { name };
+        const now = seconds();
+
+        this.mockEngine.create.mockReturnValue(Promise.resolve(id));
+
+        const model = new StubModel(attributes);
+
+        return model.save().then(model => {
+            expect(model).toBeInstanceOf(StubModel);
+            expect(model.existsInDatabase()).toBe(true);
             expect(model.id).toBe(id);
             expect(model.name).toBe(name);
             expect(model.created_at).toBeInstanceOf(Date);
@@ -211,8 +245,52 @@ export default class extends TestSuite {
                 expect(model).toBeInstanceOf(StubModel);
                 expect(model.id).toBeUndefined();
                 expect(model.name).toBe(name);
+                expect(model.existsInDatabase()).toBe(false);
                 expect(this.mockEngine.delete).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.delete).toHaveBeenCalledWith(StubModel.collection, id);
+            });
+    }
+
+    public testAttributeGetter(): void {
+        const name = Faker.name.firstName();
+        const model = new StubModel({ name });
+
+        expect(model.name).toBe(name);
+        expect(model.surname).toBeUndefined();
+    }
+
+    public testAttributeSetter(): Promise<void> {
+        const id = Faker.random.uuid();
+        const surname = Faker.name.lastName();
+        const initialName = Faker.name.firstName();
+        const newName = Faker.name.firstName();
+        const now = seconds();
+
+        this.mockEngine.create.mockReturnValue(Promise.resolve(id));
+
+        return StubModel.create({ name: initialName, surname })
+            .then(model => wait().then(() => {
+                model.name = newName;
+                return model.save();
+            }))
+            .then(model => {
+                expect(model).toBeInstanceOf(StubModel);
+                expect(model.id).toBe(id);
+                expect(model.name).toBe(newName);
+                expect(model.surname).toBe(surname);
+                expect(model.updated_at).toBeInstanceOf(Date);
+                expect(now - seconds(model.updated_at)).toBeLessThan(1);
+                expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
+                expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
+                expect(this.mockEngine.update).toHaveBeenCalledWith(
+                    StubModel.collection,
+                    id,
+                    {
+                        name: newName,
+                        updated_at: model.updated_at.getTime(),
+                    },
+                    [],
+                );
             });
     }
 

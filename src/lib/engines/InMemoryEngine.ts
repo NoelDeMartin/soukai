@@ -2,23 +2,27 @@ import Engine from '../Engine';
 import DocumentNotFound from '../errors/DocumentNotFound';
 
 export interface Collection {
-    incrementalCount: number;
+    totalDocuments: number;
     documents: {
         [id: string]: Soukai.Document,
     };
 }
 
+export interface InMemoryDatabase {
+    [collection: string]: Collection;
+}
+
 export default class implements Engine {
 
-    private db: { [collection: string]: Collection } = {};
+    private db: InMemoryDatabase = {};
 
-    public get database(): { [collection: string]: Collection } {
+    public get database(): InMemoryDatabase {
         return this.db;
     }
 
     public create(collectionName: string, attributes: Soukai.Attributes): Promise<Soukai.PrimaryKey> {
         const collection = this.collection(collectionName);
-        const id = (++collection.incrementalCount).toString();
+        const id = (++collection.totalDocuments).toString();
         collection.documents[id] = { ...attributes, ...{ id } };
         return Promise.resolve(id);
     }
@@ -70,7 +74,7 @@ export default class implements Engine {
         if (!(name in this.db)) {
             this.db[name] = {
                 documents: {},
-                incrementalCount: 0,
+                totalDocuments: 0,
             };
         }
 

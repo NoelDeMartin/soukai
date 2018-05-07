@@ -80,6 +80,10 @@ TODO
 
 TODO
 
+### model.existsInDatabase
+
+TODO
+
 ## Engine
 
 ### engine.create
@@ -105,6 +109,15 @@ TODO
 ## InMemoryEngine
 
 TODO
+
+### InMemoryDatabase
+
+Object where keys are collection names and values have the following format:
+
+| Attribute | Value | Description |
+| --------- | ----- | ----------- |
+| totalDocuments | `number` | Total documents within the collection. |
+| documents | `object` | Object where keys are ids and values document attributes (including id). |
 
 ## LogEngine
 

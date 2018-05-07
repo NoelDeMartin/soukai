@@ -110,60 +110,70 @@ export default abstract class Model {
         return new (<any> this)();
     }
 
-    private exists: boolean;
-    private attributes: Soukai.Attributes | Soukai.Document;
-    private dirtyAttributes: Soukai.Attributes;
-    private removedAttributes: string[];
+    protected _exists: boolean;
+    protected _attributes: Soukai.Attributes | Soukai.Document;
+    protected _dirtyAttributes: Soukai.Attributes;
+    protected _removedAttributes: string[];
 
     [attribute: string]: any;
 
-    constructor(attributes: Soukai.Attributes | Soukai.Document, exists = false) {
-        this.exists = exists;
-        this.attributes = {...attributes};
-        this.dirtyAttributes = exists ? {} : {...attributes};
-        this.removedAttributes = [];
+    constructor(attributes: Soukai.Attributes | Soukai.Document = {}, exists = false) {
+        this._exists = exists;
+        this._attributes = {...attributes};
+        this._dirtyAttributes = exists ? {} : {...attributes};
+        this._removedAttributes = [];
 
         if (!exists && this.hasAutomaticTimestamp('created_at')) {
-            this.attributes.created_at = new Date();
-            this.dirtyAttributes.created_at = this.attributes.created_at;
+            this._attributes.created_at = new Date();
+            this._dirtyAttributes.created_at = this._attributes.created_at;
         }
 
         if (!exists && this.hasAutomaticTimestamp('updated_at')) {
-            this.attributes.updated_at = new Date();
-            this.dirtyAttributes.updated_at = this.attributes.updated_at;
+            this._attributes.updated_at = new Date();
+            this._dirtyAttributes.updated_at = this._attributes.updated_at;
         }
 
         return new Proxy(this, {
-            get(target, key) {
-                if (key in target) {
-                    return target[key];
-                } else if (key in target.attributes) {
-                    return target.attributes[key];
+            get(target, property, receiver) {
+                if (typeof property !== 'string' || property in target || !(property in target._attributes)) {
+                    return Reflect.get(target, property, receiver);
                 } else {
-                    return undefined;
+                    return target.getAttribute(property);
+                }
+            },
+            set(target, property, value, receiver) {
+                if (property in target || typeof property !== 'string') {
+                    return Reflect.set(target, property, value, receiver);
+                } else {
+                    target.setAttribute(property, value);
+                    return true;
                 }
             },
         });
     }
 
-    public update<T extends Model>(attributes: Soukai.Attributes): Promise<T> {
-        this.attributes = { ...this.attributes, ...attributes };
-        this.dirtyAttributes = { ...this.dirtyAttributes, ...attributes };
+    public update<T extends Model>(attributes: Soukai.Attributes = {}): Promise<T> {
+        this._attributes = { ...this._attributes, ...attributes };
+        this._dirtyAttributes = { ...this._dirtyAttributes, ...attributes };
         this.touch();
 
         return this.save();
     }
 
     public setAttribute(attribute: string, value: any): void {
-        this.attributes[attribute] = value;
-        this.dirtyAttributes[attribute] = value;
+        this._attributes[attribute] = value;
+        this._dirtyAttributes[attribute] = value;
         this.touch();
     }
 
+    public getAttribute(attribute: string): any {
+        return this._attributes[attribute];
+    }
+
     public unsetAttribute(attribute: string): void {
-        if (this.attributes.hasOwnProperty(attribute)) {
-            delete this.attributes[attribute];
-            this.removedAttributes.push(attribute);
+        if (this._attributes.hasOwnProperty(attribute)) {
+            delete this._attributes[attribute];
+            this._removedAttributes.push(attribute);
             this.touch();
         }
     }
@@ -171,40 +181,40 @@ export default abstract class Model {
     public delete<T extends Model>(): Promise<T> {
         return Soukai.engine.delete(
             this.classDef.collection,
-            this.attributes.id,
+            this._attributes.id,
         )
             .then(() => {
-                delete this.attributes.id;
-                this.exists = false;
+                delete this._attributes.id;
+                this._exists = false;
 
                 return <any> this;
             });
     }
 
     public save<T extends Model>(): Promise<T> {
-        if (this.exists) {
+        if (this._exists) {
             return Soukai.engine.update(
                 this.classDef.collection,
-                this.attributes.id,
-                convertAttributesToJson(this.dirtyAttributes, this.classDef.fields),
-                [ ...this.removedAttributes ],
+                this._attributes.id,
+                convertAttributesToJson(this._dirtyAttributes, this.classDef.fields),
+                [...this._removedAttributes ],
             )
                 .then(() => {
-                    this.dirtyAttributes = {};
-                    this.removedAttributes = [];
+                    this._dirtyAttributes = {};
+                    this._removedAttributes = [];
 
                     return <any> this;
                 });
         } else {
             return Soukai.engine.create(
                 this.classDef.collection,
-                convertAttributesToJson(this.attributes, this.classDef.fields),
+                convertAttributesToJson(this._attributes, this.classDef.fields),
             )
                 .then(id => {
-                    this.attributes.id = id;
-                    this.dirtyAttributes = {};
-                    this.removedAttributes = [];
-                    this.exists = true;
+                    this._attributes.id = id;
+                    this._dirtyAttributes = {};
+                    this._removedAttributes = [];
+                    this._exists = true;
 
                     return <any> this;
                 });
@@ -213,9 +223,13 @@ export default abstract class Model {
 
     public touch(): void {
         if (this.hasAutomaticTimestamp('updated_at')) {
-            this.attributes.updated_at = new Date();
-            this.dirtyAttributes.updated_at = this.attributes.updated_at;
+            this._attributes.updated_at = new Date();
+            this._dirtyAttributes.updated_at = this._attributes.updated_at;
         }
+    }
+
+    public existsInDatabase(): boolean {
+        return this._exists;
     }
 
     private get classDef(): typeof Model {

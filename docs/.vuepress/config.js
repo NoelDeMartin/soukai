@@ -1,6 +1,6 @@
 module.exports = {
     title: 'Soukai ODM',
-    description: 'Javascript Object Document Mapper',
+    description: 'A refreshing javascript library to work with your non relational database',
     base: '/soukai/',
     themeConfig: {
         repo: 'noeldemartin/soukai',
