@@ -1,4 +1,4 @@
-import SoukaiError from './SoukaiError';
+import SoukaiError from '@/lib/errors/SoukaiError';
 
 export default class extends SoukaiError {
 

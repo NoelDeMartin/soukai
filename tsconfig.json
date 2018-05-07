@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "module": "es2015",
+    "module": "commonjs",
     "moduleResolution": "node",
     "lib": ["es2017.object", "es6", "dom"],
     "noImplicitThis": true,
@@ -13,14 +13,18 @@
     "suppressImplicitAnyIndexErrors": true,
     "allowSyntheticDefaultImports": true,
     "rootDir": "src",
-    "baseUrl": "src",
-    "outDir": "dist/modules",
-    "declarationDir": "dist/types",
+    "outDir": "dist",
+    "baseUrl": ".",
     "paths": {
-      "*": ["*"]
+      "@/*": [
+        "src/*"
+      ]
     }
   },
   "include": [
-    "src/**/*.ts",
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

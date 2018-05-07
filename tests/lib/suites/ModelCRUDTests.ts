@@ -1,15 +1,20 @@
 import Faker from 'faker';
 
+import Soukai from '@/lib/Soukai';
+import Engine from '@/lib/Engine';
+import Model, { FieldType } from '@/lib/Model';
+
 import TestSuite from '../TestSuite';
 import { seconds, wait } from '../utils';
-import MockEngine from '../mocks/MockEngine';
 
-import Model from '../../../src/lib/Model';
-import Soukai from '../../../src/lib/Soukai';
-import Engine from '../../../src/lib/Engine';
+import MockEngine from '../mocks/MockEngine';
 
 class StubModel extends Model {
     static collection = Faker.lorem.word();
+
+    static fields = {
+        birth_date: FieldType.Date,
+    };
 }
 
 export default class extends TestSuite {
@@ -96,15 +101,21 @@ export default class extends TestSuite {
     public testFind(): Promise<void> {
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
+        const birth_date = Date.now();
 
-        this.mockEngine.readOne.mockReturnValue(Promise.resolve({ id, name }));
+        this.mockEngine.readOne.mockReturnValue(Promise.resolve({ id, name, birth_date }));
 
         return StubModel.find(id).then(model => {
+            expect(model).not.toBeNull();
             expect(model).toBeInstanceOf(StubModel);
-            expect(model.id).toBe(id);
-            expect(model.name).toBe(name);
-            expect(this.mockEngine.readOne).toHaveBeenCalledTimes(1);
-            expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel.collection, id);
+            if (model !== null) {
+                expect(model.id).toBe(id);
+                expect(model.name).toBe(name);
+                expect(model.birth_date).toBeInstanceOf(Date);
+                expect(model.birth_date.getTime()).toEqual(birth_date);
+                expect(this.mockEngine.readOne).toHaveBeenCalledTimes(1);
+                expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel.collection, id);
+            }
         });
     }
 

@@ -1,10 +1,11 @@
-import Engine from '../Engine';
-import DocumentNotFound from '../errors/DocumentNotFound';
+import Engine, { Database } from '@/lib/Engine';
+
+import DocumentNotFound from '@/lib/errors/DocumentNotFound';
 
 export interface Collection {
     totalDocuments: number;
     documents: {
-        [id: string]: Soukai.Document,
+        [id: string]: Database.Document,
     };
 }
 
@@ -20,14 +21,14 @@ export default class implements Engine {
         return this.db;
     }
 
-    public create(collectionName: string, attributes: Soukai.Attributes): Promise<Soukai.PrimaryKey> {
+    public create(collectionName: string, attributes: Database.Attributes): Promise<Database.Key> {
         const collection = this.collection(collectionName);
         const id = (++collection.totalDocuments).toString();
         collection.documents[id] = { ...attributes, ...{ id } };
         return Promise.resolve(id);
     }
 
-    public readOne(collectionName: string, id: Soukai.PrimaryKey): Promise<Soukai.Document> {
+    public readOne(collectionName: string, id: Database.Key): Promise<Database.Document> {
         const collection = this.collection(collectionName);
         if (id in collection.documents) {
             return Promise.resolve(collection.documents[id]);
@@ -36,15 +37,15 @@ export default class implements Engine {
         }
     }
 
-    public readMany(collectionName: string): Promise<Soukai.Document[]> {
+    public readMany(collectionName: string): Promise<Database.Document[]> {
         const collection = this.collection(collectionName);
         return Promise.resolve(Object.values(collection.documents));
     }
 
     public update(
         collectionName: string,
-        id: Soukai.PrimaryKey,
-        dirtyAttributes: Soukai.Attributes,
+        id: Database.Key,
+        dirtyAttributes: Database.Attributes,
         removedAttributes: string[],
     ): Promise<void> {
         const collection = this.collection(collectionName);
@@ -60,7 +61,7 @@ export default class implements Engine {
         }
     }
 
-    public delete(collectionName: string, id: Soukai.PrimaryKey): Promise<void> {
+    public delete(collectionName: string, id: Database.Key): Promise<void> {
         const collection = this.collection(collectionName);
         if (id in collection.documents) {
             delete collection.documents[id];

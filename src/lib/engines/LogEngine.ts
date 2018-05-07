@@ -1,4 +1,4 @@
-import Engine from '../Engine';
+import Engine, { Database } from '@/lib/Engine';
 
 export default class implements Engine {
 
@@ -8,7 +8,7 @@ export default class implements Engine {
         this.engine = engine;
     }
 
-    public create(collection: string, attributes: Soukai.Attributes): Promise<Soukai.PrimaryKey> {
+    public create(collection: string, attributes: Database.Attributes): Promise<Database.Key> {
         console.log('CREATE', collection, attributes);
         return this.engine.create(collection, attributes)
             .then(id => {
@@ -21,7 +21,7 @@ export default class implements Engine {
             });
     }
 
-    public readOne(collection: string, id: Soukai.PrimaryKey): Promise<Soukai.Document> {
+    public readOne(collection: string, id: Database.Key): Promise<Database.Document> {
         console.log('READ ONE', collection, id);
         return this.engine.readOne(collection, id)
             .then(document => {
@@ -34,7 +34,7 @@ export default class implements Engine {
             });
     }
 
-    public readMany(collection: string): Promise<Soukai.Document[]> {
+    public readMany(collection: string): Promise<Database.Document[]> {
         console.log('READ ALL', collection);
         return this.engine.readMany(collection)
             .then(documents => {
@@ -49,8 +49,8 @@ export default class implements Engine {
 
     public update(
         collection: string,
-        id: Soukai.PrimaryKey,
-        dirtyAttributes: Soukai.Attributes,
+        id: Database.Key,
+        dirtyAttributes: Database.Attributes,
         removedAttributes: string[],
     ): Promise<void> {
         console.log('UPDATE', collection, id, dirtyAttributes, removedAttributes);
@@ -62,7 +62,7 @@ export default class implements Engine {
             });
     }
 
-    public delete(collection: string, id: Soukai.PrimaryKey): Promise<void> {
+    public delete(collection: string, id: Database.Key): Promise<void> {
         console.log('DELETE', collection, id);
         return this.engine.delete(collection, id)
             .then(() => console.log('DELETED'))

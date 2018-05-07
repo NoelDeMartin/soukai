@@ -1,9 +1,10 @@
 import Faker from 'faker';
 
-import TestSuite from '../TestSuite';
+import InMemoryEngine from '@/lib/engines/InMemoryEngine';
 
-import DocumentNotFound from '../../../src/lib/errors/DocumentNotFound';
-import InMemoryEngine from '../../../src/lib/engines/InMemoryEngine';
+import DocumentNotFound from '@/lib/errors/DocumentNotFound';
+
+import TestSuite from '../TestSuite';
 
 export default class extends TestSuite {
 

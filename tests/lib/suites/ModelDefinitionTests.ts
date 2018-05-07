@@ -1,8 +1,9 @@
-import TestSuite from '../TestSuite';
+import Soukai from '@/lib/Soukai';
+import Model, { FieldType } from '@/lib/Model';
 
-import Soukai from '../../../src/lib/Soukai';
-import Model, { FieldType } from '../../../src/lib/Model';
-import InvalidModelDefinition from '../../../src/lib/errors/InvalidModelDefinition';
+import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
+
+import TestSuite from '../TestSuite';
 
 export default class extends TestSuite {
 

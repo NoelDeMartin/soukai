@@ -1,0 +1,8 @@
+.vscode
+docs
+scripts
+src
+tests
+jest.config.js
+tsconfig.json
+tslint.json

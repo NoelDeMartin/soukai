@@ -1,5 +1,11 @@
-import InvalidModelDefinition from './errors/InvalidModelDefinition';
-import Soukai from './Soukai';
+import Soukai from '@/lib/Soukai';
+import { Database } from '@/lib/Engine';
+
+import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
+
+export interface Attributes {
+    [attribute: string]: any;
+}
 
 export enum FieldType {
     Number = 'number',
@@ -11,24 +17,26 @@ export enum FieldType {
     Key = 'key',
 }
 
-const TYPE_VALUES = Object.values(FieldType);
-
-const TIMESTAMP_FIELDS = ['created_at', 'updated_at'];
+export interface FieldsDefinition {
+    [field: string]: FieldDefinition
+}
 
 export interface FieldDefinition {
 
     type: FieldType;
     required: boolean;
 
-    // Used with FieldType.Array
+    // Only with type FieldType.Array
     items?: FieldDefinition;
 
-    // Used with FieldType.Object
-    fields?: {
-        [field: string]: FieldDefinition,
-    };
+    // Only with type FieldType.Object
+    fields?: FieldsDefinition;
 
 }
+
+const TYPE_VALUES = Object.values(FieldType);
+
+const TIMESTAMP_FIELDS = ['created_at', 'updated_at'];
 
 export default abstract class Model {
 
@@ -36,11 +44,11 @@ export default abstract class Model {
 
     public static timestamps: string[] | boolean;
 
-    public static fields: { [field: string]: FieldDefinition } | any;
+    public static fields: FieldsDefinition | any;
 
     public static boot<T extends Model>(name: string): void {
         const classDef = (<any> this);
-        const fieldDefinitions: { [field: string]: FieldDefinition } = {};
+        const fieldDefinitions: FieldsDefinition = {};
 
         // Validate collection
         if (typeof classDef.collection === 'undefined') {
@@ -90,20 +98,20 @@ export default abstract class Model {
         classDef.fields = fieldDefinitions;
     }
 
-    public static create<T extends Model>(attributes: Soukai.Attributes = {}): Promise<T> {
+    public static create<T extends Model>(attributes: Attributes = {}): Promise<T> {
         const model = new (<any> this)(attributes);
         return model.save();
     }
 
-    public static find<T extends Model>(id: Soukai.PrimaryKey): Promise<T | null> {
+    public static find<T extends Model>(id: Database.Key): Promise<T | null> {
         return Soukai.engine.readOne(this.collection, id)
-            .then(attributes => new (<any> this)(attributes, true))
+            .then(document => new (<any>this)(convertFromDatabaseAttributes(document, this.fields), true))
             .catch(() => null);
     }
 
     public static all<T extends Model>(): Promise<T[]> {
         return Soukai.engine.readMany(this.collection)
-            .then(models => models.map(attributes => new (<any> this)(attributes, true)));
+            .then(documents => documents.map(document => new (<any>this)(convertFromDatabaseAttributes(document, this.fields), true)));
     }
 
     private static get instance(): Model {
@@ -111,13 +119,13 @@ export default abstract class Model {
     }
 
     protected _exists: boolean;
-    protected _attributes: Soukai.Attributes | Soukai.Document;
-    protected _dirtyAttributes: Soukai.Attributes;
+    protected _attributes: Attributes;
+    protected _dirtyAttributes: Attributes;
     protected _removedAttributes: string[];
 
     [attribute: string]: any;
 
-    constructor(attributes: Soukai.Attributes | Soukai.Document = {}, exists = false) {
+    constructor(attributes: Attributes = {}, exists = false) {
         this._exists = exists;
         this._attributes = {...attributes};
         this._dirtyAttributes = exists ? {} : {...attributes};
@@ -152,7 +160,7 @@ export default abstract class Model {
         });
     }
 
-    public update<T extends Model>(attributes: Soukai.Attributes = {}): Promise<T> {
+    public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
         this._attributes = { ...this._attributes, ...attributes };
         this._dirtyAttributes = { ...this._dirtyAttributes, ...attributes };
         this.touch();
@@ -196,7 +204,7 @@ export default abstract class Model {
             return Soukai.engine.update(
                 this.classDef.collection,
                 this._attributes.id,
-                convertAttributesToJson(this._dirtyAttributes, this.classDef.fields),
+                convertToDatabaseAttributes(this._dirtyAttributes, this.classDef.fields),
                 [...this._removedAttributes ],
             )
                 .then(() => {
@@ -208,7 +216,7 @@ export default abstract class Model {
         } else {
             return Soukai.engine.create(
                 this.classDef.collection,
-                convertAttributesToJson(this._attributes, this.classDef.fields),
+                convertToDatabaseAttributes(this._attributes, this.classDef.fields),
             )
                 .then(id => {
                     this._attributes.id = id;
@@ -241,7 +249,6 @@ export default abstract class Model {
     }
 
 }
-
 
 function validateFieldDefinition(model: string, field: string, definition: any, hasRequired: boolean = true): FieldDefinition {
     let fieldDefinition: FieldDefinition = <any> {};
@@ -297,17 +304,17 @@ function validateFieldDefinition(model: string, field: string, definition: any, 
     return fieldDefinition;
 }
 
-function convertAttributesToJson(attributes: Soukai.Attributes, fields: { [field: string]: FieldDefinition }): Object {
-    const json = {};
+function convertToDatabaseAttributes(attributes: Attributes, fields: FieldsDefinition): Database.Attributes {
+    const databaseAttributes = {};
 
     for (const field in attributes) {
         const attribute = attributes[field];
         if (fields.hasOwnProperty(field)) {
-            json[field] = convertAttributeToJson(attribute, fields[field]);
+            databaseAttributes[field] = convertToDatabaseAttribute(attribute, fields[field]);
         } else {
             switch (typeof attribute) {
                 case 'object':
-                    json[field] = attribute.toString();
+                    databaseAttributes[field] = attribute.toString();
                     break;
                 case 'undefined':
                 case 'symbol':
@@ -315,23 +322,51 @@ function convertAttributesToJson(attributes: Soukai.Attributes, fields: { [field
                     // Nothing to do here
                     break;
                 default:
-                    json[field] = attribute;
+                    databaseAttributes[field] = attribute;
                     break;
             }
         }
     }
 
-    return json;
+    return databaseAttributes;
 }
 
-function convertAttributeToJson(attribute: any, definition: FieldDefinition): any {
+function convertToDatabaseAttribute(attribute: Attributes, definition: FieldDefinition): Database.Value | Database.Value[] | Database.Attributes {
     switch (definition.type) {
         case FieldType.Date:
             return attribute.getTime();
         case FieldType.Object:
-            return convertAttributesToJson(attribute, <any> definition.fields);
+            return convertToDatabaseAttributes(attribute, <FieldsDefinition> definition.fields);
         case FieldType.Array:
-            return attribute.map(attr => convertAttributeToJson(attr, <any> definition.items));
+            return attribute.map(attr => convertToDatabaseAttribute(attr, <FieldDefinition> definition.items));
+        default:
+            return attribute;
+    }
+}
+
+function convertFromDatabaseAttributes(databaseAttributes: Database.Attributes, fields: FieldsDefinition): Attributes {
+    const attributes = {};
+
+    for (const field in databaseAttributes) {
+        const attribute = databaseAttributes[field];
+        if (fields.hasOwnProperty(field)) {
+            attributes[field] = convertFromDatabaseAttribute(attribute, fields[field]);
+        } else {
+            attributes[field] = attribute;
+        }
+    }
+
+    return attributes;
+}
+
+function convertFromDatabaseAttribute(attribute: Database.Value | Database.Value[] | Database.Attributes, definition: FieldDefinition): any {
+    switch (definition.type) {
+        case FieldType.Date:
+            return new Date(<number> attribute);
+        case FieldType.Object:
+            return convertFromDatabaseAttributes(<Database.Attributes> attribute, <FieldsDefinition> definition.fields);
+        case FieldType.Array:
+            return (<Database.Value[]>attribute).map(attr => convertFromDatabaseAttribute(<Database.Value> attr, <FieldDefinition> definition.items));
         default:
             return attribute;
     }

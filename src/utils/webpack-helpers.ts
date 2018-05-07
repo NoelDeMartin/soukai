@@ -1,4 +1,6 @@
-import Model from '../lib/Model';
+/// <reference types="webpack-env" />
+
+import Model from '@/lib/Model';
 
 export function definitionsFromContext(context: __WebpackModuleApi.RequireContext): { [name: string]: typeof Model } {
     const models = {};
