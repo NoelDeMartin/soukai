@@ -1,5 +1,5 @@
-import Soukai from '@/lib/Soukai';
 import Model, { FieldType } from '@/lib/Model';
+import Soukai from '@/lib/Soukai';
 
 import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
 
@@ -7,11 +7,12 @@ import TestSuite from '../TestSuite';
 
 export default class extends TestSuite {
 
-    static title: string = 'Definitions';
+    public static title: string = 'Definitions';
 
     public testCollection(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static collection = 'collection';
+            public static collection = 'collection';
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -20,6 +21,7 @@ export default class extends TestSuite {
     }
 
     public testEmptyCollection(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {}
 
         Soukai.loadModel('Stub', StubModel);
@@ -28,23 +30,25 @@ export default class extends TestSuite {
     }
 
     public testTimestamps(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static timestamps = ['created_at'];
+            public static timestamps = ['created_at'];
         }
 
         Soukai.loadModel('Stub', StubModel);
 
         expect(StubModel.fields).toEqual({
             created_at: {
-                type: FieldType.Date,
                 required: false,
+                type: FieldType.Date,
             },
         });
     }
 
     public testEmptyTimestamps(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static timestamps = false;
+            public static timestamps = false;
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -53,8 +57,9 @@ export default class extends TestSuite {
     }
 
     public testInvalidTimestamps(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static timestamps = ['foobar'];
+            public static timestamps = ['foobar'];
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
@@ -63,8 +68,9 @@ export default class extends TestSuite {
     }
 
     public testFields(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static fields = {
+            public static fields = {
                 name: {
                     type: FieldType.String,
                     required: true,
@@ -141,6 +147,7 @@ export default class extends TestSuite {
     }
 
     public testEmptyFields(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {}
 
         Soukai.loadModel('Stub', StubModel);
@@ -158,8 +165,9 @@ export default class extends TestSuite {
     }
 
     public testInvalidArrayField(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static fields = {
+            public static fields = {
                 tags: FieldType.Array,
             };
         }
@@ -170,8 +178,9 @@ export default class extends TestSuite {
     }
 
     public testInvalidObjectField(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static fields = {
+            public static fields = {
                 meta: FieldType.Object,
             };
         }
@@ -182,17 +191,20 @@ export default class extends TestSuite {
     }
 
     public testInvalidTimestampField(): void {
+        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            static timestamps = ['created_at'];
+            public static timestamps = ['created_at'];
 
-            static fields = {
+            public static fields = {
                 created_at: FieldType.Date,
             };
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
         expect(loadModel).toThrow(InvalidModelDefinition);
-        expect(loadModel).toThrow('created_at field cannot be defined because it\'s being used as an automatic timestamp');
+        expect(loadModel).toThrow(
+            'created_at cannot be defined because it\'s being used as an automatic timestamp',
+        );
     }
 
 }

@@ -1,5 +1,5 @@
-import Model from '@/lib/Model';
 import Engine from '@/lib/Engine';
+import Model from '@/lib/Model';
 
 export class Soukai {
 

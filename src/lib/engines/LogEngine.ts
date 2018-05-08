@@ -1,4 +1,5 @@
-import Engine, { Database } from '@/lib/Engine';
+import * as Database from '@/lib/Database';
+import Engine from '@/lib/Engine';
 
 export default class implements Engine {
 

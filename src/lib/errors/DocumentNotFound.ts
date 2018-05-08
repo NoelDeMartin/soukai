@@ -1,6 +1,6 @@
 import SoukaiError from '@/lib/errors/SoukaiError';
 
-import { Database } from '@/lib/Engine';
+import * as Database from '@/lib/Database';
 
 export default class extends SoukaiError {
 

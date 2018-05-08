@@ -1,7 +1,9 @@
+import * as Database from '@/lib/Database';
 import Soukai from '@/lib/Soukai';
-import { Database } from '@/lib/Engine';
 
 import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
+
+import { deepClone } from '@/utils/object';
 
 export interface Attributes {
     [attribute: string]: any;
@@ -18,7 +20,7 @@ export enum FieldType {
 }
 
 export interface FieldsDefinition {
-    [field: string]: FieldDefinition
+    [field: string]: FieldDefinition;
 }
 
 export interface FieldDefinition {
@@ -74,7 +76,7 @@ export default abstract class Model {
                 }
 
                 fieldDefinitions[field] = { type: FieldType.Date, required: false };
-            };
+            }
         } else {
             throw new InvalidModelDefinition(name, 'Invalid timestamps definition');
         }
@@ -86,7 +88,7 @@ export default abstract class Model {
                     if (classDef.timestamps.indexOf(field) !== -1) {
                         throw new InvalidModelDefinition(
                             name,
-                            `Field ${field} field cannot be defined because it's being used as an automatic timestamp`
+                            `Field ${field} cannot be defined because it's being used as an automatic timestamp`,
                         );
                     } else {
                         fieldDefinitions[field] = validateFieldDefinition(name, field, classDef.fields[field]);
@@ -105,13 +107,17 @@ export default abstract class Model {
 
     public static find<T extends Model>(id: Database.Key): Promise<T | null> {
         return Soukai.engine.readOne(this.collection, id)
-            .then(document => new (<any>this)(convertFromDatabaseAttributes(document, this.fields), true))
+            .then(document => new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true))
             .catch(() => null);
     }
 
     public static all<T extends Model>(): Promise<T[]> {
         return Soukai.engine.readMany(this.collection)
-            .then(documents => documents.map(document => new (<any>this)(convertFromDatabaseAttributes(document, this.fields), true)));
+            .then(documents =>
+                    documents.map(document =>
+                        new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true),
+                    ),
+            );
     }
 
     private static get instance(): Model {
@@ -140,6 +146,8 @@ export default abstract class Model {
             this._attributes.updated_at = new Date();
             this._dirtyAttributes.updated_at = this._attributes.updated_at;
         }
+
+        this._attributes = ensureAttributesExistance(this._attributes, this.classDef.fields);
 
         return new Proxy(this, {
             get(target, property, receiver) {
@@ -176,14 +184,47 @@ export default abstract class Model {
         return this.save();
     }
 
+    public hasAttribute(attribute: string): boolean {
+        const fields = attribute.split('.');
+        let value = <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
+
+        while (fields.length > 0) {
+            value = value[<string> fields.shift()];
+
+            if (typeof value === 'undefined') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public setAttribute(attribute: string, value: any): void {
+        // TODO implement deep setter
         this._attributes[attribute] = value;
         this._dirtyAttributes[attribute] = value;
         this.touch();
     }
 
     public getAttribute(attribute: string): any {
-        return this._attributes[attribute];
+        const fields = attribute.split('.');
+        let value = this._attributes;
+
+        while (fields.length > 0) {
+            value = value[<string> fields.shift()];
+
+            if (typeof value === 'undefined') {
+                break;
+            }
+        }
+
+        return value;
+    }
+
+    public getAttributes(includeUndefined: boolean = false): Attributes {
+        return includeUndefined
+            ? deepClone(this._attributes)
+            : <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
     }
 
     public unsetAttribute(attribute: string): void {
@@ -224,7 +265,10 @@ export default abstract class Model {
         } else {
             return Soukai.engine.create(
                 this.classDef.collection,
-                convertToDatabaseAttributes(this._attributes, this.classDef.fields),
+                convertToDatabaseAttributes(
+                    <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields),
+                    this.classDef.fields,
+                ),
             )
                 .then(id => {
                     this._attributes.id = id;
@@ -258,7 +302,12 @@ export default abstract class Model {
 
 }
 
-function validateFieldDefinition(model: string, field: string, definition: any, hasRequired: boolean = true): FieldDefinition {
+function validateFieldDefinition(
+    model: string,
+    field: string,
+    definition: any,
+    hasRequired: boolean = true,
+): FieldDefinition {
     let fieldDefinition: FieldDefinition = <any> {};
 
     if (TYPE_VALUES.indexOf(definition) !== -1) {
@@ -271,8 +320,8 @@ function validateFieldDefinition(model: string, field: string, definition: any, 
 
     if (typeof fieldDefinition.type === 'undefined') {
         fieldDefinition = <any> {
-            type: FieldType.Object,
             fields: fieldDefinition,
+            type: FieldType.Object,
         };
     } else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1) {
         throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
@@ -317,21 +366,23 @@ function convertToDatabaseAttributes(attributes: Attributes, fields: FieldsDefin
 
     for (const field in attributes) {
         const attribute = attributes[field];
-        if (fields.hasOwnProperty(field)) {
-            databaseAttributes[field] = convertToDatabaseAttribute(attribute, fields[field]);
-        } else {
-            switch (typeof attribute) {
-                case 'object':
-                    databaseAttributes[field] = attribute.toString();
-                    break;
-                case 'undefined':
-                case 'symbol':
-                case 'function':
-                    // Nothing to do here
-                    break;
-                default:
-                    databaseAttributes[field] = attribute;
-                    break;
+        if (typeof attribute !== 'undefined') {
+            if (fields.hasOwnProperty(field)) {
+                databaseAttributes[field] = convertToDatabaseAttribute(attribute, fields[field]);
+            } else {
+                switch (typeof attribute) {
+                    case 'object':
+                        databaseAttributes[field] = attribute.toString();
+                        break;
+                    case 'undefined':
+                    case 'symbol':
+                    case 'function':
+                        // Nothing to do here
+                        break;
+                    default:
+                        databaseAttributes[field] = attribute;
+                        break;
+                }
             }
         }
     }
@@ -339,7 +390,10 @@ function convertToDatabaseAttributes(attributes: Attributes, fields: FieldsDefin
     return databaseAttributes;
 }
 
-function convertToDatabaseAttribute(attribute: Attributes, definition: FieldDefinition): Database.Value | Database.Value[] | Database.Attributes {
+function convertToDatabaseAttribute(
+    attribute: Attributes,
+    definition: FieldDefinition,
+): Database.Value | Database.Value[] | Database.Attributes {
     switch (definition.type) {
         case FieldType.Date:
             return attribute.getTime();
@@ -367,15 +421,64 @@ function convertFromDatabaseAttributes(databaseAttributes: Database.Attributes, 
     return attributes;
 }
 
-function convertFromDatabaseAttribute(attribute: Database.Value | Database.Value[] | Database.Attributes, definition: FieldDefinition): any {
+function convertFromDatabaseAttribute(
+    attribute: Database.Value | Database.Value[] | Database.Attributes,
+    definition: FieldDefinition,
+): any {
     switch (definition.type) {
         case FieldType.Date:
             return new Date(<number> attribute);
         case FieldType.Object:
             return convertFromDatabaseAttributes(<Database.Attributes> attribute, <FieldsDefinition> definition.fields);
         case FieldType.Array:
-            return (<Database.Value[]>attribute).map(attr => convertFromDatabaseAttribute(<Database.Value> attr, <FieldDefinition> definition.items));
+            return (<Database.Value[]> attribute).map(attr =>
+                convertFromDatabaseAttribute(<Database.Value> attr, <FieldDefinition> definition.items),
+            );
         default:
             return attribute;
     }
+}
+
+function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinition): Attributes {
+    for (const field in fields) {
+        const definition = fields[field];
+
+        if (!(field in attributes)) {
+            if (definition.type === FieldType.Object) {
+                attributes[field] = {};
+            } else {
+                attributes[field] = undefined;
+            }
+        }
+
+        if (definition.type === FieldType.Object) {
+            attributes[field] = ensureAttributesExistance(attributes[field], <FieldsDefinition> definition.fields);
+        }
+    }
+
+    return attributes;
+}
+
+function cleanUndefinedAttributes(
+    attributes: Attributes,
+    fields: FieldsDefinition,
+    returnUndefined: boolean = false,
+): Attributes | undefined {
+    attributes = deepClone(attributes);
+
+    for (const field in attributes) {
+        if (typeof attributes[field] === 'undefined') {
+            delete attributes[field];
+        } else if (field in fields && fields[field].type === FieldType.Object) {
+            const value = cleanUndefinedAttributes(attributes[field], <FieldsDefinition> fields[field].fields, true);
+
+            if (typeof value === 'undefined') {
+                delete attributes[field];
+            } else {
+                attributes[field] = value;
+            }
+        }
+    }
+
+    return returnUndefined && Object.keys(attributes).length === 0 ? undefined : attributes;
 }

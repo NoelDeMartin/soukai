@@ -38,8 +38,16 @@ module.exports = {
 
             {
                 test: /\.ts$/,
-                loader: 'ts-loader',
-                options: { compilerOptions },
+                use: [
+                    {
+                        loader: 'ts-loader',
+                        options: {
+                            compilerOptions,
+                            onlyCompileBundledFiles: true,
+                        },
+                    },
+                    'tslint-loader'
+                ],
                 exclude: /node_modules/,
             },
         ],

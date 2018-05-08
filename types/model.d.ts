@@ -53,9 +53,13 @@ export class Model {
 
     public update<T extends Model>(attributes?: Attributes): Promise<T>;
 
+    public hasAttribute(attribute: string): boolean;
+
     public setAttribute(attribute: string, value: any): void;
 
     public getAttribute(attribute: string): any;
+
+    public getAttributes(includeUndefined?: boolean): Attributes;
 
     public unsetAttribute(attribute: string): void;
 

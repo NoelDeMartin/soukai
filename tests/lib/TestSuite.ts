@@ -1,6 +1,6 @@
 export default abstract class {
 
-    static title: string;
+    public static title: string;
 
     public static run() {
         const suite = new (<any> this)();
@@ -25,8 +25,12 @@ export default abstract class {
 
     public disabled: boolean;
 
-    public setUp(): void {}
+    public setUp(): void {
+        //
+    }
 
-    public tearDown(): void {}
+    public tearDown(): void {
+        //
+    }
 
 }

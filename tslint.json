@@ -2,10 +2,12 @@
     "extends": "tslint:recommended",
     "rules": {
         "quotemark": [true, "single"],
+        "forin": false,
         "no-console": false,
         "arrow-parens": false,
         "interface-name": false,
         "no-angle-bracket-type-assertion": false,
+        "object-literal-sort-keys": false,
         "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore"]
     }
 }

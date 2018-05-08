@@ -8,7 +8,7 @@ import TestSuite from '../TestSuite';
 
 export default class extends TestSuite {
 
-    static title: string = 'InMemory';
+    public static title: string = 'InMemory';
 
     private engine: InMemoryEngine;
 
