@@ -2,7 +2,7 @@ import Engine, { Database } from '@/lib/Engine';
 
 import DocumentNotFound from '@/lib/errors/DocumentNotFound';
 
-export interface Collection {
+interface Collection {
     totalDocuments: number;
     documents: {
         [id: string]: Database.Document,

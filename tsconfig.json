@@ -9,7 +9,7 @@
     "pretty": true,
     "strictNullChecks": true,
     "inlineSourceMap": true,
-    "declaration": true,
+    "declaration": false,
     "suppressImplicitAnyIndexErrors": true,
     "allowSyntheticDefaultImports": true,
     "rootDir": "src",
@@ -22,7 +22,8 @@
     }
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "tests/**/*.ts"
   ],
   "exclude": [
     "node_modules"

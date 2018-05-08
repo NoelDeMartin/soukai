@@ -2,11 +2,16 @@
   "name": "soukai",
   "version": "0.0.1",
   "description": "A refreshing library to work with your non relational database",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/soukai.common.js",
+  "module": "dist/soukai.esm.js",
+  "unpkg": "dist/soukai.js",
+  "jsdelivr": "dist/soukai.js",
+  "types": "types/index.d.ts",
   "scripts": {
     "test": "jest",
-    "build": "rm -rf dist && tsc",
+    "build": "cross-env NODE_ENV=development webpack --mode='development' --no-progress --hide-modules",
+    "build-browser": "cross-env NODE_ENV=development TARGET_BUILD=browser webpack --mode='development' --no-progress --hide-modules",
+    "build-module": "cross-env NODE_ENV=development TARGET_BUILD=module webpack --mode='development' --no-progress --hide-modules",
     "publish": "scripts/publish.sh",
     "docs:dev": "vuepress dev docs",
     "docs:build": "vuepress build docs",
@@ -24,15 +29,21 @@
   "bugs": {
     "url": "https://github.com/NoelDeMartin/soukai/issues"
   },
-  "homepage": "https://github.com/NoelDeMartin/soukai#readme",
+  "homepage": "https://noeldemartin.github.io/soukai/",
+  "dependencies": {
+    "@types/webpack-env": "^1.13.6"
+  },
   "devDependencies": {
     "@types/faker": "^4.1.2",
     "@types/jest": "^22.2.3",
-    "@types/webpack-env": "^1.13.6",
+    "cross-env": "^5.1.4",
     "faker": "^4.1.0",
     "jest": "^22.4.3",
     "ts-jest": "^22.4.4",
+    "ts-loader": "^4.3.0",
     "typescript": "^2.8.3",
-    "vuepress": "^0.8.4"
+    "vuepress": "^0.8.4",
+    "webpack": "^4.8.1",
+    "webpack-cli": "^2.1.3"
   }
 }

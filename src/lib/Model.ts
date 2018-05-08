@@ -125,7 +125,7 @@ export default abstract class Model {
 
     [attribute: string]: any;
 
-    constructor(attributes: Attributes = {}, exists = false) {
+    constructor(attributes: Attributes = {}, exists: boolean = false) {
         this._exists = exists;
         this._attributes = {...attributes};
         this._dirtyAttributes = exists ? {} : {...attributes};
@@ -154,6 +154,14 @@ export default abstract class Model {
                     return Reflect.set(target, property, value, receiver);
                 } else {
                     target.setAttribute(property, value);
+                    return true;
+                }
+            },
+            deleteProperty(target, property) {
+                if (typeof property !== 'string' || property in target || !(property in target._attributes)) {
+                    return Reflect.deleteProperty(target, property);
+                } else {
+                    target.unsetAttribute(property);
                     return true;
                 }
             },

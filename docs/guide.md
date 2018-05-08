@@ -47,7 +47,7 @@ Database entities can be defined extending the [Model](api.html#model) class, an
 
 Only doing this is enough to get started, read the following sections to learn how to customize the behaviour.
 
-### Collection Name
+### Collection name
 
 The static attribute `collection` can be defined in the model class to indicate explicitly the name of the collection to use. For example, the following model will be stored in the `users` collection:
 
@@ -71,7 +71,7 @@ If you are using webpack, the combination of [definitionsFromContext](api.html#d
 :warning: The current implementation of names inflection is naive and should be improved. At the momment, the model name is converted to lower case and appended with an 's' character, so it shouldn't be trusted to do proper plularization nor word separation.
 :::
 
-### Fields Definition
+### Fields definition
 
 The static attribute `fields` can be defined in the model class to indicate the format and expecations of document attributes. At the moment, this definitions are only used to transform certain types (for example, Date objects into timestamps for serialization). But they will also be used to validate in the future. So it is good practice to define the fields structure also as a way of documentation.
 
@@ -173,7 +173,7 @@ The long form of our example before would be defined as such (additional fields 
 ```
 :::
 
-### Automatic Timestamps
+### Automatic timestamps
 
 Model timestamps can be managed automatically. `created_at` will be set as the initial date when the model is created, and `updated_at` will be updated every time the model is modified.
 

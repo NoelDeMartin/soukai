@@ -305,4 +305,34 @@ export default class extends TestSuite {
             });
     }
 
+    public testAttributeDeleter(): Promise<void> {
+        const id = Faker.random.uuid();
+        const name = Faker.name.firstName();
+        const now = seconds();
+
+        this.mockEngine.create.mockReturnValue(Promise.resolve(id));
+
+        return StubModel.create({ name, surname: Faker.name.lastName() })
+            .then(model => wait().then(() => {
+                delete model.surname;
+                return model.save();
+            }))
+            .then(model => {
+                expect(model).toBeInstanceOf(StubModel);
+                expect(model.id).toBe(id);
+                expect(model.name).toBe(name);
+                expect(model.surname).toBeUndefined();
+                expect(model.updated_at).toBeInstanceOf(Date);
+                expect(now - seconds(model.updated_at)).toBeLessThan(1);
+                expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
+                expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
+                expect(this.mockEngine.update).toHaveBeenCalledWith(
+                    StubModel.collection,
+                    id,
+                    { updated_at: model.updated_at.getTime() },
+                    ['surname'],
+                );
+            });
+    }
+
 }
