@@ -14,6 +14,7 @@ export default class extends Model {
             phone: FieldType.String,
         },
         name: FieldType.String,
+        surname: FieldType.String,
         social: {
             facebook: FieldType.String,
             twitter: FieldType.String,

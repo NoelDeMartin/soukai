@@ -1,5 +1,6 @@
 import * as Database from '@/lib/Database';
 import Engine from '@/lib/Engine';
+import Model from '@/lib/Model';
 
 import DocumentNotFound from '@/lib/errors/DocumentNotFound';
 
@@ -22,15 +23,15 @@ export default class implements Engine {
         return this.db;
     }
 
-    public create(collectionName: string, attributes: Database.Attributes): Promise<Database.Key> {
-        const collection = this.collection(collectionName);
+    public create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key> {
+        const collection = this.collection(model.collection);
         const id = (++collection.totalDocuments).toString();
         collection.documents[id] = { ...attributes, ...{ id } };
         return Promise.resolve(id);
     }
 
-    public readOne(collectionName: string, id: Database.Key): Promise<Database.Document> {
-        const collection = this.collection(collectionName);
+    public readOne(model: typeof Model, id: Database.Key): Promise<Database.Document> {
+        const collection = this.collection(model.collection);
         if (id in collection.documents) {
             return Promise.resolve(collection.documents[id]);
         } else {
@@ -38,18 +39,18 @@ export default class implements Engine {
         }
     }
 
-    public readMany(collectionName: string): Promise<Database.Document[]> {
-        const collection = this.collection(collectionName);
+    public readMany(model: typeof Model): Promise<Database.Document[]> {
+        const collection = this.collection(model.collection);
         return Promise.resolve(Object.values(collection.documents));
     }
 
     public update(
-        collectionName: string,
+        model: typeof Model,
         id: Database.Key,
         dirtyAttributes: Database.Attributes,
         removedAttributes: string[],
     ): Promise<void> {
-        const collection = this.collection(collectionName);
+        const collection = this.collection(model.collection);
         if (id in collection.documents) {
             const document = collection.documents[id];
             collection.documents[id] = { ...document, ...dirtyAttributes };
@@ -62,8 +63,8 @@ export default class implements Engine {
         }
     }
 
-    public delete(collectionName: string, id: Database.Key): Promise<void> {
-        const collection = this.collection(collectionName);
+    public delete(model: typeof Model, id: Database.Key): Promise<void> {
+        const collection = this.collection(model.collection);
         if (id in collection.documents) {
             delete collection.documents[id];
             return Promise.resolve();

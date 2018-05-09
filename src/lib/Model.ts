@@ -6,7 +6,7 @@ import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
 import { deepClone } from '@/utils/object';
 
 export interface Attributes {
-    [attribute: string]: any;
+    [field: string]: any;
 }
 
 export enum FieldType {
@@ -83,6 +83,9 @@ export default abstract class Model {
 
         // Validate fields
         if (typeof classDef.fields !== 'undefined') {
+
+            // TODO validate protected fields (e.g. id)
+
             for (const field in classDef.fields) {
                 if (classDef.fields.hasOwnProperty(field)) {
                     if (classDef.timestamps.indexOf(field) !== -1) {
@@ -106,13 +109,13 @@ export default abstract class Model {
     }
 
     public static find<T extends Model>(id: Database.Key): Promise<T | null> {
-        return Soukai.engine.readOne(this.collection, id)
+        return Soukai.engine.readOne(this, id)
             .then(document => new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true))
             .catch(() => null);
     }
 
     public static all<T extends Model>(): Promise<T[]> {
-        return Soukai.engine.readMany(this.collection)
+        return Soukai.engine.readMany(this)
             .then(documents =>
                     documents.map(document =>
                         new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true),
@@ -129,9 +132,11 @@ export default abstract class Model {
     protected _dirtyAttributes: Attributes;
     protected _removedAttributes: string[];
 
-    [attribute: string]: any;
+    [field: string]: any;
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
+        // TODO validate protected fields (e.g. id)
+
         this._exists = exists;
         this._attributes = {...attributes};
         this._dirtyAttributes = exists ? {} : {...attributes};
@@ -177,6 +182,8 @@ export default abstract class Model {
     }
 
     public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
+        // TODO validate protected fields (e.g. id)
+
         this._attributes = { ...this._attributes, ...attributes };
         this._dirtyAttributes = { ...this._dirtyAttributes, ...attributes };
         this.touch();
@@ -184,8 +191,8 @@ export default abstract class Model {
         return this.save();
     }
 
-    public hasAttribute(attribute: string): boolean {
-        const fields = attribute.split('.');
+    public hasAttribute(field: string): boolean {
+        const fields = field.split('.');
         let value = <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
 
         while (fields.length > 0) {
@@ -199,16 +206,17 @@ export default abstract class Model {
         return true;
     }
 
-    public setAttribute(attribute: string, value: any): void {
+    public setAttribute(field: string, value: any): void {
         // TODO implement deep setter
-        this._attributes[attribute] = value;
-        this._dirtyAttributes[attribute] = value;
+        // TODO validate protected fields (e.g. id)
+        this._attributes[field] = value;
+        this._dirtyAttributes[field] = value;
         this.touch();
     }
 
-    public getAttribute(attribute: string): any {
-        const fields = attribute.split('.');
-        let value = this._attributes;
+    public getAttribute(field: string, includeUndefined: boolean = false): any {
+        const fields = field.split('.');
+        let value = this.getAttributes(includeUndefined);
 
         while (fields.length > 0) {
             value = value[<string> fields.shift()];
@@ -227,17 +235,23 @@ export default abstract class Model {
             : <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
     }
 
-    public unsetAttribute(attribute: string): void {
-        if (this._attributes.hasOwnProperty(attribute)) {
-            delete this._attributes[attribute];
-            this._removedAttributes.push(attribute);
+    public unsetAttribute(field: string): void {
+        // TODO implement deep unsetter
+        // TODO validate protected fields (e.g. id)
+        if (this._attributes.hasOwnProperty(field)) {
+            if (field in this.classDef.fields) {
+                this._attributes[field] = undefined;
+            } else {
+                delete this._attributes[field];
+            }
+            this._removedAttributes.push(field);
             this.touch();
         }
     }
 
     public delete<T extends Model>(): Promise<T> {
         return Soukai.engine.delete(
-            this.classDef.collection,
+            this.classDef,
             this._attributes.id,
         )
             .then(() => {
@@ -251,7 +265,7 @@ export default abstract class Model {
     public save<T extends Model>(): Promise<T> {
         if (this._exists) {
             return Soukai.engine.update(
-                this.classDef.collection,
+                this.classDef,
                 this._attributes.id,
                 convertToDatabaseAttributes(this._dirtyAttributes, this.classDef.fields),
                 [...this._removedAttributes ],
@@ -264,7 +278,7 @@ export default abstract class Model {
                 });
         } else {
             return Soukai.engine.create(
-                this.classDef.collection,
+                this.classDef,
                 convertToDatabaseAttributes(
                     <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields),
                     this.classDef.fields,
@@ -396,7 +410,7 @@ function convertToDatabaseAttribute(
 ): Database.Value | Database.Value[] | Database.Attributes {
     switch (definition.type) {
         case FieldType.Date:
-            return attribute.getTime();
+            return Math.round(attribute.getTime() / 1000);
         case FieldType.Object:
             return convertToDatabaseAttributes(attribute, <FieldsDefinition> definition.fields);
         case FieldType.Array:
@@ -427,7 +441,7 @@ function convertFromDatabaseAttribute(
 ): any {
     switch (definition.type) {
         case FieldType.Date:
-            return new Date(<number> attribute);
+            return new Date(<number> attribute * 1000);
         case FieldType.Object:
             return convertFromDatabaseAttributes(<Database.Attributes> attribute, <FieldsDefinition> definition.fields);
         case FieldType.Array:

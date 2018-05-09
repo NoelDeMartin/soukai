@@ -7,7 +7,7 @@ footer: MIT Licensed | Copyright © 2018-present <a href="">Noel De Martin</a>
 
 ## Getting Started
 
-This library aims to provide an easy way to handle non-relational database objects in Javascript using an Object Oriented approach (hence ODM - Object Document Mapper). It provides a system to define database entities using [models](#models) and delegates the communication with the database to [engines](#engines) in a customizable way.
+This library aims to provide an easy way to handle non-relational database objects in Javascript using an Object Oriented approach (hence ODM - Object Document Mapper). It provides a system to define database entities using [models](#defining-models) and delegates the communication with the database to [engines](#using-engines) in a customizable way.
 
 To get started, add the package as an npm dependency:
 

@@ -43,12 +43,12 @@ export default class extends TestSuite {
             expect(now - seconds(model.updated_at)).toBeLessThan(1);
             expect(this.mockEngine.create).toHaveBeenCalledTimes(1);
             expect(this.mockEngine.create).toHaveBeenCalledWith(
-                StubModel.collection,
+                StubModel,
                 {
                     ...attributes,
                     ...{
-                        created_at: model.created_at.getTime(),
-                        updated_at: model.updated_at.getTime(),
+                        created_at: seconds(model.created_at.getTime(), true),
+                        updated_at: seconds(model.updated_at.getTime(), true),
                     },
                 },
             );
@@ -76,12 +76,12 @@ export default class extends TestSuite {
             expect(now - seconds(model.updated_at)).toBeLessThan(1);
             expect(this.mockEngine.create).toHaveBeenCalledTimes(1);
             expect(this.mockEngine.create).toHaveBeenCalledWith(
-                StubModel.collection,
+                StubModel,
                 {
                     ...attributes,
                     ...{
-                        created_at: model.created_at.getTime(),
-                        updated_at: model.updated_at.getTime(),
+                        created_at: seconds(model.created_at.getTime(), true),
+                        updated_at: seconds(model.updated_at.getTime(), true),
                     },
                 },
             );
@@ -91,7 +91,7 @@ export default class extends TestSuite {
     public testFind(): Promise<void> {
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
-        const birthDate = Date.now();
+        const birthDate = seconds(Date.now(), true);
 
         this.mockEngine.readOne.mockReturnValue(Promise.resolve({ id, name, birth_date: birthDate }));
 
@@ -102,9 +102,9 @@ export default class extends TestSuite {
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(name);
                 expect(model.birth_date).toBeInstanceOf(Date);
-                expect(model.birth_date.getTime()).toEqual(birthDate);
+                expect(seconds(model.birth_date, true)).toEqual(birthDate);
                 expect(this.mockEngine.readOne).toHaveBeenCalledTimes(1);
-                expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel.collection, id);
+                expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel, id);
             }
         });
     }
@@ -117,7 +117,7 @@ export default class extends TestSuite {
         return StubModel.find(id).then(model => {
             expect(model).toBe(null);
             expect(this.mockEngine.readOne).toHaveBeenCalledTimes(1);
-            expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel.collection, id);
+            expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel, id);
         });
     }
 
@@ -133,7 +133,7 @@ export default class extends TestSuite {
             expect(models[0].id).toBe(id);
             expect(models[0].name).toBe(name);
             expect(this.mockEngine.readMany).toHaveBeenCalledTimes(1);
-            expect(this.mockEngine.readMany).toHaveBeenCalledWith(StubModel.collection);
+            expect(this.mockEngine.readMany).toHaveBeenCalledWith(StubModel);
         });
     }
 
@@ -158,11 +158,11 @@ export default class extends TestSuite {
                 expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    StubModel.collection,
+                    StubModel,
                     id,
                     {
                         name: newName,
-                        updated_at: model.updated_at.getTime(),
+                        updated_at: seconds(model.updated_at.getTime(), true),
                     },
                     [],
                 );
@@ -193,11 +193,11 @@ export default class extends TestSuite {
                 expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    StubModel.collection,
+                    StubModel,
                     id,
                     {
                         name: newName,
-                        updated_at: model.updated_at.getTime(),
+                        updated_at: seconds(model.updated_at.getTime(), true),
                     },
                     [],
                 );
@@ -226,9 +226,9 @@ export default class extends TestSuite {
                 expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    StubModel.collection,
+                    StubModel,
                     id,
-                    { updated_at: model.updated_at.getTime() },
+                    { updated_at: seconds(model.updated_at.getTime(), true) },
                     ['surname'],
                 );
             });
@@ -248,7 +248,7 @@ export default class extends TestSuite {
                 expect(model.name).toBe(name);
                 expect(model.existsInDatabase()).toBe(false);
                 expect(this.mockEngine.delete).toHaveBeenCalledTimes(1);
-                expect(this.mockEngine.delete).toHaveBeenCalledWith(StubModel.collection, id);
+                expect(this.mockEngine.delete).toHaveBeenCalledWith(StubModel, id);
             });
     }
 

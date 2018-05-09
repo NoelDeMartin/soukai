@@ -9,9 +9,10 @@
   "types": "types/index.d.ts",
   "scripts": {
     "test": "jest",
-    "build": "cross-env NODE_ENV=development webpack --mode='development' --no-progress --hide-modules",
-    "build-browser": "cross-env NODE_ENV=development TARGET_BUILD=browser webpack --mode='development' --no-progress --hide-modules",
-    "build-module": "cross-env NODE_ENV=development TARGET_BUILD=module webpack --mode='development' --no-progress --hide-modules",
+    "build": "rm dist -rf && npm run build-umd && npm run build-common && npm run build-esm",
+    "build-umd": "cross-env NODE_ENV=development TARGET_BUILD=umd webpack --mode='development' --no-progress --hide-modules",
+    "build-common": "cross-env NODE_ENV=development TARGET_BUILD=commonjs webpack --mode='development' --no-progress --hide-modules",
+    "build-esm": "cross-env NODE_ENV=development TARGET_BUILD=esmodule webpack --mode='development' --no-progress --hide-modules",
     "publish": "scripts/publish.sh",
     "docs:dev": "vuepress dev docs",
     "docs:build": "vuepress build docs",

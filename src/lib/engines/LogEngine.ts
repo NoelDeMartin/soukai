@@ -1,5 +1,6 @@
 import * as Database from '@/lib/Database';
 import Engine from '@/lib/Engine';
+import Model from '@/lib/Model';
 
 export default class implements Engine {
 
@@ -9,9 +10,9 @@ export default class implements Engine {
         this.engine = engine;
     }
 
-    public create(collection: string, attributes: Database.Attributes): Promise<Database.Key> {
-        console.log('CREATE', collection, attributes);
-        return this.engine.create(collection, attributes)
+    public create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key> {
+        console.log('CREATE', model.collection, attributes);
+        return this.engine.create(model, attributes)
             .then(id => {
                 console.log('CREATED', id);
                 return id;
@@ -22,9 +23,9 @@ export default class implements Engine {
             });
     }
 
-    public readOne(collection: string, id: Database.Key): Promise<Database.Document> {
-        console.log('READ ONE', collection, id);
-        return this.engine.readOne(collection, id)
+    public readOne(model: typeof Model, id: Database.Key): Promise<Database.Document> {
+        console.log('READ ONE', model.collection, id);
+        return this.engine.readOne(model, id)
             .then(document => {
                 console.log('FOUND', document);
                 return document;
@@ -35,9 +36,9 @@ export default class implements Engine {
             });
     }
 
-    public readMany(collection: string): Promise<Database.Document[]> {
-        console.log('READ ALL', collection);
-        return this.engine.readMany(collection)
+    public readMany(model: typeof Model): Promise<Database.Document[]> {
+        console.log('READ ALL', model.collection);
+        return this.engine.readMany(model)
             .then(documents => {
                 console.log('FOUND', documents);
                 return documents;
@@ -49,13 +50,13 @@ export default class implements Engine {
     }
 
     public update(
-        collection: string,
+        model: typeof Model,
         id: Database.Key,
         dirtyAttributes: Database.Attributes,
         removedAttributes: string[],
     ): Promise<void> {
-        console.log('UPDATE', collection, id, dirtyAttributes, removedAttributes);
-        return this.engine.update(collection, id, dirtyAttributes, removedAttributes)
+        console.log('UPDATE', model.collection, id, dirtyAttributes, removedAttributes);
+        return this.engine.update(model, id, dirtyAttributes, removedAttributes)
             .then(() => console.log('UPDATED'))
             .catch(error => {
                 console.error(error);
@@ -63,9 +64,9 @@ export default class implements Engine {
             });
     }
 
-    public delete(collection: string, id: Database.Key): Promise<void> {
-        console.log('DELETE', collection, id);
-        return this.engine.delete(collection, id)
+    public delete(model: typeof Model, id: Database.Key): Promise<void> {
+        console.log('DELETE', model.collection, id);
+        return this.engine.delete(model, id)
             .then(() => console.log('DELETED'))
             .catch(error => {
                 console.error(error);

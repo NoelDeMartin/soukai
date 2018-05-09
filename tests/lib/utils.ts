@@ -1,10 +1,11 @@
-export function seconds(time?: Date | number): number {
+export function seconds(time?: Date | number, round: boolean = false): number {
     if (typeof time === 'undefined') {
-        return seconds(Date.now());
+        return seconds(Date.now(), round);
     } else if (typeof time === 'number') {
-        return time / 1000;
+        time = time / 1000;
+        return round ? Math.round(time) : time;
     } else {
-        return seconds(time.getTime());
+        return seconds(time.getTime(), round);
     }
 }
 

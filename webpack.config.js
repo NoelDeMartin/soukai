@@ -1,7 +1,6 @@
 const webpack = require('webpack');
 const path = require('path');
 
-const targetBuild = process.env.TARGET_BUILD || 'common';
 const inProduction = process.env.NODE_ENV === 'production';
 
 const compilerOptions = {};
@@ -12,17 +11,17 @@ const output = {
     umdNamedDefine: true
 };
 
-switch (targetBuild) {
-    case 'browser':
-        output.filename = 'soukai.js';
-        output.libraryTarget = 'window';
-        break;
-    case 'module':
+switch (process.env.TARGET_BUILD) {
+    case 'esmodule':
         output.filename = 'soukai.esm.js';
         compilerOptions.module = 'es6';
         break;
-    case 'common':
+    case 'commonjs':
         output.filename = 'soukai.common.js';
+        break;
+    case 'umd':
+        output.filename = 'soukai.js';
+        output.libraryTarget = 'window';
         break;
 }
 
