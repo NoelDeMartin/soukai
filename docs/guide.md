@@ -31,6 +31,8 @@ import { Model } from 'soukai';
 class User extends Model {
 }
 
+Soukai.loadModel('User', User);
+
 User.create({ name: 'John', surname: 'Doe' })
     .then(() => console.log(User.all()));
 

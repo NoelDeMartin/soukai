@@ -2,6 +2,7 @@ import * as Database from '@/lib/Database';
 import Soukai from '@/lib/Soukai';
 
 import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
+import SoukaiError from '@/lib/errors/SoukaiError';
 
 import { deepClone } from '@/utils/object';
 
@@ -48,8 +49,15 @@ export default abstract class Model {
 
     public static fields: FieldsDefinition | any;
 
+    public static readonly modelName: string;
+
     public static boot<T extends Model>(name: string): void {
         const classDef = (<any> this);
+
+        if (typeof classDef.modelName !== 'undefined') {
+            return;
+        }
+
         const fieldDefinitions: FieldsDefinition = {};
 
         // Validate collection
@@ -101,6 +109,7 @@ export default abstract class Model {
         }
 
         classDef.fields = fieldDefinitions;
+        classDef.modelName = name;
     }
 
     public static create<T extends Model>(attributes: Attributes = {}): Promise<T> {
@@ -109,22 +118,36 @@ export default abstract class Model {
     }
 
     public static find<T extends Model>(id: Database.Key): Promise<T | null> {
-        return Soukai.engine.readOne(this, id)
-            .then(document => new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true))
-            .catch(() => null);
+        this.ensureBooted();
+
+        return Soukai.withEngine(engine =>
+            engine
+                .readOne(this, id)
+                .then(document => new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true))
+                .catch(() => null),
+        );
     }
 
     public static all<T extends Model>(): Promise<T[]> {
-        return Soukai.engine.readMany(this)
-            .then(documents =>
-                    documents.map(document =>
-                        new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true),
-                    ),
-            );
+        this.ensureBooted();
+
+        return Soukai.withEngine(engine =>
+            engine
+                .readMany(this)
+                .then(documents =>
+                        documents.map(document =>
+                            new (<any> this)(convertFromDatabaseAttributes(document, this.fields), true),
+                        ),
+                ),
+        );
     }
 
-    private static get instance(): Model {
-        return new (<any> this)();
+    private static ensureBooted(): void {
+        const classDef = (<any> this);
+
+        if (typeof classDef.modelName === 'undefined') {
+            throw new SoukaiError('Model has not been booted (did you forget to call Soukai.loadModel?)');
+        }
     }
 
     protected _exists: boolean;
@@ -136,6 +159,8 @@ export default abstract class Model {
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
         // TODO validate protected fields (e.g. id)
+
+        this.classDef.ensureBooted();
 
         this._exists = exists;
         this._attributes = {...attributes};
@@ -250,48 +275,57 @@ export default abstract class Model {
     }
 
     public delete<T extends Model>(): Promise<T> {
-        return Soukai.engine.delete(
-            this.classDef,
-            this._attributes.id,
-        )
-            .then(() => {
-                delete this._attributes.id;
-                this._exists = false;
+        return Soukai.withEngine(engine =>
+            engine
+                .delete(
+                    this.classDef,
+                    this._attributes.id,
+                )
+                .then(() => {
+                    delete this._attributes.id;
+                    this._exists = false;
 
-                return <any> this;
-            });
+                    return <any> this;
+                }),
+        );
     }
 
     public save<T extends Model>(): Promise<T> {
         if (this._exists) {
-            return Soukai.engine.update(
-                this.classDef,
-                this._attributes.id,
-                convertToDatabaseAttributes(this._dirtyAttributes, this.classDef.fields),
-                [...this._removedAttributes ],
-            )
-                .then(() => {
-                    this._dirtyAttributes = {};
-                    this._removedAttributes = [];
+            return Soukai.withEngine(engine =>
+                engine
+                    .update(
+                        this.classDef,
+                        this._attributes.id,
+                        convertToDatabaseAttributes(this._dirtyAttributes, this.classDef.fields),
+                        [...this._removedAttributes ],
+                    )
+                    .then(() => {
+                        this._dirtyAttributes = {};
+                        this._removedAttributes = [];
 
-                    return <any> this;
-                });
+                        return <any> this;
+                    }),
+            );
         } else {
-            return Soukai.engine.create(
-                this.classDef,
-                convertToDatabaseAttributes(
-                    <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields),
-                    this.classDef.fields,
-                ),
-            )
-                .then(id => {
-                    this._attributes.id = id;
-                    this._dirtyAttributes = {};
-                    this._removedAttributes = [];
-                    this._exists = true;
+            return Soukai.withEngine(engine =>
+                engine
+                    .create(
+                        this.classDef,
+                        convertToDatabaseAttributes(
+                            <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields),
+                            this.classDef.fields,
+                        ),
+                    )
+                    .then(id => {
+                        this._attributes.id = id;
+                        this._dirtyAttributes = {};
+                        this._removedAttributes = [];
+                        this._exists = true;
 
-                    return <any> this;
-                });
+                        return <any> this;
+                    }),
+            );
         }
     }
 

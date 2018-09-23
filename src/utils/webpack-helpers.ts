@@ -4,8 +4,11 @@ export function definitionsFromContext(context: __WebpackModuleApi.RequireContex
     const models = {};
 
     for (const fileName of context.keys()) {
-        const name = (fileName.match(/^(?:\.\/)?(.+)\.js$/) || [])[1];
-        models[name] = context(fileName).default;
+        const name = (fileName.match(/^(?:\.\/)?(.+)\.(j|t)s$/) || [])[1];
+
+        if (typeof name !== 'undefined') {
+            models[name] = context(fileName).default;
+        }
     }
 
     return models;

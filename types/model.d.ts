@@ -39,6 +39,8 @@ export class Model {
 
     public static fields: FieldsDefinition | any;
 
+    public static readonly modelName: string;
+
     public static boot<T extends Model>(name: string): void;
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;

@@ -1,6 +1,8 @@
 import Engine from '@/lib/Engine';
 import Model from '@/lib/Model';
 
+import SoukaiError from '@/lib/errors/SoukaiError';
+
 export class Soukai {
 
     private _engine: Engine;
@@ -18,6 +20,14 @@ export class Soukai {
             if (models.hasOwnProperty(name)) {
                 this.loadModel(name, models[name]);
             }
+        }
+    }
+
+    public withEngine<T>(callback: (engine: Engine) => T): T {
+        if (this._engine) {
+            return callback(this._engine);
+        } else {
+            throw new SoukaiError('Engine must be initialized before performing any operations');
         }
     }
 

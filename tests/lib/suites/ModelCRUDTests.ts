@@ -1,8 +1,10 @@
 import Faker from 'faker';
 
 import Engine from '@/lib/Engine';
-import Model, { FieldType } from '@/lib/Model';
+import Model from '@/lib/Model';
 import Soukai from '@/lib/Soukai';
+
+import SoukaiError from '@/lib/errors/SoukaiError';
 
 import TestSuite from '../TestSuite';
 import { seconds, wait } from '../utils';
@@ -250,6 +252,44 @@ export default class extends TestSuite {
                 expect(this.mockEngine.delete).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.delete).toHaveBeenCalledWith(StubModel, id);
             });
+    }
+
+    public testThrowEngineMissingError(): void {
+        Soukai.useEngine(null as any);
+
+        const createModel = () => StubModel.create();
+        expect(createModel).toThrow(SoukaiError);
+        expect(createModel).toThrow('Engine must be initialized before performing any operations');
+    }
+
+    public testThrowModelNotBootedErrorOnConstructor(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class NonBootedModel extends Model {
+        }
+
+        const createInstance = () => new NonBootedModel();
+        expect(createInstance).toThrow(SoukaiError);
+        expect(createInstance).toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
+    }
+
+    public testThrowModelNotBootedErrorOnAll(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class NonBootedModel extends Model {
+        }
+
+        const retrieveAll = () => NonBootedModel.all();
+        expect(retrieveAll).toThrow(SoukaiError);
+        expect(retrieveAll).toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
+    }
+
+    public testThrowModelNotBootedErrorOnFind(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class NonBootedModel extends Model {
+        }
+
+        const findOne = () => NonBootedModel.find(Faker.random.uuid());
+        expect(findOne).toThrow(SoukaiError);
+        expect(findOne).toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
     }
 
 }
