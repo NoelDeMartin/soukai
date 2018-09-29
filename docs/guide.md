@@ -70,7 +70,7 @@ If you are using webpack, the combination of [definitionsFromContext](api.html#d
 :::
 
 ::: warning Model name inflection
-:warning: The current implementation of names inflection is naive and should be improved. At the momment, the model name is converted to lower case and appended with an 's' character, so it shouldn't be trusted to do proper plularization nor word separation.
+:warning: The current implementation of names inflection is naive and should be improved. At the moment, the model name is converted to lower case and appended with an 's' character, so it shouldn't be trusted to do proper plularization nor word separation.
 :::
 
 ### Fields definition
