@@ -35,6 +35,8 @@ export class Model {
 
     public static collection: string;
 
+    public static primaryKey: string;
+
     public static timestamps: string[] | boolean;
 
     public static fields: FieldsDefinition | any;

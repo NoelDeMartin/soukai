@@ -115,6 +115,9 @@ export default class extends TestSuite {
         expect(model.getAttributes(true)).toHaveProperty('social');
         expect(model.getAttributes(true)).toHaveProperty('social.facebook');
         expect(model.getAttributes(true)).toHaveProperty('social.twitter');
+        expect(model.hasAttribute('birth_date')).toBe(false);
+        expect(model.getAttributes()).not.toHaveProperty('birth_date');
+        expect(model.getAttributes(true)).toHaveProperty('birth_date');
     }
 
 }

@@ -45,6 +45,8 @@ export default abstract class Model {
 
     public static collection: string;
 
+    public static primaryKey: string = 'id';
+
     public static timestamps: string[] | boolean;
 
     public static fields: FieldsDefinition | any;
@@ -443,9 +445,13 @@ function convertToDatabaseAttributes(attributes: Attributes, fields: FieldsDefin
 }
 
 function convertToDatabaseAttribute(
-    attribute: Attributes,
+    attribute: any,
     definition: FieldDefinition,
 ): Database.Value | Database.Value[] | Database.Attributes {
+    if (isEmpty(attribute)) {
+        return attribute;
+    }
+
     switch (definition.type) {
         case FieldType.Date:
             return Math.round(attribute.getTime() / 1000);
@@ -477,6 +483,10 @@ function convertFromDatabaseAttribute(
     attribute: Database.Value | Database.Value[] | Database.Attributes,
     definition: FieldDefinition,
 ): any {
+    if (isEmpty(attribute)) {
+        return attribute;
+    }
+
     switch (definition.type) {
         case FieldType.Date:
             return new Date(<number> attribute * 1000);
@@ -514,18 +524,19 @@ function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinit
 function ensureRequiredAttributes(attributes: Attributes, fields: FieldsDefinition): void {
     for (const field in fields) {
         const definition = fields[field];
-        const isEmpty = !(field in attributes) ||
-            typeof attributes[field] === 'undefined' ||
-            attributes[field] === null;
 
-        if (definition.required && isEmpty) {
+        if (definition.required && (!(field in attributes) || isEmpty(attributes[field]))) {
             throw new SoukaiError(`The ${field} attribute is required`);
         }
 
-        if (!isEmpty && definition.type === FieldType.Object) {
+        if ((field in attributes) && !isEmpty(attributes[field]) && definition.type === FieldType.Object) {
             ensureRequiredAttributes(attributes[field], <FieldsDefinition> definition.fields);
         }
     }
+}
+
+function isEmpty(value: any): boolean {
+    return typeof value === 'undefined' || value === null;
 }
 
 function cleanUndefinedAttributes(

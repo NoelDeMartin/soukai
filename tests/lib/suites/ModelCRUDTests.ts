@@ -130,6 +130,23 @@ export default class extends TestSuite {
         });
     }
 
+    public testFindRespectsEmptyValues(): Promise<void> {
+        const id = Faker.random.uuid();
+
+        this.mockEngine.readOne.mockReturnValue(Promise.resolve({
+            id,
+            name: Faker.name.firstName(),
+            birth_date: null,
+        }));
+
+        return StubModel.find(id).then(model => {
+            expect(model).not.toBeNull();
+            if (model !== null) {
+                expect(model.birth_date).toBeNull();
+            }
+        });
+    }
+
     public testDontFind(): Promise<void> {
         const id = Faker.random.uuid();
 
@@ -187,6 +204,18 @@ export default class extends TestSuite {
                     },
                     [],
                 );
+            });
+    }
+
+    public testUpdateRespectsEmptyValues(): Promise<void> {
+        const id = Faker.random.uuid();
+
+        this.mockEngine.create.mockReturnValue(Promise.resolve(id));
+
+        return StubModel.create({ name: Faker.name.firstName(), birth_date: null })
+            .then(model => wait().then(() => model.update({ name: Faker.name.firstName() })))
+            .then(model => {
+                expect(model.birth_date).toBeNull();
             });
     }
 
