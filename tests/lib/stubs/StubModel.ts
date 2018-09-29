@@ -13,7 +13,10 @@ export default class extends Model {
             email: FieldType.String,
             phone: FieldType.String,
         },
-        name: FieldType.String,
+        name: {
+            type: FieldType.String,
+            required: true,
+        },
         surname: FieldType.String,
         social: {
             facebook: FieldType.String,

@@ -90,6 +90,25 @@ export default class extends TestSuite {
         });
     }
 
+    public testSaveWithoutRequiredAttribute(): void {
+        const createModel = () => StubModel.create();
+        expect(createModel).toThrow(SoukaiError);
+        expect(createModel).toThrow('The name attribute is required');
+    }
+
+    public testRemoveRequiredAttribute(): Promise<void> {
+        this.mockEngine.create.mockReturnValue(Promise.resolve(Faker.random.uuid()));
+
+        return StubModel.create({ name: Faker.name.firstName() })
+            .then(model => wait().then(() => {
+                model.unsetAttribute('name');
+
+                const saveModel = () => model.save();
+                expect(saveModel).toThrow(SoukaiError);
+                expect(saveModel).toThrow('The name attribute is required');
+            }));
+    }
+
     public testFind(): Promise<void> {
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
@@ -257,7 +276,7 @@ export default class extends TestSuite {
     public testThrowEngineMissingError(): void {
         Soukai.useEngine(null as any);
 
-        const createModel = () => StubModel.create();
+        const createModel = () => StubModel.create({ name: Faker.name.firstName() });
         expect(createModel).toThrow(SoukaiError);
         expect(createModel).toThrow('Engine must be initialized before performing any operations');
     }

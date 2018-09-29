@@ -292,6 +292,8 @@ export default abstract class Model {
 
     public save<T extends Model>(): Promise<T> {
         if (this._exists) {
+            ensureRequiredAttributes(this._attributes, this.classDef.fields);
+
             return Soukai.withEngine(engine =>
                 engine
                     .update(
@@ -308,6 +310,8 @@ export default abstract class Model {
                     }),
             );
         } else {
+            ensureRequiredAttributes(this._attributes, this.classDef.fields);
+
             return Soukai.withEngine(engine =>
                 engine
                     .create(
@@ -505,6 +509,23 @@ function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinit
     }
 
     return attributes;
+}
+
+function ensureRequiredAttributes(attributes: Attributes, fields: FieldsDefinition): void {
+    for (const field in fields) {
+        const definition = fields[field];
+        const isEmpty = !(field in attributes) ||
+            typeof attributes[field] === 'undefined' ||
+            attributes[field] === null;
+
+        if (definition.required && isEmpty) {
+            throw new SoukaiError(`The ${field} attribute is required`);
+        }
+
+        if (!isEmpty && definition.type === FieldType.Object) {
+            ensureRequiredAttributes(attributes[field], <FieldsDefinition> definition.fields);
+        }
+    }
 }
 
 function cleanUndefinedAttributes(
