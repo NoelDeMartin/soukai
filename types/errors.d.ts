@@ -6,7 +6,7 @@ export class SoukaiError implements Error {
     public message: string;
     public stack?: string;
 
-    new (...args: any[]): SoukaiError;
+    constructor(...args: any[]);
 
 }
 

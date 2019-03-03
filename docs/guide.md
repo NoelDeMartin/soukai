@@ -34,7 +34,9 @@ class User extends Model {
 Soukai.loadModel('User', User);
 
 User.create({ name: 'John', surname: 'Doe' })
-    .then(() => console.log(User.all()));
+    .then(() => User.all())
+    .then(models => models.map(model => model.getAttributes()))
+    .then(users => console.log(users));
 
 // This should show an array with the User "John Doe" in the console
 ```
