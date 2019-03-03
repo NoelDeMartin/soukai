@@ -51,15 +51,10 @@ export default abstract class Model {
 
     public static fields: FieldsDefinition | any;
 
-    public static readonly modelName: string;
+    public static modelName: string;
 
-    public static boot<T extends Model>(name: string): void {
-        const classDef = (<any> this);
-
-        if (typeof classDef.modelName !== 'undefined') {
-            return;
-        }
-
+    public static boot(name: string): void {
+        const classDef = this;
         const fieldDefinitions: FieldsDefinition = {};
 
         // Validate collection

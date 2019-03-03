@@ -7,12 +7,18 @@ export class Soukai {
 
     private _engine: Engine;
 
+    private _bootedModels: (typeof Model)[] = [];
+
     public useEngine(engine: Engine): void {
         this._engine = engine;
     }
 
     public loadModel(name: string, model: typeof Model): void {
-        model.boot(name);
+        if (this._bootedModels.indexOf(model) === -1) {
+            this._bootedModels.push(model);
+
+            model.boot(name);
+        }
     }
 
     public loadModels(models: { [name: string]: typeof Model}): void {
