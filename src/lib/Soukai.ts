@@ -15,9 +15,9 @@ export class Soukai {
 
     public loadModel(name: string, model: typeof Model): void {
         if (this._bootedModels.indexOf(model) === -1) {
-            this._bootedModels.push(model);
-
             model.boot(name);
+
+            this._bootedModels.push(model);
         }
     }
 
