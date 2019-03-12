@@ -12,13 +12,13 @@ export class SoukaiError implements Error {
 
 export class InvalidModelDefinition extends SoukaiError {
 
-    new (name: string, message: string): InvalidModelDefinition;
+    constructor(name: string, message: string);
 
 }
 
 export class DocumentNotFound extends SoukaiError {
 
-    new(key: Database.Key): DocumentNotFound;
+    constructor(key: Database.Key);
 
 }
 

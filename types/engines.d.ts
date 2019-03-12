@@ -67,7 +67,7 @@ export class InMemoryEngine implements Engine {
 
 export class LogEngine implements Engine {
 
-    new(engine: Engine): LogEngine;
+    constructor(engine: Engine);
 
     create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key>;
 

@@ -237,6 +237,8 @@ export default abstract class Model {
     }
 
     public getAttribute(field: string, includeUndefined: boolean = false): any {
+        // TODO implement attribute accessors
+
         const fields = field.split('.');
         let value = this.getAttributes(includeUndefined);
 

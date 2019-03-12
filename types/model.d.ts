@@ -53,7 +53,7 @@ export class Model {
 
     [field: string]: any;
 
-    new(attributes?: Attributes, exists?: boolean): Model;
+    constructor(attributes?: Attributes, exists?: boolean);
 
     public update<T extends Model>(attributes?: Attributes): Promise<T>;
 
