@@ -1,6 +1,5 @@
-import * as Database from '@/lib/Database';
 import Engine from '@/lib/Engine';
-import Model from '@/lib/Model';
+import Model, { Key, Document, Attributes } from '@/lib/Model';
 
 export default class implements Engine {
 
@@ -10,7 +9,7 @@ export default class implements Engine {
         this.engine = engine;
     }
 
-    public create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key> {
+    public create(model: typeof Model, attributes: Attributes): Promise<Key> {
         console.log('CREATE', model.collection, attributes);
         return this.engine.create(model, attributes)
             .then(id => {
@@ -23,7 +22,7 @@ export default class implements Engine {
             });
     }
 
-    public readOne(model: typeof Model, id: Database.Key): Promise<Database.Document> {
+    public readOne(model: typeof Model, id: Key): Promise<Document> {
         console.log('READ ONE', model.collection, id);
         return this.engine.readOne(model, id)
             .then(document => {
@@ -36,7 +35,7 @@ export default class implements Engine {
             });
     }
 
-    public readMany(model: typeof Model): Promise<Database.Document[]> {
+    public readMany(model: typeof Model): Promise<Document[]> {
         console.log('READ ALL', model.collection);
         return this.engine.readMany(model)
             .then(documents => {
@@ -51,8 +50,8 @@ export default class implements Engine {
 
     public update(
         model: typeof Model,
-        id: Database.Key,
-        dirtyAttributes: Database.Attributes,
+        id: Key,
+        dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
         console.log('UPDATE', model.collection, id, dirtyAttributes, removedAttributes);
@@ -64,7 +63,7 @@ export default class implements Engine {
             });
     }
 
-    public delete(model: typeof Model, id: Database.Key): Promise<void> {
+    public delete(model: typeof Model, id: Key): Promise<void> {
         console.log('DELETE', model.collection, id);
         return this.engine.delete(model, id)
             .then(() => console.log('DELETED'))

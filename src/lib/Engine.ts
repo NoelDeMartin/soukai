@@ -1,22 +1,20 @@
-import * as Database from './Database';
-
-import Model from '@/lib/Model';
+import Model, { Key, Attributes, Document } from '@/lib/Model';
 
 export default interface Engine {
 
-    create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key>;
+    create(model: typeof Model, attributes: Attributes): Promise<Key>;
 
-    readOne(model: typeof Model, id: Database.Key): Promise<Database.Document>;
+    readOne(model: typeof Model, id: Key): Promise<Document>;
 
-    readMany(model: typeof Model): Promise<Database.Document[]>;
+    readMany(model: typeof Model): Promise<Document[]>;
 
     update(
         model: typeof Model,
-        id: Database.Key,
-        dirtyAttributes: Database.Attributes,
+        id: Key,
+        dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
-    delete(model: typeof Model, id: Database.Key): Promise<void>;
+    delete(model: typeof Model, id: Key): Promise<void>;
 
 }

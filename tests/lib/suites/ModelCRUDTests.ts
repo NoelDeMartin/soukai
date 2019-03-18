@@ -49,8 +49,8 @@ export default class extends TestSuite {
                 {
                     ...attributes,
                     ...{
-                        created_at: seconds(model.created_at.getTime(), true),
-                        updated_at: seconds(model.updated_at.getTime(), true),
+                        created_at: model.created_at,
+                        updated_at: model.updated_at,
                     },
                 },
             );
@@ -82,8 +82,8 @@ export default class extends TestSuite {
                 {
                     ...attributes,
                     ...{
-                        created_at: seconds(model.created_at.getTime(), true),
-                        updated_at: seconds(model.updated_at.getTime(), true),
+                        created_at: model.created_at,
+                        updated_at: model.updated_at,
                     },
                 },
             );
@@ -114,7 +114,11 @@ export default class extends TestSuite {
         const name = Faker.name.firstName();
         const birthDate = seconds(Date.now(), true);
 
-        this.mockEngine.readOne.mockReturnValue(Promise.resolve({ id, name, birth_date: birthDate }));
+        this.mockEngine.readOne.mockReturnValue(Promise.resolve({
+            id,
+            name,
+            birth_date: birthDate * 1000,
+        }));
 
         return StubModel.find(id).then(model => {
             expect(model).not.toBeNull();
@@ -200,7 +204,7 @@ export default class extends TestSuite {
                     id,
                     {
                         name: newName,
-                        updated_at: seconds(model.updated_at.getTime(), true),
+                        updated_at: model.updated_at,
                     },
                     [],
                 );
@@ -247,7 +251,7 @@ export default class extends TestSuite {
                     id,
                     {
                         name: newName,
-                        updated_at: seconds(model.updated_at.getTime(), true),
+                        updated_at: model.updated_at,
                     },
                     [],
                 );
@@ -278,7 +282,7 @@ export default class extends TestSuite {
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
                     StubModel,
                     id,
-                    { updated_at: seconds(model.updated_at.getTime(), true) },
+                    { updated_at: model.updated_at },
                     ['surname'],
                 );
             });

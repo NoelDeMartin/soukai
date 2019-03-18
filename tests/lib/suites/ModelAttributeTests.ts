@@ -61,7 +61,7 @@ export default class extends TestSuite {
                     id,
                     {
                         name: newName,
-                        updated_at: seconds(model.updated_at.getTime(), true),
+                        updated_at: model.updated_at,
                     },
                     [],
                 );
@@ -93,7 +93,7 @@ export default class extends TestSuite {
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
                     StubModel,
                     id,
-                    { updated_at: seconds(model.updated_at.getTime(), true) },
+                    { updated_at: model.updated_at },
                     ['surname'],
                 );
             });

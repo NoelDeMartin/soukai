@@ -1,37 +1,21 @@
-import { Model } from './model';
-
-export namespace Database {
-
-    type Key = string;
-
-    type Value = string | number | boolean | Key;
-
-    interface Attributes {
-        [field: string]: Value | Value[] | Attributes;
-    }
-
-    interface Document extends Attributes {
-        id: Key;
-    }
-
-}
+import { Model, Attributes, Document, Key } from './model';
 
 export interface Engine {
 
-    create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key>;
+    create(model: typeof Model, attributes: Attributes): Promise<Key>;
 
-    readOne(model: typeof Model, id: Database.Key): Promise<Database.Document>;
+    readOne(model: typeof Model, id: Key): Promise<Document>;
 
-    readMany(model: typeof Model): Promise<Database.Document[]>;
+    readMany(model: typeof Model): Promise<Document[]>;
 
     update(
         model: typeof Model,
-        id: Database.Key,
-        dirtyAttributes: Database.Attributes,
+        id: Key,
+        dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
-    delete(model: typeof Model, id: Database.Key): Promise<void>;
+    delete(model: typeof Model, id: Key): Promise<void>;
 
 }
 
@@ -39,7 +23,7 @@ export interface InMemoryDatabase {
     [collection: string]: {
         totalDocuments: number;
         documents: {
-            [id: string]: Database.Document,
+            [id: string]: Document,
         };
     };
 }
@@ -48,20 +32,20 @@ export class InMemoryEngine implements Engine {
 
     public readonly database: InMemoryDatabase;
 
-    create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key>;
+    create(model: typeof Model, attributes: Attributes): Promise<Key>;
 
-    readOne(model: typeof Model, id: Database.Key): Promise<Database.Document>;
+    readOne(model: typeof Model, id: Key): Promise<Document>;
 
-    readMany(model: typeof Model): Promise<Database.Document[]>;
+    readMany(model: typeof Model): Promise<Document[]>;
 
     update(
         model: typeof Model,
-        id: Database.Key,
-        dirtyAttributes: Database.Attributes,
+        id: Key,
+        dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
-    delete(model: typeof Model, id: Database.Key): Promise<void>;
+    delete(model: typeof Model, id: Key): Promise<void>;
 
 }
 
@@ -69,19 +53,19 @@ export class LogEngine implements Engine {
 
     constructor(engine: Engine);
 
-    create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key>;
+    create(model: typeof Model, attributes: Attributes): Promise<Key>;
 
-    readOne(model: typeof Model, id: Database.Key): Promise<Database.Document>;
+    readOne(model: typeof Model, id: Key): Promise<Document>;
 
-    readMany(model: typeof Model): Promise<Database.Document[]>;
+    readMany(model: typeof Model): Promise<Document[]>;
 
     update(
         model: typeof Model,
-        id: Database.Key,
-        dirtyAttributes: Database.Attributes,
+        id: Key,
+        dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
-    delete(model: typeof Model, id: Database.Key): Promise<void>;
+    delete(model: typeof Model, id: Key): Promise<void>;
 
 }

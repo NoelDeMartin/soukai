@@ -1,7 +1,11 @@
-import { Database } from './engines';
+export type Key = any;
 
 export interface Attributes {
     [field: string]: any;
+}
+
+export interface Document extends Attributes {
+    id: Key;
 }
 
 export enum FieldType {
@@ -47,7 +51,7 @@ export class Model {
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;
 
-    public static find<T extends Model>(id: Database.Key): Promise<T | null>;
+    public static find<T extends Model>(id: Key): Promise<T | null>;
 
     public static all<T extends Model>(): Promise<T[]>;
 

@@ -1,13 +1,12 @@
-import * as Database from '@/lib/Database';
 import Engine from '@/lib/Engine';
-import Model from '@/lib/Model';
+import Model, { Key, Document, Attributes } from '@/lib/Model';
 
 import DocumentNotFound from '@/lib/errors/DocumentNotFound';
 
 interface Collection {
     totalDocuments: number;
     documents: {
-        [id: string]: Database.Document,
+        [id: string]: Document,
     };
 }
 
@@ -23,14 +22,14 @@ export default class implements Engine {
         return this.db;
     }
 
-    public create(model: typeof Model, attributes: Database.Attributes): Promise<Database.Key> {
+    public create(model: typeof Model, attributes: Attributes): Promise<Key> {
         const collection = this.collection(model.collection);
         const id = (++collection.totalDocuments).toString();
         collection.documents[id] = { ...attributes, ...{ id } };
         return Promise.resolve(id);
     }
 
-    public readOne(model: typeof Model, id: Database.Key): Promise<Database.Document> {
+    public readOne(model: typeof Model, id: Key): Promise<Document> {
         const collection = this.collection(model.collection);
         if (id in collection.documents) {
             return Promise.resolve(collection.documents[id]);
@@ -39,15 +38,15 @@ export default class implements Engine {
         }
     }
 
-    public readMany(model: typeof Model): Promise<Database.Document[]> {
+    public readMany(model: typeof Model): Promise<Document[]> {
         const collection = this.collection(model.collection);
         return Promise.resolve(Object.values(collection.documents));
     }
 
     public update(
         model: typeof Model,
-        id: Database.Key,
-        dirtyAttributes: Database.Attributes,
+        id: Key,
+        dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
         const collection = this.collection(model.collection);
@@ -63,7 +62,7 @@ export default class implements Engine {
         }
     }
 
-    public delete(model: typeof Model, id: Database.Key): Promise<void> {
+    public delete(model: typeof Model, id: Key): Promise<void> {
         const collection = this.collection(model.collection);
         if (id in collection.documents) {
             delete collection.documents[id];
