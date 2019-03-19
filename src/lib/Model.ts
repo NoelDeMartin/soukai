@@ -179,7 +179,13 @@ export default abstract class Model {
             this._dirtyAttributes.updated_at = this._attributes.updated_at;
         }
 
-        this._attributes = ensureAttributesExistance(this._attributes, this.classDef.fields);
+        this._attributes = this.castAttributes(
+            ensureAttributesExistance(
+                this._attributes,
+                this.classDef.fields,
+            ),
+            this.classDef.fields,
+        );
 
         return new Proxy(this, {
             get(target, property, receiver) {
@@ -211,6 +217,8 @@ export default abstract class Model {
     public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
         // TODO validate protected fields (e.g. id)
 
+        attributes = this.castAttributes(attributes, this.classDef.fields);
+
         this._attributes = { ...this._attributes, ...attributes };
         this._dirtyAttributes = { ...this._dirtyAttributes, ...attributes };
         this.touch();
@@ -235,7 +243,9 @@ export default abstract class Model {
 
     public setAttribute(field: string, value: any): void {
         // TODO implement deep setter
-        // TODO validate protected fields (e.g. id)
+
+        value = this.castAttribute(value, this.classDef.fields[field]);
+
         this._attributes[field] = value;
         this._dirtyAttributes[field] = value;
         this.touch();
@@ -245,34 +255,23 @@ export default abstract class Model {
         // TODO implement attribute accessors
 
         const fields = field.split('.');
-        let definition = this.classDef.fields;
         let value = this.getAttributes(includeUndefined);
 
         while (fields.length > 0) {
-            const part = fields.shift() as string;
-            value = value[part];
+            value = value[fields.shift() as string];
 
             if (typeof value === 'undefined') {
                 return value;
             }
-
-            if (part in definition) {
-                definition = fields.length === 0
-                    ? definition[part].type
-                    : definition[part].fields;
-            }
         }
 
-        return this.castAttribute(value, definition);
+        return value;
     }
 
     public getAttributes(includeUndefined: boolean = false): Attributes {
-        return this.castAttributes(
-            includeUndefined
-                ? deepClone(this._attributes)
-                : <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields),
-            this.classDef.fields,
-        );
+        return includeUndefined
+            ? deepClone(this._attributes)
+            : <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
     }
 
     public unsetAttribute(field: string): void {
@@ -314,7 +313,7 @@ export default abstract class Model {
                     .update(
                         this.classDef,
                         this._attributes.id,
-                        this.castAttributes(this._dirtyAttributes, this.classDef.fields),
+                        this._dirtyAttributes,
                         [...this._removedAttributes ],
                     )
                     .then(() => {
@@ -331,13 +330,10 @@ export default abstract class Model {
                 engine
                     .create(
                         this.classDef,
-                        this.castAttributes(
-                            cleanUndefinedAttributes(
-                                this._attributes,
-                                this.classDef.fields,
-                            ) as Attributes,
+                        cleanUndefinedAttributes(
+                            this._attributes,
                             this.classDef.fields,
-                        ),
+                        ) as Attributes,
                     )
                     .then(id => {
                         this._attributes.id = id;
