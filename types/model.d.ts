@@ -5,7 +5,7 @@ export interface Attributes {
 }
 
 export interface Document extends Attributes {
-    id: Key;
+    [primaryKey: string]: Key;
 }
 
 export enum FieldType {
@@ -55,7 +55,11 @@ export class Model {
 
     public static all<T extends Model>(): Promise<T[]>;
 
+    protected static hasAutomaticTimestamp(timestamp: string): boolean;
+
     [field: string]: any;
+
+    protected classDef: typeof Model;
 
     constructor(attributes?: Attributes, exists?: boolean);
 
@@ -78,5 +82,9 @@ export class Model {
     public touch(): void;
 
     public existsInDatabase(): boolean;
+
+    protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes;
+
+    protected castAttribute(value: any, definition?: FieldDefinition): any;
 
 }

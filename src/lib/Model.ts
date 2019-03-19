@@ -12,7 +12,7 @@ export interface Attributes {
 }
 
 export interface Document extends Attributes {
-    id: Key;
+    [primaryKey: string]: Key;
 }
 
 export enum FieldType {
@@ -50,7 +50,7 @@ export default abstract class Model {
 
     public static collection: string;
 
-    public static primaryKey: string | null = 'id';
+    public static primaryKey: string = 'id';
 
     public static timestamps: string[] | boolean;
 
@@ -148,6 +148,10 @@ export default abstract class Model {
         );
     }
 
+    protected static hasAutomaticTimestamp(timestamp: string): boolean {
+        return (<string[]> this.timestamps).indexOf(timestamp) !== -1;
+    }
+
     private static ensureBooted(): void {
         const classDef = (<any> this);
 
@@ -173,12 +177,12 @@ export default abstract class Model {
         this._dirtyAttributes = exists ? {} : {...attributes};
         this._removedAttributes = [];
 
-        if (!exists && this.hasAutomaticTimestamp('created_at')) {
+        if (!exists && this.classDef.hasAutomaticTimestamp('created_at')) {
             this._attributes.created_at = new Date();
             this._dirtyAttributes.created_at = this._attributes.created_at;
         }
 
-        if (!exists && this.hasAutomaticTimestamp('updated_at')) {
+        if (!exists && this.classDef.hasAutomaticTimestamp('updated_at')) {
             this._attributes.updated_at = new Date();
             this._dirtyAttributes.updated_at = this._attributes.updated_at;
         }
@@ -352,7 +356,7 @@ export default abstract class Model {
     }
 
     public touch(): void {
-        if (this.hasAutomaticTimestamp('updated_at')) {
+        if (this.classDef.hasAutomaticTimestamp('updated_at')) {
             this._attributes.updated_at = new Date();
             this._dirtyAttributes.updated_at = this._attributes.updated_at;
         }
@@ -414,12 +418,8 @@ export default abstract class Model {
         }
     }
 
-    private get classDef(): typeof Model {
+    protected get classDef(): typeof Model {
         return (<any> this.constructor);
-    }
-
-    private hasAutomaticTimestamp(timestamp: string): boolean {
-        return (<string[]> this.classDef.timestamps).indexOf(timestamp) !== -1;
     }
 
 }
