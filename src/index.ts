@@ -18,6 +18,13 @@ export { LogEngine, InMemoryEngine };
 export { SoukaiError, DocumentNotFound, InvalidModelDefinition };
 
 export { InMemoryDatabase } from '@/lib/engines/InMemoryEngine';
-export { Attributes, FieldDefinition, FieldsDefinition, FieldType } from '@/lib/Model';
+export {
+    Attributes,
+    Document,
+    FieldDefinition,
+    FieldsDefinition,
+    FieldType,
+    Key,
+} from '@/lib/Model';
 
 export default Soukai;
