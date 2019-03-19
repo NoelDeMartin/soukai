@@ -1,4 +1,3 @@
-import * as Database from '@/lib/Database';
 import Engine from '@/lib/Engine';
 import Model from '@/lib/Model';
 import Soukai from '@/lib/Soukai';
@@ -12,7 +11,7 @@ import LogEngine from '@/lib/engines/LogEngine';
 
 export { definitionsFromContext } from '@/utils/webpack-helpers';
 
-export { Model, Engine, Soukai, Database };
+export { Model, Engine, Soukai };
 
 export { LogEngine, InMemoryEngine };
 
