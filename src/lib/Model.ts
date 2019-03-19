@@ -50,7 +50,7 @@ export default abstract class Model {
 
     public static collection: string;
 
-    public static primaryKey: string = 'id';
+    public static primaryKey: string | null = 'id';
 
     public static timestamps: string[] | boolean;
 
@@ -93,9 +93,6 @@ export default abstract class Model {
 
         // Validate fields
         if (typeof classDef.fields !== 'undefined') {
-
-            // TODO validate protected fields (e.g. id)
-
             for (const field in classDef.fields) {
                 if (classDef.fields.hasOwnProperty(field)) {
                     if (classDef.timestamps.indexOf(field) !== -1) {
@@ -108,6 +105,13 @@ export default abstract class Model {
                     }
                 }
             }
+        }
+
+        if (classDef.primaryKey !== null && !(classDef.primaryKey in fieldDefinitions)) {
+            fieldDefinitions[classDef.primaryKey] = {
+                type: FieldType.Key,
+                required: false,
+            };
         }
 
         classDef.fields = fieldDefinitions;
@@ -362,38 +366,31 @@ export default abstract class Model {
         const castedAttributes = {};
 
         for (const field in attributes) {
-            const attribute = attributes[field];
-
-            if (typeof attribute === 'undefined') {
-                castedAttributes[field] = undefined;
-                continue;
-            }
-
-            if (definitions.hasOwnProperty(field)) {
-                castedAttributes[field] = this.castAttribute(attribute, definitions[field]);
-                continue;
-            }
-
-            switch (typeof attribute) {
-                case 'object':
-                    castedAttributes[field] = attribute.toString();
-                    break;
-                case 'symbol':
-                case 'function':
-                    // Nothing to do here
-                    break;
-                default:
-                    castedAttributes[field] = attribute;
-                    break;
-            }
+            castedAttributes[field] = this.castAttribute(
+                attributes[field],
+                definitions[field],
+            );
         }
 
         return castedAttributes;
     }
 
-    protected castAttribute(value: any, definition: FieldDefinition): any {
+    protected castAttribute(value: any, definition?: FieldDefinition): any {
         if (isEmpty(value)) {
             return value;
+        }
+
+        if (typeof definition === 'undefined') {
+            switch (typeof value) {
+                case 'object':
+                    return value.toString();
+                case 'symbol':
+                case 'function':
+                case 'undefined':
+                    return undefined;
+                default:
+                    return value;
+            }
         }
 
         switch (definition.type) {

@@ -38,16 +38,21 @@ export default class extends TestSuite {
         Soukai.loadModel('Stub', StubModel);
 
         expect(StubModel.fields).toEqual({
-            created_at: {
+            id: {
+                type: FieldType.Key,
                 required: false,
+            },
+            created_at: {
                 type: FieldType.Date,
+                required: false,
             },
         });
     }
 
-    public testEmptyTimestamps(): void {
+    public testEmptyTimestampsAndEmptyPrimaryKey(): void {
         // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+            public static primaryKey = null;
             public static timestamps = false;
         }
 
@@ -96,6 +101,10 @@ export default class extends TestSuite {
         Soukai.loadModel('Stub', StubModel);
 
         expect(StubModel.fields).toEqual({
+            id: {
+                type: FieldType.Key,
+                required: false,
+            },
             name: {
                 type: FieldType.String,
                 required: true,
@@ -153,6 +162,10 @@ export default class extends TestSuite {
         Soukai.loadModel('Stub', StubModel);
 
         expect(StubModel.fields).toEqual({
+            id: {
+                type: FieldType.Key,
+                required: false,
+            },
             created_at: {
                 type: FieldType.Date,
                 required: false,
