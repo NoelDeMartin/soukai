@@ -1,4 +1,4 @@
-import { Database } from './engines';
+import { Key } from './model';
 
 export class SoukaiError implements Error {
 
@@ -18,7 +18,7 @@ export class InvalidModelDefinition extends SoukaiError {
 
 export class DocumentNotFound extends SoukaiError {
 
-    constructor(key: Database.Key);
+    constructor(id: Key);
 
 }
 
