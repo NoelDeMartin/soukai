@@ -11,6 +11,9 @@ npm run docs:build
 # navigate into the build output directory
 cd docs/.vuepress/dist
 
+# setup js.org config
+echo "soukai.js.org" > CNAME
+
 # create repository
 git init
 git add -A

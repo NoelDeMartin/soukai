@@ -1,7 +1,6 @@
 module.exports = {
     title: 'Soukai ODM',
     description: 'A refreshing javascript library to work with your non relational database',
-    base: '/soukai/',
     themeConfig: {
         repo: 'noeldemartin/soukai',
         nav: [
