@@ -39,18 +39,18 @@ export default class extends TestSuite {
             expect(model.existsInDatabase()).toBe(true);
             expect(model.id).toBe(id);
             expect(model.name).toBe(name);
-            expect(model.created_at).toBeInstanceOf(Date);
-            expect(now - seconds(model.created_at)).toBeLessThan(1);
-            expect(model.updated_at).toBeInstanceOf(Date);
-            expect(now - seconds(model.updated_at)).toBeLessThan(1);
+            expect(model.createdAt).toBeInstanceOf(Date);
+            expect(now - seconds(model.createdAt)).toBeLessThan(1);
+            expect(model.updatedAt).toBeInstanceOf(Date);
+            expect(now - seconds(model.updatedAt)).toBeLessThan(1);
             expect(this.mockEngine.create).toHaveBeenCalledTimes(1);
             expect(this.mockEngine.create).toHaveBeenCalledWith(
                 StubModel,
                 {
                     ...attributes,
                     ...{
-                        created_at: model.created_at,
-                        updated_at: model.updated_at,
+                        createdAt: model.createdAt,
+                        updatedAt: model.updatedAt,
                     },
                 },
             );
@@ -72,18 +72,18 @@ export default class extends TestSuite {
             expect(model.existsInDatabase()).toBe(true);
             expect(model.id).toBe(id);
             expect(model.name).toBe(name);
-            expect(model.created_at).toBeInstanceOf(Date);
-            expect(now - seconds(model.created_at)).toBeLessThan(1);
-            expect(model.updated_at).toBeInstanceOf(Date);
-            expect(now - seconds(model.updated_at)).toBeLessThan(1);
+            expect(model.createdAt).toBeInstanceOf(Date);
+            expect(now - seconds(model.createdAt)).toBeLessThan(1);
+            expect(model.updatedAt).toBeInstanceOf(Date);
+            expect(now - seconds(model.updatedAt)).toBeLessThan(1);
             expect(this.mockEngine.create).toHaveBeenCalledTimes(1);
             expect(this.mockEngine.create).toHaveBeenCalledWith(
                 StubModel,
                 {
                     ...attributes,
                     ...{
-                        created_at: model.created_at,
-                        updated_at: model.updated_at,
+                        createdAt: model.createdAt,
+                        updatedAt: model.updatedAt,
                     },
                 },
             );
@@ -195,16 +195,16 @@ export default class extends TestSuite {
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(newName);
                 expect(model.surname).toBe(surname);
-                expect(model.updated_at).toBeInstanceOf(Date);
-                expect(now - seconds(model.updated_at)).toBeLessThan(1);
-                expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
+                expect(model.updatedAt).toBeInstanceOf(Date);
+                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
                     StubModel,
                     id,
                     {
                         name: newName,
-                        updated_at: model.updated_at,
+                        updatedAt: model.updatedAt,
                     },
                     [],
                 );
@@ -242,16 +242,16 @@ export default class extends TestSuite {
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(newName);
                 expect(model.surname).toBe(surname);
-                expect(model.updated_at).toBeInstanceOf(Date);
-                expect(now - seconds(model.updated_at)).toBeLessThan(1);
-                expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
+                expect(model.updatedAt).toBeInstanceOf(Date);
+                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
                     StubModel,
                     id,
                     {
                         name: newName,
-                        updated_at: model.updated_at,
+                        updatedAt: model.updatedAt,
                     },
                     [],
                 );
@@ -275,14 +275,14 @@ export default class extends TestSuite {
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(name);
                 expect(model.surname).toBeUndefined();
-                expect(model.updated_at).toBeInstanceOf(Date);
-                expect(now - seconds(model.updated_at)).toBeLessThan(1);
-                expect(model.updated_at.getTime()).toBeGreaterThan(model.created_at.getTime());
+                expect(model.updatedAt).toBeInstanceOf(Date);
+                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
                     StubModel,
                     id,
-                    { updated_at: model.updated_at },
+                    { updatedAt: model.updatedAt },
                     ['surname'],
                 );
             });

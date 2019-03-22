@@ -45,7 +45,7 @@ export interface FieldDefinition {
 
 const TYPE_VALUES = Object.values(FieldType);
 
-const TIMESTAMP_FIELDS = ['created_at', 'updated_at'];
+const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
 
 export default abstract class Model {
 
@@ -178,14 +178,14 @@ export default abstract class Model {
         this._dirtyAttributes = exists ? {} : {...attributes};
         this._removedAttributes = [];
 
-        if (!exists && this.classDef.hasAutomaticTimestamp('created_at')) {
-            this._attributes.created_at = new Date();
-            this._dirtyAttributes.created_at = this._attributes.created_at;
+        if (!exists && this.classDef.hasAutomaticTimestamp('createdAt')) {
+            this._attributes.createdAt = new Date();
+            this._dirtyAttributes.createdAt = this._attributes.createdAt;
         }
 
-        if (!exists && this.classDef.hasAutomaticTimestamp('updated_at')) {
-            this._attributes.updated_at = new Date();
-            this._dirtyAttributes.updated_at = this._attributes.updated_at;
+        if (!exists && this.classDef.hasAutomaticTimestamp('updatedAt')) {
+            this._attributes.updatedAt = new Date();
+            this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
         }
 
         this._attributes = this.castAttributes(
@@ -360,9 +360,9 @@ export default abstract class Model {
     }
 
     public touch(): void {
-        if (this.classDef.hasAutomaticTimestamp('updated_at')) {
-            this._attributes.updated_at = new Date();
-            this._dirtyAttributes.updated_at = this._attributes.updated_at;
+        if (this.classDef.hasAutomaticTimestamp('updatedAt')) {
+            this._attributes.updatedAt = new Date();
+            this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
         }
     }
 

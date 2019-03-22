@@ -128,7 +128,7 @@ User.create({
 ::: tip Using definitions at runtime
 Once the model class has been loaded, the field definitions will be expanded to have all attributes defined in the long form. It is important to keep this in mind in case the `fields` property is accessed at runtime, although that shouldn't be necessary unless some advance functionality is needed.
 
-The long form of our example before would be defined as such (additional fields `created_at` and `updated_at` are explained in the next section):
+The long form of our example before would be defined as such (additional fields `createdAt` and `updatedAt` are explained in the next section):
 
 ```javascript
 {
@@ -165,11 +165,11 @@ The long form of our example before would be defined as such (additional fields 
             },
         },
     },
-    created_at: {
+    createdAt: {
         type: FieldType.Date,
         required: false,
     },
-    updated_at: {
+    updatedAt: {
         type: FieldType.Date,
         required: false,
     },
@@ -179,17 +179,17 @@ The long form of our example before would be defined as such (additional fields 
 
 ### Automatic timestamps
 
-Model timestamps can be managed automatically. `created_at` will be set as the initial date when the model is created, and `updated_at` will be updated every time the model is modified.
+Model timestamps can be managed automatically. `createdAt` will be set as the initial date when the model is created, and `updatedAt` will be updated every time the model is modified.
 
 By default both timestamps are managed, but the static attribute `timestamps` can be defined to control this behaviour. It can either be a boolean to enable or disable the mechanism as a whole, or a strings array indicating which timestamps should be active.
 
-For example, if we only want the `created_at` attribute to be managed automatically:
+For example, if we only want the `createdAt` attribute to be managed automatically:
 
 ```javascript
 import { Model } from 'soukai';
 
 class User extends Model {
-    static timestamps = ['created_at'];
+    static timestamps = ['createdAt'];
 }
 ```
 

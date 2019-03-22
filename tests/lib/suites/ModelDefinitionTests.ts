@@ -32,7 +32,7 @@ export default class extends TestSuite {
     public testTimestamps(): void {
         // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            public static timestamps = ['created_at'];
+            public static timestamps = ['createdAt'];
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -42,7 +42,7 @@ export default class extends TestSuite {
                 type: FieldType.Key,
                 required: false,
             },
-            created_at: {
+            createdAt: {
                 type: FieldType.Date,
                 required: false,
             },
@@ -144,11 +144,11 @@ export default class extends TestSuite {
                     },
                 },
             },
-            created_at: {
+            createdAt: {
                 type: FieldType.Date,
                 required: false,
             },
-            updated_at: {
+            updatedAt: {
                 type: FieldType.Date,
                 required: false,
             },
@@ -166,11 +166,11 @@ export default class extends TestSuite {
                 type: FieldType.Key,
                 required: false,
             },
-            created_at: {
+            createdAt: {
                 type: FieldType.Date,
                 required: false,
             },
-            updated_at: {
+            updatedAt: {
                 type: FieldType.Date,
                 required: false,
             },
@@ -206,17 +206,17 @@ export default class extends TestSuite {
     public testInvalidTimestampField(): void {
         // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            public static timestamps = ['created_at'];
+            public static timestamps = ['createdAt'];
 
             public static fields = {
-                created_at: FieldType.Date,
+                createdAt: FieldType.Date,
             };
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow(
-            'created_at cannot be defined because it\'s being used as an automatic timestamp',
+            'createdAt cannot be defined because it\'s being used as an automatic timestamp',
         );
     }
 
