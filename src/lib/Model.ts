@@ -4,6 +4,7 @@ import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
 import SoukaiError from '@/lib/errors/SoukaiError';
 
 import { deepClone } from '@/utils/object';
+import Str from '@/utils/Str';
 
 export type Key = any;
 
@@ -197,11 +198,16 @@ export default abstract class Model {
 
         return new Proxy(this, {
             get(target, property, receiver) {
-                if (typeof property !== 'string' || property in target || !(property in target._attributes)) {
+                if (typeof property !== 'string' || property in target) {
                     return Reflect.get(target, property, receiver);
-                } else {
-                    return target.getAttribute(property);
                 }
+
+                const attributeAccessor = 'get' + Str.studlyCase(property) + 'Attribute';
+                if (typeof target[attributeAccessor] === 'function') {
+                    return target[attributeAccessor]();
+                }
+
+                return target.getAttribute(property);
             },
             set(target, property, value, receiver) {
                 if (property in target || typeof property !== 'string') {
@@ -260,8 +266,6 @@ export default abstract class Model {
     }
 
     public getAttribute(field: string, includeUndefined: boolean = false): any {
-        // TODO implement attribute accessors
-
         const fields = field.split('.');
         let value = this.getAttributes(includeUndefined);
 
@@ -301,10 +305,10 @@ export default abstract class Model {
             engine
                 .delete(
                     this.classDef,
-                    this._attributes.id,
+                    this._attributes[this.classDef.primaryKey],
                 )
                 .then(() => {
-                    delete this._attributes.id;
+                    delete this._attributes[this.classDef.primaryKey];
                     this._exists = false;
 
                     return <any> this;
@@ -320,7 +324,7 @@ export default abstract class Model {
                 engine
                     .update(
                         this.classDef,
-                        this._attributes.id,
+                        this._attributes[this.classDef.primaryKey],
                         this._dirtyAttributes,
                         [...this._removedAttributes ],
                     )
@@ -344,7 +348,7 @@ export default abstract class Model {
                         ) as Attributes,
                     )
                     .then(id => {
-                        this._attributes.id = id;
+                        this._attributes[this.classDef.primaryKey] = id;
                         this._dirtyAttributes = {};
                         this._removedAttributes = [];
                         this._exists = true;

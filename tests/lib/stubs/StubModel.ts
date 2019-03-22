@@ -32,4 +32,9 @@ export default class extends Model {
     }
 
     private static loaded: boolean = false;
+
+    public getAliasAttribute(): string {
+        return this.getAttribute('name');
+    }
+
 }

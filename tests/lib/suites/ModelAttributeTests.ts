@@ -33,6 +33,13 @@ export default class extends TestSuite {
         expect(model.surname).toBeUndefined();
     }
 
+    public testAttributeAccessor(): void {
+        const name = Faker.name.firstName();
+        const model = new StubModel({ name });
+
+        expect(model.alias).toBe(name);
+    }
+
     public testAttributeSetter(): Promise<void> {
         const id = Faker.random.uuid();
         const surname = Faker.name.lastName();
