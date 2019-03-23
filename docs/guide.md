@@ -199,6 +199,36 @@ In the same way as fields definition (explained in the previous section), once t
 Keep in mind that field definitions will also be added for active timestamps, and an error will be thrown if those fields are defined explicitly.
 :::
 
+### Attribute Accessors
+
+In order to create aliases or virtual attributes, an attribute accessor can be implemented by defining a method with the name `get{attribute-name}Attribute`. Where `{attribute-name}` is the name of the attribute starting with an uppercase letter.
+
+For example, imagine we have the following model:
+
+```javascript
+class User extends Model {
+    static fields = {
+        name: FieldType.String,
+    };
+
+    public getNicknameAttribute() {
+        return this.getAttribute('name');
+    }
+}
+```
+
+Instances of this model will return a `nickname` property on the object when accessed with a getter:
+
+```javascript
+    const user = new User({ name: 'John Doe' });
+
+    console.log('This is true:', user.name === user.nickname);
+```
+
+::: warning Only instance getters
+Keep in mind that this is only used for property getters, attribute accessors won't be used when calling other functions such as `getAttribute` or `getAttributes`. They will also be ignored in any interaction with the engines.
+:::
+
 ## Performing CRUD operations
 
 ### Creating
