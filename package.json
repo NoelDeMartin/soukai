@@ -31,7 +31,7 @@
   "bugs": {
     "url": "https://github.com/NoelDeMartin/soukai/issues"
   },
-  "homepage": "https://noeldemartin.github.io/soukai/",
+  "homepage": "https://soukai.js.org",
   "dependencies": {
     "@types/webpack-env": "^1.13.6"
   },
