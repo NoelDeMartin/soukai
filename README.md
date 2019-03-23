@@ -2,4 +2,4 @@
 
 A refreshing javascript library to work with your non relational database.
 
-Read the docs at [https://noeldemartin.github.io/soukai/](https://noeldemartin.github.io/soukai/).
+Read the docs at [https://soukai.js.org](https://soukai.js.org).

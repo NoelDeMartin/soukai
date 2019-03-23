@@ -8,7 +8,7 @@ export default class extends Model {
     public static collection = Faker.lorem.word();
 
     public static fields = {
-        birth_date: FieldType.Date,
+        birthDate: FieldType.Date,
         contact: {
             email: FieldType.String,
             phone: FieldType.String,

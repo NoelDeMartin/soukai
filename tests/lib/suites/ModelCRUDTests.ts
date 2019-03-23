@@ -117,7 +117,7 @@ export default class extends TestSuite {
         this.mockEngine.readOne.mockReturnValue(Promise.resolve({
             id,
             name,
-            birth_date: birthDate * 1000,
+            birthDate: birthDate * 1000,
         }));
 
         return StubModel.find(id).then(model => {
@@ -126,8 +126,8 @@ export default class extends TestSuite {
             if (model !== null) {
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(name);
-                expect(model.birth_date).toBeInstanceOf(Date);
-                expect(seconds(model.birth_date, true)).toEqual(birthDate);
+                expect(model.birthDate).toBeInstanceOf(Date);
+                expect(seconds(model.birthDate, true)).toEqual(birthDate);
                 expect(this.mockEngine.readOne).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.readOne).toHaveBeenCalledWith(StubModel, id);
             }
@@ -140,13 +140,13 @@ export default class extends TestSuite {
         this.mockEngine.readOne.mockReturnValue(Promise.resolve({
             id,
             name: Faker.name.firstName(),
-            birth_date: null,
+            birthDate: null,
         }));
 
         return StubModel.find(id).then(model => {
             expect(model).not.toBeNull();
             if (model !== null) {
-                expect(model.birth_date).toBeNull();
+                expect(model.birthDate).toBeNull();
             }
         });
     }
@@ -216,10 +216,10 @@ export default class extends TestSuite {
 
         this.mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        return StubModel.create({ name: Faker.name.firstName(), birth_date: null })
+        return StubModel.create({ name: Faker.name.firstName(), birthDate: null })
             .then(model => wait().then(() => model.update({ name: Faker.name.firstName() })))
             .then(model => {
-                expect(model.birth_date).toBeNull();
+                expect(model.birthDate).toBeNull();
             });
     }
 

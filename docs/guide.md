@@ -97,7 +97,7 @@ class User extends Model {
     static fields = {
         name: FieldType.String,
         surname: FieldType.String,
-        birth_date: FieldType.Date,
+        birthDate: FieldType.Date,
         interests: {
             type: FieldType.Array,
             items: FieldType.String,
@@ -116,7 +116,7 @@ One example of creating a valid model using that definition is the following:
 User.create({
     name: 'John',
     surname: 'Doe',
-    birth_date: new Date(),
+    birthDate: new Date(),
     interests: ['sports', 'reading'],
     contact: {
         phone: '123456789',
@@ -140,7 +140,7 @@ The long form of our example before would be defined as such (additional fields 
         type: FieldType.String,
         required: false,
     },
-    birth_date: {
+    birthDate: {
         type: FieldType.Date,
         required: false,
     },
@@ -209,7 +209,7 @@ In order to create models, there are two approaches. The first one is to create 
 const user = new User({
     name: 'John',
     surname: 'Doe',
-    birth_date: new Date(),
+    birthDate: new Date(),
 });
 user.save().then(() => {
     // Model created
@@ -222,7 +222,7 @@ The same operation can be performed using [Model.create](api.html#model-create):
 User.create({
     name: 'John',
     surname: 'Doe',
-    birth_date: new Date(),
+    birthDate: new Date(),
 }).then(user => {
     // Model created
 });
