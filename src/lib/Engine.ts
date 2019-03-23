@@ -1,4 +1,4 @@
-import Model, { Key, Attributes, Document } from '@/lib/Model';
+import Model, { Attributes, Document, Key } from '@/lib/Model';
 
 export default interface Engine {
 

@@ -1,5 +1,5 @@
 import Engine from '@/lib/Engine';
-import Model, { Key, Document, Attributes } from '@/lib/Model';
+import Model, { Attributes, Document, Key } from '@/lib/Model';
 
 import DocumentNotFound from '@/lib/errors/DocumentNotFound';
 

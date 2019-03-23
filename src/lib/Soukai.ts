@@ -7,7 +7,7 @@ export class Soukai {
 
     private _engine: Engine;
 
-    private _bootedModels: (typeof Model)[] = [];
+    private _bootedModels: Array<typeof Model> = [];
 
     public useEngine(engine: Engine): void {
         this._engine = engine;

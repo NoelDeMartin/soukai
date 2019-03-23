@@ -1,4 +1,5 @@
 import { Key } from '@/lib/Model';
+
 import SoukaiError from '@/lib/errors/SoukaiError';
 
 export default class extends SoukaiError {
