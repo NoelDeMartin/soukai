@@ -1,7 +1,7 @@
 .vscode
 docs
 scripts
-src
+src/**/*.test.ts
 tests
 jest.config.js
 tsconfig.json

@@ -1,6 +1,6 @@
 {
   "name": "soukai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A refreshing library to work with your non relational database",
   "main": "dist/soukai.common.js",
   "module": "dist/soukai.esm.js",
@@ -14,7 +14,7 @@
     "build-umd": "cross-env NODE_ENV=development TARGET_BUILD=umd webpack --mode='development' --no-progress --hide-modules",
     "build-common": "cross-env NODE_ENV=development TARGET_BUILD=commonjs webpack --mode='development' --no-progress --hide-modules",
     "build-esm": "cross-env NODE_ENV=development TARGET_BUILD=esmodule webpack --mode='development' --no-progress --hide-modules",
-    "publish": "scripts/publish.sh",
+    "publish-dev": "scripts/publish-dev.sh",
     "docs:dev": "vuepress dev docs",
     "docs:build": "vuepress build docs",
     "docs:publish": "scripts/publish-docs.sh"
