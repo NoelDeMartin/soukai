@@ -52,9 +52,15 @@ export default class extends TestSuite {
     }
 
     public testReadMany(): Promise<void> {
+        let otherCollection;
+
+        do {
+            otherCollection = Faker.lorem.word();
+        } while(StubModel.collection === otherCollection);
+
         // tslint:disable-next-line:max-classes-per-file
         class OtherModel extends Model {
-            public static collection = Faker.lorem.word();
+            public static collection = otherCollection;
         }
 
         const firstName = Faker.name.firstName();

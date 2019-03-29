@@ -10,7 +10,7 @@ set -e
 
 # update version
 hash=`git rev-parse HEAD`
-current_version=`grep -Po "(?<=\"version\"\: \")\d.\d.\d(?=\")"  < package.json`
+current_version=`grep -Po "(?<=\"version\"\: \")\d.\d.\d(?=\")" < package.json`
 new_version="$current_version-dev.$hash"
 
 sed -i "s/^  \"version\"\: \"$current_version\"/  \"version\"\: \"$new_version\"/" package.json
