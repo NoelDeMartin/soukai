@@ -1,7 +1,7 @@
-import Engine from '@/lib/Engine';
-import Model from '@/lib/Model';
+import Engine from '@/engines/Engine';
+import Model from '@/models/Model';
 
-import SoukaiError from '@/lib/errors/SoukaiError';
+import SoukaiError from '@/errors/SoukaiError';
 
 export class Soukai {
 

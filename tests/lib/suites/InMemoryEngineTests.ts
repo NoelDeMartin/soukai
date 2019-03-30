@@ -1,10 +1,10 @@
 import Faker from 'faker';
 
-import Model from '@/lib/Model';
+import Model from '@/models/Model';
 
-import InMemoryEngine from '@/lib/engines/InMemoryEngine';
+import InMemoryEngine from '@/engines/InMemoryEngine';
 
-import DocumentNotFound from '@/lib/errors/DocumentNotFound';
+import DocumentNotFound from '@/errors/DocumentNotFound';
 
 import TestSuite from '../TestSuite';
 

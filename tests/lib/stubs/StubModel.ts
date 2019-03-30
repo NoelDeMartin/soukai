@@ -1,7 +1,7 @@
 import Faker from 'faker';
 
-import Model, { FieldType } from '@/lib/Model';
-import Soukai from '@/lib/Soukai';
+import Model, { FieldType } from '@/models/Model';
+import Soukai from '@/Soukai';
 
 export default class extends Model {
 

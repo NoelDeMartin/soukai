@@ -1,8 +1,7 @@
 import Faker from 'faker';
 
-import Engine from '@/lib/Engine';
-import Model, { FieldType } from '@/lib/Model';
-import Soukai from '@/lib/Soukai';
+import Engine from '@/engines/Engine';
+import Soukai from '@/Soukai';
 
 import { seconds, wait } from '../utils';
 

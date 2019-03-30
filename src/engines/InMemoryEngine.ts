@@ -1,7 +1,7 @@
-import Engine from '@/lib/Engine';
-import Model, { Attributes, Document, Key } from '@/lib/Model';
+import Engine from '@/engines/Engine';
+import Model, { Attributes, Document, Key } from '@/models/Model';
 
-import DocumentNotFound from '@/lib/errors/DocumentNotFound';
+import DocumentNotFound from '@/errors/DocumentNotFound';
 
 interface Collection {
     totalDocuments: number;

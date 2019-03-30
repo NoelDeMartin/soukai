@@ -1,5 +1,5 @@
-import Engine from '@/lib/Engine';
-import Model, { Attributes, Document, Key } from '@/lib/Model';
+import Engine from '@/engines/Engine';
+import Model, { Attributes, Document, Key } from '@/models/Model';
 
 export default class implements Engine {
 

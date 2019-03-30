@@ -1,7 +1,7 @@
-import Soukai from '@/lib/Soukai';
+import Soukai from '@/Soukai';
 
-import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
-import SoukaiError from '@/lib/errors/SoukaiError';
+import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
+import SoukaiError from '@/errors/SoukaiError';
 
 import { deepClone } from '@/utils/object';
 import Str from '@/utils/Str';
@@ -108,7 +108,7 @@ export default abstract class Model {
             }
         }
 
-        if (classDef.primaryKey !== null && !(classDef.primaryKey in fieldDefinitions)) {
+        if (!(classDef.primaryKey in fieldDefinitions)) {
             fieldDefinitions[classDef.primaryKey] = {
                 type: FieldType.Key,
                 required: false,

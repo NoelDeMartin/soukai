@@ -1,10 +1,10 @@
 import Faker from 'faker';
 
-import Engine from '@/lib/Engine';
-import Model from '@/lib/Model';
-import Soukai from '@/lib/Soukai';
+import Engine from '@/engines/Engine';
+import Model from '@/models/Model';
+import Soukai from '@/Soukai';
 
-import SoukaiError from '@/lib/errors/SoukaiError';
+import SoukaiError from '@/errors/SoukaiError';
 
 import TestSuite from '../TestSuite';
 import { seconds, wait } from '../utils';

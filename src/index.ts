@@ -1,13 +1,13 @@
-import Engine from '@/lib/Engine';
-import Model from '@/lib/Model';
-import Soukai from '@/lib/Soukai';
+import Engine from '@/engines/Engine';
+import Model from '@/models/Model';
+import Soukai from '@/Soukai';
 
-import DocumentNotFound from '@/lib/errors/DocumentNotFound';
-import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
-import SoukaiError from '@/lib/errors/SoukaiError';
+import DocumentNotFound from '@/errors/DocumentNotFound';
+import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
+import SoukaiError from '@/errors/SoukaiError';
 
-import InMemoryEngine from '@/lib/engines/InMemoryEngine';
-import LogEngine from '@/lib/engines/LogEngine';
+import InMemoryEngine from '@/engines/InMemoryEngine';
+import LogEngine from '@/engines/LogEngine';
 
 export { definitionsFromContext } from '@/utils/webpack-helpers';
 
@@ -17,7 +17,7 @@ export { LogEngine, InMemoryEngine };
 
 export { SoukaiError, DocumentNotFound, InvalidModelDefinition };
 
-export { InMemoryDatabase } from '@/lib/engines/InMemoryEngine';
+export { InMemoryDatabase } from '@/engines/InMemoryEngine';
 export {
     Attributes,
     Document,
@@ -25,6 +25,6 @@ export {
     FieldsDefinition,
     FieldType,
     Key,
-} from '@/lib/Model';
+} from '@/models/Model';
 
 export default Soukai;

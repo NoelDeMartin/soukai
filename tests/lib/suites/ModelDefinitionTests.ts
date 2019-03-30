@@ -1,7 +1,7 @@
-import Model, { FieldType } from '@/lib/Model';
-import Soukai from '@/lib/Soukai';
+import Model, { FieldType } from '@/models/Model';
+import Soukai from '@/Soukai';
 
-import InvalidModelDefinition from '@/lib/errors/InvalidModelDefinition';
+import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 
 import TestSuite from '../TestSuite';
 
@@ -49,16 +49,20 @@ export default class extends TestSuite {
         });
     }
 
-    public testEmptyTimestampsAndEmptyPrimaryKey(): void {
+    public testEmptyTimestamps(): void {
         // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
-            public static primaryKey = null;
             public static timestamps = false;
         }
 
         Soukai.loadModel('Stub', StubModel);
 
-        expect(StubModel.fields).toEqual({});
+        expect(StubModel.fields).toEqual({
+            id: {
+                type: FieldType.Key,
+                required: false,
+            },
+        });
     }
 
     public testInvalidTimestamps(): void {
