@@ -1,4 +1,4 @@
-import Engine from '@/engines/Engine';
+import Engine, { Filters } from '@/engines/Engine';
 import Model, { Attributes, Document, Key } from '@/models/Model';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
@@ -24,8 +24,11 @@ export default class implements Engine {
 
     public create(model: typeof Model, attributes: Attributes): Promise<Key> {
         const collection = this.collection(model.collection);
-        const id = (++collection.totalDocuments).toString();
+        collection.totalDocuments++;
+
+        const id = attributes.id || collection.totalDocuments.toString();
         collection.documents[id] = { ...attributes, ...{ id } };
+
         return Promise.resolve(id);
     }
 
@@ -38,9 +41,15 @@ export default class implements Engine {
         }
     }
 
-    public readMany(model: typeof Model): Promise<Document[]> {
+    public readMany(model: typeof Model, filters?: Filters): Promise<Document[]> {
         const collection = this.collection(model.collection);
-        return Promise.resolve(Object.values(collection.documents));
+        let documents = Object.values(collection.documents);
+
+        if (filters) {
+            documents = documents.filter(document => this.filterDocument(document, filters));
+        }
+
+        return Promise.resolve(documents);
     }
 
     public update(
@@ -81,6 +90,16 @@ export default class implements Engine {
         }
 
         return this.db[name];
+    }
+
+    private filterDocument(document: Document, filters: Filters): boolean {
+        for (const field in filters) {
+            if (document[field] !== filters[field]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 }

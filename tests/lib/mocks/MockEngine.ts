@@ -1,6 +1,6 @@
 import Faker from 'faker';
 
-import Engine from '@/lib/Engine';
+import Engine from '@/engines/Engine';
 
 export default jest.fn<jest.Mocked<Engine>>(() => {
     return {

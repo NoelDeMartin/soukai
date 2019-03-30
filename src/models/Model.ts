@@ -6,6 +6,11 @@ import SoukaiError from '@/errors/SoukaiError';
 import { deepClone } from '@/utils/object';
 import Str from '@/utils/Str';
 
+import { Filters } from '@/engines/Engine';
+
+import HasManyRelation from '@/models/relations/HasManyRelation';
+import Relation from '@/models/relations/Relation';
+
 export type Key = any;
 
 export interface Attributes {
@@ -135,12 +140,12 @@ export default abstract class Model {
         );
     }
 
-    public static all<T extends Model>(): Promise<T[]> {
+    public static all<T extends Model>(filters?: Filters): Promise<T[]> {
         this.ensureBooted();
 
         return Soukai.withEngine(engine =>
             engine
-                .readMany(this)
+                .readMany(this, filters)
                 .then(documents =>
                         documents.map(document =>
                             new (this as any)(document, true),
@@ -165,6 +170,9 @@ export default abstract class Model {
     protected _attributes: Attributes;
     protected _dirtyAttributes: Attributes;
     protected _removedAttributes: string[];
+    protected _relations: {
+        [relation: string]: Model[];
+    };
 
     [field: string]: any;
 
@@ -177,6 +185,7 @@ export default abstract class Model {
         this._attributes = {...attributes};
         this._dirtyAttributes = exists ? {} : {...attributes};
         this._removedAttributes = [];
+        this._relations = {};
 
         if (!exists && this.classDef.hasAutomaticTimestamp('createdAt')) {
             this._attributes.createdAt = new Date();
@@ -205,6 +214,13 @@ export default abstract class Model {
                 const attributeAccessor = 'get' + Str.studlyCase(property) + 'Attribute';
                 if (typeof target[attributeAccessor] === 'function') {
                     return target[attributeAccessor]();
+                }
+
+                const relationshipCreator = Str.camelCase(property) + 'Relationship';
+                if (typeof target[relationshipCreator] === 'function') {
+                    return target.isRelationLoaded(property)
+                        ? target.getRelationModels(property)
+                        : undefined;
                 }
 
                 return target.getAttribute(property);
@@ -238,6 +254,27 @@ export default abstract class Model {
         this.touch();
 
         return this.save();
+    }
+
+    public loadRelation(relation: string): Promise<Model[]> {
+        const relationInstance = this[Str.camelCase(relation) + 'Relationship']() as Relation;
+        const promise = relationInstance.resolve();
+
+        promise.then(models => this.setRelation(relation, models));
+
+        return promise;
+    }
+
+    public getRelationModels(relation: string): Model[] | Model {
+        return this._relations[relation];
+    }
+
+    public setRelation(relation: string, models: Model[]): void {
+        this._relations[relation] = models;
+    }
+
+    public isRelationLoaded(relation: string): boolean {
+        return relation in this._relations;
     }
 
     public hasAttribute(field: string): boolean {
@@ -298,6 +335,10 @@ export default abstract class Model {
             this._removedAttributes.push(field);
             this.touch();
         }
+    }
+
+    public getPrimaryKey(): Key {
+        return this._attributes[this.classDef.primaryKey];
     }
 
     public delete<T extends Model>(): Promise<T> {
@@ -368,6 +409,10 @@ export default abstract class Model {
 
     public existsInDatabase(): boolean {
         return this._exists;
+    }
+
+    protected hasMany(model: typeof Model, foreignKey: Key): HasManyRelation {
+        return new HasManyRelation(this, model, foreignKey);
     }
 
     protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes {

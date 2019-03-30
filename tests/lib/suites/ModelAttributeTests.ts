@@ -7,7 +7,7 @@ import { seconds, wait } from '../utils';
 
 import TestSuite from '../TestSuite';
 
-import StubModel from '../stubs/StubModel';
+import User from '../stubs/User';
 
 import MockEngine from '../mocks/MockEngine';
 
@@ -18,7 +18,7 @@ export default class extends TestSuite {
     private mockEngine: jest.Mocked<Engine>;
 
     public setUp(): void {
-        StubModel.load();
+        User.load();
         MockEngine.mockClear();
 
         Soukai.useEngine(this.mockEngine = new MockEngine());
@@ -26,7 +26,7 @@ export default class extends TestSuite {
 
     public testAttributeGetter(): void {
         const name = Faker.name.firstName();
-        const model = new StubModel({ name });
+        const model = new User({ name });
 
         expect(model.name).toBe(name);
         expect(model.surname).toBeUndefined();
@@ -34,7 +34,7 @@ export default class extends TestSuite {
 
     public testAttributeAccessor(): void {
         const name = Faker.name.firstName();
-        const model = new StubModel({ name });
+        const model = new User({ name });
 
         expect(model.alias).toBe(name);
     }
@@ -48,13 +48,13 @@ export default class extends TestSuite {
 
         this.mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        return StubModel.create({ name: initialName, surname })
+        return User.create({ name: initialName, surname })
             .then(model => wait().then(() => {
                 model.name = newName;
                 return model.save();
             }))
             .then(model => {
-                expect(model).toBeInstanceOf(StubModel);
+                expect(model).toBeInstanceOf(User);
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(newName);
                 expect(model.surname).toBe(surname);
@@ -63,7 +63,7 @@ export default class extends TestSuite {
                 expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    StubModel,
+                    User,
                     id,
                     {
                         name: newName,
@@ -81,13 +81,13 @@ export default class extends TestSuite {
 
         this.mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        return StubModel.create({ name, surname: Faker.name.lastName() })
+        return User.create({ name, surname: Faker.name.lastName() })
             .then(model => wait().then(() => {
                 delete model.surname;
                 return model.save();
             }))
             .then(model => {
-                expect(model).toBeInstanceOf(StubModel);
+                expect(model).toBeInstanceOf(User);
                 expect(model.id).toBe(id);
                 expect(model.name).toBe(name);
                 expect(model.surname).toBeUndefined();
@@ -97,7 +97,7 @@ export default class extends TestSuite {
                 expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    StubModel,
+                    User,
                     id,
                     { updatedAt: model.updatedAt },
                     ['surname'],
@@ -106,7 +106,7 @@ export default class extends TestSuite {
     }
 
     public testUndefinedAttributes(): void {
-        const model = new StubModel({ contact: { phone: Faker.phone.phoneNumber() } });
+        const model = new User({ contact: { phone: Faker.phone.phoneNumber() } });
 
         expect(model.hasAttribute('name')).toBe(false);
         expect(model.getAttributes()).not.toHaveProperty('name');

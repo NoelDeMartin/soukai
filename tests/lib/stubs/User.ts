@@ -1,23 +1,22 @@
-import Faker from 'faker';
-
 import Model, { FieldType } from '@/models/Model';
+import Relation from '@/models/relations/Relation';
+
 import Soukai from '@/Soukai';
+import Post from './Post';
 
-export default class extends Model {
-
-    public static collection = Faker.lorem.word();
+export default class User extends Model {
 
     public static fields = {
-        birthDate: FieldType.Date,
-        contact: {
-            email: FieldType.String,
-            phone: FieldType.String,
-        },
         name: {
             type: FieldType.String,
             required: true,
         },
         surname: FieldType.String,
+        birthDate: FieldType.Date,
+        contact: {
+            email: FieldType.String,
+            phone: FieldType.String,
+        },
         social: {
             facebook: FieldType.String,
             twitter: FieldType.String,
@@ -27,11 +26,15 @@ export default class extends Model {
     public static load() {
         if (!this.loaded) {
             this.loaded = true;
-            Soukai.loadModel('Stub', this);
+            Soukai.loadModel('User', this);
         }
     }
 
     private static loaded: boolean = false;
+
+    public postsRelationship(): Relation {
+        return this.hasMany(Post, 'authorId');
+    }
 
     public getAliasAttribute(): string {
         return this.getAttribute('name');
