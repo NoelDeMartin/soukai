@@ -1,7 +1,8 @@
+import Soukai from '@/Soukai';
+
 import Model, { FieldType } from '@/models/Model';
 import Relation from '@/models/relations/Relation';
 
-import Soukai from '@/Soukai';
 import Post from './Post';
 
 export default class User extends Model {

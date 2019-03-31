@@ -8,6 +8,7 @@ import Str from '@/utils/Str';
 
 import { Filters } from '@/engines/Engine';
 
+import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
 import Relation from '@/models/relations/Relation';
 
@@ -147,9 +148,9 @@ export default abstract class Model {
             engine
                 .readMany(this, filters)
                 .then(documents =>
-                        documents.map(document =>
-                            new (this as any)(document, true),
-                        ),
+                    documents.map(document =>
+                        new (this as any)(document, true),
+                    ),
                 ),
         );
     }
@@ -171,7 +172,7 @@ export default abstract class Model {
     protected _dirtyAttributes: Attributes;
     protected _removedAttributes: string[];
     protected _relations: {
-        [relation: string]: Model[];
+        [relation: string]: null | Model | Model[];
     };
 
     [field: string]: any;
@@ -182,8 +183,8 @@ export default abstract class Model {
         this.classDef.ensureBooted();
 
         this._exists = exists;
-        this._attributes = {...attributes};
-        this._dirtyAttributes = exists ? {} : {...attributes};
+        this._attributes = { ...attributes };
+        this._dirtyAttributes = exists ? {} : { ...attributes };
         this._removedAttributes = [];
         this._relations = {};
 
@@ -256,7 +257,7 @@ export default abstract class Model {
         return this.save();
     }
 
-    public loadRelation(relation: string): Promise<Model[]> {
+    public loadRelation(relation: string): Promise<null | Model | Model[]> {
         const relationInstance = this[Str.camelCase(relation) + 'Relationship']() as Relation;
         const promise = relationInstance.resolve();
 
@@ -265,11 +266,11 @@ export default abstract class Model {
         return promise;
     }
 
-    public getRelationModels(relation: string): Model[] | Model {
+    public getRelationModels(relation: string): null | Model[] | Model {
         return this._relations[relation];
     }
 
-    public setRelation(relation: string, models: Model[]): void {
+    public setRelation(relation: string, models: null | Model | Model[]): void {
         this._relations[relation] = models;
     }
 
@@ -367,7 +368,7 @@ export default abstract class Model {
                         this.classDef,
                         this._attributes[this.classDef.primaryKey],
                         this._dirtyAttributes,
-                        [...this._removedAttributes ],
+                        [...this._removedAttributes],
                     )
                     .then(() => {
                         this._dirtyAttributes = {};
@@ -411,8 +412,21 @@ export default abstract class Model {
         return this._exists;
     }
 
-    protected hasMany(model: typeof Model, foreignKey: Key): HasManyRelation {
-        return new HasManyRelation(this, model, foreignKey);
+    protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): HasManyRelation {
+        return new HasManyRelation(this, model, relatedKeyField, parentKeyField || this.classDef.primaryKey);
+    }
+
+    protected belongsToOne(
+        model: typeof Model,
+        parentKeyField: string,
+        relatedKeyField?: string,
+    ): BelongsToOneRelation {
+        return new BelongsToOneRelation(
+            this,
+            model,
+            parentKeyField,
+            relatedKeyField || model.primaryKey,
+        );
     }
 
     protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes {

@@ -56,7 +56,7 @@ export default class extends TestSuite {
 
         do {
             otherCollection = Faker.lorem.word();
-        } while(User.collection === otherCollection);
+        } while (User.collection === otherCollection);
 
         // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {

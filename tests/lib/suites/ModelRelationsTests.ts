@@ -5,8 +5,9 @@ import Soukai from '@/Soukai';
 import Engine from '@/engines/Engine';
 
 import MockEngine from '../mocks/MockEngine';
-import User from '../stubs/User';
+
 import Post from '../stubs/Post';
+import User from '../stubs/User';
 
 import TestSuite from '../TestSuite';
 
@@ -33,12 +34,6 @@ export default class extends TestSuite {
         const firstPostBody = Faker.lorem.paragraph();
         const secondPostBody = Faker.lorem.paragraph();
 
-        this.mockEngine.readOne.mockReturnValue(Promise.resolve({
-            id,
-            name: Faker.random.word(),
-            birthDate: new Date(),
-        }));
-
         this.mockEngine.readMany.mockReturnValue(Promise.resolve([
             { id: firstPostId, title: firstPostTitle, body: firstPostBody },
             { id: secondPostId, title: secondPostTitle, body: secondPostBody },
@@ -51,9 +46,39 @@ export default class extends TestSuite {
         await user.loadRelation('posts');
 
         expect(user.posts).toHaveLength(2);
+        expect(user.posts[0]).toBeInstanceOf(Post);
+        expect(user.posts[0].id).toBe(firstPostId);
+        expect(user.posts[0].title).toBe(firstPostTitle);
+        expect(user.posts[0].body).toBe(firstPostBody);
+        expect(user.posts[1]).toBeInstanceOf(Post);
+        expect(user.posts[1].id).toBe(secondPostId);
+        expect(user.posts[1].title).toBe(secondPostTitle);
+        expect(user.posts[1].body).toBe(secondPostBody);
 
         expect(this.mockEngine.readMany).toHaveBeenCalledTimes(1);
         expect(this.mockEngine.readMany).toHaveBeenCalledWith(Post, { authorId: id });
+    }
+
+    public async testBelongsToOne(): Promise<void> {
+        const id = Faker.random.uuid();
+        const name = Faker.random.word();
+
+        this.mockEngine.readMany.mockReturnValue(Promise.resolve([
+            { id, name },
+        ]));
+
+        const post = new Post({ authorId: id });
+
+        expect(post.author).toBeUndefined();
+
+        await post.loadRelation('author');
+
+        expect(post.author).toBeInstanceOf(User);
+        expect(post.author.id).toBe(id);
+        expect(post.author.name).toBe(name);
+
+        expect(this.mockEngine.readMany).toHaveBeenCalledTimes(1);
+        expect(this.mockEngine.readMany).toHaveBeenCalledWith(User, { id });
     }
 
 }

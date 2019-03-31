@@ -1,18 +1,26 @@
-import Model, { Key } from '@/models/Model';
+import Model from '@/models/Model';
 import Relation from '@/models/relations/Relation';
 
-export default class HasManyRelation<M extends Model=Model> extends Relation<M> {
+export default class HasManyRelation extends Relation {
 
-    protected foreignKey: Key;
+    protected relatedKeyField: string;
 
-    public constructor(parent: M, related: typeof Model, foreignKey: Key) {
+    protected parentKeyField: string;
+
+    public constructor(
+        parent: Model,
+        related: typeof Model,
+        relatedKeyField: string,
+        parentKeyField: string,
+    ) {
         super(parent, related);
 
-        this.foreignKey = foreignKey;
+        this.relatedKeyField = relatedKeyField;
+        this.parentKeyField = parentKeyField;
     }
 
-    public resolve(): Promise<M[]> {
-        return this.related.all({ [this.foreignKey]: this.parent.getPrimaryKey() });
+    public resolve(): Promise<Model[]> {
+        return this.related.all({ [this.relatedKeyField]: this.parent.getAttribute(this.parentKeyField) });
     }
 
 }

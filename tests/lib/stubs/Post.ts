@@ -1,10 +1,11 @@
-import Model, { FieldType } from '@/models/Model';
-
 import Soukai from '@/Soukai';
 
-export default class Post extends Model {
+import Model, { FieldType } from '@/models/Model';
+import Relation from '@/models/relations/Relation';
 
-    private static loaded: boolean = false;
+import User from './User';
+
+export default class Post extends Model {
 
     public static fields = {
         title: FieldType.String,
@@ -17,6 +18,12 @@ export default class Post extends Model {
             this.loaded = true;
             Soukai.loadModel('Post', this);
         }
+    }
+
+    private static loaded: boolean = false;
+
+    public authorRelationship(): Relation {
+        return this.belongsToOne(User, 'authorId');
     }
 
 }
