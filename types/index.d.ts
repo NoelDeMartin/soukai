@@ -4,7 +4,14 @@ export { definitionsFromContext } from './utils';
 
 export { SoukaiError, DocumentNotFound, InvalidModelDefinition } from './errors';
 
-export { InMemoryDatabase, InMemoryEngine, LogEngine, Engine } from './engines';
+export {
+    Engine,
+    Filters,
+    InMemoryDatabase,
+    InMemoryEngine,
+    LogEngine,
+} from './engines';
+
 export {
     Attributes,
     Document,
@@ -14,5 +21,13 @@ export {
     Key,
     Model,
 } from './model';
+
+export {
+    BelongsToOneRelation,
+    HasManyRelation,
+    MultipleModelsRelation,
+    Relation,
+    SingleModelRelation,
+} from './relations';
 
 export default Soukai;

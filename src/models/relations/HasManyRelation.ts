@@ -1,7 +1,7 @@
 import Model from '@/models/Model';
-import Relation from '@/models/relations/Relation';
+import MultipleModelsRelation from '@/models/relations//MultipleModelsRelation';
 
-export default class HasManyRelation extends Relation {
+export default class HasManyRelation extends MultipleModelsRelation {
 
     protected relatedKeyField: string;
 

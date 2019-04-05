@@ -1,3 +1,7 @@
+import { BelongsToOneRelation, HasManyRelation, MultipleModelsRelation, SingleModelRelation } from './relations';
+
+import { Filters } from './engines';
+
 export type Key = any;
 
 export interface Attributes {
@@ -53,7 +57,7 @@ export class Model {
 
     public static find<T extends Model>(id: Key): Promise<T | null>;
 
-    public static all<T extends Model>(): Promise<T[]>;
+    public static all<T extends Model>(filters?: Filters): Promise<T[]>;
 
     protected static hasAutomaticTimestamp(timestamp: string): boolean;
 
@@ -64,6 +68,14 @@ export class Model {
     constructor(attributes?: Attributes, exists?: boolean);
 
     public update<T extends Model>(attributes?: Attributes): Promise<T>;
+
+    public loadRelation(relation: string): Promise<null | Model | Model[]>;
+
+    public getRelationModels(relation: string): null | Model[] | Model;
+
+    public setRelation(relation: string, models: null | Model | Model[]): void;
+
+    public isRelationLoaded(relation: string): boolean;
 
     public hasAttribute(field: string): boolean;
 
@@ -82,6 +94,18 @@ export class Model {
     public touch(): void;
 
     public existsInDatabase(): boolean;
+
+    protected hasMany(
+        model: typeof Model,
+        relatedKeyField: string,
+        parentKeyField?: string,
+    ): MultipleModelsRelation;
+
+    protected belongsToOne(
+        model: typeof Model,
+        parentKeyField: string,
+        relatedKeyField?: string,
+    ): SingleModelRelation;
 
     protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes;
 

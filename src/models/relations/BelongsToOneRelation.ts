@@ -1,7 +1,7 @@
 import Model from '@/models/Model';
-import Relation from '@/models/relations/Relation';
+import SingleModelRelation from '@/models/relations/SingleModelRelation';
 
-export default class BelongsToOneRelation extends Relation {
+export default class BelongsToOneRelation extends SingleModelRelation {
 
     protected parentKeyField: string;
 

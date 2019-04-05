@@ -10,7 +10,9 @@ import { Filters } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
+import MultipleModelsRelation from '@/models/relations/MultipleModelsRelation';
 import Relation from '@/models/relations/Relation';
+import SingleModelRelation from '@/models/relations/SingleModelRelation';
 
 export type Key = any;
 
@@ -412,7 +414,7 @@ export default abstract class Model {
         return this._exists;
     }
 
-    protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): HasManyRelation {
+    protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): MultipleModelsRelation {
         return new HasManyRelation(this, model, relatedKeyField, parentKeyField || this.classDef.primaryKey);
     }
 
@@ -420,7 +422,7 @@ export default abstract class Model {
         model: typeof Model,
         parentKeyField: string,
         relatedKeyField?: string,
-    ): BelongsToOneRelation {
+    ): SingleModelRelation {
         return new BelongsToOneRelation(
             this,
             model,
