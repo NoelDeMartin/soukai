@@ -67,6 +67,8 @@ export default abstract class Model {
 
     public static modelName: string;
 
+    public static classFields: string[] = [];
+
     public static boot(name: string): void {
         const classDef = this;
         const fieldDefinitions: FieldsDefinition = {};
@@ -116,12 +118,17 @@ export default abstract class Model {
             }
         }
 
+        // Define primary key field
         if (!(classDef.primaryKey in fieldDefinitions)) {
             fieldDefinitions[classDef.primaryKey] = {
                 type: FieldType.Key,
                 required: false,
             };
         }
+
+        // Obtain class definition information
+        const instance = classDef.createPureInstance();
+        classDef.classFields.push(...Object.getOwnPropertyNames(instance));
 
         classDef.fields = fieldDefinitions;
         classDef.modelName = name;
@@ -161,12 +168,24 @@ export default abstract class Model {
         return (<string[]> this.timestamps).indexOf(timestamp) !== -1;
     }
 
+    private static pureInstances: boolean = false;
+
     private static ensureBooted(): void {
         const classDef = (<any> this);
 
         if (typeof classDef.modelName === 'undefined') {
             throw new SoukaiError('Model has not been booted (did you forget to call Soukai.loadModel?)');
         }
+    }
+
+    private static createPureInstance(): typeof Model {
+        this.pureInstances = true;
+
+        const instance = new (<any> this)();
+
+        this.pureInstances = false;
+
+        return instance;
     }
 
     protected _exists: boolean;
@@ -180,6 +199,13 @@ export default abstract class Model {
     [field: string]: any;
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
+        // We need to do this in order to get a pure instance during boot,
+        // that is an instance that is not being proxied. This is necessary
+        // to obtain information about the class definition, for example class fields.
+        if (this.classDef.pureInstances) {
+            return;
+        }
+
         // TODO validate protected fields (e.g. id)
 
         this.classDef.ensureBooted();
@@ -210,7 +236,11 @@ export default abstract class Model {
 
         return new Proxy(this, {
             get(target, property, receiver) {
-                if (typeof property !== 'string' || property in target) {
+                if (
+                    typeof property !== 'string' ||
+                    property in target ||
+                    target.classDef.classFields.indexOf(property) !== -1
+                ) {
                     return Reflect.get(target, property, receiver);
                 }
 
@@ -228,7 +258,11 @@ export default abstract class Model {
                 return target.getAttribute(property);
             },
             set(target, property, value, receiver) {
-                if (typeof property !== 'string' || property in target) {
+                if (
+                    typeof property !== 'string' ||
+                    property in target ||
+                    target.classDef.classFields.indexOf(property) !== -1
+                ) {
                     return Reflect.set(target, property, value, receiver);
                 }
 
@@ -250,7 +284,10 @@ export default abstract class Model {
                     return true;
                 }
 
-                if (!(property in target._attributes)) {
+                if (
+                    !(property in target._attributes) ||
+                    target.classDef.classFields.indexOf(property) !== -1
+                ) {
                     return Reflect.deleteProperty(target, property);
                 }
 

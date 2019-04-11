@@ -224,4 +224,32 @@ export default class extends TestSuite {
         );
     }
 
+    public testAccessingClassProperties(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class StubModel extends Model {
+            public myArray = [];
+        }
+
+        Soukai.loadModel('Stub', StubModel);
+
+        const model = new StubModel();
+
+        expect(model.myArray).toEqual([]);
+    }
+
+    public testSettingClassProperties(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class StubModel extends Model {
+            public myArray: string[] = [];
+        }
+
+        Soukai.loadModel('Stub', StubModel);
+
+        const model = new StubModel();
+
+        model.myArray = ['foobar'];
+
+        expect(model.myArray).toEqual(['foobar']);
+    }
+
 }
