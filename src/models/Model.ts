@@ -219,8 +219,7 @@ export default abstract class Model {
                     return target[attributeAccessor]();
                 }
 
-                const relationshipCreator = Str.camelCase(property) + 'Relationship';
-                if (typeof target[relationshipCreator] === 'function') {
+                if (target.hasRelation(property)) {
                     return target.isRelationLoaded(property)
                         ? target.getRelationModels(property)
                         : undefined;
@@ -229,20 +228,34 @@ export default abstract class Model {
                 return target.getAttribute(property);
             },
             set(target, property, value, receiver) {
-                if (property in target || typeof property !== 'string') {
+                if (typeof property !== 'string' || property in target) {
                     return Reflect.set(target, property, value, receiver);
-                } else {
-                    target.setAttribute(property, value);
+                }
+
+                if (target.hasRelation(property)) {
+                    target.setRelation(property, value);
                     return true;
                 }
+
+                target.setAttribute(property, value);
+                return true;
             },
             deleteProperty(target, property) {
-                if (typeof property !== 'string' || property in target || !(property in target._attributes)) {
+                if (typeof property !== 'string' || property in target) {
                     return Reflect.deleteProperty(target, property);
-                } else {
-                    target.unsetAttribute(property);
+                }
+
+                if (target.hasRelation(property)) {
+                    target.unloadRelation(property);
                     return true;
                 }
+
+                if (!(property in target._attributes)) {
+                    return Reflect.deleteProperty(target, property);
+                }
+
+                target.unsetAttribute(property);
+                return true;
             },
         });
     }
@@ -259,6 +272,11 @@ export default abstract class Model {
         return this.save();
     }
 
+    public hasRelation(relation: string): boolean {
+        return relation in this._relations
+            || typeof this[Str.camelCase(relation) + 'Relationship'] === 'function';
+    }
+
     public loadRelation(relation: string): Promise<null | Model | Model[]> {
         const relationInstance = this[Str.camelCase(relation) + 'Relationship']() as Relation;
         const promise = relationInstance.resolve();
@@ -266,6 +284,12 @@ export default abstract class Model {
         promise.then(models => this.setRelation(relation, models));
 
         return promise;
+    }
+
+    public unloadRelation(relation: string): void {
+        if (relation in this._relations) {
+            delete this._relations[relation];
+        }
     }
 
     public getRelationModels(relation: string): null | Model[] | Model {

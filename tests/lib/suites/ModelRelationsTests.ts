@@ -81,4 +81,36 @@ export default class extends TestSuite {
         expect(this.mockEngine.readMany).toHaveBeenCalledWith(User, { id });
     }
 
+    public async testSettingRelations(): Promise<void> {
+        const id = Faker.random.uuid();
+        const name = Faker.random.word();
+
+        const post = new Post({ authorId: id });
+
+        expect(post.author).toBeUndefined();
+
+        post.author = new User({ id, name });
+
+        expect(post.author).toBeInstanceOf(User);
+        expect(post.author.id).toBe(id);
+        expect(post.author.name).toBe(name);
+    }
+
+    public async testDeletingRelations(): Promise<void> {
+        const id = Faker.random.uuid();
+        const name = Faker.random.word();
+
+        const post = new Post({ authorId: id });
+
+        expect(post.author).toBeUndefined();
+
+        post.author = new User({ id, name });
+
+        expect(post.author).toBeInstanceOf(User);
+
+        delete post.author;
+
+        expect(post.author).toBeUndefined();
+    }
+
 }
