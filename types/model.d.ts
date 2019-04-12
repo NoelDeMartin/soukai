@@ -51,6 +51,8 @@ export class Model {
 
     public static modelName: string;
 
+    public static classFields: string[];
+
     public static boot(name: string): void;
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;
@@ -68,6 +70,8 @@ export class Model {
     constructor(attributes?: Attributes, exists?: boolean);
 
     public update<T extends Model>(attributes?: Attributes): Promise<T>;
+
+    public hasRelation(relation: string): boolean;
 
     public loadRelation(relation: string): Promise<null | Model | Model[]>;
 
