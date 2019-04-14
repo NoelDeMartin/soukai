@@ -80,7 +80,7 @@ TODO
 
 TODO
 
-### model.existsInDatabase
+### model.exists
 
 TODO
 

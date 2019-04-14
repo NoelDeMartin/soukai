@@ -36,7 +36,7 @@ export default class extends TestSuite {
 
         return User.create(attributes).then(model => {
             expect(model).toBeInstanceOf(User);
-            expect(model.existsInDatabase()).toBe(true);
+            expect(model.exists()).toBe(true);
             expect(model.id).toBe(id);
             expect(model.name).toBe(name);
             expect(model.createdAt).toBeInstanceOf(Date);
@@ -69,7 +69,7 @@ export default class extends TestSuite {
 
         return model.save().then(() => {
             expect(model).toBeInstanceOf(User);
-            expect(model.existsInDatabase()).toBe(true);
+            expect(model.exists()).toBe(true);
             expect(model.id).toBe(id);
             expect(model.name).toBe(name);
             expect(model.createdAt).toBeInstanceOf(Date);
@@ -300,7 +300,7 @@ export default class extends TestSuite {
                 expect(model).toBeInstanceOf(User);
                 expect(model.id).toBeUndefined();
                 expect(model.name).toBe(name);
-                expect(model.existsInDatabase()).toBe(false);
+                expect(model.exists()).toBe(false);
                 expect(this.mockEngine.delete).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.delete).toHaveBeenCalledWith(User, id);
             });

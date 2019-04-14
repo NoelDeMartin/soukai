@@ -113,4 +113,9 @@ export default class extends TestSuite {
         expect(post.author).toBeUndefined();
     }
 
+    public async testRelationsExistUnloaded(): Promise<void> {
+        expect(Post.relations).toContain('author');
+        expect(User.relations).toContain('posts');
+    }
+
 }

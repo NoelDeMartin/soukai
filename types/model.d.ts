@@ -53,6 +53,8 @@ export class Model {
 
     public static classFields: string[];
 
+    public static relations: string[];
+
     public static boot(name: string): void;
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;
@@ -97,7 +99,9 @@ export class Model {
 
     public touch(): void;
 
-    public existsInDatabase(): boolean;
+    public setExists(exists: boolean): void;
+
+    public exists(): boolean;
 
     protected hasMany(
         model: typeof Model,

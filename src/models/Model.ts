@@ -51,6 +51,10 @@ export interface FieldDefinition {
 
 }
 
+interface RelationsMap {
+    [relation: string]: undefined | null | Model | Model[];
+}
+
 const TYPE_VALUES = Object.values(FieldType);
 
 const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
@@ -68,6 +72,8 @@ export default abstract class Model {
     public static modelName: string;
 
     public static classFields: string[] = [];
+
+    public static relations: string[] = [];
 
     public static boot(name: string): void {
         const classDef = this;
@@ -129,6 +135,17 @@ export default abstract class Model {
         // Obtain class definition information
         const instance = classDef.createPureInstance();
         classDef.classFields.push(...Object.getOwnPropertyNames(instance));
+
+        let prototype = Object.getPrototypeOf(instance);
+        while (prototype !== Model.prototype) {
+            for (const property of Object.getOwnPropertyNames(prototype)) {
+                if (property.endsWith('Relationship') && typeof instance[property] === 'function') {
+                    classDef.relations.push(property.substring(0, property.length - 12));
+                }
+            }
+
+            prototype = Object.getPrototypeOf(prototype);
+        }
 
         classDef.fields = fieldDefinitions;
         classDef.modelName = name;
@@ -192,9 +209,7 @@ export default abstract class Model {
     protected _attributes: Attributes;
     protected _dirtyAttributes: Attributes;
     protected _removedAttributes: string[];
-    protected _relations: {
-        [relation: string]: null | Model | Model[];
-    };
+    protected _relations: RelationsMap;
 
     [field: string]: any;
 
@@ -232,6 +247,11 @@ export default abstract class Model {
                 this.classDef.fields,
             ),
             this.classDef.fields,
+        );
+
+        this._relations = ensureRelationsExistance(
+            this._relations,
+            this.classDef.relations,
         );
 
         return new Proxy(this, {
@@ -310,8 +330,7 @@ export default abstract class Model {
     }
 
     public hasRelation(relation: string): boolean {
-        return relation in this._relations
-            || typeof this[Str.camelCase(relation) + 'Relationship'] === 'function';
+        return this.classDef.relations.indexOf(relation) !== -1;
     }
 
     public loadRelation(relation: string): Promise<null | Model | Model[]> {
@@ -324,13 +343,13 @@ export default abstract class Model {
     }
 
     public unloadRelation(relation: string): void {
-        if (relation in this._relations) {
+        if (this.isRelationLoaded(relation)) {
             delete this._relations[relation];
         }
     }
 
     public getRelationModels(relation: string): null | Model[] | Model {
-        return this._relations[relation];
+        return this._relations[relation] || null;
     }
 
     public setRelation(relation: string, models: null | Model | Model[]): void {
@@ -338,7 +357,7 @@ export default abstract class Model {
     }
 
     public isRelationLoaded(relation: string): boolean {
-        return relation in this._relations;
+        return typeof this._relations[relation] !== 'undefined';
     }
 
     public hasAttribute(field: string): boolean {
@@ -471,7 +490,11 @@ export default abstract class Model {
         }
     }
 
-    public existsInDatabase(): boolean {
+    public setExists(exists: boolean): void {
+        this._exists = exists;
+    }
+
+    public exists(): boolean {
         return this._exists;
     }
 
@@ -627,6 +650,16 @@ function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinit
     }
 
     return attributes;
+}
+
+function ensureRelationsExistance(relations: RelationsMap, relationNames: string[]): RelationsMap {
+    for (const name of relationNames) {
+        if (!(name in relations)) {
+            relations[name] = undefined;
+        }
+    }
+
+    return relations;
 }
 
 function ensureRequiredAttributes(attributes: Attributes, fields: FieldsDefinition): void {
