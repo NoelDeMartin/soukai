@@ -63,7 +63,7 @@ export default class extends TestSuite {
                 expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    User,
+                    User.collection,
                     id,
                     {
                         name: newName,
@@ -97,7 +97,7 @@ export default class extends TestSuite {
                 expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
                 expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
-                    User,
+                    User.collection,
                     id,
                     { updatedAt: model.updatedAt },
                     ['surname'],

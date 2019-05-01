@@ -33,13 +33,6 @@ export {
     SingleModelRelation,
 };
 
-export {
-    Attributes,
-    Document,
-    FieldDefinition,
-    FieldsDefinition,
-    FieldType,
-    Key,
-} from '@/models/Model';
+export { FieldType } from '@/models/Model';
 
 export default Soukai;

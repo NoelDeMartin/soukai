@@ -1,15 +1,9 @@
 import { BelongsToOneRelation, HasManyRelation, MultipleModelsRelation, SingleModelRelation } from './relations';
 
-import { Filters } from './engines';
-
-export type Key = any;
+import { Attributes as EngineAttributes, Engine, Filters } from './engines';
 
 export interface Attributes {
     [field: string]: any;
-}
-
-export interface Document extends Attributes {
-    [primaryKey: string]: Key;
 }
 
 export enum FieldType {
@@ -39,7 +33,7 @@ export interface FieldDefinition {
 
 }
 
-export class Model {
+export class Model<Key = any> {
 
     public static collection: string;
 
@@ -55,15 +49,17 @@ export class Model {
 
     public static relations: string[];
 
+    protected static instance: Model;
+
+    protected static pureInstance: Model;
+
     public static boot(name: string): void;
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;
 
-    public static find<T extends Model>(id: Key): Promise<T | null>;
+    public static find<T extends Model>(id: string): Promise<T | null>;
 
     public static all<T extends Model>(filters?: Filters): Promise<T[]>;
-
-    protected static hasAutomaticTimestamp(timestamp: string): boolean;
 
     [field: string]: any;
 
@@ -118,5 +114,17 @@ export class Model {
     protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes;
 
     protected castAttribute(value: any, definition?: FieldDefinition): any;
+
+    protected hasAutomaticTimestamp(timestamp: string): boolean;
+
+    protected prepareEngineAttributes(engine: Engine, attributes: Attributes): EngineAttributes;
+
+    protected prepareEngineAttributeNames(engine: Engine, names: string[]): string[];
+
+    protected parseEngineAttributes(engine: Engine, document: EngineAttributes): Attributes;
+
+    protected serializeKey<Key = any>(key: Key): Attributes;
+
+    protected parseKey(key: string): Key;
 
 }

@@ -1,5 +1,3 @@
-import { Key } from './model';
-
 export class SoukaiError implements Error {
 
     public name: string;
@@ -18,7 +16,7 @@ export class InvalidModelDefinition extends SoukaiError {
 
 export class DocumentNotFound extends SoukaiError {
 
-    constructor(id: Key);
+    constructor(id: string);
 
 }
 

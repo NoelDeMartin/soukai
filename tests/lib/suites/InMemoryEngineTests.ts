@@ -24,7 +24,7 @@ export default class extends TestSuite {
     public testCreate(): Promise<void> {
         const name = Faker.name.firstName();
 
-        return this.engine.create(User, { name }).then(id => {
+        return this.engine.create(User.collection, { name }).then(id => {
             expect(this.engine.database).toHaveProperty(User.collection);
             expect(this.engine.database[User.collection].documents).toHaveProperty(id);
             expect(Object.keys(this.engine.database[User.collection].documents)).toHaveLength(1);
@@ -37,10 +37,10 @@ export default class extends TestSuite {
 
         let id;
 
-        return this.engine.create(User, { name })
+        return this.engine.create(User.collection, { name })
             .then(documentId => {
                 id = documentId;
-                return this.engine.readOne(User, id);
+                return this.engine.readOne(User.collection, id);
             })
             .then(document => {
                 expect(document).toEqual({ id, name });
@@ -48,7 +48,7 @@ export default class extends TestSuite {
     }
 
     public testReadOneNonExistent(): void {
-        expect(this.engine.readOne(User, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        expect(this.engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
     }
 
     public testReadMany(): Promise<void> {
@@ -67,11 +67,11 @@ export default class extends TestSuite {
         const secondName = Faker.name.firstName();
 
         return Promise.all([
-            this.engine.create(User, { name: firstName }),
-            this.engine.create(User, { name: secondName }),
-            this.engine.create(StubModel, { name: Faker.name.firstName() }),
+            this.engine.create(User.collection, { name: firstName }),
+            this.engine.create(User.collection, { name: secondName }),
+            this.engine.create(StubModel.collection, { name: Faker.name.firstName() }),
         ])
-            .then(() => this.engine.readMany(User))
+            .then(() => this.engine.readMany(User.collection))
             .then(documents => {
                 expect(documents).toHaveLength(2);
                 expect(documents[0]).toEqual({ id: documents[0].id, name: firstName });
@@ -83,10 +83,10 @@ export default class extends TestSuite {
         const firstName = Faker.name.firstName();
         const secondName = Faker.name.firstName();
 
-        await this.engine.create(User, { name: firstName });
-        await this.engine.create(User, { name: secondName });
+        await this.engine.create(User.collection, { name: firstName });
+        await this.engine.create(User.collection, { name: secondName });
 
-        const documents = await this.engine.readMany(User, { name: secondName });
+        const documents = await this.engine.readMany(User.collection, { name: secondName });
 
         expect(documents).toHaveLength(1);
         expect(documents[0].name).toEqual(secondName);
@@ -98,10 +98,10 @@ export default class extends TestSuite {
 
         let id;
 
-        return this.engine.create(User, { name: initialName, surname: Faker.name.lastName() })
+        return this.engine.create(User.collection, { name: initialName, surname: Faker.name.lastName() })
             .then(documentId => {
                 id = documentId;
-                return this.engine.update(User, id, { name: newName }, ['surname']);
+                return this.engine.update(User.collection, id, { name: newName }, ['surname']);
             })
             .then(() => {
                 expect(this.engine.database[User.collection].documents[id]).toEqual({ id, name: newName });
@@ -109,19 +109,19 @@ export default class extends TestSuite {
     }
 
     public testUpdateNonExistent(): void {
-        expect(this.engine.update(User, Faker.random.uuid(), {}, [])).rejects.toThrow(DocumentNotFound);
+        expect(this.engine.update(User.collection, Faker.random.uuid(), {}, [])).rejects.toThrow(DocumentNotFound);
     }
 
     public testDelete(): Promise<void> {
-        return this.engine.create(User, { name: Faker.name.firstName() })
-            .then(id => this.engine.delete(User, id))
+        return this.engine.create(User.collection, { name: Faker.name.firstName() })
+            .then(id => this.engine.delete(User.collection, id))
             .then(() => {
                 expect(Object.keys(this.engine.database[User.collection].documents)).toHaveLength(0);
             });
     }
 
     public testDeleteNonExistent(): void {
-        expect(this.engine.delete(User, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        expect(this.engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
     }
 
 }

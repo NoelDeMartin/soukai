@@ -3,10 +3,10 @@ import Soukai from '@/Soukai';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 
-import { deepClone } from '@/utils/object';
+import { deepClone } from '@/utils/Obj';
 import Str from '@/utils/Str';
 
-import { Filters } from '@/engines/Engine';
+import Engine, { Attributes as EngineAttributes, Filters } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
@@ -14,14 +14,8 @@ import MultipleModelsRelation from '@/models/relations/MultipleModelsRelation';
 import Relation from '@/models/relations/Relation';
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
 
-export type Key = any;
-
 export interface Attributes {
     [field: string]: any;
-}
-
-export interface Document extends Attributes {
-    [primaryKey: string]: Key;
 }
 
 export enum FieldType {
@@ -59,7 +53,7 @@ const TYPE_VALUES = Object.values(FieldType);
 
 const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
 
-export default abstract class Model {
+export default abstract class Model<Key = any> {
 
     public static collection: string;
 
@@ -74,6 +68,14 @@ export default abstract class Model {
     public static classFields: string[] = [];
 
     public static relations: string[] = [];
+
+    protected static get instance(): Model {
+        return new (this as any)();
+    }
+
+    protected static get pureInstance(): Model {
+        return new (this as any)({ __pureInstance: true });
+    }
 
     public static boot(name: string): void {
         const classDef = this;
@@ -133,13 +135,12 @@ export default abstract class Model {
         }
 
         // Obtain class definition information
-        const instance = classDef.createPureInstance();
-        classDef.classFields.push(...Object.getOwnPropertyNames(instance));
+        classDef.classFields.push(...Object.getOwnPropertyNames(classDef.pureInstance));
 
-        let prototype = Object.getPrototypeOf(instance);
+        let prototype = Object.getPrototypeOf(classDef.pureInstance);
         while (prototype !== Model.prototype) {
             for (const property of Object.getOwnPropertyNames(prototype)) {
-                if (property.endsWith('Relationship') && typeof instance[property] === 'function') {
+                if (property.endsWith('Relationship') && typeof classDef.pureInstance[property] === 'function') {
                     classDef.relations.push(property.substring(0, property.length - 12));
                 }
             }
@@ -156,13 +157,17 @@ export default abstract class Model {
         return model.save();
     }
 
-    public static find<T extends Model>(id: Key): Promise<T | null> {
+    public static find<T extends Model, Key = any>(id: Key): Promise<T | null> {
         this.ensureBooted();
 
         return Soukai.withEngine(engine =>
             engine
-                .readOne(this, id)
-                .then(document => new (this as any)(document, true))
+                .readOne(this.collection, this.instance.serializeKey(id))
+                .then(result => {
+                    const attributes = this.instance.parseEngineAttributes(engine, result);
+
+                    return new (this as any)(attributes, true);
+                })
                 .catch(() => null),
         );
     }
@@ -172,20 +177,16 @@ export default abstract class Model {
 
         return Soukai.withEngine(engine =>
             engine
-                .readMany(this, filters)
-                .then(documents =>
-                    documents.map(document =>
-                        new (this as any)(document, true),
-                    ),
+                .readMany(this.collection, filters)
+                .then(results =>
+                    results.map(result => {
+                        const attributes = this.instance.parseEngineAttributes(engine, result);
+
+                        return new (this as any)(attributes, true);
+                    }),
                 ),
         );
     }
-
-    protected static hasAutomaticTimestamp(timestamp: string): boolean {
-        return (<string[]> this.timestamps).indexOf(timestamp) !== -1;
-    }
-
-    private static pureInstances: boolean = false;
 
     private static ensureBooted(): void {
         const classDef = (<any> this);
@@ -195,21 +196,15 @@ export default abstract class Model {
         }
     }
 
-    private static createPureInstance(): typeof Model {
-        this.pureInstances = true;
-
-        const instance = new (<any> this)();
-
-        this.pureInstances = false;
-
-        return instance;
-    }
-
     protected _exists: boolean;
     protected _attributes: Attributes;
     protected _dirtyAttributes: Attributes;
     protected _removedAttributes: string[];
     protected _relations: RelationsMap;
+
+    protected get classDef(): typeof Model {
+        return (this.constructor as any);
+    }
 
     [field: string]: any;
 
@@ -217,7 +212,7 @@ export default abstract class Model {
         // We need to do this in order to get a pure instance during boot,
         // that is an instance that is not being proxied. This is necessary
         // to obtain information about the class definition, for example class fields.
-        if (this.classDef.pureInstances) {
+        if ('__pureInstance' in attributes) {
             return;
         }
 
@@ -231,12 +226,12 @@ export default abstract class Model {
         this._removedAttributes = [];
         this._relations = {};
 
-        if (!exists && this.classDef.hasAutomaticTimestamp('createdAt')) {
+        if (!exists && this.hasAutomaticTimestamp('createdAt')) {
             this._attributes.createdAt = new Date();
             this._dirtyAttributes.createdAt = this._attributes.createdAt;
         }
 
-        if (!exists && this.classDef.hasAutomaticTimestamp('updatedAt')) {
+        if (!exists && this.hasAutomaticTimestamp('updatedAt')) {
             this._attributes.updatedAt = new Date();
             this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
         }
@@ -428,7 +423,7 @@ export default abstract class Model {
         return Soukai.withEngine(engine =>
             engine
                 .delete(
-                    this.classDef,
+                    this.classDef.collection,
                     this._attributes[this.classDef.primaryKey],
                 )
                 .then(() => {
@@ -447,10 +442,10 @@ export default abstract class Model {
             return Soukai.withEngine(engine =>
                 engine
                     .update(
-                        this.classDef,
+                        this.classDef.collection,
                         this._attributes[this.classDef.primaryKey],
-                        this._dirtyAttributes,
-                        [...this._removedAttributes],
+                        this.prepareEngineAttributes(engine, this._dirtyAttributes),
+                        [...this.prepareEngineAttributeNames(engine, this._removedAttributes)],
                     )
                     .then(() => {
                         this._dirtyAttributes = {};
@@ -462,29 +457,35 @@ export default abstract class Model {
         } else {
             ensureRequiredAttributes(this._attributes, this.classDef.fields);
 
-            return Soukai.withEngine(engine =>
-                engine
+            return Soukai.withEngine(engine => {
+                const attributes = cleanUndefinedAttributes(
+                    this._attributes,
+                    this.classDef.fields,
+                ) as Attributes;
+
+                const primaryKey = this.getPrimaryKey();
+
+                return engine
                     .create(
-                        this.classDef,
-                        cleanUndefinedAttributes(
-                            this._attributes,
-                            this.classDef.fields,
-                        ) as Attributes,
+                        this.classDef.collection,
+                        this.prepareEngineAttributes(engine, attributes),
+                        primaryKey ? this.serializeKey(primaryKey) : undefined,
                     )
                     .then(id => {
-                        this._attributes[this.classDef.primaryKey] = id;
+                        this._attributes[this.classDef.primaryKey] = this.parseKey(id);
                         this._dirtyAttributes = {};
                         this._removedAttributes = [];
                         this._exists = true;
 
                         return <any> this;
-                    }),
+                    });
+                },
             );
         }
     }
 
     public touch(): void {
-        if (this.classDef.hasAutomaticTimestamp('updatedAt')) {
+        if (this.hasAutomaticTimestamp('updatedAt')) {
             this._attributes.updatedAt = new Date();
             this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
         }
@@ -567,8 +568,28 @@ export default abstract class Model {
         }
     }
 
-    protected get classDef(): typeof Model {
-        return (<any> this.constructor);
+    protected hasAutomaticTimestamp(timestamp: string): boolean {
+        return (this.classDef.timestamps as string[]).indexOf(timestamp) !== -1;
+    }
+
+    protected prepareEngineAttributes(_: Engine, attributes: Attributes): EngineAttributes {
+        return attributes;
+    }
+
+    protected prepareEngineAttributeNames(_: Engine, names: string[]): string[] {
+        return names;
+    }
+
+    protected parseEngineAttributes(_: Engine, attributes: EngineAttributes): Attributes {
+        return attributes;
+    }
+
+    protected serializeKey(key: Key): string {
+        return key.toString();
+    }
+
+    protected parseKey(key: string): Key {
+        return key as any as Key;
     }
 
 }

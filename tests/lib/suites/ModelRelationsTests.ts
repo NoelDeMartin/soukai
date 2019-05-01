@@ -56,7 +56,7 @@ export default class extends TestSuite {
         expect(user.posts[1].body).toBe(secondPostBody);
 
         expect(this.mockEngine.readMany).toHaveBeenCalledTimes(1);
-        expect(this.mockEngine.readMany).toHaveBeenCalledWith(Post, { authorId: id });
+        expect(this.mockEngine.readMany).toHaveBeenCalledWith(Post.collection, { authorId: id });
     }
 
     public async testBelongsToOne(): Promise<void> {
@@ -78,7 +78,7 @@ export default class extends TestSuite {
         expect(post.author.name).toBe(name);
 
         expect(this.mockEngine.readMany).toHaveBeenCalledTimes(1);
-        expect(this.mockEngine.readMany).toHaveBeenCalledWith(User, { id });
+        expect(this.mockEngine.readMany).toHaveBeenCalledWith(User.collection, { id });
     }
 
     public async testSettingRelations(): Promise<void> {

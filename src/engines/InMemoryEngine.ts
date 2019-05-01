@@ -1,12 +1,11 @@
-import Engine, { Filters } from '@/engines/Engine';
-import Model, { Attributes, Document, Key } from '@/models/Model';
+import Engine, { Attributes, Filters } from '@/engines/Engine';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 interface Collection {
     totalDocuments: number;
     documents: {
-        [id: string]: Document,
+        [id: string]: Attributes,
     };
 }
 
@@ -22,18 +21,19 @@ export default class implements Engine {
         return this.db;
     }
 
-    public create(model: typeof Model, attributes: Attributes): Promise<Key> {
-        const collection = this.collection(model.collection);
+    public create(collectionName: string, attributes: Attributes, id?: string): Promise<string> {
+        const collection = this.collection(collectionName);
+
         collection.totalDocuments++;
 
-        const id = attributes.id || collection.totalDocuments.toString();
+        id = id || collection.totalDocuments.toString();
         collection.documents[id] = { ...attributes, ...{ id } };
 
         return Promise.resolve(id);
     }
 
-    public readOne(model: typeof Model, id: Key): Promise<Document> {
-        const collection = this.collection(model.collection);
+    public readOne(collectionName: string, id: string): Promise<Attributes> {
+        const collection = this.collection(collectionName);
         if (id in collection.documents) {
             return Promise.resolve(collection.documents[id]);
         } else {
@@ -41,24 +41,24 @@ export default class implements Engine {
         }
     }
 
-    public readMany(model: typeof Model, filters?: Filters): Promise<Document[]> {
-        const collection = this.collection(model.collection);
-        let documents = Object.values(collection.documents);
+    public readMany(collectionName: string, filters?: Filters): Promise<Attributes[]> {
+        const collection = this.collection(collectionName);
+        let results = Object.values(collection.documents);
 
         if (filters) {
-            documents = documents.filter(document => this.filterDocument(document, filters));
+            results = results.filter(result => this.filterResult(result, filters));
         }
 
-        return Promise.resolve(documents);
+        return Promise.resolve(results);
     }
 
     public update(
-        model: typeof Model,
-        id: Key,
+        collectionName: string,
+        id: string,
         dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
-        const collection = this.collection(model.collection);
+        const collection = this.collection(collectionName);
         if (id in collection.documents) {
             const document = collection.documents[id];
             collection.documents[id] = { ...document, ...dirtyAttributes };
@@ -71,8 +71,8 @@ export default class implements Engine {
         }
     }
 
-    public delete(model: typeof Model, id: Key): Promise<void> {
-        const collection = this.collection(model.collection);
+    public delete(collectionName: string, id: string): Promise<void> {
+        const collection = this.collection(collectionName);
         if (id in collection.documents) {
             delete collection.documents[id];
             return Promise.resolve();
@@ -92,9 +92,9 @@ export default class implements Engine {
         return this.db[name];
     }
 
-    private filterDocument(document: Document, filters: Filters): boolean {
+    private filterResult(result: Attributes, filters: Filters): boolean {
         for (const field in filters) {
-            if (document[field] !== filters[field]) {
+            if (result[field] !== filters[field]) {
                 return false;
             }
         }

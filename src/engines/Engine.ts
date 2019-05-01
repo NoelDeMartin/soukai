@@ -1,4 +1,8 @@
-import Model, { Attributes, Document, Key } from '@/models/Model';
+type AttributeValue = string | number | boolean | null | Date;
+
+export interface Attributes {
+    [field: string]: AttributeValue | AttributeValue[] | Attributes;
+}
 
 export interface Filters {
     [field: string]: any;
@@ -6,19 +10,19 @@ export interface Filters {
 
 export default interface Engine {
 
-    create(model: typeof Model, attributes: Attributes): Promise<Key>;
+    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
 
-    readOne(model: typeof Model, id: Key): Promise<Document>;
+    readOne(collection: string, id: string): Promise<Attributes>;
 
-    readMany(model: typeof Model, filters?: Filters): Promise<Document[]>;
+    readMany(collection: string, filters?: Filters): Promise<Attributes[]>;
 
     update(
-        model: typeof Model,
-        id: Key,
+        collection: string,
+        id: string,
         dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
-    delete(model: typeof Model, id: Key): Promise<void>;
+    delete(collection: string, id: string): Promise<void>;
 
 }

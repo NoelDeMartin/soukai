@@ -1,5 +1,4 @@
-import Engine, { Filters } from '@/engines/Engine';
-import Model, { Attributes, Document, Key } from '@/models/Model';
+import Engine, { Attributes, Filters } from '@/engines/Engine';
 
 export default class implements Engine {
 
@@ -9,12 +8,12 @@ export default class implements Engine {
         this.engine = engine;
     }
 
-    public create(model: typeof Model, attributes: Attributes): Promise<Key> {
-        console.log('CREATE', model.collection, attributes);
-        return this.engine.create(model, attributes)
-            .then(id => {
-                console.log('CREATED', id);
-                return id;
+    public create(collection: string, attributes: Attributes, id?: string): Promise<string> {
+        console.log('CREATE', collection, attributes, id);
+        return this.engine.create(collection, attributes, id)
+            .then(resultId => {
+                console.log('CREATED', resultId);
+                return resultId;
             })
             .catch(error => {
                 console.error(error);
@@ -22,9 +21,9 @@ export default class implements Engine {
             });
     }
 
-    public readOne(model: typeof Model, id: Key): Promise<Document> {
-        console.log('READ ONE', model.collection, id);
-        return this.engine.readOne(model, id)
+    public readOne(collection: string, id: string): Promise<Attributes> {
+        console.log('READ ONE', collection, id);
+        return this.engine.readOne(collection, id)
             .then(document => {
                 console.log('FOUND', document);
                 return document;
@@ -35,9 +34,9 @@ export default class implements Engine {
             });
     }
 
-    public readMany(model: typeof Model, filters?: Filters): Promise<Document[]> {
-        console.log('READ ALL', model.collection, filters);
-        return this.engine.readMany(model, filters)
+    public readMany(collection: string, filters?: Filters): Promise<Attributes[]> {
+        console.log('READ ALL', collection, filters);
+        return this.engine.readMany(collection, filters)
             .then(documents => {
                 console.log('FOUND', documents);
                 return documents;
@@ -49,13 +48,13 @@ export default class implements Engine {
     }
 
     public update(
-        model: typeof Model,
-        id: Key,
+        collection: string,
+        id: string,
         dirtyAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
-        console.log('UPDATE', model.collection, id, dirtyAttributes, removedAttributes);
-        return this.engine.update(model, id, dirtyAttributes, removedAttributes)
+        console.log('UPDATE', collection, id, dirtyAttributes, removedAttributes);
+        return this.engine.update(collection, id, dirtyAttributes, removedAttributes)
             .then(() => console.log('UPDATED'))
             .catch(error => {
                 console.error(error);
@@ -63,9 +62,9 @@ export default class implements Engine {
             });
     }
 
-    public delete(model: typeof Model, id: Key): Promise<void> {
-        console.log('DELETE', model.collection, id);
-        return this.engine.delete(model, id)
+    public delete(collection: string, id: string): Promise<void> {
+        console.log('DELETE', collection, id);
+        return this.engine.delete(collection, id)
             .then(() => console.log('DELETED'))
             .catch(error => {
                 console.error(error);
