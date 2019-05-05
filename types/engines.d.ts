@@ -4,6 +4,10 @@ export interface Attributes {
     [field: string]: AttributeValue;
 }
 
+export interface Documents {
+    [id: string]: Attributes;
+}
+
 export interface Filters {
     [field: string]: any;
 }
@@ -14,7 +18,7 @@ export interface Engine {
 
     readOne(collection: string, id: string): Promise<Attributes>;
 
-    readMany(collection: string, filters?: Filters): Promise<Attributes[]>;
+    readMany(collection: string, filters?: Filters): Promise<Documents>;
 
     update(
         collection: string,
@@ -44,7 +48,7 @@ export class InMemoryEngine implements Engine {
 
     readOne(collection: string, id: string): Promise<Attributes>;
 
-    readMany(collection: string): Promise<Attributes[]>;
+    readMany(collection: string): Promise<Documents>;
 
     update(
         collection: string,
@@ -65,7 +69,7 @@ export class LogEngine implements Engine {
 
     readOne(collection: string, id: string): Promise<Attributes>;
 
-    readMany(collection: string): Promise<Attributes[]>;
+    readMany(collection: string): Promise<Documents>;
 
     update(
         collection: string,

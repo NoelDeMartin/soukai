@@ -26,9 +26,9 @@ export default class extends TestSuite {
 
         return this.engine.create(User.collection, { name }).then(id => {
             expect(this.engine.database).toHaveProperty(User.collection);
-            expect(this.engine.database[User.collection].documents).toHaveProperty(id);
-            expect(Object.keys(this.engine.database[User.collection].documents)).toHaveLength(1);
-            expect(this.engine.database[User.collection].documents[id]).toEqual({ id, name });
+            expect(this.engine.database[User.collection]).toHaveProperty(id);
+            expect(Object.keys(this.engine.database[User.collection])).toHaveLength(1);
+            expect(this.engine.database[User.collection][id]).toEqual({ name });
         });
     }
 
@@ -43,7 +43,7 @@ export default class extends TestSuite {
                 return this.engine.readOne(User.collection, id);
             })
             .then(document => {
-                expect(document).toEqual({ id, name });
+                expect(document).toEqual({ name });
             });
     }
 
@@ -66,16 +66,18 @@ export default class extends TestSuite {
         const firstName = Faker.name.firstName();
         const secondName = Faker.name.firstName();
 
+        const ids: string[] = [];
+
         return Promise.all([
-            this.engine.create(User.collection, { name: firstName }),
-            this.engine.create(User.collection, { name: secondName }),
+            this.engine.create(User.collection, { name: firstName }).then(id => ids.push(id)),
+            this.engine.create(User.collection, { name: secondName }).then(id => ids.push(id)),
             this.engine.create(StubModel.collection, { name: Faker.name.firstName() }),
         ])
             .then(() => this.engine.readMany(User.collection))
             .then(documents => {
-                expect(documents).toHaveLength(2);
-                expect(documents[0]).toEqual({ id: documents[0].id, name: firstName });
-                expect(documents[1]).toEqual({ id: documents[1].id, name: secondName });
+                expect(Object.values(documents)).toHaveLength(2);
+                expect(documents[ids[0]]).toEqual({ name: firstName });
+                expect(documents[ids[1]]).toEqual({ name: secondName });
             });
     }
 
@@ -84,12 +86,12 @@ export default class extends TestSuite {
         const secondName = Faker.name.firstName();
 
         await this.engine.create(User.collection, { name: firstName });
-        await this.engine.create(User.collection, { name: secondName });
+        const id = await this.engine.create(User.collection, { name: secondName });
 
         const documents = await this.engine.readMany(User.collection, { name: secondName });
 
-        expect(documents).toHaveLength(1);
-        expect(documents[0].name).toEqual(secondName);
+        expect(Object.values(documents)).toHaveLength(1);
+        expect(documents[id]).toEqual({ name: secondName });
     }
 
     public testUpdate(): Promise<void> {
@@ -104,7 +106,7 @@ export default class extends TestSuite {
                 return this.engine.update(User.collection, id, { name: newName }, ['surname']);
             })
             .then(() => {
-                expect(this.engine.database[User.collection].documents[id]).toEqual({ id, name: newName });
+                expect(this.engine.database[User.collection][id]).toEqual({ name: newName });
             });
     }
 
@@ -116,7 +118,7 @@ export default class extends TestSuite {
         return this.engine.create(User.collection, { name: Faker.name.firstName() })
             .then(id => this.engine.delete(User.collection, id))
             .then(() => {
-                expect(Object.keys(this.engine.database[User.collection].documents)).toHaveLength(0);
+                expect(Object.keys(this.engine.database[User.collection])).toHaveLength(0);
             });
     }
 

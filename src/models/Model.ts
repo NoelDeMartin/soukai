@@ -178,13 +178,19 @@ export default abstract class Model<Key = any> {
         return Soukai.withEngine(engine =>
             engine
                 .readMany(this.collection, filters)
-                .then(results =>
-                    results.map(result => {
-                        const attributes = this.instance.parseEngineAttributes(engine, result);
+                .then(documents => {
+                    const results: T[] = [];
 
-                        return new (this as any)(attributes, true);
-                    }),
-                ),
+                    for (const id in documents) {
+                        const attributes = this.instance.parseEngineAttributes(engine, documents[id]);
+
+                        attributes[this.primaryKey] = id;
+
+                        results.push(new (this as any)(attributes, true));
+                    }
+
+                    return results;
+                }),
         );
     }
 

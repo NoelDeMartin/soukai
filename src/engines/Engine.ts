@@ -4,8 +4,14 @@ export interface Attributes {
     [field: string]: AttributeValue | AttributeValue[] | Attributes;
 }
 
+export interface Documents {
+    [id: string]: Attributes;
+}
+
 export interface Filters {
-    [field: string]: any;
+    [field: string]:
+        { $contains: any[] } |
+        any;
 }
 
 export default interface Engine {
@@ -14,7 +20,7 @@ export default interface Engine {
 
     readOne(collection: string, id: string): Promise<Attributes>;
 
-    readMany(collection: string, filters?: Filters): Promise<Attributes[]>;
+    readMany(collection: string, filters?: Filters): Promise<Documents>;
 
     update(
         collection: string,

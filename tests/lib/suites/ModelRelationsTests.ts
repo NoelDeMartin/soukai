@@ -34,10 +34,10 @@ export default class extends TestSuite {
         const firstPostBody = Faker.lorem.paragraph();
         const secondPostBody = Faker.lorem.paragraph();
 
-        this.mockEngine.readMany.mockReturnValue(Promise.resolve([
-            { id: firstPostId, title: firstPostTitle, body: firstPostBody },
-            { id: secondPostId, title: secondPostTitle, body: secondPostBody },
-        ]));
+        this.mockEngine.readMany.mockReturnValue(Promise.resolve({
+            [firstPostId]: { title: firstPostTitle, body: firstPostBody },
+            [secondPostId]: { title: secondPostTitle, body: secondPostBody },
+        }));
 
         const user = new User({ id });
 
@@ -63,9 +63,9 @@ export default class extends TestSuite {
         const id = Faker.random.uuid();
         const name = Faker.random.word();
 
-        this.mockEngine.readMany.mockReturnValue(Promise.resolve([
-            { id, name },
-        ]));
+        this.mockEngine.readMany.mockReturnValue(Promise.resolve({
+            [id]: { name },
+        }));
 
         const post = new Post({ authorId: id });
 

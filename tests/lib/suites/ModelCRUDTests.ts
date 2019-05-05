@@ -203,7 +203,7 @@ export default class extends TestSuite {
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
 
-        this.mockEngine.readMany.mockReturnValue(Promise.resolve([{ id, name }]));
+        this.mockEngine.readMany.mockReturnValue(Promise.resolve({[id]: { id, name }}));
 
         return User.all().then(models => {
             expect(models).toHaveLength(1);

@@ -1,12 +1,10 @@
-import Engine, { Attributes, Filters } from '@/engines/Engine';
+import Engine, { Attributes, Documents, Filters } from '@/engines/Engine';
+import EngineHelper from '@/engines/EngineHelper';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 interface Collection {
-    totalDocuments: number;
-    documents: {
-        [id: string]: Attributes,
-    };
+    [id: string]: Attributes;
 }
 
 export interface InMemoryDatabase {
@@ -17,6 +15,12 @@ export default class implements Engine {
 
     private db: InMemoryDatabase = {};
 
+    private helper: EngineHelper;
+
+    public constructor() {
+        this.helper = new EngineHelper();
+    }
+
     public get database(): InMemoryDatabase {
         return this.db;
     }
@@ -24,32 +28,29 @@ export default class implements Engine {
     public create(collectionName: string, attributes: Attributes, id?: string): Promise<string> {
         const collection = this.collection(collectionName);
 
-        collection.totalDocuments++;
-
-        id = id || collection.totalDocuments.toString();
-        collection.documents[id] = { ...attributes, ...{ id } };
+        id = this.helper.getDocumentId(id);
+        collection[id] = attributes;
 
         return Promise.resolve(id);
     }
 
     public readOne(collectionName: string, id: string): Promise<Attributes> {
         const collection = this.collection(collectionName);
-        if (id in collection.documents) {
-            return Promise.resolve(collection.documents[id]);
+        if (id in collection) {
+            return Promise.resolve(collection[id]);
         } else {
             return Promise.reject(new DocumentNotFound(id));
         }
     }
 
-    public readMany(collectionName: string, filters?: Filters): Promise<Attributes[]> {
-        const collection = this.collection(collectionName);
-        let results = Object.values(collection.documents);
-
-        if (filters) {
-            results = results.filter(result => this.filterResult(result, filters));
+    public async readMany(collection: string, filters?: Filters): Promise<Documents> {
+        if (!this.hasCollection(collection)) {
+            return {};
         }
 
-        return Promise.resolve(results);
+        const documents = this.collection(collection);
+
+        return this.helper.filterDocuments(documents, filters);
     }
 
     public update(
@@ -59,11 +60,11 @@ export default class implements Engine {
         removedAttributes: string[],
     ): Promise<void> {
         const collection = this.collection(collectionName);
-        if (id in collection.documents) {
-            const document = collection.documents[id];
-            collection.documents[id] = { ...document, ...dirtyAttributes };
+        if (id in collection) {
+            const document = collection[id];
+            collection[id] = { ...document, ...dirtyAttributes };
             for (const attribute of removedAttributes) {
-                delete collection.documents[id][attribute];
+                delete collection[id][attribute];
             }
             return Promise.resolve();
         } else {
@@ -73,33 +74,24 @@ export default class implements Engine {
 
     public delete(collectionName: string, id: string): Promise<void> {
         const collection = this.collection(collectionName);
-        if (id in collection.documents) {
-            delete collection.documents[id];
+        if (id in collection) {
+            delete collection[id];
             return Promise.resolve();
         } else {
             return Promise.reject(new DocumentNotFound(id));
         }
     }
 
+    private hasCollection(name: string): boolean {
+        return name in this.db;
+    }
+
     private collection(name: string): Collection {
-        if (!(name in this.db)) {
-            this.db[name] = {
-                documents: {},
-                totalDocuments: 0,
-            };
+        if (!this.hasCollection(name)) {
+            this.db[name] = {};
         }
 
         return this.db[name];
-    }
-
-    private filterResult(result: Attributes, filters: Filters): boolean {
-        for (const field in filters) {
-            if (result[field] !== filters[field]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
 }
