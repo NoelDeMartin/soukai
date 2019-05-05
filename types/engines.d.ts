@@ -44,7 +44,7 @@ export class InMemoryEngine implements Engine {
 
     public readonly database: InMemoryDatabase;
 
-    create(collection: string, attributes: Attributes): Promise<string>;
+    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
 
     readOne(collection: string, id: string): Promise<Attributes>;
 
@@ -65,7 +65,28 @@ export class LogEngine implements Engine {
 
     constructor(engine: Engine);
 
-    create(collection: string, attributes: Attributes): Promise<string>;
+    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
+
+    readOne(collection: string, id: string): Promise<Attributes>;
+
+    readMany(collection: string): Promise<Documents>;
+
+    update(
+        collection: string,
+        id: string,
+        dirtyAttributes: Attributes,
+        removedAttributes: string[],
+    ): Promise<void>;
+
+    delete(collection: string, id: string): Promise<void>;
+
+}
+
+export class LocalStorageEngine implements Engine {
+
+    constructor(prefix?: string);
+
+    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
 
     readOne(collection: string, id: string): Promise<Attributes>;
 

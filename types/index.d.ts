@@ -6,6 +6,7 @@ export { SoukaiError, DocumentNotFound, InvalidModelDefinition } from './errors'
 
 export {
     Attributes as EngineAttributes,
+    Documents,
     Engine,
     Filters,
     InMemoryDatabase,
