@@ -1,4 +1,4 @@
-import Engine, { Attributes, Filters } from '@/engines/Engine';
+import Engine, { Attributes, Documents, Filters } from '@/engines/Engine';
 
 export default class implements Engine {
 
@@ -34,7 +34,7 @@ export default class implements Engine {
             });
     }
 
-    public readMany(collection: string, filters?: Filters): Promise<Attributes[]> {
+    public readMany(collection: string, filters?: Filters): Promise<Documents> {
         console.log('READ ALL', collection, filters);
         return this.engine.readMany(collection, filters)
             .then(documents => {
