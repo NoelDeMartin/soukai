@@ -50,11 +50,11 @@ export default class implements Engine {
     public update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
-        console.log('UPDATE', collection, id, dirtyAttributes, removedAttributes);
-        return this.engine.update(collection, id, dirtyAttributes, removedAttributes)
+        console.log('UPDATE', collection, id, updatedAttributes, removedAttributes);
+        return this.engine.update(collection, id, updatedAttributes, removedAttributes)
             .then(() => console.log('UPDATED'))
             .catch(error => {
                 console.error(error);

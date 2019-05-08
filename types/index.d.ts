@@ -8,6 +8,7 @@ export {
     Attributes as EngineAttributes,
     Documents,
     Engine,
+    EngineHelper,
     Filters,
     InMemoryDatabase,
     InMemoryEngine,

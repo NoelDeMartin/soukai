@@ -56,13 +56,13 @@ export default class implements Engine {
     public update(
         collectionName: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
         const collection = this.collection(collectionName);
         if (id in collection) {
             const document = collection[id];
-            collection[id] = { ...document, ...dirtyAttributes };
+            collection[id] = { ...document, ...updatedAttributes };
             for (const attribute of removedAttributes) {
                 delete collection[id][attribute];
             }

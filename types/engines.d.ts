@@ -1,7 +1,9 @@
-type AttributeValue = string | number | boolean | Attributes;
+type AttributePrimitiveValue = string | number | boolean | null | Date;
+
+type AttributeValue = AttributePrimitiveValue | AttributePrimitiveValue[];
 
 export interface Attributes {
-    [field: string]: AttributeValue;
+    [field: string]: AttributeValue | Attributes | Attributes[];
 }
 
 export interface Documents {
@@ -23,11 +25,19 @@ export interface Engine {
     update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;
+
+}
+
+export class EngineHelper {
+
+    filterDocuments(documents: Documents, filters?: Filters): Documents;
+
+    getDocumentId(id?: string): string;
 
 }
 
@@ -53,7 +63,7 @@ export class InMemoryEngine implements Engine {
     update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -74,7 +84,7 @@ export class LogEngine implements Engine {
     update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -95,7 +105,7 @@ export class LocalStorageEngine implements Engine {
     update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 

@@ -1,7 +1,9 @@
-type AttributeValue = string | number | boolean | null | Date;
+type AttributePrimitiveValue = string | number | boolean | null | Date;
+
+type AttributeValue = AttributePrimitiveValue | AttributePrimitiveValue[];
 
 export interface Attributes {
-    [field: string]: AttributeValue | AttributeValue[] | Attributes;
+    [field: string]: AttributeValue | Attributes | Attributes[];
 }
 
 export interface Documents {
@@ -25,7 +27,7 @@ export default interface Engine {
     update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void>;
 

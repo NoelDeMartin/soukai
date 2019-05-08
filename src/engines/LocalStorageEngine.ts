@@ -49,7 +49,7 @@ export default class LocalStorageEngine implements Engine {
     public async update(
         collection: string,
         id: string,
-        dirtyAttributes: Attributes,
+        updatedAttributes: Attributes,
         removedAttributes: string[],
     ): Promise<void> {
         const documents = this.readItem(collection, {});
@@ -60,8 +60,8 @@ export default class LocalStorageEngine implements Engine {
 
         const attributes = this.deserializeAttributes(documents[id]);
 
-        for (const attribute in dirtyAttributes) {
-            attributes[attribute] = dirtyAttributes[attribute];
+        for (const attribute in updatedAttributes) {
+            attributes[attribute] = updatedAttributes[attribute];
         }
 
         for (const attribute of removedAttributes) {
