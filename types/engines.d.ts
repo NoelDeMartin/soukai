@@ -96,6 +96,8 @@ export class LocalStorageEngine implements Engine {
 
     constructor(prefix?: string);
 
+    clear(): void;
+
     create(collection: string, attributes: Attributes, id?: string): Promise<string>;
 
     readOne(collection: string, id: string): Promise<Attributes>;

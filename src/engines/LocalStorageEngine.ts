@@ -14,6 +14,16 @@ export default class LocalStorageEngine implements Engine {
         this.helper = new EngineHelper();
     }
 
+    public clear(): void {
+        const keys = Object.keys(localStorage);
+
+        for (const key of keys) {
+            if (key.startsWith(this.prefix)) {
+                localStorage.removeItem(key);
+            }
+        }
+    }
+
     public async create(collection: string, attributes: Attributes, id?: string): Promise<string> {
         const documents = this.readItem(collection, {});
 
