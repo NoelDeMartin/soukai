@@ -6,7 +6,8 @@ REPO_URL=`git remote get-url origin`
 set -e
 
 # build
-npm run docs:build
+npm run docs:build-vuepress
+npm run docs:build-typedoc
 
 # navigate into the build output directory
 cd docs/.vuepress/dist

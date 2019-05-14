@@ -1,17 +1,17 @@
-import Engine, { Attributes, Documents, Filters } from '@/engines/Engine';
+import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 interface Collection {
-    [id: string]: Attributes;
+    [id: string]: EngineAttributes;
 }
 
 export interface InMemoryDatabase {
     [collection: string]: Collection;
 }
 
-export default class implements Engine {
+export default class InMemoryEngine implements Engine {
 
     private db: InMemoryDatabase = {};
 
@@ -25,7 +25,7 @@ export default class implements Engine {
         return this.db;
     }
 
-    public create(collectionName: string, attributes: Attributes, id?: string): Promise<string> {
+    public create(collectionName: string, attributes: EngineAttributes, id?: string): Promise<string> {
         const collection = this.collection(collectionName);
 
         id = this.helper.getDocumentId(id);
@@ -34,7 +34,7 @@ export default class implements Engine {
         return Promise.resolve(id);
     }
 
-    public readOne(collectionName: string, id: string): Promise<Attributes> {
+    public readOne(collectionName: string, id: string): Promise<EngineAttributes> {
         const collection = this.collection(collectionName);
         if (id in collection) {
             return Promise.resolve(collection[id]);
@@ -56,7 +56,7 @@ export default class implements Engine {
     public update(
         collectionName: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void> {
         const collection = this.collection(collectionName);

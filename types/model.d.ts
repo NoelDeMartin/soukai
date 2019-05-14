@@ -1,6 +1,6 @@
 import { BelongsToOneRelation, HasManyRelation, MultipleModelsRelation, SingleModelRelation } from './relations';
 
-import { Attributes as EngineAttributes, Engine, Filters } from './engines';
+import { EngineAttributes, Engine, Filters } from './engines';
 
 export interface Attributes {
     [field: string]: any;

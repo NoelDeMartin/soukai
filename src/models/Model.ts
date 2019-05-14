@@ -3,10 +3,10 @@ import Soukai from '@/Soukai';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 
-import { deepClone } from '@/utils/Obj';
-import Str from '@/utils/Str';
+import { deepClone } from '@/internal/utils/Obj';
+import Str from '@/internal/utils/Str';
 
-import Engine, { Attributes as EngineAttributes, Filters } from '@/engines/Engine';
+import Engine, { EngineAttributes, Filters } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
@@ -172,6 +172,11 @@ export default abstract class Model<Key = any> {
         );
     }
 
+    /**
+     * Get all models matching the given filters.
+     *
+     * @param filters
+     */
     public static all<T extends Model>(filters?: Filters): Promise<T[]> {
         this.ensureBooted();
 

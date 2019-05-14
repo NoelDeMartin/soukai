@@ -1,13 +1,13 @@
-type AttributePrimitiveValue = string | number | boolean | null | Date;
+type EngineAttributePrimitiveValue = string | number | boolean | null | Date;
 
-type AttributeValue = AttributePrimitiveValue | AttributePrimitiveValue[];
+type EngineAttributeValue = EngineAttributePrimitiveValue | EngineAttributePrimitiveValue[];
 
-export interface Attributes {
-    [field: string]: AttributeValue | Attributes | Attributes[];
+export interface EngineAttributes {
+    [field: string]: EngineAttributeValue | EngineAttributes | EngineAttributes[];
 }
 
 export interface Documents {
-    [id: string]: Attributes;
+    [id: string]: EngineAttributes;
 }
 
 export interface Filters {
@@ -16,16 +16,16 @@ export interface Filters {
 
 export interface Engine {
 
-    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
+    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<Attributes>;
+    readOne(collection: string, id: string): Promise<EngineAttributes>;
 
     readMany(collection: string, filters?: Filters): Promise<Documents>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -45,7 +45,7 @@ export interface InMemoryDatabase {
     [collection: string]: {
         totalAttributess: number;
         Attributess: {
-            [id: string]: Attributes,
+            [id: string]: EngineAttributes,
         };
     };
 }
@@ -54,16 +54,16 @@ export class InMemoryEngine implements Engine {
 
     public readonly database: InMemoryDatabase;
 
-    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
+    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<Attributes>;
+    readOne(collection: string, id: string): Promise<EngineAttributes>;
 
     readMany(collection: string): Promise<Documents>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -75,16 +75,16 @@ export class LogEngine implements Engine {
 
     constructor(engine: Engine);
 
-    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
+    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<Attributes>;
+    readOne(collection: string, id: string): Promise<EngineAttributes>;
 
     readMany(collection: string): Promise<Documents>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -98,16 +98,16 @@ export class LocalStorageEngine implements Engine {
 
     clear(): void;
 
-    create(collection: string, attributes: Attributes, id?: string): Promise<string>;
+    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<Attributes>;
+    readOne(collection: string, id: string): Promise<EngineAttributes>;
 
     readMany(collection: string): Promise<Documents>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void>;
 

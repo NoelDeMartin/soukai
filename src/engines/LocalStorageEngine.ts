@@ -1,4 +1,4 @@
-import Engine, { Attributes, Documents, Filters } from '@/engines/Engine';
+import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
@@ -24,7 +24,7 @@ export default class LocalStorageEngine implements Engine {
         }
     }
 
-    public async create(collection: string, attributes: Attributes, id?: string): Promise<string> {
+    public async create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
         const documents = this.readItem(collection, {});
 
         id = this.helper.getDocumentId(id);
@@ -36,7 +36,7 @@ export default class LocalStorageEngine implements Engine {
         return id;
     }
 
-    public async readOne(collection: string, id: string): Promise<Attributes> {
+    public async readOne(collection: string, id: string): Promise<EngineAttributes> {
         const documents = this.readItem(collection, {});
 
         if (!(id in documents)) {
@@ -59,7 +59,7 @@ export default class LocalStorageEngine implements Engine {
     public async update(
         collection: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void> {
         const documents = this.readItem(collection, {});
@@ -105,7 +105,7 @@ export default class LocalStorageEngine implements Engine {
         localStorage.setItem(this.prefix + key, JSON.stringify(value));
     }
 
-    private serializeAttributes(attributes: Attributes): Attributes {
+    private serializeAttributes(attributes: EngineAttributes): EngineAttributes {
         for (const attribute in attributes) {
             const value = attributes[attribute];
 
@@ -121,13 +121,13 @@ export default class LocalStorageEngine implements Engine {
         } else if (value instanceof Date) {
             return { __dateTime: value.getTime() };
         } else if (typeof value === 'object') {
-            return this.serializeAttributes(value as Attributes);
+            return this.serializeAttributes(value as EngineAttributes);
         } else {
             return value;
         }
     }
 
-    private deserializeAttributes(attributes: Attributes): Attributes {
+    private deserializeAttributes(attributes: EngineAttributes): EngineAttributes {
         for (const attribute in attributes) {
             const value = attributes[attribute];
 
@@ -143,7 +143,7 @@ export default class LocalStorageEngine implements Engine {
         } else if (typeof value === 'object') {
             return '__dateTime' in value
                 ? new Date(value.__dateTime)
-                : this.deserializeAttributeValue(value as Attributes);
+                : this.deserializeAttributeValue(value as EngineAttributes);
         } else {
             return value;
         }

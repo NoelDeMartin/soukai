@@ -1,4 +1,4 @@
-export default class implements Error {
+export default class SoukaiError implements Error {
 
     public name: string;
     public message: string;

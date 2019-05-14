@@ -10,7 +10,7 @@ module.exports = {
             },
             {
                 text: 'API',
-                link: '/api.html',
+                link: 'https://soukai.js.org/api/',
             },
         ],
     },

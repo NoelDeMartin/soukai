@@ -5,9 +5,9 @@ export { definitionsFromContext } from './utils';
 export { SoukaiError, DocumentNotFound, InvalidModelDefinition } from './errors';
 
 export {
-    Attributes as EngineAttributes,
     Documents,
     Engine,
+    EngineAttributes,
     EngineHelper,
     Filters,
     InMemoryDatabase,

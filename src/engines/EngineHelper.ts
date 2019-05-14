@@ -1,7 +1,7 @@
 import { Documents, Filters } from '@/engines/Engine';
 
-import { deepEquals } from '@/utils/Obj';
-import UUID from '@/utils/UUID';
+import { deepEquals } from '@/internal/utils/Obj';
+import UUID from '@/internal/utils/UUID';
 
 export default class EngineHelper {
 

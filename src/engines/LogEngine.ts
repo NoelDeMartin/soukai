@@ -1,6 +1,6 @@
-import Engine, { Attributes, Documents, Filters } from '@/engines/Engine';
+import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 
-export default class implements Engine {
+export default class LogEngine implements Engine {
 
     private engine: Engine;
 
@@ -8,7 +8,7 @@ export default class implements Engine {
         this.engine = engine;
     }
 
-    public create(collection: string, attributes: Attributes, id?: string): Promise<string> {
+    public create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
         console.log('CREATE', collection, attributes, id);
         return this.engine.create(collection, attributes, id)
             .then(resultId => {
@@ -21,7 +21,7 @@ export default class implements Engine {
             });
     }
 
-    public readOne(collection: string, id: string): Promise<Attributes> {
+    public readOne(collection: string, id: string): Promise<EngineAttributes> {
         console.log('READ ONE', collection, id);
         return this.engine.readOne(collection, id)
             .then(document => {
@@ -50,7 +50,7 @@ export default class implements Engine {
     public update(
         collection: string,
         id: string,
-        updatedAttributes: Attributes,
+        updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void> {
         console.log('UPDATE', collection, id, updatedAttributes, removedAttributes);
