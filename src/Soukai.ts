@@ -33,7 +33,10 @@ export class Soukai {
         if (this._engine) {
             return callback(this._engine);
         } else {
-            throw new SoukaiError('Engine must be initialized before performing any operations');
+            throw new SoukaiError(
+                'Engine must be initialized before performing any operations. ' +
+                'Learn more at https://soukai.js.org/guide.html#using-engines',
+            );
         }
     }
 

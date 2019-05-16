@@ -75,7 +75,7 @@ export class Model<Key = any> {
 
     public getRelationModels(relation: string): null | Model[] | Model;
 
-    public setRelation(relation: string, models: null | Model | Model[]): void;
+    public setRelationModels(relation: string, models: null | Model | Model[]): void;
 
     public isRelationLoaded(relation: string): boolean;
 
@@ -98,6 +98,10 @@ export class Model<Key = any> {
     public setExists(exists: boolean): void;
 
     public exists(): boolean;
+
+    protected initAttributes(attributes: Attributes, exists: boolean): void;
+
+    protected initRelations(): void;
 
     protected hasMany(
         model: typeof Model,

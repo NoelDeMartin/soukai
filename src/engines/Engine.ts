@@ -11,6 +11,8 @@ export interface Documents {
 }
 
 export interface Filters {
+    $in?: string[];
+
     [field: string]:
         { $contains: any[] } |
         any;

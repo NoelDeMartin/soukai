@@ -203,7 +203,10 @@ export default abstract class Model<Key = any> {
         const classDef = (<any> this);
 
         if (typeof classDef.modelName === 'undefined') {
-            throw new SoukaiError('Model has not been booted (did you forget to call Soukai.loadModel?)');
+            throw new SoukaiError(
+                'Model has not been booted (did you forget to call Soukai.loadModel?) ' +
+                'Learn more at https://soukai.js.org/guide.html#defining-models',
+            );
         }
     }
 
@@ -227,38 +230,11 @@ export default abstract class Model<Key = any> {
             return;
         }
 
-        // TODO validate protected fields (e.g. id)
-
         this.classDef.ensureBooted();
 
         this._exists = exists;
-        this._attributes = { ...attributes };
-        this._dirtyAttributes = exists ? {} : { ...attributes };
-        this._removedAttributes = [];
-        this._relations = {};
-
-        if (!exists && this.hasAutomaticTimestamp('createdAt')) {
-            this._attributes.createdAt = new Date();
-            this._dirtyAttributes.createdAt = this._attributes.createdAt;
-        }
-
-        if (!exists && this.hasAutomaticTimestamp('updatedAt')) {
-            this._attributes.updatedAt = new Date();
-            this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
-        }
-
-        this._attributes = this.castAttributes(
-            ensureAttributesExistance(
-                this._attributes,
-                this.classDef.fields,
-            ),
-            this.classDef.fields,
-        );
-
-        this._relations = ensureRelationsExistance(
-            this._relations,
-            this.classDef.relations,
-        );
+        this.initAttributes(attributes, exists);
+        this.initRelations();
 
         return new Proxy(this, {
             get(target, property, receiver) {
@@ -293,7 +269,7 @@ export default abstract class Model<Key = any> {
                 }
 
                 if (target.hasRelation(property)) {
-                    target.setRelation(property, value);
+                    target.setRelationModels(property, value);
                     return true;
                 }
 
@@ -343,7 +319,7 @@ export default abstract class Model<Key = any> {
         const relationInstance = this[Str.camelCase(relation) + 'Relationship']() as Relation;
         const promise = relationInstance.resolve();
 
-        promise.then(models => this.setRelation(relation, models));
+        promise.then(models => this.setRelationModels(relation, models));
 
         return promise;
     }
@@ -358,7 +334,7 @@ export default abstract class Model<Key = any> {
         return this._relations[relation] || null;
     }
 
-    public setRelation(relation: string, models: null | Model | Model[]): void {
+    public setRelationModels(relation: string, models: null | Model | Model[]): void {
         this._relations[relation] = models;
     }
 
@@ -508,6 +484,42 @@ export default abstract class Model<Key = any> {
 
     public exists(): boolean {
         return this._exists;
+    }
+
+    protected initAttributes(attributes: Attributes, exists: boolean): void {
+        this._attributes = { ...attributes };
+        this._dirtyAttributes = exists ? {} : { ...attributes };
+        this._removedAttributes = [];
+
+        if (!exists) {
+
+            if (this.hasAutomaticTimestamp('createdAt') && !('createdAt' in attributes)) {
+                this._attributes.createdAt = new Date();
+                this._dirtyAttributes.createdAt = this._attributes.createdAt;
+            }
+
+            if (this.hasAutomaticTimestamp('updatedAt') && !('updatedAt' in attributes)) {
+                this._attributes.updatedAt = new Date();
+                this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
+            }
+
+        }
+
+        this._attributes = this.castAttributes(
+            ensureAttributesExistance(
+                this._attributes,
+                this.classDef.fields,
+            ),
+            this.classDef.fields,
+        );
+    }
+
+    protected initRelations(): void {
+        this._relations = {};
+
+        for (const name of this.classDef.relations) {
+            this._relations[name] = undefined;
+        }
     }
 
     protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): MultipleModelsRelation {
@@ -684,22 +696,12 @@ function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinit
     return attributes;
 }
 
-function ensureRelationsExistance(relations: RelationsMap, relationNames: string[]): RelationsMap {
-    for (const name of relationNames) {
-        if (!(name in relations)) {
-            relations[name] = undefined;
-        }
-    }
-
-    return relations;
-}
-
 function ensureRequiredAttributes(attributes: Attributes, fields: FieldsDefinition): void {
     for (const field in fields) {
         const definition = fields[field];
 
         if (definition.required && (!(field in attributes) || isEmpty(attributes[field]))) {
-            throw new SoukaiError(`The ${field} attribute is required`);
+            throw new SoukaiError(`The ${field} attribute is required.`);
         }
 
         if ((field in attributes) && !isEmpty(attributes[field]) && definition.type === FieldType.Object) {
