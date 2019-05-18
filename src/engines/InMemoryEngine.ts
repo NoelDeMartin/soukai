@@ -3,17 +3,21 @@ import EngineHelper from '@/engines/EngineHelper';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
-interface Collection {
+export interface InMemoryEngineCollection {
     [id: string]: EngineAttributes;
 }
 
-export interface InMemoryDatabase {
-    [collection: string]: Collection;
+export interface InMemoryEngineDatabase {
+    [collection: string]: InMemoryEngineCollection;
 }
 
+/**
+ * Engine that stores data in memory. Data can be accessed with the [[database]] property to
+ * get an [[InMemoryEngineDatabase]].
+ */
 export default class InMemoryEngine implements Engine {
 
-    private db: InMemoryDatabase = {};
+    private db: InMemoryEngineDatabase = {};
 
     private helper: EngineHelper;
 
@@ -21,7 +25,7 @@ export default class InMemoryEngine implements Engine {
         this.helper = new EngineHelper();
     }
 
-    public get database(): InMemoryDatabase {
+    public get database(): InMemoryEngineDatabase {
         return this.db;
     }
 
@@ -86,7 +90,7 @@ export default class InMemoryEngine implements Engine {
         return name in this.db;
     }
 
-    private collection(name: string): Collection {
+    private collection(name: string): InMemoryEngineCollection {
         if (!this.hasCollection(name)) {
             this.db[name] = {};
         }

@@ -25,7 +25,7 @@ export { EngineHelper, LogEngine, InMemoryEngine, LocalStorageEngine };
 
 export { SoukaiError, DocumentNotFound, InvalidModelDefinition };
 
-export { InMemoryDatabase } from '@/engines/InMemoryEngine';
+export { InMemoryEngineDatabase } from '@/engines/InMemoryEngine';
 
 export {
     BelongsToOneRelation,

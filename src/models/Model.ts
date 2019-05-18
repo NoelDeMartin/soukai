@@ -53,6 +53,9 @@ const TYPE_VALUES = Object.values(FieldType);
 
 const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
 
+/**
+ * Active record model definition.
+ */
 export default abstract class Model<Key = any> {
 
     public static collection: string;
@@ -166,6 +169,8 @@ export default abstract class Model<Key = any> {
                 .then(result => {
                     const attributes = this.instance.parseEngineAttributes(engine, result);
 
+                    attributes[this.primaryKey] = id;
+
                     return new (this as any)(attributes, true);
                 })
                 .catch(() => null),
@@ -189,7 +194,7 @@ export default abstract class Model<Key = any> {
                     for (const id in documents) {
                         const attributes = this.instance.parseEngineAttributes(engine, documents[id]);
 
-                        attributes[this.primaryKey] = id;
+                        attributes[this.primaryKey] = this.instance.parseKey(id);
 
                         results.push(new (this as any)(attributes, true));
                     }
@@ -306,7 +311,10 @@ export default abstract class Model<Key = any> {
 
         this._attributes = { ...this._attributes, ...attributes };
         this._dirtyAttributes = { ...this._dirtyAttributes, ...attributes };
-        this.touch();
+
+        if (this.hasAutomaticTimestamp('updatedAt')) {
+            this.touch();
+        }
 
         return this.save();
     }
@@ -364,7 +372,10 @@ export default abstract class Model<Key = any> {
 
         this._attributes[field] = value;
         this._dirtyAttributes[field] = value;
-        this.touch();
+
+        if (this.hasAutomaticTimestamp('updatedAt') && field !== 'updatedAt') {
+            this.touch();
+        }
     }
 
     public getAttribute(field: string, includeUndefined: boolean = false): any {
@@ -398,7 +409,10 @@ export default abstract class Model<Key = any> {
                 delete this._attributes[field];
             }
             this._removedAttributes.push(field);
-            this.touch();
+
+            if (this.hasAutomaticTimestamp('updatedAt')) {
+                this.touch();
+            }
         }
     }
 
@@ -471,11 +485,11 @@ export default abstract class Model<Key = any> {
         }
     }
 
+    /**
+     * Set the `updatedAt` attribute to the current time.
+     */
     public touch(): void {
-        if (this.hasAutomaticTimestamp('updatedAt')) {
-            this._attributes.updatedAt = new Date();
-            this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
-        }
+        this.setAttribute('updatedAt', new Date());
     }
 
     public setExists(exists: boolean): void {

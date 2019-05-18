@@ -41,18 +41,15 @@ export class EngineHelper {
 
 }
 
-export interface InMemoryDatabase {
+export interface InMemoryEngineDatabase {
     [collection: string]: {
-        totalAttributess: number;
-        Attributess: {
-            [id: string]: EngineAttributes,
-        };
+        [id: string]: EngineAttributes,
     };
 }
 
 export class InMemoryEngine implements Engine {
 
-    public readonly database: InMemoryDatabase;
+    public readonly database: InMemoryEngineDatabase;
 
     create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 

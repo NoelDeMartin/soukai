@@ -10,7 +10,7 @@ export {
     EngineAttributes,
     EngineHelper,
     Filters,
-    InMemoryDatabase,
+    InMemoryEngineDatabase,
     InMemoryEngine,
     LocalStorageEngine,
     LogEngine,
