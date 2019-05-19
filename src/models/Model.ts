@@ -536,10 +536,26 @@ export default abstract class Model<Key = any> {
         }
     }
 
+    /**
+     * Create a multiple model relationship.
+     *
+     * @param model Related model class.
+     * @param relatedKeyField Name of the foreign key field in the related model.
+     * @param parentKeyField Name of the primary key field in the local model. Defaults to
+     * the primary key name defined in the local model class.
+     */
     protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): MultipleModelsRelation {
         return new HasManyRelation(this, model, relatedKeyField, parentKeyField || this.classDef.primaryKey);
     }
 
+    /**
+     * Create a single model relationship.
+     *
+     * @param model Related model class.
+     * @param parentKeyField Name of the foreign key field in the local model.
+     * @param relatedKeyField Name of the primary key field in the related model. Defaults to
+     * the primary key name defined in the related model class.
+     */
     protected belongsToOne(
         model: typeof Model,
         parentKeyField: string,

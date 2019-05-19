@@ -1,8 +1,8 @@
-# Examples and going further
+# Going Further
 
 TODO
 
-## Tests
+## Extending the Library
 
 TODO
 

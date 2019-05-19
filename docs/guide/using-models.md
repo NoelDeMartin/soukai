@@ -70,10 +70,34 @@ User.all().then(users => {
 
 ### Using filters
 
-TODO
+When retrieving models, it's common to use filters to reduce the number of models instead of getting the whole collection. There are currently two types of filters available: `$in` filters and field filters.
 
-::: warning Advanced filters and pagination
-:warning: The current implementation does not support a way to paginate results or use advanced filters such as text search or filtering by fields other than id. This library is still a work in progress, and this is one of the first features to implement in the roadmap.
+The `$in` filter defines an array of ids with the models to retrieve, for example:
+
+```javascript
+User.all({ $in: ['1', '2', '3'] }).then(users => {
+    // Users with id 1, 2 and 3 were found.
+});
+```
+
+In case the ids of the models are unknown, it's also possible to filter results by attribute values:
+
+```javascript
+User.all({ name: 'John' }).then(users => {
+    // Users with name "John" were found.
+});
+```
+
+To filter by array fields, the special `$contains` operator is available to perform partial matches:
+
+```javascript
+User.all({ hobbies: { $contains: ['hiking', 'surfing'] } }).then(users => {
+    // Users whose hobbies array contains "hiking" and "surfing".
+});
+```
+
+::: warning ⚠️ Advanced filters and pagination
+This library is still a work in progress, so the current implementation does not support a way to paginate results or use advanced filters such as text search.
 :::
 
 ## Deleting
@@ -83,5 +107,24 @@ Models can be deleted from the database using the [delete](/api/classes/models.m
 ```javascript
 user.delete().then(() => {
     // Model was deleted
+});
+```
+
+## Working with relationships
+
+Related models can be accessed like a normal property, but they will be undefined until they are loaded explicitly using the [loadRelation](/api/classes/models.model.html#loadrelation) method. For example, if we continue with the same example explained on the [defining relationships](/guide/defining-models.html#relationships) section:
+
+```javascript
+User.all().then(users => {
+    const user = users[0];
+
+    // At this point, this will be undefined
+    console.log(user.posts);
+
+    user.loadRelation('posts').then(posts => {
+        // Loaded models will be returned and also be available in the model
+        console.log(posts);
+        console.log(user.posts);
+    });
 });
 ```

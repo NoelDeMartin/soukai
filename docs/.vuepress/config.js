@@ -15,13 +15,14 @@ module.exports = {
                 link: 'https://soukai.js.org/api/',
             },
         ],
+        sidebarDepth: 3,
         sidebar: {
             '/guide/': [
                 '',
                 'defining-models',
                 'using-models',
                 'engines',
-                'examples',
+                'going-further',
             ],
         },
     },
