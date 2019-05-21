@@ -27,7 +27,7 @@ export default class LocalStorageEngine implements Engine {
     public async create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
         const documents = this.readItem(collection, {});
 
-        id = this.helper.getDocumentId(id);
+        id = this.helper.obtainDocumentId(id);
 
         documents[id] = this.serializeAttributes(attributes);
 

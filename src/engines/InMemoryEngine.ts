@@ -32,7 +32,7 @@ export default class InMemoryEngine implements Engine {
     public create(collectionName: string, attributes: EngineAttributes, id?: string): Promise<string> {
         const collection = this.collection(collectionName);
 
-        id = this.helper.getDocumentId(id);
+        id = this.helper.obtainDocumentId(id);
         collection[id] = attributes;
 
         return Promise.resolve(id);

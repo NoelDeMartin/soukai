@@ -61,7 +61,7 @@ export default class EngineHelper {
         return documents;
     }
 
-    public getDocumentId(id?: string): string {
+    public obtainDocumentId(id?: string): string {
         return id || UUID.generate();
     }
 

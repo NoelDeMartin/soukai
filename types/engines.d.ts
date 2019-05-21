@@ -37,7 +37,7 @@ export class EngineHelper {
 
     filterDocuments(documents: Documents, filters?: Filters): Documents;
 
-    getDocumentId(id?: string): string;
+    obtainDocumentId(id?: string): string;
 
 }
 
