@@ -27,7 +27,7 @@ export {
 export {
     BelongsToOneRelation,
     HasManyRelation,
-    MultipleModelsRelation,
+    MultiModelRelation,
     Relation,
     SingleModelRelation,
 } from './relations';

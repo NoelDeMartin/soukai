@@ -10,7 +10,7 @@ import Engine, { EngineAttributes, Filters } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
-import MultipleModelsRelation from '@/models/relations/MultipleModelsRelation';
+import MultiModelRelation from '@/models/relations/MultiModelRelation';
 import Relation from '@/models/relations/Relation';
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
 
@@ -537,19 +537,19 @@ export default abstract class Model<Key = any> {
     }
 
     /**
-     * Create a multiple model relationship.
+     * Creates a MultiModel relationship.
      *
      * @param model Related model class.
      * @param relatedKeyField Name of the foreign key field in the related model.
      * @param parentKeyField Name of the primary key field in the local model. Defaults to
      * the primary key name defined in the local model class.
      */
-    protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): MultipleModelsRelation {
+    protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): MultiModelRelation {
         return new HasManyRelation(this, model, relatedKeyField, parentKeyField || this.classDef.primaryKey);
     }
 
     /**
-     * Create a single model relationship.
+     * Creates a SingleModel relationship.
      *
      * @param model Related model class.
      * @param parentKeyField Name of the foreign key field in the local model.

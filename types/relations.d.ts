@@ -18,7 +18,7 @@ export abstract class SingleModelRelation extends Relation {
 
 }
 
-export abstract class MultipleModelsRelation extends Relation {
+export abstract class MultiModelRelation extends Relation {
 
     public abstract resolve(): Promise<Model[]>;
 
@@ -34,7 +34,7 @@ export class BelongsToOneRelation extends SingleModelRelation {
 
 }
 
-export class HasManyRelation extends MultipleModelsRelation {
+export class HasManyRelation extends MultiModelRelation {
 
     protected relatedKeyField: string;
 

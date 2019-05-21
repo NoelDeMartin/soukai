@@ -12,7 +12,7 @@ const user = new User({
 });
 
 user.save().then(() => {
-    // Model was created
+    console.log('User saved', user);
 });
 ```
 
@@ -24,39 +24,17 @@ User.create({
     surname: 'Doe',
     birthDate: new Date(),
 }).then(user => {
-    // Model was created
-});
-```
-
-## Updating
-
-Like creating, updating also provides two alternatives to update models. It is possible to update attributes of an existing model (using setters or the [setAttribute](/api/classes/models.model.html#setattribute) method) and call [save](/api/classes/models.model.html#save) afterwards:
-
-```javascript
-user.name = 'Jane';
-// or...
-user.setAttribute('name', 'Jane');
-
-user.save().then(() => {
-    // Model was updated
-});
-```
-
-Or using the [update](/api/classes/models.model.html#update) method:
-
-```javascript
-user.update({ name: 'Jane' }).then(() => {
-    // Model was updated
+    console.log('User created', user);
 });
 ```
 
 ## Reading
 
-Models can be retrieved using the [Model.find](/api/classes/models.model.html#find) method using their id:
+Single models can be retrieved using the [Model.find](/api/classes/models.model.html#find) method using their id:
 
 ```javascript
-User.find('{id}').then(user => {
-    // Model was found
+User.find('1').then(user => {
+    console.log('User with id "1"', user);
 });
 ```
 
@@ -64,27 +42,27 @@ And multiple models can be retrieved using the [Model.all](/api/classes/models.m
 
 ```javascript
 User.all().then(users => {
-    // Models were found
+    console.log('All users', users);
 });
 ```
 
 ### Using filters
 
-When retrieving models, it's common to use filters to reduce the number of models instead of getting the whole collection. There are currently two types of filters available: `$in` filters and field filters.
+When retrieving models, it's common to use filters to retrieve a reduced amount of models instead of getting the whole collection. There are currently two types of filters available: the `$in` filter and field filters.
 
-The `$in` filter defines an array of ids with the models to retrieve, for example:
+The `$in` filter defines an array of ids with the models to retrieve:
 
 ```javascript
 User.all({ $in: ['1', '2', '3'] }).then(users => {
-    // Users with id 1, 2 and 3 were found.
+    console.log('Users with id "1", "2" and "3"', users);
 });
 ```
 
-In case the ids of the models are unknown, it's also possible to filter results by attribute values:
+An alternative is to filter results by fields, indicating the attribute values:
 
 ```javascript
 User.all({ name: 'John' }).then(users => {
-    // Users with name "John" were found.
+    console.log('Users with name "John"', users);
 });
 ```
 
@@ -92,7 +70,7 @@ To filter by array fields, the special `$contains` operator is available to perf
 
 ```javascript
 User.all({ hobbies: { $contains: ['hiking', 'surfing'] } }).then(users => {
-    // Users whose hobbies array contains "hiking" and "surfing".
+    console.log('Users whose hobbies array contains "hiking" and "surfing"', users);
 });
 ```
 
@@ -100,13 +78,35 @@ User.all({ hobbies: { $contains: ['hiking', 'surfing'] } }).then(users => {
 This library is still a work in progress, so the current implementation does not support a way to paginate results or use advanced filters such as text search.
 :::
 
+## Updating
+
+Like creating, updating also provides two alternatives to update models. It is possible to update attributes of an existing model (using setters or the [setAttribute](/api/classes/models.model.html#setattribute) method) and call [save](/api/classes/models.model.html#save) method:
+
+```javascript
+user.name = 'Jane';
+// or...
+user.setAttribute('name', 'Jane');
+
+user.save().then(() => {
+    console.log('User updated', user);
+});
+```
+
+Or using the [update](/api/classes/models.model.html#update) method:
+
+```javascript
+user.update({ name: 'Jane' }).then(() => {
+    console.log('User updated', user);
+});
+```
+
 ## Deleting
 
 Models can be deleted from the database using the [delete](/api/classes/models.model.html#delete) method:
 
 ```javascript
 user.delete().then(() => {
-    // Model was deleted
+    console.log('User deleted');
 });
 ```
 
@@ -118,11 +118,11 @@ Related models can be accessed like a normal property, but they will be undefine
 User.all().then(users => {
     const user = users[0];
 
-    // At this point, this will be undefined
+    // At this point, this will return undefined
     console.log(user.posts);
 
     user.loadRelation('posts').then(posts => {
-        // Loaded models will be returned and also be available in the model
+        // Loaded models will be returned and also be accesible as a model property
         console.log(posts);
         console.log(user.posts);
     });

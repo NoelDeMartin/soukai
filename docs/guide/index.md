@@ -17,7 +17,7 @@ import Soukai, { InMemoryEngine } from 'soukai';
 Soukai.useEngine(new InMemoryEngine());
 ```
 
-Once everything is set up, you can start using models to interact with the database. Look at the following example on creating and retrieving Users:
+Once everything is set up, you can start using models to interact with the database. Look at the following example on creating and retrieving users:
 
 ```javascript
 import Soukai, { Model, InMemoryEngine } from 'soukai';

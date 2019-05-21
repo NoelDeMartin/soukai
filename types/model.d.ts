@@ -1,4 +1,4 @@
-import { BelongsToOneRelation, HasManyRelation, MultipleModelsRelation, SingleModelRelation } from './relations';
+import { BelongsToOneRelation, HasManyRelation, MultiModelRelation, SingleModelRelation } from './relations';
 
 import { EngineAttributes, Engine, Filters } from './engines';
 
@@ -107,7 +107,7 @@ export class Model<Key = any> {
         model: typeof Model,
         relatedKeyField: string,
         parentKeyField?: string,
-    ): MultipleModelsRelation;
+    ): MultiModelRelation;
 
     protected belongsToOne(
         model: typeof Model,

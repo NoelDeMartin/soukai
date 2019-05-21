@@ -13,7 +13,7 @@ import LogEngine from '@/engines/LogEngine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
-import MultipleModelsRelation from '@/models/relations/MultipleModelsRelation';
+import MultiModelRelation from '@/models/relations/MultiModelRelation';
 import Relation from '@/models/relations/Relation';
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
 
@@ -30,7 +30,7 @@ export { InMemoryEngineDatabase } from '@/engines/InMemoryEngine';
 export {
     BelongsToOneRelation,
     HasManyRelation,
-    MultipleModelsRelation,
+    MultiModelRelation,
     Relation,
     SingleModelRelation,
 };
