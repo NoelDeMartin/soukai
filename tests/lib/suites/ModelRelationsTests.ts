@@ -4,6 +4,10 @@ import Soukai from '@/Soukai';
 
 import Engine from '@/engines/Engine';
 
+import Model from '@/models/Model';
+
+import Relation from '@/models/relations/Relation';
+
 import MockEngine from '../mocks/MockEngine';
 
 import Post from '../stubs/Post';
@@ -116,6 +120,32 @@ export default class extends TestSuite {
     public async testRelationsExistUnloaded(): Promise<void> {
         expect(Post.relations).toContain('author');
         expect(User.relations).toContain('posts');
+    }
+
+    public testClassRelationsDontModifyParentModels(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class Parent extends Model {
+            public fooRelationship(): Relation {
+                return this.belongsToOne(Model, 'id');
+            }
+        }
+
+        // tslint:disable-next-line:max-classes-per-file
+        class Child extends Parent {
+            public barRelationship(): Relation {
+                return this.belongsToOne(Model, 'id');
+            }
+        }
+
+        Soukai.loadModel('Parent', Parent);
+        Soukai.loadModel('Child', Child);
+
+        expect(Parent.relations).toHaveLength(1);
+        expect(Parent.relations).toContain('foo');
+
+        expect(Child.relations).toHaveLength(2);
+        expect(Child.relations).toContain('foo');
+        expect(Child.relations).toContain('bar');
     }
 
 }

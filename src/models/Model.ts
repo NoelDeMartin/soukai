@@ -4,6 +4,8 @@ import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 
 import { deepClone } from '@/internal/utils/Obj';
+
+import Arr from '@/internal/utils/Arr';
 import Str from '@/internal/utils/Str';
 
 import Engine, { EngineAttributes, Filters } from '@/engines/Engine';
@@ -117,13 +119,20 @@ export default abstract class Model<Key = any> {
         if (typeof classDef.fields !== 'undefined') {
             for (const field in classDef.fields) {
                 if (classDef.fields.hasOwnProperty(field)) {
-                    if (classDef.timestamps.indexOf(field) !== -1) {
+                    fieldDefinitions[field] = validateFieldDefinition(name, field, classDef.fields[field]);
+
+                    if (
+                        classDef.timestamps.indexOf(field) !== -1 && (
+                            fieldDefinitions[field].type !== FieldType.Date ||
+                            fieldDefinitions[field].required
+                        )
+                    ) {
                         throw new InvalidModelDefinition(
                             name,
-                            `Field ${field} cannot be defined because it's being used as an automatic timestamp`,
+                            `Field ${field} definition must be type date and not required ` +
+                            `because it is used an automatic timestamp. ` +
+                            'Learn more at https://soukai.js.org/guide.html#automatic-timestamps',
                         );
-                    } else {
-                        fieldDefinitions[field] = validateFieldDefinition(name, field, classDef.fields[field]);
                     }
                 }
             }
@@ -138,19 +147,24 @@ export default abstract class Model<Key = any> {
         }
 
         // Obtain class definition information
-        classDef.classFields.push(...Object.getOwnPropertyNames(classDef.pureInstance));
+        const classFields: string[] = Object.getOwnPropertyNames(classDef.pureInstance);
+        const relations: string[] = [];
 
         let prototype = Object.getPrototypeOf(classDef.pureInstance);
         while (prototype !== Model.prototype) {
+            classFields.push(...prototype.constructor.classFields);
+
             for (const property of Object.getOwnPropertyNames(prototype)) {
                 if (property.endsWith('Relationship') && typeof classDef.pureInstance[property] === 'function') {
-                    classDef.relations.push(property.substring(0, property.length - 12));
+                    relations.push(property.substring(0, property.length - 12));
                 }
             }
 
             prototype = Object.getPrototypeOf(prototype);
         }
 
+        classDef.classFields = Arr.unique(classFields);
+        classDef.relations = Arr.unique(relations);
         classDef.fields = fieldDefinitions;
         classDef.modelName = name;
     }

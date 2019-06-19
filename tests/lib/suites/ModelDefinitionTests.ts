@@ -213,14 +213,17 @@ export default class extends TestSuite {
             public static timestamps = ['createdAt'];
 
             public static fields = {
-                createdAt: FieldType.Date,
+                createdAt: {
+                    type: FieldType.Date,
+                    required: true,
+                },
             };
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow(
-            'createdAt cannot be defined because it\'s being used as an automatic timestamp',
+            'Field createdAt definition must be type date and not required because it is used an automatic timestamp',
         );
     }
 
@@ -250,6 +253,33 @@ export default class extends TestSuite {
         model.myArray = ['foobar'];
 
         expect(model.myArray).toEqual(['foobar']);
+    }
+
+    public testClassPropertiesDontModifyParentModels(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class Parent extends Model {
+            public static classFields = ['parentField'];
+            public parentProp: string[] = [];
+        }
+
+        // tslint:disable-next-line:max-classes-per-file
+        class Child extends Parent {
+            public static classFields = ['childField'];
+            public childProp: string[] = [];
+        }
+
+        Soukai.loadModel('Parent', Parent);
+        Soukai.loadModel('Child', Child);
+
+        expect(Parent.classFields).toHaveLength(2);
+        expect(Parent.classFields).toContain('parentProp');
+        expect(Parent.classFields).toContain('parentField');
+
+        expect(Child.classFields).toHaveLength(4);
+        expect(Child.classFields).toContain('parentProp');
+        expect(Child.classFields).toContain('parentField');
+        expect(Child.classFields).toContain('childProp');
+        expect(Child.classFields).toContain('childField');
     }
 
 }
