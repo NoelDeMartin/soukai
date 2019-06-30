@@ -126,4 +126,55 @@ export default class extends TestSuite {
         expect(model.getAttributes(true)).toHaveProperty('birthDate');
     }
 
+    public testSmartDirtyAttributesOnSetter(): void {
+        const model = new User({
+            name: Faker.name.firstName(),
+            surname: Faker.name.lastName(),
+            contact: { phone: Faker.phone.phoneNumber() },
+        }, true);
+
+        const originalSurname = model.surname;
+
+        model.name = Faker.name.firstName();
+        model.surname = Faker.name.lastName();
+        model.surname = originalSurname;
+        model.social = { twitter: Faker.internet.userName() };
+        delete model.contact;
+
+        expect(model.isDirty('name')).toBe(true);
+        expect(model.isDirty('surname')).toBe(false);
+        expect(model.isDirty('social')).toBe(true);
+        expect(model.isDirty('contact')).toBe(true);
+    }
+
+    public testSmartDirtyAttributesOnUpdate(): void {
+        const model = new User({
+            id: Faker.random.uuid(),
+            name: Faker.name.firstName(),
+            surname: Faker.name.lastName(),
+            contact: { phone: Faker.phone.phoneNumber() },
+        }, true);
+
+        this.mockEngine.create.mockReturnValue(Promise.resolve());
+
+        model.update({
+            name: Faker.name.firstName(),
+            surname: model.surname,
+            social: { twitter: Faker.internet.userName() },
+            contact: undefined,
+        });
+
+        expect(this.mockEngine.update).toHaveBeenCalledTimes(1);
+        expect(this.mockEngine.update).toHaveBeenCalledWith(
+            User.collection,
+            model.id,
+            {
+                name: model.name,
+                social: model.social,
+                updatedAt: model.updatedAt,
+            },
+            ['contact'],
+        );
+    }
+
 }

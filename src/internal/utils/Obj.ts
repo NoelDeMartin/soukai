@@ -29,6 +29,10 @@ export function deepEquals(a: any, b: any): boolean {
         return false;
     }
 
+    if (a instanceof Date && b instanceof Date) {
+        return a.getTime() === b.getTime();
+    }
+
     if (Object.keys(a).length !== Object.keys(b).length) {
         return false;
     }

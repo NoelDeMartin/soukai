@@ -6,6 +6,7 @@ import SoukaiError from '@/errors/SoukaiError';
 import { deepClone } from '@/internal/utils/Obj';
 
 import Arr from '@/internal/utils/Arr';
+import Obj from '@/internal/utils/Obj';
 import Str from '@/internal/utils/Str';
 
 import Engine, { EngineAttributes, Filters } from '@/engines/Engine';
@@ -231,8 +232,8 @@ export default abstract class Model<Key = any> {
 
     protected _exists: boolean;
     protected _attributes: Attributes;
+    protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Attributes;
-    protected _removedAttributes: string[];
     protected _relations: RelationsMap;
 
     protected get classDef(): typeof Model {
@@ -323,8 +324,9 @@ export default abstract class Model<Key = any> {
 
         attributes = this.castAttributes(attributes, this.classDef.fields);
 
-        this._attributes = { ...this._attributes, ...attributes };
-        this._dirtyAttributes = { ...this._dirtyAttributes, ...attributes };
+        for (const field in attributes) {
+            this.setAttribute(field, attributes[field]);
+        }
 
         if (this.hasAutomaticTimestamp('updatedAt')) {
             this.touch();
@@ -385,7 +387,12 @@ export default abstract class Model<Key = any> {
         value = this.castAttribute(value, this.classDef.fields[field]);
 
         this._attributes[field] = value;
-        this._dirtyAttributes[field] = value;
+
+        delete this._dirtyAttributes[field];
+
+        if (!Obj.deepEquals(this._originalAttributes[field], value)) {
+            this._dirtyAttributes[field] = value;
+        }
 
         if (this.hasAutomaticTimestamp('updatedAt') && field !== 'updatedAt') {
             this.touch();
@@ -422,12 +429,19 @@ export default abstract class Model<Key = any> {
             } else {
                 delete this._attributes[field];
             }
-            this._removedAttributes.push(field);
+
+            if (this._originalAttributes[field] !== undefined) {
+                this._dirtyAttributes[field] = undefined;
+            }
 
             if (this.hasAutomaticTimestamp('updatedAt')) {
                 this.touch();
             }
         }
+    }
+
+    public isDirty(name: string): boolean {
+        return name in this._dirtyAttributes;
     }
 
     public getPrimaryKey(): Key {
@@ -454,17 +468,29 @@ export default abstract class Model<Key = any> {
         if (this._exists) {
             ensureRequiredAttributes(this._attributes, this.classDef.fields);
 
+            const updatedAttributes = Obj.deepClone(this._dirtyAttributes);
+            const removedAttributes: string[] = [];
+
+            for (const field in updatedAttributes) {
+                if (updatedAttributes[field] !== undefined) {
+                    continue;
+                }
+
+                removedAttributes.push(field);
+                delete updatedAttributes[field];
+            }
+
             return Soukai.withEngine(engine =>
                 engine
                     .update(
                         this.classDef.collection,
                         this._attributes[this.classDef.primaryKey],
-                        this.prepareEngineAttributes(engine, this._dirtyAttributes),
-                        [...this.prepareEngineAttributeNames(engine, this._removedAttributes)],
+                        this.prepareEngineAttributes(engine, updatedAttributes),
+                        [...this.prepareEngineAttributeNames(engine, removedAttributes)],
                     )
                     .then(() => {
+                        this._originalAttributes = Obj.deepClone(this._attributes);
                         this._dirtyAttributes = {};
-                        this._removedAttributes = [];
 
                         return <any> this;
                     }),
@@ -488,8 +514,8 @@ export default abstract class Model<Key = any> {
                     )
                     .then(id => {
                         this._attributes[this.classDef.primaryKey] = this.parseKey(id);
+                        this._originalAttributes = Obj.deepClone(this._attributes);
                         this._dirtyAttributes = {};
-                        this._removedAttributes = [];
                         this._exists = true;
 
                         return <any> this;
@@ -515,9 +541,9 @@ export default abstract class Model<Key = any> {
     }
 
     protected initAttributes(attributes: Attributes, exists: boolean): void {
-        this._attributes = { ...attributes };
-        this._dirtyAttributes = exists ? {} : { ...attributes };
-        this._removedAttributes = [];
+        this._attributes = Obj.deepClone(attributes);
+        this._originalAttributes = exists ? Obj.deepClone(attributes) : {};
+        this._dirtyAttributes = exists ? {} : Obj.deepClone(attributes);
 
         if (!exists) {
 

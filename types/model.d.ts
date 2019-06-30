@@ -89,6 +89,8 @@ export class Model<Key = any> {
 
     public unsetAttribute(field: string): void;
 
+    public isDirty(name: string): boolean;
+
     public delete<T extends Model>(): Promise<T>;
 
     public save<T extends Model>(): Promise<T>;
