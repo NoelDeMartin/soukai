@@ -182,7 +182,7 @@ export default abstract class Model<Key = any> {
             engine
                 .readOne(this.collection, this.instance.serializeKey(id))
                 .then(result => {
-                    const attributes = this.instance.parseEngineAttributes(engine, result);
+                    const attributes = this.instance.parseEngineAttributes(result);
 
                     attributes[this.primaryKey] = id;
 
@@ -207,7 +207,7 @@ export default abstract class Model<Key = any> {
                     const results: T[] = [];
 
                     for (const id in documents) {
-                        const attributes = this.instance.parseEngineAttributes(engine, documents[id]);
+                        const attributes = this.instance.parseEngineAttributes(documents[id]);
 
                         attributes[this.primaryKey] = this.instance.parseKey(id);
 
@@ -485,8 +485,8 @@ export default abstract class Model<Key = any> {
                     .update(
                         this.classDef.collection,
                         this._attributes[this.classDef.primaryKey],
-                        this.prepareEngineAttributes(engine, updatedAttributes),
-                        [...this.prepareEngineAttributeNames(engine, removedAttributes)],
+                        this.prepareEngineAttributes(updatedAttributes),
+                        [...this.prepareEngineAttributeNames(removedAttributes)],
                     )
                     .then(() => {
                         this._originalAttributes = Obj.deepClone(this._attributes);
@@ -509,7 +509,7 @@ export default abstract class Model<Key = any> {
                 return engine
                     .create(
                         this.classDef.collection,
-                        this.prepareEngineAttributes(engine, attributes),
+                        this.prepareEngineAttributes(attributes),
                         primaryKey ? this.serializeKey(primaryKey) : undefined,
                     )
                     .then(id => {
@@ -665,15 +665,15 @@ export default abstract class Model<Key = any> {
         return (this.classDef.timestamps as string[]).indexOf(timestamp) !== -1;
     }
 
-    protected prepareEngineAttributes(_: Engine, attributes: Attributes): EngineAttributes {
+    protected prepareEngineAttributes(attributes: Attributes): EngineAttributes {
         return attributes;
     }
 
-    protected prepareEngineAttributeNames(_: Engine, names: string[]): string[] {
+    protected prepareEngineAttributeNames(names: string[]): string[] {
         return names;
     }
 
-    protected parseEngineAttributes(_: Engine, attributes: EngineAttributes): Attributes {
+    protected parseEngineAttributes(attributes: EngineAttributes): Attributes {
         return attributes;
     }
 

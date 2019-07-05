@@ -123,11 +123,11 @@ export class Model<Key = any> {
 
     protected hasAutomaticTimestamp(timestamp: string): boolean;
 
-    protected prepareEngineAttributes(engine: Engine, attributes: Attributes): EngineAttributes;
+    protected prepareEngineAttributes(attributes: Attributes): EngineAttributes;
 
-    protected prepareEngineAttributeNames(engine: Engine, names: string[]): string[];
+    protected prepareEngineAttributeNames(names: string[]): string[];
 
-    protected parseEngineAttributes(engine: Engine, document: EngineAttributes): Attributes;
+    protected parseEngineAttributes(document: EngineAttributes): Attributes;
 
     protected serializeKey<Key = any>(key: Key): Attributes;
 
