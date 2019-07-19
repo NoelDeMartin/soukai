@@ -751,10 +751,16 @@ function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinit
         const definition = fields[field];
 
         if (!(field in attributes)) {
-            if (definition.type === FieldType.Object) {
-                attributes[field] = {};
-            } else {
-                attributes[field] = undefined;
+            switch (definition.type) {
+                case FieldType.Object:
+                    attributes[field] = {};
+                    break;
+                case FieldType.Array:
+                    attributes[field] = [];
+                    break;
+                default:
+                    attributes[field] = undefined;
+                    break;
             }
         }
 
