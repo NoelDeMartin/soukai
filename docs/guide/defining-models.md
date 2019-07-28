@@ -256,3 +256,20 @@ class User extends Model {
 ```
 
 Learn how to use the relationships we just defined in the [next section](/guide/using-models.html#working-with-relationships).
+
+
+## A word about constructors
+
+Because of internal implementation details, it is not recommended to have a constructor when defining a model class. Instead, you can override the [initialize](/api/classes/models.model.html#initialize) method:
+
+```javascript
+class User extends Model {
+    initialize(attributes, exists) {
+        super.initialize(attributes, exists);
+
+        // Instance initialization code goes here
+    }
+}
+```
+
+If you want to learn more about the internal implementation details, check out the source code of the [Model](https://github.com/NoelDeMartin/soukai/tree/master/src/models/Model.ts) class and look how instances are initialized.

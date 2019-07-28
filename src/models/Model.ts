@@ -9,7 +9,7 @@ import Arr from '@/internal/utils/Arr';
 import Obj from '@/internal/utils/Obj';
 import Str from '@/internal/utils/Str';
 
-import Engine, { EngineAttributes, Filters } from '@/engines/Engine';
+import { EngineAttributes, Filters } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
@@ -251,10 +251,7 @@ export default abstract class Model<Key = any> {
         }
 
         this.classDef.ensureBooted();
-
-        this._exists = exists;
-        this.initAttributes(attributes, exists);
-        this.initRelations();
+        this.initialize(attributes, exists);
 
         return new Proxy(this, {
             get(target, property, receiver) {
@@ -540,7 +537,13 @@ export default abstract class Model<Key = any> {
         return this._exists;
     }
 
-    protected initAttributes(attributes: Attributes, exists: boolean): void {
+    protected initialize(attributes: Attributes, exists: boolean): void {
+        this._exists = exists;
+        this.initializeAttributes(attributes, exists);
+        this.initializeRelations();
+    }
+
+    protected initializeAttributes(attributes: Attributes, exists: boolean): void {
         this._attributes = Obj.deepClone(attributes);
         this._originalAttributes = exists ? Obj.deepClone(attributes) : {};
         this._dirtyAttributes = exists ? {} : Obj.deepClone(attributes);
@@ -568,7 +571,7 @@ export default abstract class Model<Key = any> {
         );
     }
 
-    protected initRelations(): void {
+    protected initializeRelations(): void {
         this._relations = {};
 
         for (const name of this.classDef.relations) {

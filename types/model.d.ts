@@ -101,9 +101,11 @@ export class Model<Key = any> {
 
     public exists(): boolean;
 
-    protected initAttributes(attributes: Attributes, exists: boolean): void;
+    protected initialize(attributes: Attributes, exists: boolean): void;
 
-    protected initRelations(): void;
+    protected initializeAttributes(attributes: Attributes, exists: boolean): void;
+
+    protected initializeRelations(): void;
 
     protected hasMany(
         model: typeof Model,
