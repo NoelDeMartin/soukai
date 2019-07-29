@@ -137,13 +137,11 @@ export default class LocalStorageEngine implements Engine {
         return attributes;
     }
 
-    private deserializeAttributeValue(value: any): any {
+    private deserializeAttributeValue(value: any, depth: number = 0): any {
         if (Array.isArray(value)) {
             return value.map(arrayValue => this.deserializeAttributes(arrayValue));
-        } else if (typeof value === 'object') {
-            return '__dateTime' in value
-                ? new Date(value.__dateTime)
-                : this.deserializeAttributeValue(value as EngineAttributes);
+        } else if (typeof value === 'object' && '__dateTime' in value) {
+            return new Date(value.__dateTime);
         } else {
             return value;
         }
