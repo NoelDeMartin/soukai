@@ -260,16 +260,56 @@ Learn how to use the relationships we just defined in the [next section](/guide/
 
 ## A word about constructors
 
-Because of internal implementation details, it is not recommended to have a constructor when defining a model class. Instead, you can override the [initialize](/api/classes/models.model.html#initialize) method:
+Because of internal implementation details, it is not recommended to have a constructor when defining a model class. Instead, you can override the [initialize](/api/classes/models.model.html#initialize) method.
 
+Something else to keep in mind is to not use magic attributes within this initializer. Magic attributes are the ones that are not defined as class methods nor properties, but are available at runtime from fields and relationships. All these attributes can be manipulated using their respective methods instead.
+
+::: danger ❌ Wrong
 ```javascript
-class User extends Model {
-    initialize(attributes, exists) {
-        super.initialize(attributes, exists);
+class Post extends Model {
+    static fields = {
+        authorId: FieldType.Key,
+    };
 
-        // Instance initialization code goes here
+    constructor(attributes, exists) {
+        super(attributes, exists);
+
+        console.log('this will not work', this.title);
+        console.log(
+            'this will even throw an error',
+            this.loadRelation('author'),
+        );
+    }
+
+    authorRelationship() {
+        return this.belongsToOne(User, 'authorId');
     }
 }
 ```
+:::
 
-If you want to learn more about the internal implementation details, check out the source code of the [Model](https://github.com/NoelDeMartin/soukai/tree/master/src/models/Model.ts) class and look how instances are initialized.
+::: tip ✔️ Correct
+```javascript
+class Post extends Model {
+    static fields = {
+        authorId: FieldType.Key,
+    };
+
+    initialize(attributes, exists) {
+        super.initialize(attributes, exists);
+
+        console.log('this is fine', this.getAttribute('title'));
+
+        this.loadRelation('author').then(() => {
+            console.log('this is also fine', this.getRelationModels('author'));
+        });
+    }
+
+    authorRelationship() {
+        return this.belongsToOne(User, 'authorId');
+    }
+}
+```
+:::
+
+If you want to learn more about the internal implementation details, check out the source code of the [Model](https://github.com/NoelDeMartin/soukai/tree/master/src/models/Model.ts) class and learn how instances are initialized using Proxy.
