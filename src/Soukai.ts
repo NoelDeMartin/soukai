@@ -35,7 +35,7 @@ export class Soukai {
         } else {
             throw new SoukaiError(
                 'Engine must be initialized before performing any operations. ' +
-                'Learn more at https://soukai.js.org/guide.html#using-engines',
+                'Learn more at https://soukai.js.org/guide/engines.html',
             );
         }
     }

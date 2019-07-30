@@ -132,7 +132,7 @@ export default abstract class Model<Key = any> {
                             name,
                             `Field ${field} definition must be type date and not required ` +
                             `because it is used an automatic timestamp. ` +
-                            'Learn more at https://soukai.js.org/guide.html#automatic-timestamps',
+                            'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
                         );
                     }
                 }
@@ -225,7 +225,7 @@ export default abstract class Model<Key = any> {
         if (typeof classDef.modelName === 'undefined') {
             throw new SoukaiError(
                 'Model has not been booted (did you forget to call Soukai.loadModel?) ' +
-                'Learn more at https://soukai.js.org/guide.html#defining-models',
+                'Learn more at https://soukai.js.org/guide/defining-models.html',
             );
         }
     }
