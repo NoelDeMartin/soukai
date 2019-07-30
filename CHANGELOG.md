@@ -11,6 +11,7 @@
 
 - Engines have been refactored to know nothing about the models, they'll only get attributes now. Multiple methods have been modified and added to the Model class in order to control attributes serialization.
 - InMemoryEngine database format has been changed.
+- Some methods and its arguments have changed, be sure to check out new [type definitions](https://github.com/NoelDeMartin/soukai/tree/master/types).
 
 [Compare changes with previous version](https://github.com/NoelDeMartin/soukai/compare/v0.1.0...v0.2.0)
 
