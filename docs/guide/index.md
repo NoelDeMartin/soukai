@@ -9,7 +9,7 @@ To get started, add the package as an npm dependency:
 npm install soukai --save
 ```
 
-Initialize the library with the engine of your choice. One good option to start tinkering is an [InMemoryEngine](/api/classes/engines.inmemoryengine.html), which will only store information in memory.
+Initialize the library with the engine of your choice. One good option to start tinkering is an [InMemoryEngine](https://soukai.js.org/api/classes/engines.inmemoryengine.html), which will only store information in memory.
 
 ```javascript
 import Soukai, { InMemoryEngine } from 'soukai';

@@ -681,7 +681,7 @@ export default abstract class Model<Key = any> {
     }
 
     protected serializeKey(key: Key): string {
-        return key.toString();
+        return (key as any).toString();
     }
 
     protected parseKey(key: string): Key {

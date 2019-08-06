@@ -1,6 +1,6 @@
 # Engines
 
-Communication with the database is abstracted and can be adapted to multiple environments implementing the [Engine](/api/interfaces/engines.engine.html) interface.
+Communication with the database is abstracted and can be adapted to multiple environments implementing the [Engine](https://soukai.js.org/api/interfaces/engines.engine.html) interface.
 
 Depending on the scenario, this engine can send queries to a database (for example, a MongoDB engine in a server side application) or it can be a wrapper doing http requests (for example, in a client side application calling the backend API).
 
@@ -10,7 +10,7 @@ If you are looking for engines defined outside of the core, or you want to devel
 
 ## Tinkering
 
-The [InMemoryEngine](/api/classes/engines.inmemoryengine.html) is intended as a development tool to get started quickly and can also be used to test applications without hitting a real database.
+The [InMemoryEngine](https://soukai.js.org/api/classes/engines.inmemoryengine.html) is intended as a development tool to get started quickly and can also be used to test applications without hitting a real database.
 
 This engine exposes the memory object where the data is stored and can be accessed with the `database` property.
 
@@ -51,7 +51,7 @@ This script would show an object with following structure in the console:
 
 When debugging applications that use this library, it is useful to be aware of what's happening under the hood with database communication.
 
-The [LogEngine](/api/classes/engines.logengine.html) can be used to wrap an existing engine and log to console all operations.
+The [LogEngine](https://soukai.js.org/api/classes/engines.logengine.html) can be used to wrap an existing engine and log to console all operations.
 
 Using the same example as before:
 
