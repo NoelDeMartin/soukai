@@ -25,11 +25,15 @@ export default class EngineHelper {
             $in: this.filterIn,
         };
         this.specialAttributeFilters = {
+            $eq: this.filterEq,
             $contains: this.filterContains,
+            $or: this.filterOr,
         };
     }
 
     public filterDocuments(documents: Documents, filters: Filters = {}): Documents {
+        documents = { ...documents };
+
         for (const attribute in filters) {
             if (attribute in this.specialRootFilters) {
                 documents = this.specialRootFilters[attribute](documents, filters[attribute]);
@@ -49,13 +53,7 @@ export default class EngineHelper {
                 }
             }
 
-            for (const id in documents) {
-                const document = documents[id];
-
-                if (!deepEquals(document[attribute], filters[attribute])) {
-                    delete documents[id];
-                }
-            }
+            documents = this.filterEq(documents, attribute, filters[attribute]);
         }
 
         return documents;
@@ -63,6 +61,20 @@ export default class EngineHelper {
 
     public obtainDocumentId(id?: string): string {
         return id || UUID.generate();
+    }
+
+    private filterEq = (documents: Documents, attribute: string, value: any): Documents => {
+        documents = { ...documents };
+
+        for (const id in documents) {
+            const document = documents[id];
+
+            if (!deepEquals(document[attribute], value)) {
+                delete documents[id];
+            }
+        }
+
+        return documents;
     }
 
     private filterIn = (documents: Documents, values: string[]): Documents => {
@@ -91,6 +103,13 @@ export default class EngineHelper {
         }
 
         return documents;
+    }
+
+    private filterOr = (documents: Documents, attribute: string, filters: any[]): Documents => {
+        return filters.reduce((filteredDocuments, filter) => ({
+            ...filteredDocuments,
+            ...this.filterDocuments(documents, { [attribute]: filter }),
+        }), {});
     }
 
     private arrayContains(array: any[], values: any[]): boolean {

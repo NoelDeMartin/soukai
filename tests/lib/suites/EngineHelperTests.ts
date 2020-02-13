@@ -31,6 +31,22 @@ export default class extends TestSuite {
         });
     }
 
+    public testEqFilters(): void {
+        const name = Faker.random.word();
+        const documents: Documents = {
+            first: { name },
+            second: { name: Faker.random.word() },
+        };
+
+        const filteredDocuments = this.helper.filterDocuments(documents, {
+            name: { $eq: name },
+        });
+
+        expect(filteredDocuments).toEqual({
+            first: documents.first,
+        });
+    }
+
     public testContainsFilters(): void {
         const name = Faker.random.word();
         const documents: Documents = {
@@ -59,6 +75,30 @@ export default class extends TestSuite {
 
         expect(filteredDocuments).toEqual({
             first: documents.first,
+        });
+    }
+
+    public testOrFilters(): void {
+        const name = Faker.random.word();
+        const documents: Documents = {
+            first: { names: [name, Faker.random.word()] },
+            second: { names: name },
+            third: { names: [Faker.random.word()] },
+            fourth: { names: Faker.random.word() },
+        };
+
+        const filteredDocuments = this.helper.filterDocuments(documents, {
+            names: {
+                $or: [
+                    { $contains: [name] },
+                    { $eq: name },
+                ],
+            },
+        });
+
+        expect(filteredDocuments).toEqual({
+            first: documents.first,
+            second: documents.second,
         });
     }
 
