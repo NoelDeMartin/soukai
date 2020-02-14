@@ -1,16 +1,20 @@
 import Model from '@/models/Model';
 
-export default abstract class Relation {
+export default abstract class Relation<
+    P extends Model = Model,
+    R extends Model = Model,
+    RC extends typeof Model = typeof Model,
+> {
 
-    protected parent: Model;
+    protected parent: P;
 
-    protected related: typeof Model;
+    protected related: RC;
 
-    public constructor(parent: Model, related: typeof Model) {
+    public constructor(parent: P, related: RC) {
         this.parent = parent;
         this.related = related;
     }
 
-    public abstract resolve(): Promise<null | Model | Model[]>;
+    public abstract resolve(): Promise<null | R | R[]>;
 
 }
