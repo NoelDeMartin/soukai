@@ -181,13 +181,7 @@ export default abstract class Model<Key = any> {
         return Soukai.withEngine(engine =>
             engine
                 .readOne(this.collection, this.instance.serializeKey(id))
-                .then(result => {
-                    const attributes = this.instance.parseEngineAttributes(result);
-
-                    attributes[this.primaryKey] = id;
-
-                    return new (this as any)(attributes, true);
-                })
+                .then(document => this.instance.parseEngineAttributes<T>(id, document))
                 .catch(() => null),
         );
     }
@@ -203,19 +197,9 @@ export default abstract class Model<Key = any> {
         return Soukai.withEngine(engine =>
             engine
                 .readMany(this.collection, filters)
-                .then(documents => {
-                    const results: T[] = [];
-
-                    for (const id in documents) {
-                        const attributes = this.instance.parseEngineAttributes(documents[id]);
-
-                        attributes[this.primaryKey] = this.instance.parseKey(id);
-
-                        results.push(new (this as any)(attributes, true));
-                    }
-
-                    return results;
-                }),
+                .then(documents => Object.entries(documents).map(([id, document]) => {
+                    return this.instance.parseEngineAttributes<T>(id, document);
+                })),
         );
     }
 
@@ -676,8 +660,12 @@ export default abstract class Model<Key = any> {
         return names;
     }
 
-    protected parseEngineAttributes(attributes: EngineAttributes): Attributes {
-        return attributes;
+    protected parseEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T {
+        const attributes: Attributes = { ...document };
+
+        attributes[this.classDef.primaryKey] = id;
+
+        return new (this.classDef as any)(attributes, true);
     }
 
     protected serializeKey(key: Key): string {

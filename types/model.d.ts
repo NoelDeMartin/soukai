@@ -57,7 +57,7 @@ export class Model<Key = any> {
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;
 
-    public static find<T extends Model>(id: string): Promise<T | null>;
+    public static find<T extends Model, Key = any>(id: Key): Promise<T | null>;
 
     public static all<T extends Model>(filters?: Filters): Promise<T[]>;
 
@@ -129,9 +129,9 @@ export class Model<Key = any> {
 
     protected prepareEngineAttributeNames(names: string[]): string[];
 
-    protected parseEngineAttributes(document: EngineAttributes): Attributes;
+    protected parseEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T;
 
-    protected serializeKey<Key = any>(key: Key): Attributes;
+    protected serializeKey(key: Key): string;
 
     protected parseKey(key: string): Key;
 
