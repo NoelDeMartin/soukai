@@ -49,7 +49,7 @@ export class Model<Key = any> {
 
     public static relations: string[];
 
-    protected static instance: Model;
+    public static instance: Model;
 
     protected static pureInstance: Model;
 
@@ -101,6 +101,8 @@ export class Model<Key = any> {
 
     public exists(): boolean;
 
+    public fromEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T;
+
     protected initialize(attributes: Attributes, exists: boolean): void;
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void;
@@ -129,7 +131,7 @@ export class Model<Key = any> {
 
     protected prepareEngineAttributeNames(names: string[]): string[];
 
-    protected parseEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T;
+    protected parseEngineAttributes(document: EngineAttributes): Attributes;
 
     protected serializeKey(key: Key): string;
 

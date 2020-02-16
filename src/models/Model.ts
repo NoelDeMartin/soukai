@@ -75,7 +75,7 @@ export default abstract class Model<Key = any> {
 
     public static relations: string[] = [];
 
-    protected static get instance(): Model {
+    public static get instance(): Model {
         return new (this as any)();
     }
 
@@ -181,7 +181,7 @@ export default abstract class Model<Key = any> {
         return Soukai.withEngine(engine =>
             engine
                 .readOne(this.collection, this.instance.serializeKey(id))
-                .then(document => this.instance.parseEngineAttributes<T>(id, document))
+                .then(document => this.instance.fromEngineAttributes<T>(id, document))
                 .catch(() => null),
         );
     }
@@ -198,7 +198,7 @@ export default abstract class Model<Key = any> {
             engine
                 .readMany(this.collection, filters)
                 .then(documents => Object.entries(documents).map(([id, document]) => {
-                    return this.instance.parseEngineAttributes<T>(id, document);
+                    return this.instance.fromEngineAttributes<T>(id, document);
                 })),
         );
     }
@@ -521,6 +521,13 @@ export default abstract class Model<Key = any> {
         return this._exists;
     }
 
+    public fromEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T {
+        return new (this.classDef as any)({
+            [this.classDef.primaryKey]: id,
+            ...this.parseEngineAttributes(document),
+        }, true);
+    }
+
     protected initialize(attributes: Attributes, exists: boolean): void {
         this._exists = exists;
         this.initializeAttributes(attributes, exists);
@@ -660,12 +667,8 @@ export default abstract class Model<Key = any> {
         return names;
     }
 
-    protected parseEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T {
-        const attributes: Attributes = { ...document };
-
-        attributes[this.classDef.primaryKey] = id;
-
-        return new (this.classDef as any)(attributes, true);
+    protected parseEngineAttributes(document: EngineAttributes): Attributes {
+        return { ...document };
     }
 
     protected serializeKey(key: Key): string {
