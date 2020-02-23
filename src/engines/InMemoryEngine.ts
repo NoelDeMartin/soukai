@@ -35,8 +35,9 @@ export default class InMemoryEngine implements Engine {
 
         id = this.helper.obtainDocumentId(id);
 
-        if (id in collection)
+        if (id in collection) {
             throw new DocumentAlreadyExists(id);
+        }
 
         collection[id] = attributes;
 

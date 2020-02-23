@@ -30,8 +30,9 @@ export default class LocalStorageEngine implements Engine {
 
         id = this.helper.obtainDocumentId(id);
 
-        if (id in documents)
+        if (id in documents) {
             throw new DocumentAlreadyExists(id);
+        }
 
         documents[id] = this.serializeAttributes(attributes);
 
