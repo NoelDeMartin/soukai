@@ -8,6 +8,10 @@ fi
 # abort on errors
 set -e
 
+# test code
+npm run lint
+npm run test
+
 # update version
 hash=`git rev-parse HEAD`
 current_version=`grep -Po "(?<=\"version\"\: \")\d.\d.\d(?=\")" < package.json`
