@@ -1,6 +1,7 @@
 import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
+import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 export default class LocalStorageEngine implements Engine {
@@ -28,6 +29,9 @@ export default class LocalStorageEngine implements Engine {
         const documents = this.readItem(collection, {});
 
         id = this.helper.obtainDocumentId(id);
+
+        if (id in documents)
+            throw new DocumentAlreadyExists(id);
 
         documents[id] = this.serializeAttributes(attributes);
 

@@ -1,6 +1,7 @@
 import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
+import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 export interface InMemoryEngineCollection {
@@ -33,6 +34,10 @@ export default class InMemoryEngine implements Engine {
         const collection = this.collection(collectionName);
 
         id = this.helper.obtainDocumentId(id);
+
+        if (id in collection)
+            throw new DocumentAlreadyExists(id);
+
         collection[id] = attributes;
 
         return Promise.resolve(id);

@@ -2,6 +2,7 @@ import Engine from '@/engines/Engine';
 import Model from '@/models/Model';
 import Soukai from '@/Soukai';
 
+import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
@@ -23,7 +24,7 @@ export { Model, Engine, Soukai };
 
 export { EngineHelper, LogEngine, InMemoryEngine, LocalStorageEngine };
 
-export { SoukaiError, DocumentNotFound, InvalidModelDefinition };
+export { SoukaiError, DocumentNotFound, DocumentAlreadyExists, InvalidModelDefinition };
 
 export { InMemoryEngineDatabase } from '@/engines/InMemoryEngine';
 

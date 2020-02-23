@@ -2,11 +2,15 @@ import SoukaiError from '@/errors/SoukaiError';
 
 export default class InvalidModelDefinition extends SoukaiError {
 
-    constructor(name: string, message: string) {
+    public readonly modelName: string;
+
+    constructor(modelName: string, message: string) {
         super(
-            `Model ${name}: ${message}. ` +
+            `Model ${modelName}: ${message}. ` +
             'Learn more at https://soukai.js.org/guide/defining-models.html',
         );
+
+        this.modelName = modelName;
     }
 
 }

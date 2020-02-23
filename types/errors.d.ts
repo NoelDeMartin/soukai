@@ -10,13 +10,24 @@ export class SoukaiError implements Error {
 
 export class InvalidModelDefinition extends SoukaiError {
 
-    constructor(name: string, message: string);
+    public readonly modelName: string;
+
+    constructor(modelName: string, message: string);
 
 }
 
 export class DocumentNotFound extends SoukaiError {
 
+    public readonly id: string;
+
     constructor(id: string);
 
 }
 
+export class DocumentAlreadyExists extends SoukaiError {
+
+    public readonly id: string;
+
+    constructor(id: string);
+
+}

@@ -2,7 +2,12 @@ import Soukai from './soukai';
 
 export { definitionsFromContext } from './utils';
 
-export { SoukaiError, DocumentNotFound, InvalidModelDefinition } from './errors';
+export {
+    DocumentAlreadyExists,
+    DocumentNotFound,
+    InvalidModelDefinition,
+    SoukaiError,
+} from './errors';
 
 export {
     Documents,
