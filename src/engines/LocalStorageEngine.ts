@@ -144,7 +144,7 @@ export default class LocalStorageEngine implements Engine {
 
     private deserializeAttributeValue(value: any): any {
         if (Array.isArray(value)) {
-            return value.map(arrayValue => this.deserializeAttributes(arrayValue));
+            return value.map(arrayValue => this.deserializeAttributeValue(arrayValue));
         } else if (typeof value === 'object' && '__dateTime' in value) {
             return new Date(value.__dateTime);
         } else {
