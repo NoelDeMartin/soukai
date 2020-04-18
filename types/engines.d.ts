@@ -11,7 +11,11 @@ export interface Documents {
 }
 
 export interface Filters {
-    [field: string]: any;
+    $in?: string[];
+
+    [field: string]:
+        { $contains: any[] } |
+        any;
 }
 
 export interface Engine {
