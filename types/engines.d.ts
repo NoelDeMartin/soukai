@@ -53,7 +53,7 @@ export interface InMemoryEngineDatabase {
 
 export class InMemoryEngine implements Engine {
 
-    public readonly database: InMemoryEngineDatabase;
+    readonly database: InMemoryEngineDatabase;
 
     create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 
@@ -98,6 +98,31 @@ export class LocalStorageEngine implements Engine {
     constructor(prefix?: string);
 
     clear(): void;
+
+    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+
+    readOne(collection: string, id: string): Promise<EngineAttributes>;
+
+    readMany(collection: string): Promise<Documents>;
+
+    update(
+        collection: string,
+        id: string,
+        updatedAttributes: EngineAttributes,
+        removedAttributes: string[],
+    ): Promise<void>;
+
+    delete(collection: string, id: string): Promise<void>;
+
+}
+
+export class IndexedDBEngine implements Engine {
+
+    constructor(database?: string);
+
+    purgeDatabase(): Promise<void>;
+
+    closeConnections(): void;
 
     create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 

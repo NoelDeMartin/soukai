@@ -15,8 +15,9 @@ export {
     EngineAttributes,
     EngineHelper,
     Filters,
-    InMemoryEngineDatabase,
+    IndexedDBEngine,
     InMemoryEngine,
+    InMemoryEngineDatabase,
     LocalStorageEngine,
     LogEngine,
 } from './engines';

@@ -54,8 +54,8 @@ export default class extends TestSuite {
         });
     }
 
-    public testReadOneNonExistent(): void {
-        expect(this.engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+    public async testReadOneNonExistent(): Promise<void> {
+        await expect(this.engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
     }
 
     public testReadMany(): Promise<void> {
@@ -108,10 +108,11 @@ export default class extends TestSuite {
         const id = Faker.random.uuid();
         const initialName = Faker.name.firstName();
         const newName = Faker.name.firstName();
+        const age = Faker.random.number();
 
         MockLocalStorage.setData({
             [this.prefix + User.collection]: JSON.stringify({
-                [id]: { name: initialName, surname: Faker.name.lastName() },
+                [id]: { name: initialName, surname: Faker.name.lastName(), age },
             }),
         });
 
@@ -120,14 +121,15 @@ export default class extends TestSuite {
             expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
                 this.prefix + User.collection,
                 JSON.stringify({
-                    [id]: { name: newName },
+                    [id]: { name: newName, age },
                 }),
             );
         });
     }
 
-    public testUpdateNonExistent(): void {
-        expect(this.engine.update(User.collection, Faker.random.uuid(), {}, [])).rejects.toThrow(DocumentNotFound);
+    public async testUpdateNonExistent(): Promise<void> {
+        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}, []))
+            .rejects.toThrow(DocumentNotFound);
     }
 
     public testDelete(): Promise<void> {
@@ -152,8 +154,8 @@ export default class extends TestSuite {
         });
     }
 
-    public testDeleteNonExistent(): void {
-        expect(this.engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+    public async testDeleteNonExistent(): Promise<void> {
+        await expect(this.engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
     }
 
 }

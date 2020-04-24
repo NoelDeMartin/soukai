@@ -8,6 +8,7 @@ import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 
 import EngineHelper from '@/engines/EngineHelper';
+import IndexedDBEngine from '@/engines/IndexedDBEngine';
 import InMemoryEngine from '@/engines/InMemoryEngine';
 import LocalStorageEngine from '@/engines/LocalStorageEngine';
 import LogEngine from '@/engines/LogEngine';
@@ -22,7 +23,7 @@ export { definitionsFromContext } from '@/utils/webpack-helpers';
 
 export { Model, Engine, Soukai };
 
-export { EngineHelper, LogEngine, InMemoryEngine, LocalStorageEngine };
+export { EngineHelper, LogEngine, InMemoryEngine, LocalStorageEngine, IndexedDBEngine };
 
 export { SoukaiError, DocumentNotFound, DocumentAlreadyExists, InvalidModelDefinition };
 

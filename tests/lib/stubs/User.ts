@@ -13,6 +13,7 @@ export default class User extends Model {
             required: true,
         },
         surname: FieldType.String,
+        age: FieldType.Number,
         birthDate: FieldType.Date,
         contact: {
             email: FieldType.String,
