@@ -1,10 +1,10 @@
 import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 
-export default class LogEngine implements Engine {
+export default class LogEngine<InnerEngine extends Engine = Engine> implements Engine {
 
-    private engine: Engine;
+    public readonly engine: InnerEngine;
 
-    constructor(engine: Engine) {
+    constructor(engine: InnerEngine) {
         this.engine = engine;
     }
 

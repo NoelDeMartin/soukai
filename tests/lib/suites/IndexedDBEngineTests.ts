@@ -51,7 +51,7 @@ export default class extends TestSuite {
 
         // Act
         for (const collection of collections) {
-            await this.engine.readMany(collection);
+            await this.engine.create(collection, {});
         }
 
         this.engine.closeConnections();
@@ -187,6 +187,11 @@ export default class extends TestSuite {
 
     public async testDeleteNonExistent(): Promise<void> {
         await expect(this.engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+    }
+
+    public async testDeleteNonExistentCollection(): Promise<void> {
+        await expect(this.engine.delete(Faker.random.word(), Faker.random.uuid()))
+            .rejects.toThrow(DocumentNotFound);
     }
 
     private async resetDatabase(): Promise<void> {

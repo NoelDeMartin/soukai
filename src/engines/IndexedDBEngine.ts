@@ -1,4 +1,4 @@
-import { DBSchema, deleteDB, IDBPObjectStore, openDB } from 'idb';
+import { DBSchema, deleteDB, IDBPObjectStore, openDB, TypedDOMStringList } from 'idb';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
@@ -8,6 +8,7 @@ import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
 interface DatabaseConnection<Schema extends DBSchema> {
+    readonly objectStoreNames: TypedDOMStringList<any>;
     transaction(storeNames: string | string[], mode?: IDBTransactionMode): DatabaseTransaction<Schema>;
     close(): void;
 }
@@ -44,6 +45,8 @@ export default class IndexedDBEngine implements Engine {
     }
 
     public async purgeDatabase(): Promise<void> {
+        this.closeConnections();
+
         await deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() });
         await deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() });
     }
@@ -64,7 +67,7 @@ export default class IndexedDBEngine implements Engine {
     public async create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
         id = this.helper.obtainDocumentId(id);
 
-        const transaction = await this.startDocumentsTransaction(collection, 'readwrite');
+        const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
         const document = await transaction.store.get(id);
 
         if (document) {
@@ -79,9 +82,12 @@ export default class IndexedDBEngine implements Engine {
     }
 
     public async readOne(collection: string, id: string): Promise<EngineAttributes> {
-        const transaction = await this.startDocumentsTransaction(collection, 'readonly');
-        const document = await transaction.store.get(id);
+        const transaction = await this.startDocumentsTransaction('readonly', collection);
+        if (!transaction) {
+            throw new DocumentNotFound(id);
+        }
 
+        const document = await transaction.store.get(id);
         if (!document) {
             throw new DocumentNotFound(id);
         }
@@ -90,9 +96,13 @@ export default class IndexedDBEngine implements Engine {
     }
 
     public async readMany(collection: string, filters?: Filters): Promise<Documents> {
-        const transaction = await this.startDocumentsTransaction(collection, 'readonly');
-
+        const transaction = await this.startDocumentsTransaction('readonly', collection);
         const documents = {};
+
+        if (!transaction) {
+            return documents;
+        }
+
         for (
             let documentsCursor = await transaction.store.openCursor();
             documentsCursor !== null;
@@ -110,7 +120,7 @@ export default class IndexedDBEngine implements Engine {
         updatedAttributes: EngineAttributes,
         removedAttributes: string[],
     ): Promise<void> {
-        const transaction = await this.startDocumentsTransaction(collection, 'readwrite');
+        const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
         const document = await transaction.store.get(id);
 
         if (!document) {
@@ -131,9 +141,12 @@ export default class IndexedDBEngine implements Engine {
     }
 
     public async delete(collection: string, id: string): Promise<void> {
-        const transaction = await this.startDocumentsTransaction(collection, 'readwrite');
-        const document = await transaction.store.get(id);
+        const transaction = await this.startDocumentsTransaction('readwrite', collection);
+        if (!transaction) {
+            throw new DocumentNotFound(id);
+        }
 
+        const document = await transaction.store.get(id);
         if (!document) {
             throw new DocumentNotFound(id);
         }
@@ -144,13 +157,18 @@ export default class IndexedDBEngine implements Engine {
     }
 
     private async startDocumentsTransaction(
-        collection: string,
         mode: IDBTransactionMode,
-    ): Promise<DatabaseTransaction<DocumentsSchema>> {
+        collection: string,
+        createCollection: boolean = false,
+    ): Promise<DatabaseTransaction<DocumentsSchema> | null> {
         const metadataTransaction = await this.startMetadataTransaction('readwrite');
         const collections = await metadataTransaction.store.getAllKeys();
 
         if (collections.indexOf(collection) === -1) {
+            if (!createCollection) {
+                return null;
+            }
+
             collections.push(collection);
             metadataTransaction.store.add({ name: collection });
 

@@ -72,9 +72,11 @@ export class InMemoryEngine implements Engine {
 
 }
 
-export class LogEngine implements Engine {
+export class LogEngine<InnerEngine extends Engine=Engine> implements Engine {
 
-    constructor(engine: Engine);
+    readonly engine: InnerEngine;
+
+    constructor(engine: InnerEngine);
 
     create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
 
