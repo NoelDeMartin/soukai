@@ -1,4 +1,4 @@
-import { Documents, Filters } from '@/engines/Engine';
+import { EngineDocumentsCollection, EngineFilters } from '@/engines/Engine';
 
 import { deepEquals } from '@/internal/utils/Obj';
 import UUID from '@/internal/utils/UUID';
@@ -7,17 +7,17 @@ export default class EngineHelper {
 
     private specialRootFilters: {
         [filter: string]: (
-            documents: Documents,
+            documents: EngineDocumentsCollection,
             filter: any,
-        ) => Documents;
+        ) => EngineDocumentsCollection;
     };
 
     private specialAttributeFilters: {
         [filter: string]: (
-            documents: Documents,
+            documents: EngineDocumentsCollection,
             attribute: string,
             filter: any,
-        ) => Documents;
+        ) => EngineDocumentsCollection;
     };
 
     public constructor() {
@@ -31,7 +31,10 @@ export default class EngineHelper {
         };
     }
 
-    public filterDocuments(documents: Documents, filters: Filters = {}): Documents {
+    public filterDocuments(
+        documents: EngineDocumentsCollection,
+        filters: EngineFilters = {},
+    ): EngineDocumentsCollection {
         documents = { ...documents };
 
         for (const attribute in filters) {
@@ -63,7 +66,11 @@ export default class EngineHelper {
         return id || UUID.generate();
     }
 
-    private filterEq = (documents: Documents, attribute: string, value: any): Documents => {
+    private filterEq = (
+        documents: EngineDocumentsCollection,
+        attribute: string,
+        value: any,
+    ): EngineDocumentsCollection => {
         documents = { ...documents };
 
         for (const id in documents) {
@@ -77,7 +84,7 @@ export default class EngineHelper {
         return documents;
     }
 
-    private filterIn = (documents: Documents, values: string[]): Documents => {
+    private filterIn = (documents: EngineDocumentsCollection, values: string[]): EngineDocumentsCollection => {
         const ids = Object.keys(documents);
 
         for (const id of ids) {
@@ -90,7 +97,11 @@ export default class EngineHelper {
         return documents;
     }
 
-    private filterContains = (documents: Documents, attribute: string, values: any[]): Documents => {
+    private filterContains = (
+        documents: EngineDocumentsCollection,
+        attribute: string,
+        values: any[],
+    ): EngineDocumentsCollection => {
         const ids = Object.keys(documents);
 
         for (const id of ids) {
@@ -105,7 +116,11 @@ export default class EngineHelper {
         return documents;
     }
 
-    private filterOr = (documents: Documents, attribute: string, filters: any[]): Documents => {
+    private filterOr = (
+        documents: EngineDocumentsCollection,
+        attribute: string,
+        filters: any[],
+    ): EngineDocumentsCollection => {
         return filters.reduce((filteredDocuments, filter) => ({
             ...filteredDocuments,
             ...this.filterDocuments(documents, { [attribute]: filter }),

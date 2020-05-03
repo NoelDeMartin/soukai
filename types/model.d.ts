@@ -1,6 +1,6 @@
 import { BelongsToOneRelation, HasManyRelation, MultiModelRelation, SingleModelRelation } from './relations';
 
-import { EngineAttributes, Engine, Filters } from './engines';
+import { EngineDocument, Engine, EngineFilters } from './engines';
 
 export interface Attributes {
     [field: string]: any;
@@ -59,7 +59,7 @@ export class Model<Key = any> {
 
     public static find<T extends Model, Key = any>(id: Key): Promise<T | null>;
 
-    public static all<T extends Model>(filters?: Filters): Promise<T[]>;
+    public static all<T extends Model>(filters?: EngineFilters): Promise<T[]>;
 
     [field: string]: any;
 
@@ -91,6 +91,10 @@ export class Model<Key = any> {
 
     public isDirty(name: string): boolean;
 
+    public getPrimaryKey(): Key | null;
+
+    public getSerializedPrimaryKey(): string | null;
+
     public delete<T extends Model>(): Promise<T>;
 
     public save<T extends Model>(): Promise<T>;
@@ -101,7 +105,7 @@ export class Model<Key = any> {
 
     public exists(): boolean;
 
-    public fromEngineAttributes<T extends Model>(id: Key, document: EngineAttributes): T;
+    public fromEngineDocument<T extends Model>(id: Key, document: EngineDocument): T;
 
     protected initialize(attributes: Attributes, exists: boolean): void;
 
@@ -127,11 +131,11 @@ export class Model<Key = any> {
 
     protected hasAutomaticTimestamp(timestamp: string): boolean;
 
-    protected prepareEngineAttributes(attributes: Attributes): EngineAttributes;
+    protected toEngineDocument(): EngineDocument;
 
-    protected prepareEngineAttributeNames(names: string[]): string[];
+    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[]];
 
-    protected parseEngineAttributes(document: EngineAttributes): Attributes;
+    protected parseEngineDocumentAttributes(document: EngineDocument): Attributes;
 
     protected serializeKey(key: Key): string;
 

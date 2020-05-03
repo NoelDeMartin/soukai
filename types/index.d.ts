@@ -10,11 +10,11 @@ export {
 } from './errors';
 
 export {
-    Documents,
     Engine,
-    EngineAttributes,
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
     EngineHelper,
-    Filters,
     IndexedDBEngine,
     InMemoryEngine,
     InMemoryEngineDatabase,

@@ -1,16 +1,24 @@
-type EngineAttributePrimitiveValue = string | number | boolean | null | Date;
+type EngineAttributePrimitiveValue =
+    string |
+    number |
+    boolean |
+    null |
+    Date;
 
-type EngineAttributeValue = EngineAttributePrimitiveValue | EngineAttributePrimitiveValue[];
+type EngineAttributeValue =
+    EngineAttributePrimitiveValue |
+    EngineAttributePrimitiveValue[] |
+    { [attribute: string]: EngineAttributeValue };
 
-export interface EngineAttributes {
-    [field: string]: EngineAttributeValue | EngineAttributes | EngineAttributes[];
+export interface EngineDocument {
+    [field: string]: EngineAttributeValue;
 }
 
-export interface Documents {
-    [id: string]: EngineAttributes;
+export interface EngineDocumentsCollection {
+    [id: string]: EngineDocument;
 }
 
-export interface Filters {
+export interface EngineFilters {
     $in?: string[];
 
     [field: string]:
@@ -20,16 +28,16 @@ export interface Filters {
 
 export interface Engine {
 
-    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+    create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<EngineAttributes>;
+    readOne(collection: string, id: string): Promise<EngineDocument>;
 
-    readMany(collection: string, filters?: Filters): Promise<Documents>;
+    readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -39,7 +47,7 @@ export interface Engine {
 
 export class EngineHelper {
 
-    filterDocuments(documents: Documents, filters?: Filters): Documents;
+    filterDocuments(documents: EngineDocumentsCollection, filters?: EngineFilters): EngineDocumentsCollection;
 
     obtainDocumentId(id?: string): string;
 
@@ -47,7 +55,7 @@ export class EngineHelper {
 
 export interface InMemoryEngineDatabase {
     [collection: string]: {
-        [id: string]: EngineAttributes,
+        [id: string]: EngineDocument,
     };
 }
 
@@ -55,16 +63,16 @@ export class InMemoryEngine implements Engine {
 
     readonly database: InMemoryEngineDatabase;
 
-    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+    create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<EngineAttributes>;
+    readOne(collection: string, id: string): Promise<EngineDocument>;
 
-    readMany(collection: string): Promise<Documents>;
+    readMany(collection: string): Promise<EngineDocumentsCollection>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -78,16 +86,16 @@ export class LogEngine<InnerEngine extends Engine=Engine> implements Engine {
 
     constructor(engine: InnerEngine);
 
-    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+    create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<EngineAttributes>;
+    readOne(collection: string, id: string): Promise<EngineDocument>;
 
-    readMany(collection: string): Promise<Documents>;
+    readMany(collection: string): Promise<EngineDocumentsCollection>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -101,16 +109,16 @@ export class LocalStorageEngine implements Engine {
 
     clear(): void;
 
-    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+    create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<EngineAttributes>;
+    readOne(collection: string, id: string): Promise<EngineDocument>;
 
-    readMany(collection: string): Promise<Documents>;
+    readMany(collection: string): Promise<EngineDocumentsCollection>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void>;
 
@@ -126,16 +134,16 @@ export class IndexedDBEngine implements Engine {
 
     closeConnections(): void;
 
-    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+    create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<EngineAttributes>;
+    readOne(collection: string, id: string): Promise<EngineDocument>;
 
-    readMany(collection: string): Promise<Documents>;
+    readMany(collection: string): Promise<EngineDocumentsCollection>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void>;
 

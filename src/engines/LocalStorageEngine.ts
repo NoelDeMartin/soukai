@@ -1,4 +1,8 @@
-import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
+import Engine, {
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
+} from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
@@ -25,7 +29,7 @@ export default class LocalStorageEngine implements Engine {
         }
     }
 
-    public async create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
+    public async create(collection: string, document: EngineDocument, id?: string): Promise<string> {
         const documents = this.readItem(collection, {});
 
         id = this.helper.obtainDocumentId(id);
@@ -34,14 +38,14 @@ export default class LocalStorageEngine implements Engine {
             throw new DocumentAlreadyExists(id);
         }
 
-        documents[id] = this.serializeAttributes(attributes);
+        documents[id] = this.serializeAttributes(document);
 
         this.writeItem(collection, documents);
 
         return id;
     }
 
-    public async readOne(collection: string, id: string): Promise<EngineAttributes> {
+    public async readOne(collection: string, id: string): Promise<EngineDocument> {
         const documents = this.readItem(collection, {});
 
         if (!(id in documents)) {
@@ -51,7 +55,7 @@ export default class LocalStorageEngine implements Engine {
         return this.deserializeAttributes(documents[id]);
     }
 
-    public async readMany(collection: string, filters?: Filters): Promise<Documents> {
+    public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
         const documents = this.readItem(collection, {});
 
         for (const id in documents) {
@@ -64,7 +68,7 @@ export default class LocalStorageEngine implements Engine {
     public async update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void> {
         const documents = this.readItem(collection, {});
@@ -110,7 +114,7 @@ export default class LocalStorageEngine implements Engine {
         localStorage.setItem(this.prefix + key, JSON.stringify(value));
     }
 
-    private serializeAttributes(attributes: EngineAttributes): EngineAttributes {
+    private serializeAttributes(attributes: EngineDocument): EngineDocument {
         for (const attribute in attributes) {
             const value = attributes[attribute];
 
@@ -126,13 +130,13 @@ export default class LocalStorageEngine implements Engine {
         } else if (value instanceof Date) {
             return { __dateTime: value.getTime() };
         } else if (typeof value === 'object') {
-            return this.serializeAttributes(value as EngineAttributes);
+            return this.serializeAttributes(value as EngineDocument);
         } else {
             return value;
         }
     }
 
-    private deserializeAttributes(attributes: EngineAttributes): EngineAttributes {
+    private deserializeAttributes(attributes: EngineDocument): EngineDocument {
         for (const attribute in attributes) {
             const value = attributes[attribute];
 

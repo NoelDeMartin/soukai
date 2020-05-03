@@ -1,16 +1,24 @@
-type EngineAttributePrimitiveValue = string | number | boolean | null | Date;
+type EngineAttributePrimitiveValue =
+    string |
+    number |
+    boolean |
+    null |
+    Date;
 
-type EngineAttributeValue = EngineAttributePrimitiveValue | EngineAttributePrimitiveValue[];
+type EngineAttributeValue =
+    EngineAttributePrimitiveValue |
+    EngineAttributePrimitiveValue[] |
+    { [attribute: string]: EngineAttributeValue };
 
-export interface EngineAttributes {
-    [field: string]: EngineAttributeValue | EngineAttributes | EngineAttributes[];
+export interface EngineDocument {
+    [field: string]: EngineAttributeValue;
 }
 
-export interface Documents {
-    [id: string]: EngineAttributes;
+export interface EngineDocumentsCollection {
+    [id: string]: EngineDocument;
 }
 
-export interface Filters {
+export interface EngineFilters {
     $in?: string[];
 
     [field: string]:
@@ -20,16 +28,16 @@ export interface Filters {
 
 export default interface Engine {
 
-    create(collection: string, attributes: EngineAttributes, id?: string): Promise<string>;
+    create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 
-    readOne(collection: string, id: string): Promise<EngineAttributes>;
+    readOne(collection: string, id: string): Promise<EngineDocument>;
 
-    readMany(collection: string, filters?: Filters): Promise<Documents>;
+    readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection>;
 
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void>;
 

@@ -1,4 +1,8 @@
-import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
+import Engine, {
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
+} from '@/engines/Engine';
 
 export default class LogEngine<InnerEngine extends Engine = Engine> implements Engine {
 
@@ -8,9 +12,9 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
         this.engine = engine;
     }
 
-    public create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
-        console.log('CREATE', collection, attributes, id);
-        return this.engine.create(collection, attributes, id)
+    public create(collection: string, document: EngineDocument, id?: string): Promise<string> {
+        console.log('CREATE', collection, document, id);
+        return this.engine.create(collection, document, id)
             .then(resultId => {
                 console.log('CREATED', resultId);
                 return resultId;
@@ -21,7 +25,7 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
             });
     }
 
-    public readOne(collection: string, id: string): Promise<EngineAttributes> {
+    public readOne(collection: string, id: string): Promise<EngineDocument> {
         console.log('READ ONE', collection, id);
         return this.engine.readOne(collection, id)
             .then(document => {
@@ -34,7 +38,7 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
             });
     }
 
-    public readMany(collection: string, filters?: Filters): Promise<Documents> {
+    public readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
         console.log('READ ALL', collection, filters);
         return this.engine.readMany(collection, filters)
             .then(documents => {
@@ -50,7 +54,7 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
     public update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void> {
         console.log('UPDATE', collection, id, updatedAttributes, removedAttributes);

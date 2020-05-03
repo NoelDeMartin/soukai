@@ -4,12 +4,19 @@ import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 import SoukaiError from '@/errors/SoukaiError';
 
-import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
+import Engine, {
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
+} from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
 interface DatabaseConnection<Schema extends DBSchema> {
     readonly objectStoreNames: TypedDOMStringList<any>;
-    transaction(storeNames: string | string[], mode?: IDBTransactionMode): DatabaseTransaction<Schema>;
+    transaction(
+        storeNames: string | string[],
+        mode?: IDBTransactionMode,
+    ): DatabaseTransaction<Schema>;
     close(): void;
 }
 
@@ -28,7 +35,7 @@ interface MetadataSchema extends DBSchema {
 interface DocumentsSchema extends DBSchema {
     [collection: string]: {
         key: string;
-        value: EngineAttributes;
+        value: EngineDocument;
     };
 }
 
@@ -64,24 +71,24 @@ export default class IndexedDBEngine implements Engine {
         delete this.documentsConnection;
     }
 
-    public async create(collection: string, attributes: EngineAttributes, id?: string): Promise<string> {
+    public async create(collection: string, document: EngineDocument, id?: string): Promise<string> {
         id = this.helper.obtainDocumentId(id);
 
         const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
-        const document = await transaction.store.get(id);
+        const existingDocument = await transaction.store.get(id);
 
-        if (document) {
+        if (existingDocument) {
             throw new DocumentAlreadyExists(id);
         }
 
-        transaction.store.add(attributes, id);
+        transaction.store.add(document, id);
 
         await transaction.done;
 
         return id;
     }
 
-    public async readOne(collection: string, id: string): Promise<EngineAttributes> {
+    public async readOne(collection: string, id: string): Promise<EngineDocument> {
         const transaction = await this.startDocumentsTransaction('readonly', collection);
         if (!transaction) {
             throw new DocumentNotFound(id);
@@ -95,7 +102,7 @@ export default class IndexedDBEngine implements Engine {
         return document;
     }
 
-    public async readMany(collection: string, filters?: Filters): Promise<Documents> {
+    public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
         const transaction = await this.startDocumentsTransaction('readonly', collection);
         const documents = {};
 
@@ -117,7 +124,7 @@ export default class IndexedDBEngine implements Engine {
     public async update(
         collection: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void> {
         const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
@@ -127,8 +134,8 @@ export default class IndexedDBEngine implements Engine {
             throw new DocumentNotFound(id);
         }
 
-        for (const attribute in updatedAttributes) {
-            document[attribute] = updatedAttributes[attribute];
+        for (const [name, value] of Object.entries(updatedAttributes)) {
+            document[name] = value!;
         }
 
         for (const attribute of removedAttributes) {

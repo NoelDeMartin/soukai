@@ -1,11 +1,15 @@
-import Engine, { Documents, EngineAttributes, Filters } from '@/engines/Engine';
+import Engine, {
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
+} from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 export interface InMemoryEngineCollection {
-    [id: string]: EngineAttributes;
+    [id: string]: EngineDocument;
 }
 
 export interface InMemoryEngineDatabase {
@@ -30,7 +34,7 @@ export default class InMemoryEngine implements Engine {
         return this.db;
     }
 
-    public create(collectionName: string, attributes: EngineAttributes, id?: string): Promise<string> {
+    public create(collectionName: string, document: EngineDocument, id?: string): Promise<string> {
         const collection = this.collection(collectionName);
 
         id = this.helper.obtainDocumentId(id);
@@ -39,12 +43,12 @@ export default class InMemoryEngine implements Engine {
             throw new DocumentAlreadyExists(id);
         }
 
-        collection[id] = attributes;
+        collection[id] = document;
 
         return Promise.resolve(id);
     }
 
-    public readOne(collectionName: string, id: string): Promise<EngineAttributes> {
+    public readOne(collectionName: string, id: string): Promise<EngineDocument> {
         const collection = this.collection(collectionName);
         if (id in collection) {
             return Promise.resolve(collection[id]);
@@ -53,7 +57,7 @@ export default class InMemoryEngine implements Engine {
         }
     }
 
-    public async readMany(collection: string, filters?: Filters): Promise<Documents> {
+    public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
         if (!this.hasCollection(collection)) {
             return {};
         }
@@ -66,7 +70,7 @@ export default class InMemoryEngine implements Engine {
     public update(
         collectionName: string,
         id: string,
-        updatedAttributes: EngineAttributes,
+        updatedAttributes: EngineDocument,
         removedAttributes: string[],
     ): Promise<void> {
         const collection = this.collection(collectionName);
