@@ -1,4 +1,4 @@
-import { BelongsToOneRelation, HasManyRelation, MultiModelRelation, SingleModelRelation } from './relations';
+import { MultiModelRelation, Relation, SingleModelRelation } from './relations';
 
 import { EngineDocument, Engine, EngineFilters } from './engines';
 
@@ -57,11 +57,21 @@ export class Model<Key = any> {
 
     public static create<T extends Model>(attributes?: Attributes): Promise<T>;
 
+    public static createFromEngineDocument<T extends Model, Key = any>(id: Key, document: EngineDocument): Promise<T>;
+
     public static find<T extends Model, Key = any>(id: Key): Promise<T | null>;
 
     public static all<T extends Model>(filters?: EngineFilters): Promise<T[]>;
 
+    public static first<T extends Model>(filters?: EngineFilters): Promise<T|null>;
+
     [field: string]: any;
+
+    protected _exists: boolean;
+    protected _attributes: Attributes;
+    protected _originalAttributes: Attributes;
+    protected _dirtyAttributes: Attributes;
+    protected _relations: { [relation: string]: Relation };
 
     protected classDef: typeof Model;
 
@@ -105,25 +115,41 @@ export class Model<Key = any> {
 
     public exists(): boolean;
 
-    public fromEngineDocument<T extends Model>(id: Key, document: EngineDocument): T;
-
     protected initialize(attributes: Attributes, exists: boolean): void;
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void;
 
     protected initializeRelations(): void;
 
+    protected createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T>;
+
+    protected syncDirty(): Promise<string>;
+
+    protected cleanDirty(id: Key): void;
+
+    protected hasOne(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): SingleModelRelation;
+
+    protected belongsTo(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): SingleModelRelation;
+
     protected hasMany(
-        model: typeof Model,
-        relatedKeyField: string,
-        parentKeyField?: string,
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
     ): MultiModelRelation;
 
-    protected belongsToOne(
-        model: typeof Model,
-        parentKeyField: string,
-        relatedKeyField?: string,
-    ): SingleModelRelation;
+    protected belongsToMany(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): MultiModelRelation;
 
     protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes;
 
@@ -133,12 +159,14 @@ export class Model<Key = any> {
 
     protected toEngineDocument(): EngineDocument;
 
-    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[]];
+    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[][]];
 
-    protected parseEngineDocumentAttributes(document: EngineDocument): Attributes;
+    protected parseEngineDocumentAttributes(id: Key, document: EngineDocument): Promise<Attributes>;
 
     protected serializeKey(key: Key): string;
 
     protected parseKey(key: string): Key;
+
+    protected requireRelation(relation: string): Relation;
 
 }

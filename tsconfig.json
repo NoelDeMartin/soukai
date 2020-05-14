@@ -12,12 +12,15 @@
     "declaration": false,
     "suppressImplicitAnyIndexErrors": true,
     "allowSyntheticDefaultImports": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@testing/*": [
+        "tests/lib/*"
       ]
     }
   },

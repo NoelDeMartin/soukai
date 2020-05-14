@@ -11,11 +11,13 @@ import Str from '@/internal/utils/Str';
 
 import { EngineDocument, EngineFilters } from '@/engines/Engine';
 
-import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
-import HasManyRelation from '@/models/relations/HasManyRelation';
-import MultiModelRelation from '@/models/relations/MultiModelRelation';
-import Relation from '@/models/relations/Relation';
-import SingleModelRelation from '@/models/relations/SingleModelRelation';
+import BelongsToManyRelation from './relations/BelongsToManyRelation';
+import BelongsToRelation from './relations/BelongsToRelation';
+import HasManyRelation from './relations/HasManyRelation';
+import HasOneRelation from './relations/HasOneRelation';
+import MultiModelRelation from './relations/MultiModelRelation';
+import Relation from './relations/Relation';
+import SingleModelRelation from './relations/SingleModelRelation';
 
 export interface Attributes {
     [field: string]: any;
@@ -46,10 +48,6 @@ export interface FieldDefinition {
     // Only with type FieldType.Object
     fields?: FieldsDefinition;
 
-}
-
-interface RelationsMap {
-    [relation: string]: undefined | null | Model | Model[];
 }
 
 const TYPE_VALUES = Object.values(FieldType);
@@ -175,15 +173,18 @@ export default abstract class Model<Key = any> {
         return model.save();
     }
 
+    public static createFromEngineDocument<T extends Model, Key = any>(id: Key, document: EngineDocument): Promise<T> {
+        return this.instance.createFromEngineDocument(id, document);
+    }
+
     public static find<T extends Model, Key = any>(id: Key): Promise<T | null> {
         this.ensureBooted();
 
-        return Soukai.withEngine(engine =>
-            engine
-                .readOne(this.collection, this.instance.serializeKey(id))
-                .then(document => this.instance.fromEngineDocument<T>(id, document))
-                .catch(() => null),
-        );
+        return Soukai
+            .requireEngine()
+            .readOne(this.collection, this.instance.serializeKey(id))
+            .then(document => this.createFromEngineDocument<T, Key>(id, document))
+            .catch(() => null);
     }
 
     /**
@@ -191,16 +192,27 @@ export default abstract class Model<Key = any> {
      *
      * @param filters
      */
-    public static all<T extends Model>(filters?: EngineFilters): Promise<T[]> {
+    public static async all<T extends Model>(filters?: EngineFilters): Promise<T[]> {
         this.ensureBooted();
 
-        return Soukai.withEngine(engine =>
-            engine
-                .readMany(this.collection, filters)
-                .then(documents => Object.entries(documents).map(([id, document]) => {
-                    return this.instance.fromEngineDocument<T>(id, document);
-                })),
+        const engine = Soukai.requireEngine();
+        const documents = await engine.readMany(this.collection, filters);
+
+        return Promise.all(
+            Object
+                .entries(documents)
+                .map(
+                    ([id, document]) =>
+                        this.createFromEngineDocument<T>(this.instance.parseKey(id), document),
+                ),
         );
+    }
+
+    public static async first<T extends Model>(filters?: EngineFilters): Promise<T|null> {
+        // TODO implement limit 1
+        const [model] = await this.all<T>(filters);
+
+        return model || null;
     }
 
     private static ensureBooted(): void {
@@ -218,7 +230,7 @@ export default abstract class Model<Key = any> {
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Attributes;
-    protected _relations: RelationsMap;
+    protected _relations: { [relation: string]: Relation };
 
     protected get classDef(): typeof Model {
         return (this.constructor as any);
@@ -330,21 +342,19 @@ export default abstract class Model<Key = any> {
     }
 
     public unloadRelation(relation: string): void {
-        if (this.isRelationLoaded(relation)) {
-            delete this._relations[relation];
-        }
+        this.requireRelation(relation).unload();
     }
 
     public getRelationModels(relation: string): null | Model[] | Model {
-        return this._relations[relation] || null;
+        return this.requireRelation(relation).related;
     }
 
     public setRelationModels(relation: string, models: null | Model | Model[]): void {
-        this._relations[relation] = models;
+        this.requireRelation(relation).related = models;
     }
 
     public isRelationLoaded(relation: string): boolean {
-        return typeof this._relations[relation] !== 'undefined';
+        return this.requireRelation(relation).loaded;
     }
 
     public hasAttribute(field: string): boolean {
@@ -440,63 +450,28 @@ export default abstract class Model<Key = any> {
             return this as any;
         }
 
-        return Soukai.withEngine(engine =>
-            engine
-                .delete(
-                    this.classDef.collection,
-                    this.getSerializedPrimaryKey()!,
-                )
-                .then(() => {
-                    delete this._attributes[this.classDef.primaryKey];
-                    this._exists = false;
+        return Soukai
+            .requireEngine()
+            .delete(
+                this.classDef.collection,
+                this.getSerializedPrimaryKey()!,
+            )
+            .then(() => {
+                delete this._attributes[this.classDef.primaryKey];
+                this._exists = false;
 
-                    return this as any;
-                }),
-        );
+                return this as any;
+            });
     }
 
-    public save<T extends Model>(): Promise<T> {
-        if (this._exists) {
-            ensureRequiredAttributes(this._attributes, this.classDef.fields);
+    public async save<T extends Model>(): Promise<T> {
+        ensureRequiredAttributes(this._attributes, this.classDef.fields);
 
-            const [updatedAttributes, removedAttributes] = this.getDirtyEngineDocumentAttributes();
+        const id = await this.syncDirty();
 
-            return Soukai.withEngine(engine =>
-                engine
-                    .update(
-                        this.classDef.collection,
-                        this.getSerializedPrimaryKey()!,
-                        updatedAttributes,
-                        removedAttributes,
-                    )
-                    .then(() => {
-                        this._originalAttributes = Obj.deepClone(this._attributes);
-                        this._dirtyAttributes = {};
+        this.cleanDirty(this.parseKey(id));
 
-                        return <any> this;
-                    }),
-            );
-        } else {
-            ensureRequiredAttributes(this._attributes, this.classDef.fields);
-
-            return Soukai.withEngine(engine => {
-                return engine
-                    .create(
-                        this.classDef.collection,
-                        this.toEngineDocument(),
-                        this.getSerializedPrimaryKey() || undefined,
-                    )
-                    .then(id => {
-                        this._attributes[this.classDef.primaryKey] = this.parseKey(id);
-                        this._originalAttributes = Obj.deepClone(this._attributes);
-                        this._dirtyAttributes = {};
-                        this._exists = true;
-
-                        return <any> this;
-                    });
-                },
-            );
-        }
+        return <any> this;
     }
 
     /**
@@ -512,13 +487,6 @@ export default abstract class Model<Key = any> {
 
     public exists(): boolean {
         return this._exists;
-    }
-
-    public fromEngineDocument<T extends Model>(id: Key, document: EngineDocument): T {
-        return new (this.classDef as any)({
-            [this.classDef.primaryKey]: id,
-            ...this.parseEngineDocumentAttributes(document),
-        }, true);
     }
 
     protected initialize(attributes: Attributes, exists: boolean): void {
@@ -554,44 +522,108 @@ export default abstract class Model<Key = any> {
     }
 
     protected initializeRelations(): void {
-        this._relations = {};
+        this._relations = this.classDef.relations.reduce((relations, name) => ({
+            ...relations,
+            [name]: this[Str.camelCase(name) + 'Relationship'](),
+        }), {});
+    }
 
-        for (const name of this.classDef.relations) {
-            this._relations[name] = undefined;
+    protected async createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T> {
+        const attributes = await this.parseEngineDocumentAttributes(id, document);
+
+        attributes[this.classDef.primaryKey] = id;
+
+        return new (this.classDef as any)(attributes, true);
+    }
+
+    protected async syncDirty(): Promise<string> {
+        const engine = Soukai.requireEngine();
+
+        if (!this._exists) {
+            return engine.create(
+                this.classDef.collection,
+                this.toEngineDocument(),
+                this.getSerializedPrimaryKey() || undefined,
+            );
         }
+
+        const [updatedAttributes, removedAttributes] = this.getDirtyEngineDocumentAttributes();
+        const id = this.getSerializedPrimaryKey()!;
+
+        await engine.update(this.classDef.collection, id, updatedAttributes, removedAttributes);
+
+        return id;
+    }
+
+    protected cleanDirty(id: Key): void {
+        this._attributes[this.classDef.primaryKey] = id;
+        this._originalAttributes = Obj.deepClone(this._attributes);
+        this._dirtyAttributes = {};
+        this._exists = true;
     }
 
     /**
-     * Creates a MultiModel relationship.
+     * Creates a relation when this model is referenced by one instance of another model.
      *
-     * @param model Related model class.
-     * @param relatedKeyField Name of the foreign key field in the related model.
-     * @param parentKeyField Name of the primary key field in the local model. Defaults to
+     * @param relatedClass Related model class.
+     * @param foreignKeyField Name of the foreign key field in the related model.
+     * @param localKeyField Name of the local key field in the local model. Defaults to
      * the primary key name defined in the local model class.
      */
-    protected hasMany(model: typeof Model, relatedKeyField: string, parentKeyField?: string): MultiModelRelation {
-        return new HasManyRelation(this, model, relatedKeyField, parentKeyField || this.classDef.primaryKey);
+    protected hasOne(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): SingleModelRelation {
+        return new HasOneRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
     /**
-     * Creates a SingleModel relationship.
+     * Creates a relation when this model references one instance of another model.
      *
-     * @param model Related model class.
-     * @param parentKeyField Name of the foreign key field in the local model.
-     * @param relatedKeyField Name of the primary key field in the related model. Defaults to
+     * @param relatedClass Related model class.
+     * @param foreignKeyField Name of the foreign key field in the local model.
+     * @param localKeyField Name of the local key field in the related model. Defaults to
      * the primary key name defined in the related model class.
      */
-    protected belongsToOne(
-        model: typeof Model,
-        parentKeyField: string,
-        relatedKeyField?: string,
+    protected belongsTo(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
     ): SingleModelRelation {
-        return new BelongsToOneRelation(
-            this,
-            model,
-            parentKeyField,
-            relatedKeyField || model.primaryKey,
-        );
+        return new BelongsToRelation(this, relatedClass, foreignKeyField, localKeyField);
+    }
+
+    /**
+     * Creates a relation when this model is referenced by multiple instances of another model.
+     *
+     * @param relatedClass Related model class.
+     * @param foreignKeyField Name of the foreign key field in the related model.
+     * @param localKeyField Name of the local key field in the local model. Defaults to
+     * the primary key name defined in the local model class.
+     */
+    protected hasMany(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): MultiModelRelation {
+        return new HasManyRelation(this, relatedClass, foreignKeyField, localKeyField);
+    }
+
+    /**
+     * Creates a relation when this model references multiple instances of another model.
+     *
+     * @param relatedClass Related model class.
+     * @param foreignKeyField Name of the foreign key field in the local model.
+     * @param localKeyField Name of the local key field in the related model. Defaults to
+     * the primary key name defined in the related model class.
+     */
+    protected belongsToMany(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): MultiModelRelation {
+        return new BelongsToManyRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
     protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes {
@@ -657,23 +689,23 @@ export default abstract class Model<Key = any> {
         ) as Attributes;
     }
 
-    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[]] {
+    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[][]] {
         const updatedAttributes = Obj.deepClone(this._dirtyAttributes);
-        const removedAttributes: string[] = [];
+        const removedAttributes: string[][] = [];
 
         for (const field in updatedAttributes) {
             if (updatedAttributes[field] !== undefined) {
                 continue;
             }
 
-            removedAttributes.push(field);
+            removedAttributes.push([field]);
             delete updatedAttributes[field];
         }
 
         return [updatedAttributes as EngineDocument, removedAttributes];
     }
 
-    protected parseEngineDocumentAttributes(document: EngineDocument): Attributes {
+    protected async parseEngineDocumentAttributes(id: Key, document: EngineDocument): Promise<Attributes> {
         return { ...document };
     }
 
@@ -683,6 +715,14 @@ export default abstract class Model<Key = any> {
 
     protected parseKey(key: string): Key {
         return key as any as Key;
+    }
+
+    protected requireRelation(relation: string): Relation {
+        if (!(relation in this._relations)) {
+            throw new SoukaiError(`Attempting to use undefined ${relation} relation.`);
+        }
+
+        return this._relations[relation];
     }
 
 }
@@ -737,7 +777,7 @@ function validateFieldDefinition(
             } else {
                 throw new InvalidModelDefinition(
                     model,
-                    `Field definition of type array requires items attribute ${field}`,
+                    `Field definition of type array requires items attribute. Field: '${field}'`,
                 );
             }
             break;

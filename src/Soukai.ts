@@ -3,6 +3,8 @@ import Model from '@/models/Model';
 
 import SoukaiError from '@/errors/SoukaiError';
 
+import Arr from '@/internal/utils/Arr';
+
 export class Soukai {
 
     private _engine: Engine;
@@ -14,11 +16,12 @@ export class Soukai {
     }
 
     public loadModel(name: string, model: typeof Model): void {
-        if (this._bootedModels.indexOf(model) === -1) {
-            model.boot(name);
-
-            this._bootedModels.push(model);
+        if (Arr.contains(this._bootedModels, model)) {
+            return;
         }
+
+        model.boot(name);
+        this._bootedModels.push(model);
     }
 
     public loadModels(models: { [name: string]: typeof Model}): void {
@@ -29,15 +32,15 @@ export class Soukai {
         }
     }
 
-    public withEngine<T>(callback: (engine: Engine) => T): T {
-        if (this._engine) {
-            return callback(this._engine);
-        } else {
+    public requireEngine(): Engine {
+        if (!this._engine) {
             throw new SoukaiError(
                 'Engine must be initialized before performing any operations. ' +
                 'Learn more at https://soukai.js.org/guide/engines.html',
             );
         }
+
+        return this._engine;
     }
 
     public get engine(): Engine {

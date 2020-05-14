@@ -1,5 +1,7 @@
 import Faker from 'faker';
 
+import Soukai from '@/Soukai';
+
 import LocalStorageEngine from '@/engines/LocalStorageEngine';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
@@ -19,12 +21,12 @@ export default class extends TestSuite {
     private prefix: string;
 
     public setUp(): void {
-        User.load();
-        this.engine = new LocalStorageEngine(this.prefix = Faker.random.word());
-
+        Soukai.loadModels({ User });
         MockLocalStorage.reset();
 
         (window as any).localStorage = MockLocalStorage;
+
+        this.engine = new LocalStorageEngine(this.prefix = Faker.random.word());
     }
 
     public testCreate(): Promise<void> {
@@ -116,7 +118,7 @@ export default class extends TestSuite {
             }),
         });
 
-        return this.engine.update(User.collection, id, { name: newName }, ['surname']).then(() => {
+        return this.engine.update(User.collection, id, { name: newName }, [['surname']]).then(() => {
             expect(MockLocalStorage.setItem).toHaveBeenCalledTimes(1);
             expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
                 this.prefix + User.collection,

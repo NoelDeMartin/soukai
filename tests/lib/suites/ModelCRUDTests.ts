@@ -20,10 +20,10 @@ export default class extends TestSuite {
     private mockEngine: jest.Mocked<Engine>;
 
     public setUp(): void {
-        User.load();
         MockEngine.mockClear();
 
         Soukai.useEngine(this.mockEngine = new MockEngine());
+        Soukai.loadModels({ User });
     }
 
     public testCreate(): Promise<void> {
@@ -128,8 +128,8 @@ export default class extends TestSuite {
 
     public testSaveWithoutRequiredAttribute(): void {
         const createModel = () => User.create();
-        expect(createModel).toThrow(SoukaiError);
-        expect(createModel).toThrow('The name attribute is required');
+        expect(createModel()).rejects.toThrow(SoukaiError);
+        expect(createModel()).rejects.toThrow('The name attribute is required');
     }
 
     public testRemoveRequiredAttribute(): Promise<void> {
@@ -140,8 +140,8 @@ export default class extends TestSuite {
                 model.unsetAttribute('name');
 
                 const saveModel = () => model.save();
-                expect(saveModel).toThrow(SoukaiError);
-                expect(saveModel).toThrow('The name attribute is required');
+                expect(saveModel()).rejects.toThrow(SoukaiError);
+                expect(saveModel()).rejects.toThrow('The name attribute is required');
             }));
     }
 
@@ -319,7 +319,7 @@ export default class extends TestSuite {
                     User.collection,
                     id,
                     { updatedAt: model.updatedAt },
-                    ['surname'],
+                    [['surname']],
                 );
             });
     }
@@ -346,8 +346,8 @@ export default class extends TestSuite {
         Soukai.useEngine(null as any);
 
         const createModel = () => User.create({ name: Faker.name.firstName() });
-        expect(createModel).toThrow(SoukaiError);
-        expect(createModel).toThrow('Engine must be initialized before performing any operations');
+        expect(createModel()).rejects.toThrow(SoukaiError);
+        expect(createModel()).rejects.toThrow('Engine must be initialized before performing any operations');
     }
 
     public testThrowModelNotBootedErrorOnConstructor(): void {
@@ -366,8 +366,8 @@ export default class extends TestSuite {
         }
 
         const retrieveAll = () => NonBootedModel.all();
-        expect(retrieveAll).toThrow(SoukaiError);
-        expect(retrieveAll).toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
+        expect(retrieveAll()).rejects.toThrow(SoukaiError);
+        expect(retrieveAll()).rejects.toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
     }
 
     public testThrowModelNotBootedErrorOnFind(): void {

@@ -1,5 +1,7 @@
 import Faker from 'faker';
 
+import Soukai from '@/Soukai';
+
 import Model from '@/models/Model';
 
 import InMemoryEngine from '@/engines/InMemoryEngine';
@@ -17,7 +19,8 @@ export default class extends TestSuite {
     private engine: InMemoryEngine;
 
     public setUp(): void {
-        User.load();
+        Soukai.loadModels({ User });
+
         this.engine = new InMemoryEngine();
     }
 
@@ -104,7 +107,7 @@ export default class extends TestSuite {
         return this.engine.create(User.collection, { name: initialName, surname: Faker.name.lastName(), age })
             .then(documentId => {
                 id = documentId;
-                return this.engine.update(User.collection, id, { name: newName }, ['surname']);
+                return this.engine.update(User.collection, id, { name: newName }, [['surname']]);
             })
             .then(() => {
                 expect(this.engine.database[User.collection][id]).toEqual({ name: newName, age });

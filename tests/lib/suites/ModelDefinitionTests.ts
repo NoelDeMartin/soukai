@@ -268,8 +268,7 @@ export default class extends TestSuite {
             public childProp: string[] = [];
         }
 
-        Soukai.loadModel('Parent', Parent);
-        Soukai.loadModel('Child', Child);
+        Soukai.loadModels({ Parent, Child });
 
         expect(Parent.classFields).toHaveLength(2);
         expect(Parent.classFields).toContain('parentProp');

@@ -5,10 +5,11 @@ type EngineAttributePrimitiveValue =
     null |
     Date;
 
-type EngineAttributeValue =
-    EngineAttributePrimitiveValue |
+    type EngineAttributeValue =
     EngineAttributePrimitiveValue[] |
-    { [attribute: string]: EngineAttributeValue };
+    EngineAttributePrimitiveValue |
+    { [attribute: string]: EngineAttributeValue } |
+    Array<{ [attribute: string]: EngineAttributeValue }>;
 
 export interface EngineDocument {
     [field: string]: EngineAttributeValue;
@@ -38,7 +39,7 @@ export interface Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;
@@ -48,6 +49,10 @@ export interface Engine {
 export class EngineHelper {
 
     filterDocuments(documents: EngineDocumentsCollection, filters?: EngineFilters): EngineDocumentsCollection;
+
+    updateAttributes(document: EngineDocument, updatedAttributes: object): void;
+
+    removeAttributes(document: EngineDocument, removedAttributes: string[][]): void;
 
     obtainDocumentId(id?: string): string;
 
@@ -73,7 +78,7 @@ export class InMemoryEngine implements Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;
@@ -96,7 +101,7 @@ export class LogEngine<InnerEngine extends Engine=Engine> implements Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;
@@ -119,7 +124,7 @@ export class LocalStorageEngine implements Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;
@@ -144,7 +149,7 @@ export class IndexedDBEngine implements Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;

@@ -125,7 +125,7 @@ export default class IndexedDBEngine implements Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void> {
         const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
         const document = await transaction.store.get(id);
@@ -134,13 +134,8 @@ export default class IndexedDBEngine implements Engine {
             throw new DocumentNotFound(id);
         }
 
-        for (const [name, value] of Object.entries(updatedAttributes)) {
-            document[name] = value!;
-        }
-
-        for (const attribute of removedAttributes) {
-            delete document[attribute];
-        }
+        this.helper.updateAttributes(document, updatedAttributes);
+        this.helper.removeAttributes(document, removedAttributes);
 
         transaction.store.put(document, id);
 

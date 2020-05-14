@@ -1,8 +1,7 @@
-import Soukai from '@/Soukai';
-
 import Model, { FieldType } from '@/models/Model';
 import Relation from '@/models/relations/Relation';
 
+import City from './City';
 import Post from './Post';
 
 export default class User extends Model {
@@ -25,17 +24,12 @@ export default class User extends Model {
         },
     };
 
-    public static load() {
-        if (!this.loaded) {
-            this.loaded = true;
-            Soukai.loadModel('User', this);
-        }
-    }
-
-    private static loaded: boolean = false;
-
     public postsRelationship(): Relation {
         return this.hasMany(Post, 'authorId');
+    }
+
+    public birthPlaceRelationship(): Relation {
+        return this.hasOne(City, 'birthRecords');
     }
 
     public getAliasAttribute(): string {

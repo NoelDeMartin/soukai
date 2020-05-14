@@ -1,65 +1,106 @@
 import { Model } from './model';
 
 export abstract class Relation<
-    P extends Model = Model,
-    R extends Model = Model,
-    RC extends typeof Model = typeof Model,
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
 > {
 
-    protected parent: P;
+    public related: Related[] | Related | null;
+    public loaded: boolean;
 
-    protected related: RC;
+    protected parent: Parent;
+    protected relatedClass: RelatedClass;
+    protected foreignKeyName: string;
+    protected localKeyName: string;
 
-    public constructor(parent: P, related: RC);
+    public constructor(
+        parent: Parent,
+        relatedClass: RelatedClass,
+        foreignKeyName: string,
+        localKeyName?: string,
+    );
 
-    public abstract resolve(): Promise<null | R | R[]>;
+    public abstract resolve(): Promise<Related[] | Related | null>;
+
+    public unload(): void;
 
 }
 
 export abstract class SingleModelRelation<
-    P extends Model = Model,
-    R extends Model = Model,
-    RC extends typeof Model = typeof Model,
-> extends Relation<P, R, RC> {
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
+> extends Relation<Parent, Related, RelatedClass> {
 
-    public abstract resolve(): Promise<null | R>;
+    public related: Related | null;
+
+    public constructor(
+        parent: Parent,
+        relatedClass: RelatedClass,
+        foreignKeyName: string,
+        localKeyName?: string,
+    );
+
+    public abstract resolve(): Promise<Related | null>;
 
 }
 
 export abstract class MultiModelRelation<
-    P extends Model = Model,
-    R extends Model = Model,
-    RC extends typeof Model = typeof Model,
-> extends Relation<P, R, RC> {
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
+> extends Relation<Parent, Related, RelatedClass> {
 
-    public abstract resolve(): Promise<R[]>;
+    public related: Related[] | null;
+
+    public constructor(
+        parent: Parent,
+        relatedClass: RelatedClass,
+        foreignKeyName?: string,
+        localKeyName?: string,
+    );
+
+    public abstract resolve(): Promise<Related[]>;
 
 }
 
-export class BelongsToOneRelation<
-    P extends Model = Model,
-    R extends Model = Model,
-    RC extends typeof Model = typeof Model,
-> extends SingleModelRelation<P, R, RC> {
+export class HasOneRelation<
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
+> extends SingleModelRelation<Parent, Related, RelatedClass> {
 
-    protected parentKeyField: string;
+    public resolve(): Promise<Related | null>;
 
-    protected relatedKeyField: string;
+}
 
-    public resolve(): Promise<null | R>;
+export class BelongsToRelation<
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
+> extends SingleModelRelation<Parent, Related, RelatedClass> {
+
+    public resolve(): Promise<Related | null>;
 
 }
 
 export class HasManyRelation<
-    P extends Model = Model,
-    R extends Model = Model,
-    RC extends typeof Model = typeof Model,
-> extends MultiModelRelation<P, R, RC> {
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
+> extends MultiModelRelation<Parent, Related, RelatedClass> {
 
-    protected relatedKeyField: string;
+    public resolve(): Promise<Related[]>;
 
-    protected parentKeyField: string;
+}
 
-    public resolve(): Promise<R[]>;
+export class BelongsToManyRelation<
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
+> extends MultiModelRelation<Parent, Related, RelatedClass> {
+
+    public resolve(): Promise<Related[]>;
 
 }

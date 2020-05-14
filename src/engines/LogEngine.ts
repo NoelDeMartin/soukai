@@ -55,7 +55,7 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void> {
         console.log('UPDATE', collection, id, updatedAttributes, removedAttributes);
         return this.engine.update(collection, id, updatedAttributes, removedAttributes)

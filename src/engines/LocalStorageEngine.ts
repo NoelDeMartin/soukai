@@ -69,27 +69,22 @@ export default class LocalStorageEngine implements Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void> {
-        const documents = this.readItem(collection, {});
+        const documentsCollection = this.readItem(collection, {});
 
-        if (!(id in documents)) {
+        if (!(id in documentsCollection)) {
             throw new DocumentNotFound(id);
         }
 
-        const attributes = this.deserializeAttributes(documents[id]);
+        const document = this.deserializeAttributes(documentsCollection[id]);
 
-        for (const attribute in updatedAttributes) {
-            attributes[attribute] = updatedAttributes[attribute];
-        }
+        this.helper.updateAttributes(document, updatedAttributes);
+        this.helper.removeAttributes(document, removedAttributes);
 
-        for (const attribute of removedAttributes) {
-            delete attributes[attribute];
-        }
+        documentsCollection[id] = this.serializeAttributes(document);
 
-        documents[id] = this.serializeAttributes(attributes);
-
-        this.writeItem(collection, documents);
+        this.writeItem(collection, documentsCollection);
     }
 
     public async delete(collection: string, id: string): Promise<void> {

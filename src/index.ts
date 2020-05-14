@@ -13,8 +13,10 @@ import InMemoryEngine from '@/engines/InMemoryEngine';
 import LocalStorageEngine from '@/engines/LocalStorageEngine';
 import LogEngine from '@/engines/LogEngine';
 
-import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
+import BelongsToManyRelation from '@/models/relations/BelongsToManyRelation';
+import BelongsToRelation from '@/models/relations/BelongsToRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
+import HasOneRelation from '@/models/relations/HasOneRelation';
 import MultiModelRelation from '@/models/relations/MultiModelRelation';
 import Relation from '@/models/relations/Relation';
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
@@ -30,8 +32,10 @@ export { SoukaiError, DocumentNotFound, DocumentAlreadyExists, InvalidModelDefin
 export { InMemoryEngineDatabase } from '@/engines/InMemoryEngine';
 
 export {
-    BelongsToOneRelation,
+    BelongsToManyRelation,
+    BelongsToRelation,
     HasManyRelation,
+    HasOneRelation,
     MultiModelRelation,
     Relation,
     SingleModelRelation,

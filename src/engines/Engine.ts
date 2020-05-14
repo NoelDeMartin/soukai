@@ -6,9 +6,10 @@ type EngineAttributePrimitiveValue =
     Date;
 
 type EngineAttributeValue =
-    EngineAttributePrimitiveValue |
     EngineAttributePrimitiveValue[] |
-    { [attribute: string]: EngineAttributeValue };
+    EngineAttributePrimitiveValue |
+    { [attribute: string]: EngineAttributeValue } |
+    Array<{ [attribute: string]: EngineAttributeValue }>;
 
 export interface EngineDocument {
     [field: string]: EngineAttributeValue;
@@ -38,7 +39,7 @@ export default interface Engine {
         collection: string,
         id: string,
         updatedAttributes: EngineDocument,
-        removedAttributes: string[],
+        removedAttributes: string[][],
     ): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;

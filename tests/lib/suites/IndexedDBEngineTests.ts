@@ -3,8 +3,11 @@ import 'fake-indexeddb/auto';
 import Faker from 'faker';
 import { deleteDB, IDBPDatabase, IDBPTransaction, openDB } from 'idb';
 
+import Soukai from '@/Soukai';
+
 import IndexedDBEngine from '@/engines/IndexedDBEngine';
 
+import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
 import TestSuite from '../TestSuite';
@@ -22,7 +25,7 @@ export default class extends TestSuite {
     private collectionsConnection: IDBPDatabase;
 
     public async setUp(): Promise<void> {
-        User.load();
+        Soukai.loadModels({ User });
 
         this.databaseName = Faker.random.word();
         this.databaseCollections = [User.collection];
@@ -90,10 +93,21 @@ export default class extends TestSuite {
         expect(user.name).toEqual(name);
     }
 
+    public async testCreateExistent(): Promise<void> {
+        // Arrange
+        const id = Faker.random.uuid();
+        const name = Faker.name.firstName();
+
+        this.setDatabaseDocument(User.collection, id, { name });
+
+        // Assert
+        await expect(this.engine.create(User.collection, { name }, id)).rejects.toThrow(DocumentAlreadyExists);
+    }
+
     public async testReadOne(): Promise<void> {
         // Arrange
-        const name = Faker.name.firstName();
         const id = Faker.random.uuid();
+        const name = Faker.name.firstName();
 
         this.setDatabaseDocument(User.collection, id, { name });
 
@@ -153,7 +167,7 @@ export default class extends TestSuite {
         this.setDatabaseDocument(User.collection, id, { name: initialName, surname: Faker.name.lastName(), age });
 
         // Act
-        await this.engine.update(User.collection, id, { name: newName }, ['surname']);
+        await this.engine.update(User.collection, id, { name: newName }, [['surname']]);
 
         // Assert
         const user = await this.getDatabaseDocument(User.collection, id);

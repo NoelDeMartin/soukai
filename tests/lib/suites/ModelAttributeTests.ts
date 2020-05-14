@@ -18,10 +18,10 @@ export default class extends TestSuite {
     private mockEngine: jest.Mocked<Engine>;
 
     public setUp(): void {
-        User.load();
         MockEngine.mockClear();
 
         Soukai.useEngine(this.mockEngine = new MockEngine());
+        Soukai.loadModels({ User });
     }
 
     public testAttributeGetter(): void {
@@ -100,7 +100,7 @@ export default class extends TestSuite {
                     User.collection,
                     id,
                     { updatedAt: model.updatedAt },
-                    ['surname'],
+                    [['surname']],
                 );
             });
     }
@@ -173,7 +173,7 @@ export default class extends TestSuite {
                 social: model.social,
                 updatedAt: model.updatedAt,
             },
-            ['contact'],
+            [['contact']],
         );
     }
 

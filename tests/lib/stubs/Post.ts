@@ -1,5 +1,3 @@
-import Soukai from '@/Soukai';
-
 import Model, { FieldType } from '@/models/Model';
 import Relation from '@/models/relations/Relation';
 
@@ -13,17 +11,8 @@ export default class Post extends Model {
         authorId: FieldType.Key,
     };
 
-    public static load() {
-        if (!this.loaded) {
-            this.loaded = true;
-            Soukai.loadModel('Post', this);
-        }
-    }
-
-    private static loaded: boolean = false;
-
     public authorRelationship(): Relation {
-        return this.belongsToOne(User, 'authorId');
+        return this.belongsTo(User, 'authorId');
     }
 
 }

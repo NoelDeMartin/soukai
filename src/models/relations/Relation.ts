@@ -1,20 +1,38 @@
 import Model from '@/models/Model';
 
 export default abstract class Relation<
-    P extends Model = Model,
-    R extends Model = Model,
-    RC extends typeof Model = typeof Model,
+    Parent extends Model = Model,
+    Related extends Model = Model,
+    RelatedClass extends typeof Model = typeof Model,
 > {
 
-    protected parent: P;
+    public related: Related[] | Related | null = null;
 
-    protected related: RC;
+    protected parent: Parent;
+    protected relatedClass: RelatedClass;
+    protected foreignKeyName: string;
+    protected localKeyName: string;
 
-    public constructor(parent: P, related: RC) {
+    public constructor(
+        parent: Parent,
+        relatedClass: RelatedClass,
+        foreignKeyName: string,
+        localKeyName?: string,
+    ) {
         this.parent = parent;
-        this.related = related;
+        this.relatedClass = relatedClass;
+        this.foreignKeyName = foreignKeyName;
+        this.localKeyName = localKeyName || relatedClass.primaryKey;
     }
 
-    public abstract resolve(): Promise<null | R | R[]>;
+    public get loaded(): boolean {
+        return this.related !== null;
+    }
+
+    public abstract resolve(): Promise<Related[] | Related | null>;
+
+    public unload(): void {
+        this.related = null;
+    }
 
 }
