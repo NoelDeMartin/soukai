@@ -68,6 +68,7 @@ export class Model<Key = any> {
     [field: string]: any;
 
     protected _exists: boolean;
+    protected _proxy: Model;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Attributes;
@@ -80,6 +81,8 @@ export class Model<Key = any> {
     public update<T extends Model>(attributes?: Attributes): Promise<T>;
 
     public hasRelation(relation: string): boolean;
+
+    public getRelation(relation: string): Relation | null;
 
     public loadRelation(relation: string): Promise<null | Model | Model[]>;
 
@@ -116,6 +119,8 @@ export class Model<Key = any> {
     public exists(): boolean;
 
     protected initialize(attributes: Attributes, exists: boolean): void;
+
+    protected initializeProxy(): void;
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void;
 

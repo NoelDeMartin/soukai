@@ -7,7 +7,7 @@ import { deepClone } from '@/internal/utils/Obj';
 
 import Arr from '@/internal/utils/Arr';
 import Obj from '@/internal/utils/Obj';
-import Str from '@/internal/utils/Str';
+import { camelCase, studlyCase } from '@/internal/utils/Str';
 
 import { EngineDocument, EngineFilters } from '@/engines/Engine';
 
@@ -227,6 +227,7 @@ export default abstract class Model<Key = any> {
     }
 
     protected _exists: boolean;
+    protected _proxy: Model;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Attributes;
@@ -249,67 +250,7 @@ export default abstract class Model<Key = any> {
         this.classDef.ensureBooted();
         this.initialize(attributes, exists);
 
-        return new Proxy(this, {
-            get(target, property, receiver) {
-                if (
-                    typeof property !== 'string' ||
-                    property in target ||
-                    target.classDef.classFields.indexOf(property) !== -1
-                ) {
-                    return Reflect.get(target, property, receiver);
-                }
-
-                const attributeAccessor = 'get' + Str.studlyCase(property) + 'Attribute';
-                if (typeof target[attributeAccessor] === 'function') {
-                    return target[attributeAccessor]();
-                }
-
-                if (target.hasRelation(property)) {
-                    return target.isRelationLoaded(property)
-                        ? target.getRelationModels(property)
-                        : undefined;
-                }
-
-                return target.getAttribute(property);
-            },
-            set(target, property, value, receiver) {
-                if (
-                    typeof property !== 'string' ||
-                    property in target ||
-                    target.classDef.classFields.indexOf(property) !== -1
-                ) {
-                    return Reflect.set(target, property, value, receiver);
-                }
-
-                if (target.hasRelation(property)) {
-                    target.setRelationModels(property, value);
-                    return true;
-                }
-
-                target.setAttribute(property, value);
-                return true;
-            },
-            deleteProperty(target, property) {
-                if (typeof property !== 'string' || property in target) {
-                    return Reflect.deleteProperty(target, property);
-                }
-
-                if (target.hasRelation(property)) {
-                    target.unloadRelation(property);
-                    return true;
-                }
-
-                if (
-                    !(property in target._attributes) ||
-                    target.classDef.classFields.indexOf(property) !== -1
-                ) {
-                    return Reflect.deleteProperty(target, property);
-                }
-
-                target.unsetAttribute(property);
-                return true;
-            },
-        });
+        return this._proxy;
     }
 
     public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
@@ -332,8 +273,12 @@ export default abstract class Model<Key = any> {
         return this.classDef.relations.indexOf(relation) !== -1;
     }
 
+    public getRelation(relation: string): Relation | null {
+        return this._relations[relation] || null;
+    }
+
     public loadRelation(relation: string): Promise<null | Model | Model[]> {
-        const relationInstance = this[Str.camelCase(relation) + 'Relationship']() as Relation;
+        const relationInstance = this[camelCase(relation) + 'Relationship']() as Relation;
         const promise = relationInstance.resolve();
 
         promise.then(models => this.setRelationModels(relation, models));
@@ -491,8 +436,81 @@ export default abstract class Model<Key = any> {
 
     protected initialize(attributes: Attributes, exists: boolean): void {
         this._exists = exists;
+        this.initializeProxy();
         this.initializeAttributes(attributes, exists);
         this.initializeRelations();
+    }
+
+    protected initializeProxy(): void {
+        this._proxy = new Proxy(this, {
+            get(target, property, receiver) {
+                if (
+                    typeof property !== 'string' ||
+                    property in target ||
+                    target.classDef.classFields.indexOf(property) !== -1
+                ) {
+                    return Reflect.get(target, property, receiver);
+                }
+
+                const attributeAccessor = 'get' + studlyCase(property) + 'Attribute';
+                if (typeof target[attributeAccessor] === 'function') {
+                    return target[attributeAccessor]();
+                }
+
+                if (target.hasRelation(property)) {
+                    return target.isRelationLoaded(property)
+                        ? target.getRelationModels(property)
+                        : undefined;
+                }
+
+                if (property.startsWith('related')) {
+                    const relation = camelCase(property.substr(7));
+
+                    if (target.hasRelation(relation)) {
+                        return target._relations[relation];
+                    }
+                }
+
+                return target.getAttribute(property);
+            },
+            set(target, property, value, receiver) {
+                if (
+                    typeof property !== 'string' ||
+                    property in target ||
+                    target.classDef.classFields.indexOf(property) !== -1
+                ) {
+                    return Reflect.set(target, property, value, receiver);
+                }
+
+                if (target.hasRelation(property)) {
+                    target.setRelationModels(property, value);
+                    return true;
+                }
+
+                target.setAttribute(property, value);
+                return true;
+            },
+            deleteProperty(target, property) {
+                if (typeof property !== 'string' || property in target) {
+                    return Reflect.deleteProperty(target, property);
+                }
+
+                if (target.hasRelation(property)) {
+                    target.unloadRelation(property);
+                    return true;
+                }
+
+                if (
+                    !(property in target._attributes) ||
+                    target.classDef.classFields.indexOf(property) !== -1
+                ) {
+                    return Reflect.deleteProperty(target, property);
+                }
+
+                target.unsetAttribute(property);
+                return true;
+            },
+        });
     }
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void {
@@ -524,7 +542,7 @@ export default abstract class Model<Key = any> {
     protected initializeRelations(): void {
         this._relations = this.classDef.relations.reduce((relations, name) => ({
             ...relations,
-            [name]: this[Str.camelCase(name) + 'Relationship'](),
+            [name]: this._proxy[camelCase(name) + 'Relationship'](),
         }), {});
     }
 

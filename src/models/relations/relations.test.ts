@@ -4,8 +4,12 @@ import Soukai from '@/Soukai';
 
 import Engine from '@/engines/Engine';
 
-import Model from '@/models/Model';
+import BelongsToRelation from '@/models/relations/BelongsToRelation';
+import HasManyRelation from '@/models/relations/HasManyRelation';
+import HasOneRelation from '@/models/relations/HasOneRelation';
 import Relation from '@/models/relations/Relation';
+
+import Model from '@/models/Model';
 
 import MockEngine from '@testing/mocks/MockEngine';
 
@@ -193,6 +197,25 @@ describe('Model Relations', () => {
         expect(Child.relations).toHaveLength(2);
         expect(Child.relations).toContain('foo');
         expect(Child.relations).toContain('bar');
+    });
+
+    it('exposes relation instances', () => {
+        // Arrange
+        const postId = Faker.random.uuid();
+        const userId = Faker.random.uuid();
+        const postTitle = Faker.random.word();
+        const userName = Faker.random.word();
+        const post = new Post({ id: postId, authorId: userId, title: postTitle });
+        const user = new User({ id: userId, name: userName });
+
+        // Assert
+        expect(post.relatedAuthor).toBeInstanceOf(BelongsToRelation);
+        expect(post.relatedAuthor.parent).toBe(post);
+
+        expect(user.relatedPosts).toBeInstanceOf(HasManyRelation);
+        expect(user.relatedPosts.parent).toBe(user);
+        expect(user.relatedBirthPlace).toBeInstanceOf(HasOneRelation);
+        expect(user.relatedBirthPlace.parent).toBe(user);
     });
 
 });

@@ -8,11 +8,10 @@ export abstract class Relation<
 
     public related: Related[] | Related | null;
     public loaded: boolean;
-
-    protected parent: Parent;
-    protected relatedClass: RelatedClass;
-    protected foreignKeyName: string;
-    protected localKeyName: string;
+    public parent: Parent;
+    public relatedClass: RelatedClass;
+    public foreignKeyName: string;
+    public localKeyName: string;
 
     public constructor(
         parent: Parent,
