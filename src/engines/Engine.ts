@@ -1,31 +1,43 @@
-type EngineAttributePrimitiveValue =
+export type EngineAttributeLeafValue =
     string |
     number |
     boolean |
     null |
     Date;
 
-type EngineAttributeValue =
-    EngineAttributePrimitiveValue[] |
-    EngineAttributePrimitiveValue |
-    { [attribute: string]: EngineAttributeValue } |
-    Array<{ [attribute: string]: EngineAttributeValue }>;
+export type EngineAttributeValue =
+    EngineAttributeLeafValue |
+    EngineAttributeValueMap |
+    EngineAttributeValueArray |
+    EngineAttributeValueArrayMap;
 
-export interface EngineDocument {
-    [field: string]: EngineAttributeValue;
-}
+interface EngineAttributeValueArray extends Array<EngineAttributeValue> {}
+interface EngineAttributeValueMap extends MapObject<EngineAttributeValue> {}
+interface EngineAttributeValueArrayMap extends Array<MapObject<EngineAttributeValue>> {}
 
-export interface EngineDocumentsCollection {
-    [id: string]: EngineDocument;
-}
+export type EngineAttributeFilter =
+    EngineAttributeValue |
+    { $eq: EngineAttributeValue } |
+    { $or: EngineAttributeFilter[] } |
+    { $contains: EngineAttributeFilter | EngineAttributeFilter[] };
 
-export interface EngineFilters {
+export interface EngineRootFilter {
     $in?: string[];
-
-    [field: string]:
-        { $contains: any[] } |
-        any;
 }
+
+export type EngineAttributeUpdate =
+    EngineAttributeValue |
+    EngineAttributeUpdateMap |
+    { $update: EngineAttributeUpdate } |
+    { $updateItems: { $where?: EngineFilters, $update: EngineAttributeUpdate } } |
+    { $push: EngineAttributeValue };
+
+interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}
+
+export type EngineDocument = MapObject<EngineAttributeValue>;
+export type EngineDocumentsCollection = MapObject<EngineDocument>;
+export type EngineFilters = EngineRootFilter & MapObject<EngineAttributeFilter>;
+export type EngineUpdates = MapObject<EngineAttributeUpdate>;
 
 export default interface Engine {
 
@@ -38,7 +50,7 @@ export default interface Engine {
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void>;
 

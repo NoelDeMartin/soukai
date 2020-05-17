@@ -2,6 +2,7 @@ import Engine, {
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
+    EngineUpdates,
 } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
@@ -70,14 +71,14 @@ export default class InMemoryEngine implements Engine {
     public update(
         collectionName: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void> {
         const collection = this.collection(collectionName);
         if (id in collection) {
             const document = collection[id];
 
-            this.helper.updateAttributes(document, updatedAttributes);
+            this.helper.updateAttributes(document, updates);
             this.helper.removeAttributes(document, removedAttributes);
 
             return Promise.resolve();

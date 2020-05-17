@@ -1,3 +1,5 @@
+import './globals';
+
 import Soukai from './soukai';
 
 export { definitionsFromContext } from './utils';

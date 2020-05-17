@@ -46,7 +46,12 @@ export function deepEquals(a: any, b: any): boolean {
     return true;
 }
 
+export function isObject(obj: any): obj is object {
+    return typeof obj === 'object' && obj !== null && !Array.isArray(obj);
+}
+
 export default {
     deepClone,
     deepEquals,
+    isObject,
 };

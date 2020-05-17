@@ -1,31 +1,43 @@
-type EngineAttributePrimitiveValue =
+import './globals';
+
+export type EngineAttributeLeafValue =
     string |
     number |
     boolean |
     null |
     Date;
 
-    type EngineAttributeValue =
-    EngineAttributePrimitiveValue[] |
-    EngineAttributePrimitiveValue |
-    { [attribute: string]: EngineAttributeValue } |
-    Array<{ [attribute: string]: EngineAttributeValue }>;
+export type EngineAttributeValue =
+    EngineAttributeLeafValue |
+    EngineAttributeValueMap |
+    EngineAttributeValue[] |
+    Array<MapObject<EngineAttributeValue>>;
 
-export interface EngineDocument {
-    [field: string]: EngineAttributeValue;
-}
+interface EngineAttributeValueMap extends MapObject<EngineAttributeValue> {}
 
-export interface EngineDocumentsCollection {
-    [id: string]: EngineDocument;
-}
+export type EngineAttributeFilter =
+    EngineAttributeValue |
+    { $eq: EngineAttributeValue } |
+    { $or: EngineAttributeFilter[] } |
+    { $contains: EngineAttributeFilter | EngineAttributeFilter[] };
 
-export interface EngineFilters {
+export interface EngineRootFilter {
     $in?: string[];
-
-    [field: string]:
-        { $contains: any[] } |
-        any;
 }
+
+export type EngineAttributeUpdate =
+    EngineAttributeValue |
+    EngineAttributeUpdateMap |
+    { $update: EngineAttributeUpdate } |
+    { $updateItems: { $where?: EngineFilters, $update: EngineAttributeUpdate } } |
+    { $push: EngineAttributeValue };
+
+interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}
+
+export type EngineDocument = MapObject<EngineAttributeValue>;
+export type EngineDocumentsCollection = MapObject<EngineDocument>;
+export type EngineFilters = EngineRootFilter & MapObject<EngineAttributeFilter>;
+export type EngineUpdates = MapObject<EngineAttributeUpdate>;
 
 export interface Engine {
 
@@ -38,7 +50,7 @@ export interface Engine {
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void>;
 
@@ -50,9 +62,9 @@ export class EngineHelper {
 
     filterDocuments(documents: EngineDocumentsCollection, filters?: EngineFilters): EngineDocumentsCollection;
 
-    updateAttributes(document: EngineDocument, updatedAttributes: object): void;
+    updateAttributes(attributes: MapObject<EngineAttributeValue>, updates: EngineUpdates): void;
 
-    removeAttributes(document: EngineDocument, removedAttributes: string[][]): void;
+    removeAttributes(attributes: MapObject<EngineAttributeValue>, removedAttributes: string[][]): void;
 
     obtainDocumentId(id?: string): string;
 
@@ -77,7 +89,7 @@ export class InMemoryEngine implements Engine {
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void>;
 
@@ -100,7 +112,7 @@ export class LogEngine<InnerEngine extends Engine=Engine> implements Engine {
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void>;
 
@@ -123,7 +135,7 @@ export class LocalStorageEngine implements Engine {
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void>;
 
@@ -148,7 +160,7 @@ export class IndexedDBEngine implements Engine {
     update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void>;
 

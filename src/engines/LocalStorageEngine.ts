@@ -2,6 +2,7 @@ import Engine, {
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
+    EngineUpdates,
 } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
@@ -68,7 +69,7 @@ export default class LocalStorageEngine implements Engine {
     public async update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void> {
         const documentsCollection = this.readItem(collection, {});
@@ -79,7 +80,7 @@ export default class LocalStorageEngine implements Engine {
 
         const document = this.deserializeAttributes(documentsCollection[id]);
 
-        this.helper.updateAttributes(document, updatedAttributes);
+        this.helper.updateAttributes(document, updates);
         this.helper.removeAttributes(document, removedAttributes);
 
         documentsCollection[id] = this.serializeAttributes(document);

@@ -1,12 +1,16 @@
 import Faker from 'faker';
 
-import { EngineDocumentsCollection } from '@/engines/Engine';
+import {
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineUpdates,
+} from '@/engines/Engine';
 
 import EngineHelper from './EngineHelper';
 
-describe('EngineHelper', () => {
+let helper: EngineHelper;
 
-    let helper: EngineHelper;
+describe('EngineHelper', () => {
 
     beforeEach(() => {
         helper = new EngineHelper();
@@ -129,7 +133,7 @@ describe('EngineHelper', () => {
         const filteredDocuments = helper.filterDocuments(documents, {
             names: {
                 $or: [
-                    { $contains: [name] },
+                    { $contains: [{ $eq: name }] },
                     { $eq: name },
                 ],
             },
@@ -171,6 +175,58 @@ describe('EngineHelper', () => {
         });
     });
 
+    it('updates documents', () => {
+        assertDocumentUpdate({
+            original: { foo: 'bar', lorem: 'ipsum' },
+            update: { foo: 'baz' },
+            expected: { foo: 'baz', lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { foo: 'bar', lorem: 'ipsum' },
+            update: { foo: { lorem: 'ipsum' } },
+            expected: { foo: { lorem: 'ipsum' }, lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { foo: { lorem: 'ipsum' }, lorem: 'ipsum' },
+            update: { foo: 'bar' },
+            expected: { foo: 'bar', lorem: 'ipsum' },
+        });
+    });
+
+    it('updates documents using $update', () => {
+        assertDocumentUpdate({
+            original: { foo: 'bar', lorem: 'ipsum' },
+            update: { foo: { $update: 'baz' } },
+            expected: { foo: 'baz', lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { foo: 'bar', lorem: 'ipsum' },
+            update: { foo: { $update: { lorem: 'ipsum' } } },
+            expected: { foo: { lorem: 'ipsum' }, lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { foo: { lorem: 'ipsum' }, lorem: 'ipsum' },
+            update: { foo: { $update: 'bar' } },
+            expected: { foo: 'bar', lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { foo: 'bar', lorem: 'ipsum' },
+            update: { foo: { $update: { $update: 'baz' } } },
+            expected: { foo: 'baz', lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { foo: ['bar'], lorem: 'ipsum' },
+            update: { foo: { $update: { $push: 'baz' } } },
+            expected: { foo: ['bar', 'baz'], lorem: 'ipsum' },
+        });
+    });
+
     it('updates documents using $push', () => {
         // Arrange
         const existingWord = Faker.random.word();
@@ -184,4 +240,51 @@ describe('EngineHelper', () => {
         expect(document.words).toEqual([existingWord, newWord]);
     });
 
+    it('updates documents using $updateItems', () => {
+        // Arrange
+        const document = {
+            pirates: [
+                { name: 'Monkey D. Luffy', affiliation: 'Straw Hat Pirates' },
+                { name: 'Jimbei', affiliation: 'Sun Pirates' },
+            ],
+        };
+
+        // Act
+        helper.updateAttributes(document, {
+            pirates: {
+                $updateItems: {
+                    $where: {
+                        name: 'Jimbei',
+                    },
+                    $update: {
+                        affiliation: 'Straw Hat Pirates',
+                    },
+                },
+            },
+        });
+
+        // Assert
+        expect(document.pirates[1].affiliation).toEqual('Straw Hat Pirates');
+    });
+
+    it('updates documents using $updateItems with root filters', () => {
+        assertDocumentUpdate({
+            original: { items: ['foo', 'bar', 'baz'] },
+            update: { items: { $updateItems: { $where: { $in: [1] }, $update: 'lorem' } } },
+            expected: { items: ['foo', 'lorem', 'baz'] },
+        });
+    });
+
 });
+
+function assertDocumentUpdate(
+    { original: document, update, expected }: {
+        original: EngineDocument,
+        update: EngineUpdates,
+        expected: EngineDocument,
+    },
+) {
+    helper.updateAttributes(document, update);
+
+    expect(document).toEqual(expected);
+}

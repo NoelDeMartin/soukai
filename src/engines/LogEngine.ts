@@ -2,6 +2,7 @@ import Engine, {
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
+    EngineUpdates,
 } from '@/engines/Engine';
 
 export default class LogEngine<InnerEngine extends Engine = Engine> implements Engine {
@@ -54,11 +55,11 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
     public update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void> {
-        console.log('UPDATE', collection, id, updatedAttributes, removedAttributes);
-        return this.engine.update(collection, id, updatedAttributes, removedAttributes)
+        console.log('UPDATE', collection, id, updates, removedAttributes);
+        return this.engine.update(collection, id, updates, removedAttributes)
             .then(() => console.log('UPDATED'))
             .catch(error => {
                 console.error(error);

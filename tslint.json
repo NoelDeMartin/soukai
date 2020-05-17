@@ -8,6 +8,7 @@
         "interface-name": false,
         "no-angle-bracket-type-assertion": false,
         "object-literal-sort-keys": false,
+        "trailing-comma": [true, { "multiline": "always", "esSpecCompliant": true }],
         "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore"]
     }
 }

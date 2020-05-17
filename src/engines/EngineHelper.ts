@@ -1,40 +1,42 @@
-import { EngineDocument, EngineDocumentsCollection, EngineFilters } from '@/engines/Engine';
+import {
+    EngineAttributeFilter,
+    EngineAttributeUpdate,
+    EngineAttributeValue,
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
+    EngineUpdates,
+} from '@/engines/Engine';
 
-import { deepEquals } from '@/internal/utils/Obj';
+import { deepEquals, isObject } from '@/internal/utils/Obj';
 
 import Arr from '@/internal/utils/Arr';
 import UUID from '@/internal/utils/UUID';
 
-type RootFilter = (id: string, document: EngineDocument, data: any) => boolean;
-type AttributeFilter = (id: string, document: EngineDocument, attribute: string, data: any) => boolean;
-type AttributeOperator = (document: EngineDocument, attribute: string, value: any) => void;
+type AttributesMap = MapObject<EngineAttributeValue>;
+type RootFilterHandler = (id: string, document: EngineDocument, filterData: any) => boolean;
+type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: any) => boolean;
+type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: any) => void;
 
 export default class EngineHelper {
 
-    private rootFilters: {
-        [filter: string]: RootFilter;
-    };
-
-    private attributeFilters: {
-        [filter: string]: AttributeFilter;
-    };
-
-    private attributeOperators: {
-        [operator: string]: AttributeOperator;
-    };
+    private rootFilters: MapObject<RootFilterHandler>;
+    private attributeFilters: MapObject<AttributeFilterHandler>;
+    private attributeUpdates: MapObject<AttributeUpdateHandler>;
 
     public constructor() {
         this.rootFilters = {
-            $in: this.filterIn,
+            $in: this.documentsIn,
         };
         this.attributeFilters = {
-            $eq: this.filterEq,
-            $contains: this.filterContains,
-            $or: this.filterOr,
+            $eq: this.attributeEq,
+            $contains: this.attributeContains,
+            $or: this.attributeOr,
         };
-        this.attributeOperators = {
-            $update: this.operatorUpdate,
-            $push: this.operatorPush,
+        this.attributeUpdates = {
+            $update: this.attributeUpdate,
+            $updateItems: this.attributeUpdateItems,
+            $push: this.attributePush,
         };
     }
 
@@ -43,7 +45,7 @@ export default class EngineHelper {
         filters: EngineFilters = {},
     ): EngineDocumentsCollection {
         return Object.entries(documents).reduce((filteredDocuments, [id, document]) => {
-            if (this.filterDocument(id, document, filters, true)) {
+            if (this.filterDocument(id, document, filters)) {
                 filteredDocuments[id] = document;
             }
 
@@ -51,22 +53,22 @@ export default class EngineHelper {
         }, {});
     }
 
-    public updateAttributes(document: EngineDocument, updatedAttributes: object): void {
-        for (const [attribute, value] of Object.entries(updatedAttributes)) {
-            this.operatorUpdate(document, attribute, value);
+    public updateAttributes(attributes: MapObject<EngineAttributeValue>, updates: EngineUpdates): void {
+        for (const [attribute, value] of Object.entries(updates)) {
+            this.attributeUpdate(attributes, attribute, value);
         }
     }
 
-    public removeAttributes(document: EngineDocument, removedAttributes: string[][]): void {
+    public removeAttributes(attributes: MapObject<EngineAttributeValue>, removedAttributes: string[][]): void {
         for (const attributePath of removedAttributes) {
-            let object: object = document;
-            const attributes = [...attributePath].reverse();
+            let object: object = attributes;
+            const attributesLeft = [...attributePath].reverse();
 
-            while (attributes.length > 1) {
-                object = object[attributes.pop() as string];
+            while (attributesLeft.length > 1) {
+                object = object[attributesLeft.pop() as string];
             }
 
-            delete object[attributes.pop() as string];
+            delete object[attributesLeft.pop() as string];
         }
     }
 
@@ -74,102 +76,177 @@ export default class EngineHelper {
         return id || UUID.generate();
     }
 
-    private filterDocument(
-        id: string,
-        document: EngineDocument,
-        filters: EngineFilters = {},
-        useRootFilters: boolean = false,
-    ): boolean {
+    private filterDocument(id: string, document: EngineDocument, filters: EngineFilters = {}): boolean {
+        filters = { ...filters };
+
+        const rootFilters = Object.keys(filters).filter(filter => filter in this.rootFilters);
+
+        for (const rootFilter of rootFilters) {
+            if (!this.rootFilters[rootFilter](id, document, filters[rootFilter])) {
+                return false;
+            }
+
+            delete filters[rootFilter];
+        }
+
+        return this.filterValue(document, filters);
+    }
+
+    private filterValue(value: EngineAttributeValue, filters: EngineAttributeFilter = {}): boolean {
+        if (!isObject(filters)) {
+            return this.attributeEq({ value }, 'value', filters);
+        }
+
+        if (this.isOperation(filters, this.attributeFilters)) {
+            return this.runOperation(filters, this.attributeFilters, { value }, 'value');
+        }
+
+        if (!isObject(value)) {
+            return false;
+        }
+
         return !Object.entries(filters)
             .find(([filterAttribute, filterValue]) => {
-                if (useRootFilters && filterAttribute in this.rootFilters) {
-                    return !this.rootFilters[filterAttribute](
-                        id,
-                        document,
-                        filterValue,
-                    );
-                }
+                const matchesFilter =
+                    this.isOperation(filterValue, this.attributeFilters)
+                        ? this.runOperation(filterValue, this.attributeFilters, value, filterAttribute)
+                        : this.attributeEq(value as MapObject<EngineAttributeValue>, filterAttribute, filterValue);
 
-                const [key, ...otherKeys] = Object.keys(filterValue);
-                const [attributeFilter, attributeFilterValue] =
-                    (otherKeys.length === 0 && key in this.attributeFilters)
-                        ? [this.attributeFilters[key], filterValue[key]]
-                        : [this.filterEq, filterValue];
-
-                return !attributeFilter(id, document, filterAttribute, attributeFilterValue);
+                return !matchesFilter;
             });
     }
 
-    private filterIn = (id: string, _: EngineDocument, ids: string[]): boolean => {
+    private documentsIn = (id: string, _: EngineDocument, ids: string[]): boolean => {
         return Arr.contains(ids, id);
     }
 
-    private filterEq = (
-        _: string,
-        document: EngineDocument,
+    private attributeEq = (
+        attributes: AttributesMap,
         attribute: string,
-        filterValue: any,
+        filterValue: EngineAttributeValue,
     ): boolean => {
-        return deepEquals(document[attribute], filterValue);
+        return deepEquals(attributes[attribute], filterValue);
     }
 
-    private filterContains = (
-        id: string,
-        document: EngineDocument,
+    private attributeContains = (
+        attributes: AttributesMap,
         attribute: string,
-        filters: EngineFilters[],
+        filters: EngineAttributeFilter | EngineAttributeFilter[],
     ): boolean => {
         if (!Array.isArray(filters)) {
             filters = [filters];
         }
 
-        const items = document[attribute] as any[];
-        if (!Array.isArray(items)) {
+        const attributeItems = attributes && attributes[attribute] as EngineAttributeValue[];
+        if (!Array.isArray(attributeItems)) {
             return false;
         }
 
-        return !filters.find(
-            filter => !items.find(item => this.filterDocument(id, item, filter)),
+        return !(filters as EngineAttributeFilter[]).find(
+            filter => !attributeItems.find(item => this.filterValue(item, filter)),
         );
     }
 
-    private filterOr = (
-        id: string,
-        document: EngineDocument,
-        attribute: string,
-        filters: EngineFilters[],
-    ): boolean => {
+    private attributeOr = (attributes: AttributesMap, attribute: string, filters: EngineAttributeFilter[]): boolean => {
         return !!filters.find(
-            filter => !!this.filterDocument(id, document, { [attribute]: filter }),
+            filter => !!this.filterValue(attributes, { [attribute]: filter }),
         );
     }
 
-    private operatorUpdate = (document: EngineDocument, attribute: string, value: any) => {
-        if (typeof value === 'object') {
-            const [key, ...otherKeys] = Object.keys(value);
-
-            if ((otherKeys.length === 0 && key in this.attributeOperators)) {
-                this.attributeOperators[key](document, attribute, value[key]);
-
-                return;
-            }
-
-            this.updateAttributes(document[attribute] as EngineDocument, value);
+    private attributeUpdate = (attributes: AttributesMap, attribute: string, updateData: EngineAttributeUpdate) => {
+        if (!isObject(updateData)) {
+            attributes[attribute] = updateData;
 
             return;
         }
 
-        document[attribute] = value;
-    }
+        if (this.isOperation(updateData, this.attributeUpdates)) {
+            this.runOperation<void, MapObject<AttributeUpdateHandler>>(
+                updateData,
+                this.attributeUpdates,
+                attributes,
+                attribute,
+            );
 
-    private operatorPush = (document: EngineDocument, attribute: string, item: any) => {
-        const array = document[attribute];
-
-        if (!Array.isArray(array)) {
-            throw new Error('$push operator can only be applied to array attributes');
+            return;
         }
 
-        (array as any[]).push(item);
+        if (!isObject(attributes[attribute])) {
+            attributes[attribute] = updateData as EngineAttributeValue;
+
+            return;
+        }
+
+        this.updateAttributes(
+            attributes[attribute] as MapObject<EngineAttributeValue>,
+            updateData as MapObject<EngineAttributeUpdate>,
+        );
+    }
+
+    private attributeUpdateItems = (
+        value: EngineAttributeValue,
+        property: string,
+        { $where, $update }: { $where?: EngineFilters, $update: EngineAttributeUpdate },
+    ) => {
+        if ($where && $where.$in) {
+            $where.$in = $where.$in.map(index => index.toString());
+        }
+
+        const array = this.requireArrayProperty('$updateItems', value, property);
+        const filteredDocuments = this.filterDocuments(
+            array.reduce<EngineDocumentsCollection>(
+                (documents, item, index) => ({
+                    ...documents,
+                    [index]: isObject(item) ? item : {},
+                }),
+                {},
+            ),
+            $where || {},
+        );
+
+        for (const index of Object.keys(filteredDocuments)) {
+            this.updateAttributes(filteredDocuments, { [index]: $update });
+
+            array[index] = filteredDocuments[index];
+        }
+    }
+
+    private attributePush = (value: EngineAttributeValue, property: string, item: any) => {
+        const array = this.requireArrayProperty('$push', value, property);
+
+        array.push(item);
+    }
+
+    private isOperation(value: any, handlers: MapObject<(...params: any[]) => any>): boolean {
+        if (!isObject(value)) {
+            return false;
+        }
+
+        const [firstKey, ...otherKeys] = Object.keys(value);
+
+        return !!(firstKey && otherKeys.length === 0 && firstKey in handlers);
+    }
+
+    private runOperation<R, H extends MapObject<(...params: any[]) => R>>(
+        operation: { [key in keyof H]: any },
+        handlers: H,
+        ...params: any[]
+    ): R {
+        const [operator, data] = Object.entries(operation)[0];
+
+        return handlers[operator](...params, data);
+    }
+
+    private requireArrayProperty(
+        operator: string,
+        value: EngineAttributeValue,
+        property: string,
+    ): EngineAttributeValue[] {
+        if (!value || !Array.isArray(value[property])) {
+            throw new Error(`${operator} operator can only be applied to array attributes`);
+        }
+
+        return value[property];
     }
 
 }

@@ -8,6 +8,7 @@ import Engine, {
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
+    EngineUpdates,
 } from '@/engines/Engine';
 import EngineHelper from '@/engines/EngineHelper';
 
@@ -124,7 +125,7 @@ export default class IndexedDBEngine implements Engine {
     public async update(
         collection: string,
         id: string,
-        updatedAttributes: EngineDocument,
+        updates: EngineUpdates,
         removedAttributes: string[][],
     ): Promise<void> {
         const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
@@ -134,7 +135,7 @@ export default class IndexedDBEngine implements Engine {
             throw new DocumentNotFound(id);
         }
 
-        this.helper.updateAttributes(document, updatedAttributes);
+        this.helper.updateAttributes(document, updates);
         this.helper.removeAttributes(document, removedAttributes);
 
         transaction.store.put(document, id);
