@@ -130,7 +130,7 @@ export class Model<Key = any> {
 
     protected syncDirty(): Promise<string>;
 
-    protected cleanDirty(id: Key): void;
+    protected cleanDirty(): void;
 
     protected hasOne(
         relatedClass: typeof Model,

@@ -414,7 +414,8 @@ export default abstract class Model<Key = any> {
 
         const id = await this.syncDirty();
 
-        this.cleanDirty(this.parseKey(id));
+        this._attributes[this.classDef.primaryKey] = this.parseKey(id);
+        this.cleanDirty();
 
         return <any> this;
     }
@@ -573,8 +574,7 @@ export default abstract class Model<Key = any> {
         return id;
     }
 
-    protected cleanDirty(id: Key): void {
-        this._attributes[this.classDef.primaryKey] = id;
+    protected cleanDirty(): void {
         this._originalAttributes = Obj.deepClone(this._attributes);
         this._dirtyAttributes = {};
         this._exists = true;
