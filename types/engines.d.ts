@@ -10,10 +10,12 @@ export type EngineAttributeLeafValue =
 export type EngineAttributeValue =
     EngineAttributeLeafValue |
     EngineAttributeValueMap |
-    EngineAttributeValue[] |
-    Array<MapObject<EngineAttributeValue>>;
+    EngineAttributeValueArray |
+    EngineAttributeValueArrayMap;
 
+interface EngineAttributeValueArray extends Array<EngineAttributeValue> {}
 interface EngineAttributeValueMap extends MapObject<EngineAttributeValue> {}
+interface EngineAttributeValueArrayMap extends Array<MapObject<EngineAttributeValue>> {}
 
 export type EngineAttributeFilter =
     EngineAttributeValue |
@@ -29,8 +31,13 @@ export type EngineAttributeUpdate =
     EngineAttributeValue |
     EngineAttributeUpdateMap |
     { $update: EngineAttributeUpdate } |
-    { $updateItems: { $where?: EngineFilters, $update: EngineAttributeUpdate } } |
+    { $updateItems: EngineUpdateItemsOperatorData | EngineUpdateItemsOperatorData[] } |
     { $push: EngineAttributeValue };
+
+export interface EngineUpdateItemsOperatorData {
+    $where?: EngineFilters;
+    $update: EngineAttributeUpdate;
+}
 
 interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}
 

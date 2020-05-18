@@ -267,11 +267,18 @@ describe('EngineHelper', () => {
         expect(document.pirates[1].affiliation).toEqual('Straw Hat Pirates');
     });
 
-    it('updates documents using $updateItems with root filters', () => {
+    it('updates documents using $updateItems with advanced filters', () => {
         assertDocumentUpdate({
             original: { items: ['foo', 'bar', 'baz'] },
-            update: { items: { $updateItems: { $where: { $in: [1] }, $update: 'lorem' } } },
-            expected: { items: ['foo', 'lorem', 'baz'] },
+            update: {
+                items: {
+                    $updateItems: [
+                        { $where: { $in: [1] }, $update: 'lorem' },
+                        { $where: { $in: [2] }, $update: 'ipsum' },
+                    ],
+                },
+            },
+            expected: { items: ['foo', 'lorem', 'ipsum'] },
         });
     });
 

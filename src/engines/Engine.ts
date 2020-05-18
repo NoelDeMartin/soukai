@@ -29,8 +29,13 @@ export type EngineAttributeUpdate =
     EngineAttributeValue |
     EngineAttributeUpdateMap |
     { $update: EngineAttributeUpdate } |
-    { $updateItems: { $where?: EngineFilters, $update: EngineAttributeUpdate } } |
+    { $updateItems: EngineUpdateItemsOperatorData | EngineUpdateItemsOperatorData[] } |
     { $push: EngineAttributeValue };
+
+export interface EngineUpdateItemsOperatorData {
+    $where?: EngineFilters;
+    $update: EngineAttributeUpdate;
+}
 
 interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}
 

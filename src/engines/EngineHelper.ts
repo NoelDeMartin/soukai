@@ -5,6 +5,7 @@ import {
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
+    EngineUpdateItemsOperatorData,
     EngineUpdates,
 } from '@/engines/Engine';
 
@@ -186,28 +187,34 @@ export default class EngineHelper {
     private attributeUpdateItems = (
         value: EngineAttributeValue,
         property: string,
-        { $where, $update }: { $where?: EngineFilters, $update: EngineAttributeUpdate },
+        updateData: EngineUpdateItemsOperatorData | EngineUpdateItemsOperatorData[],
     ) => {
-        if ($where && $where.$in) {
-            $where.$in = $where.$in.map(index => index.toString());
+        if (!Array.isArray(updateData)) {
+            updateData = [updateData];
         }
 
-        const array = this.requireArrayProperty('$updateItems', value, property);
-        const filteredDocuments = this.filterDocuments(
-            array.reduce<EngineDocumentsCollection>(
-                (documents, item, index) => ({
-                    ...documents,
-                    [index]: isObject(item) ? item : {},
-                }),
-                {},
-            ),
-            $where || {},
-        );
+        for (const { $where, $update } of updateData) {
+            if ($where && $where.$in) {
+                $where.$in = $where.$in.map(index => index.toString());
+            }
 
-        for (const index of Object.keys(filteredDocuments)) {
-            this.updateAttributes(filteredDocuments, { [index]: $update });
+            const array = this.requireArrayProperty('$updateItems', value, property);
+            const filteredDocuments = this.filterDocuments(
+                array.reduce<EngineDocumentsCollection>(
+                    (documents, item, index) => ({
+                        ...documents,
+                        [index]: isObject(item) ? item : {},
+                    }),
+                    {},
+                ),
+                $where || {},
+            );
 
-            array[index] = filteredDocuments[index];
+            for (const index of Object.keys(filteredDocuments)) {
+                this.updateAttributes(filteredDocuments, { [index]: $update });
+
+                array[index] = filteredDocuments[index];
+            }
         }
     }
 
