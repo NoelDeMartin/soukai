@@ -118,7 +118,7 @@ export default class extends TestSuite {
             }),
         });
 
-        return this.engine.update(User.collection, id, { name: newName }, [['surname']]).then(() => {
+        return this.engine.update(User.collection, id, { name: newName, surname: { $unset: true } }).then(() => {
             expect(MockLocalStorage.setItem).toHaveBeenCalledTimes(1);
             expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
                 this.prefix + User.collection,
@@ -130,7 +130,7 @@ export default class extends TestSuite {
     }
 
     public async testUpdateNonExistent(): Promise<void> {
-        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}, []))
+        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
     }
 

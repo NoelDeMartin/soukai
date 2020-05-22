@@ -167,7 +167,7 @@ export default class extends TestSuite {
         this.setDatabaseDocument(User.collection, id, { name: initialName, surname: Faker.name.lastName(), age });
 
         // Act
-        await this.engine.update(User.collection, id, { name: newName }, [['surname']]);
+        await this.engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
 
         // Assert
         const user = await this.getDatabaseDocument(User.collection, id);
@@ -176,7 +176,7 @@ export default class extends TestSuite {
     }
 
     public async testUpdateNonExistent(): Promise<void> {
-        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}, []))
+        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
     }
 

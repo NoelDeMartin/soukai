@@ -52,14 +52,9 @@ export default class LogEngine<InnerEngine extends Engine = Engine> implements E
             });
     }
 
-    public update(
-        collection: string,
-        id: string,
-        updates: EngineUpdates,
-        removedAttributes: string[][],
-    ): Promise<void> {
-        console.log('UPDATE', collection, id, updates, removedAttributes);
-        return this.engine.update(collection, id, updates, removedAttributes)
+    public update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
+        console.log('UPDATE', collection, id, updates);
+        return this.engine.update(collection, id, updates)
             .then(() => console.log('UPDATED'))
             .catch(error => {
                 console.error(error);

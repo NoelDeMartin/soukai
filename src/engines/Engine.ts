@@ -30,6 +30,7 @@ export type EngineAttributeUpdate =
     EngineAttributeUpdateMap |
     { $update: EngineAttributeUpdate } |
     { $updateItems: EngineUpdateItemsOperatorData | EngineUpdateItemsOperatorData[] } |
+    { $unset: string | string[] | true } |
     { $push: EngineAttributeValue };
 
 export interface EngineUpdateItemsOperatorData {
@@ -42,7 +43,7 @@ interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}
 export type EngineDocument = MapObject<EngineAttributeValue>;
 export type EngineDocumentsCollection = MapObject<EngineDocument>;
 export type EngineFilters = EngineRootFilter & MapObject<EngineAttributeFilter>;
-export type EngineUpdates = MapObject<EngineAttributeUpdate>;
+export type EngineUpdates = MapObject<EngineAttributeUpdate> | { $unset: string | string[] };
 
 export default interface Engine {
 
@@ -52,12 +53,7 @@ export default interface Engine {
 
     readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection>;
 
-    update(
-        collection: string,
-        id: string,
-        updates: EngineUpdates,
-        removedAttributes: string[][],
-    ): Promise<void>;
+    update(collection: string, id: string, updates: EngineUpdates): Promise<void>;
 
     delete(collection: string, id: string): Promise<void>;
 

@@ -267,7 +267,7 @@ describe('EngineHelper', () => {
         expect(document.pirates[1].affiliation).toEqual('Straw Hat Pirates');
     });
 
-    it('updates documents using $updateItems with advanced filters', () => {
+    it('updates documents using $updateItems with advanced filters and operations', () => {
         assertDocumentUpdate({
             original: { items: ['foo', 'bar', 'baz'] },
             update: {
@@ -279,6 +279,51 @@ describe('EngineHelper', () => {
                 },
             },
             expected: { items: ['foo', 'lorem', 'ipsum'] },
+        });
+
+        assertDocumentUpdate({
+            original: { items: [{ foo: 'bar' }, { john: 'Doe' }] },
+            update: {
+                items: {
+                    $updateItems: {
+                        $where: { $in: [1] },
+                        $update: { $unset: 'john' },
+                    },
+                },
+            },
+            expected: { items: [{ foo: 'bar' }, {}] },
+        });
+    });
+
+    it('updates documents using $unset', () => {
+        assertDocumentUpdate({
+            original: { foo: ['bar'], lorem: 'ipsum' },
+            update: { $unset: 'foo' },
+            expected: { lorem: 'ipsum' },
+        });
+
+        assertDocumentUpdate({
+            original: { lorem: { ipsum: 'dolor', foo: 'bar' } },
+            update: { lorem: { ipsum: { $unset: true } } },
+            expected: { lorem: { foo: 'bar' } },
+        });
+
+        assertDocumentUpdate({
+            original: { lorem: { ipsum: 'dolor', foo: 'bar' } },
+            update: { lorem: { ipsum: { $unset: true } } },
+            expected: { lorem: { foo: 'bar' } },
+        });
+
+        assertDocumentUpdate({
+            original: { lorem: { ipsum: 'dolor', foo: 'bar', john: 'doe' } },
+            update: { lorem: { $unset: ['ipsum', 'foo'] } },
+            expected: { lorem: { john: 'doe' } },
+        });
+
+        assertDocumentUpdate({
+            original: { ipsum: 'dolor', foo: 'bar', john: 'doe' },
+            update: { $unset: ['ipsum', 'foo'] },
+            expected: { john: 'doe' },
         });
     });
 

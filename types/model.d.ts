@@ -1,6 +1,6 @@
 import { MultiModelRelation, Relation, SingleModelRelation } from './relations';
 
-import { EngineDocument, Engine, EngineFilters } from './engines';
+import { EngineDocument, Engine, EngineFilters, EngineUpdates } from './engines';
 
 export interface Attributes {
     [field: string]: any;
@@ -164,7 +164,7 @@ export class Model<Key = any> {
 
     protected toEngineDocument(): EngineDocument;
 
-    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[][]];
+    protected getDirtyEngineDocumentUpdates(): EngineUpdates;
 
     protected parseEngineDocumentAttributes(id: Key, document: EngineDocument): Promise<Attributes>;
 

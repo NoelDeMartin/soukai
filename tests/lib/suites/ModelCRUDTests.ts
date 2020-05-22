@@ -242,7 +242,6 @@ export default class extends TestSuite {
                         name: newName,
                         updatedAt: model.updatedAt,
                     },
-                    [],
                 );
             });
     }
@@ -289,7 +288,6 @@ export default class extends TestSuite {
                         name: newName,
                         updatedAt: model.updatedAt,
                     },
-                    [],
                 );
             });
     }
@@ -318,8 +316,7 @@ export default class extends TestSuite {
                 expect(this.mockEngine.update).toHaveBeenCalledWith(
                     User.collection,
                     id,
-                    { updatedAt: model.updatedAt },
-                    [['surname']],
+                    { updatedAt: model.updatedAt, surname: { $unset: true } },
                 );
             });
     }

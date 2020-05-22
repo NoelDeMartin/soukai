@@ -9,7 +9,7 @@ import Arr from '@/internal/utils/Arr';
 import Obj from '@/internal/utils/Obj';
 import { camelCase, studlyCase } from '@/internal/utils/Str';
 
-import { EngineDocument, EngineFilters } from '@/engines/Engine';
+import { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToRelation from './relations/BelongsToRelation';
@@ -566,10 +566,10 @@ export default abstract class Model<Key = any> {
             );
         }
 
-        const [updatedAttributes, removedAttributes] = this.getDirtyEngineDocumentAttributes();
+        const updates = this.getDirtyEngineDocumentUpdates();
         const id = this.getSerializedPrimaryKey()!;
 
-        await engine.update(this.classDef.collection, id, updatedAttributes, removedAttributes);
+        await engine.update(this.classDef.collection, id, updates);
 
         return id;
     }
@@ -707,20 +707,18 @@ export default abstract class Model<Key = any> {
         ) as Attributes;
     }
 
-    protected getDirtyEngineDocumentAttributes(): [EngineDocument, string[][]] {
-        const updatedAttributes = Obj.deepClone(this._dirtyAttributes);
-        const removedAttributes: string[][] = [];
+    protected getDirtyEngineDocumentUpdates(): EngineUpdates {
+        const updates = Obj.deepClone(this._dirtyAttributes);
 
-        for (const field in updatedAttributes) {
-            if (updatedAttributes[field] !== undefined) {
+        for (const field in updates) {
+            if (updates[field] !== undefined) {
                 continue;
             }
 
-            removedAttributes.push([field]);
-            delete updatedAttributes[field];
+            updates[field] = { $unset: true };
         }
 
-        return [updatedAttributes as EngineDocument, removedAttributes];
+        return updates as EngineUpdates;
     }
 
     protected async parseEngineDocumentAttributes(id: Key, document: EngineDocument): Promise<Attributes> {

@@ -107,7 +107,7 @@ export default class extends TestSuite {
         return this.engine.create(User.collection, { name: initialName, surname: Faker.name.lastName(), age })
             .then(documentId => {
                 id = documentId;
-                return this.engine.update(User.collection, id, { name: newName }, [['surname']]);
+                return this.engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
             })
             .then(() => {
                 expect(this.engine.database[User.collection][id]).toEqual({ name: newName, age });
@@ -115,7 +115,7 @@ export default class extends TestSuite {
     }
 
     public async testUpdateNonExistent(): Promise<void> {
-        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}, []))
+        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
     }
 

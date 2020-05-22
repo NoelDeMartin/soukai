@@ -122,12 +122,7 @@ export default class IndexedDBEngine implements Engine {
         return this.helper.filterDocuments(documents, filters);
     }
 
-    public async update(
-        collection: string,
-        id: string,
-        updates: EngineUpdates,
-        removedAttributes: string[][],
-    ): Promise<void> {
+    public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
         const transaction = (await this.startDocumentsTransaction('readwrite', collection, true))!;
         const document = await transaction.store.get(id);
 
@@ -136,7 +131,6 @@ export default class IndexedDBEngine implements Engine {
         }
 
         this.helper.updateAttributes(document, updates);
-        this.helper.removeAttributes(document, removedAttributes);
 
         transaction.store.put(document, id);
 

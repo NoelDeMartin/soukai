@@ -68,18 +68,12 @@ export default class InMemoryEngine implements Engine {
         return this.helper.filterDocuments(documents, filters);
     }
 
-    public update(
-        collectionName: string,
-        id: string,
-        updates: EngineUpdates,
-        removedAttributes: string[][],
-    ): Promise<void> {
+    public update(collectionName: string, id: string, updates: EngineUpdates): Promise<void> {
         const collection = this.collection(collectionName);
         if (id in collection) {
             const document = collection[id];
 
             this.helper.updateAttributes(document, updates);
-            this.helper.removeAttributes(document, removedAttributes);
 
             return Promise.resolve();
         } else {

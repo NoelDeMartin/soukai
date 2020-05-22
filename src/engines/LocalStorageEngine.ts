@@ -66,12 +66,7 @@ export default class LocalStorageEngine implements Engine {
         return this.helper.filterDocuments(documents, filters);
     }
 
-    public async update(
-        collection: string,
-        id: string,
-        updates: EngineUpdates,
-        removedAttributes: string[][],
-    ): Promise<void> {
+    public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
         const documentsCollection = this.readItem(collection, {});
 
         if (!(id in documentsCollection)) {
@@ -81,7 +76,6 @@ export default class LocalStorageEngine implements Engine {
         const document = this.deserializeAttributes(documentsCollection[id]);
 
         this.helper.updateAttributes(document, updates);
-        this.helper.removeAttributes(document, removedAttributes);
 
         documentsCollection[id] = this.serializeAttributes(document);
 

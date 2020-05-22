@@ -38,6 +38,7 @@ export default class EngineHelper {
             $update: this.attributeUpdate,
             $updateItems: this.attributeUpdateItems,
             $push: this.attributePush,
+            $unset: this.attributeUnset,
         };
     }
 
@@ -55,21 +56,19 @@ export default class EngineHelper {
     }
 
     public updateAttributes(attributes: MapObject<EngineAttributeValue>, updates: EngineUpdates): void {
-        for (const [attribute, value] of Object.entries(updates)) {
-            this.attributeUpdate(attributes, attribute, value);
-        }
-    }
+        if (this.isOperation(updates, { $unset: this.attributeUnset })) {
+            const unsetValue = (updates as { $unset: string | string[ ]}).$unset;
+            const unsetProperties = Array.isArray(unsetValue) ? unsetValue : [unsetValue];
 
-    public removeAttributes(attributes: MapObject<EngineAttributeValue>, removedAttributes: string[][]): void {
-        for (const attributePath of removedAttributes) {
-            let object: object = attributes;
-            const attributesLeft = [...attributePath].reverse();
-
-            while (attributesLeft.length > 1) {
-                object = object[attributesLeft.pop() as string];
+            for (const unsetProperty of unsetProperties) {
+                this.attributeUnset(attributes, unsetProperty, true);
             }
 
-            delete object[attributesLeft.pop() as string];
+            return;
+        }
+
+        for (const [attribute, value] of Object.entries(updates)) {
+            this.attributeUpdate(attributes, attribute, value);
         }
     }
 
@@ -222,6 +221,24 @@ export default class EngineHelper {
         const array = this.requireArrayProperty('$push', value, property);
 
         array.push(item);
+    }
+
+    private attributeUnset = (
+        value: EngineAttributeValue,
+        property: string,
+        unsetProperties: string | string[] | true,
+    ) => {
+        if (unsetProperties === true) {
+            delete value![property!];
+
+            return;
+        }
+
+        unsetProperties = Array.isArray(unsetProperties) ? unsetProperties : [unsetProperties];
+
+        for (const unsetProperty of unsetProperties) {
+            delete value![property][unsetProperty];
+        }
     }
 
     private isOperation(value: any, handlers: MapObject<(...params: any[]) => any>): boolean {
