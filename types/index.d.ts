@@ -13,10 +13,17 @@ export {
 
 export {
     Engine,
+    EngineAttributeFilter,
+    EngineAttributeLeafValue,
+    EngineAttributeUpdate,
+    EngineAttributeValue,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
     EngineHelper,
+    EngineRootFilter,
+    EngineUpdateItemsOperatorData,
+    EngineUpdates,
     IndexedDBEngine,
     InMemoryEngine,
     InMemoryEngineDatabase,
