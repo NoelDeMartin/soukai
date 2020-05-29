@@ -278,12 +278,7 @@ export default abstract class Model<Key = any> {
     }
 
     public loadRelation(relation: string): Promise<null | Model | Model[]> {
-        const relationInstance = this[camelCase(relation) + 'Relationship']() as Relation;
-        const promise = relationInstance.resolve();
-
-        promise.then(models => this.setRelationModels(relation, models));
-
-        return promise;
+        return this.requireRelation(relation).resolve();
     }
 
     public unloadRelation(relation: string): void {
@@ -541,10 +536,14 @@ export default abstract class Model<Key = any> {
     }
 
     protected initializeRelations(): void {
-        this._relations = this.classDef.relations.reduce((relations, name) => ({
-            ...relations,
-            [name]: this._proxy[camelCase(name) + 'Relationship'](),
-        }), {});
+        this._relations = this.classDef.relations.reduce((relations, name) => {
+            const relation = this._proxy[camelCase(name) + 'Relationship']();
+
+            relation.name = name;
+            relations[name] = relation;
+
+            return relations;
+        }, {});
     }
 
     protected async createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T> {

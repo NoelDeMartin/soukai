@@ -6,6 +6,7 @@ export abstract class Relation<
     RelatedClass extends typeof Model = typeof Model,
 > {
 
+    public name: string;
     public related: Related[] | Related | null;
     public loaded: boolean;
     public parent: Parent;

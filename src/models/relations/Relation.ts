@@ -6,6 +6,7 @@ export default abstract class Relation<
     RelatedClass extends typeof Model = typeof Model,
 > {
 
+    public name: string;
     public related: Related[] | Related | null = null;
     public parent: Parent;
     public relatedClass: RelatedClass;
