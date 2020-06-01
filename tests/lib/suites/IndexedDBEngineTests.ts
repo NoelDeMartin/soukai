@@ -60,8 +60,8 @@ export default class extends TestSuite {
         this.engine.closeConnections();
 
         // Assert
-        const metadataConnection = await openDB(`${this.databaseName}-meta`, 1);
-        const documentsConnection = await openDB(this.databaseName, 1000);
+        const metadataConnection = await openDB(`soukai-${this.databaseName}-meta`, 1);
+        const documentsConnection = await openDB(`soukai-${this.databaseName}`, 1000);
         const metadataCollections = await metadataConnection.transaction('collections', 'readonly').store.getAll();
 
         const documentStores: string[] = [];
@@ -218,7 +218,7 @@ export default class extends TestSuite {
             return;
         }
 
-        this.metadataConnection = await openDB(`${this.databaseName}-meta`, 1, {
+        this.metadataConnection = await openDB(`soukai-${this.databaseName}-meta`, 1, {
             upgrade: database => database.createObjectStore('collections', { keyPath: 'name' }),
         });
 
@@ -236,7 +236,7 @@ export default class extends TestSuite {
             return;
         }
 
-        this.collectionsConnection = await openDB(this.databaseName, this.databaseCollections.length, {
+        this.collectionsConnection = await openDB(`soukai-${this.databaseName}`, this.databaseCollections.length, {
             upgrade: database => {
                 for (const collection of this.databaseCollections) {
                     database.createObjectStore(collection);
@@ -259,8 +259,8 @@ export default class extends TestSuite {
     }
 
     private async dropDatabases(): Promise<void> {
-        await deleteDB(`${this.databaseName}-meta`);
-        await deleteDB(this.databaseName);
+        await deleteDB(`soukai-${this.databaseName}-meta`);
+        await deleteDB(`soukai-${this.databaseName}`);
     }
 
     private async getDatabaseDocument(collection: string, id: string): Promise<any> {
