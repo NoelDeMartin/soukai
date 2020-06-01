@@ -47,8 +47,8 @@ export default class IndexedDBEngine implements Engine {
     private documentsConnection: DatabaseConnection<DocumentsSchema>;
     private helper: EngineHelper;
 
-    public constructor(database: string = 'soukai') {
-        this.database = database;
+    public constructor(database: null | string = null) {
+        this.database = database ? 'soukai-' + database : 'soukai';
         this.helper = new EngineHelper();
     }
 
