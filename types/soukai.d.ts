@@ -13,6 +13,8 @@ interface Soukai {
 
     loadModels(models: { [name: string]: typeof Model }): void;
 
+    closeConnections(): Promise<void>;
+
 }
 
 declare const Soukai: Soukai;

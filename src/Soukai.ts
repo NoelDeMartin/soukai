@@ -1,3 +1,4 @@
+import { engineClosesConnections } from '@/engines/ClosesConnections';
 import Engine from '@/engines/Engine';
 import Model from '@/models/Model';
 
@@ -41,6 +42,14 @@ export class Soukai {
         }
 
         return this._engine;
+    }
+
+    public async closeConnections(): Promise<void> {
+        if (!this._engine || !engineClosesConnections(this._engine)) {
+            return;
+        }
+
+        await this._engine.closeConnections();
     }
 
     public get engine(): Engine {

@@ -10,6 +10,8 @@ import Engine, {
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
+
+import ClosesConnections from '@/engines/ClosesConnections';
 import EngineHelper from '@/engines/EngineHelper';
 
 interface DatabaseConnection<Schema extends DBSchema> {
@@ -40,7 +42,7 @@ interface DocumentsSchema extends DBSchema {
     };
 }
 
-export default class IndexedDBEngine implements Engine {
+export default class IndexedDBEngine implements Engine, ClosesConnections {
 
     private database: string;
     private metadataConnection: DatabaseConnection<MetadataSchema>;
@@ -55,11 +57,13 @@ export default class IndexedDBEngine implements Engine {
     public async purgeDatabase(): Promise<void> {
         this.closeConnections();
 
-        await deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() });
-        await deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() });
+        await Promise.all([
+            deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() }),
+            deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() }),
+        ]);
     }
 
-    public closeConnections(): void {
+    public async closeConnections(): Promise<void> {
         if (this.metadataConnection) {
             this.metadataConnection.close();
         }
