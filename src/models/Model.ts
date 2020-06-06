@@ -371,8 +371,10 @@ export default abstract class Model<Key = any> {
         }
     }
 
-    public isDirty(name: string): boolean {
-        return name in this._dirtyAttributes;
+    public isDirty(field?: string): boolean {
+        return field
+            ? field in this._dirtyAttributes
+            : Object.values(this._dirtyAttributes).length > 0;
     }
 
     public getPrimaryKey(): Key | null {
@@ -407,12 +409,16 @@ export default abstract class Model<Key = any> {
     public async save<T extends Model>(): Promise<T> {
         ensureRequiredAttributes(this._attributes, this.classDef.fields);
 
+        if (!this.isDirty()) {
+            return this as any;
+        }
+
         const id = await this.syncDirty();
 
         this._attributes[this.classDef.primaryKey] = this.parseKey(id);
         this.cleanDirty();
 
-        return <any> this;
+        return this as any;
     }
 
     /**

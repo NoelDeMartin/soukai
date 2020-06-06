@@ -102,7 +102,7 @@ export class Model<Key = any> {
 
     public unsetAttribute(field: string): void;
 
-    public isDirty(name: string): boolean;
+    public isDirty(field?: string): boolean;
 
     public getPrimaryKey(): Key | null;
 
