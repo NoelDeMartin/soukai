@@ -28,6 +28,10 @@ export interface EngineRootFilter {
 export type EngineAttributeUpdate =
     EngineAttributeValue |
     EngineAttributeUpdateMap |
+    EngineAttributeUpdateOperation |
+    { $apply: EngineAttributeUpdateOperation[] };
+
+export type EngineAttributeUpdateOperation =
     { $update: EngineAttributeUpdate } |
     { $updateItems: EngineUpdateItemsOperatorData | EngineUpdateItemsOperatorData[] } |
     { $unset: string | string[] | true } |

@@ -327,6 +327,46 @@ describe('EngineHelper', () => {
         });
     });
 
+    it('combines update operations using $apply', () => {
+        // Arrange
+        const document = {
+            strawHatCrew: [
+                { name: 'Monkey D. Luffy', bounty: 500000000 },
+            ],
+        };
+
+        // Act
+        helper.updateAttributes(document, {
+            strawHatCrew: {
+                $apply: [
+                    {
+                        $updateItems: {
+                            $where: {
+                                name: 'Monkey D. Luffy',
+                            },
+                            $update: {
+                                bounty: 1500000000,
+                            },
+                        },
+                    },
+                    {
+                        $push: {
+                            name: 'Jimbei',
+                            bounty: 438000000,
+                        },
+                    },
+                ],
+            },
+        });
+
+        // Assert
+        expect(document.strawHatCrew[0].bounty).toEqual(1500000000);
+        expect(document.strawHatCrew[1]).toEqual({
+            name: 'Jimbei',
+            bounty: 438000000,
+        });
+    });
+
 });
 
 function assertDocumentUpdate(

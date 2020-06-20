@@ -1,6 +1,7 @@
 import {
     EngineAttributeFilter,
     EngineAttributeUpdate,
+    EngineAttributeUpdateOperation,
     EngineAttributeValue,
     EngineDocument,
     EngineDocumentsCollection,
@@ -39,6 +40,7 @@ export default class EngineHelper {
             $updateItems: this.attributeUpdateItems,
             $push: this.attributePush,
             $unset: this.attributeUnset,
+            $apply: this.attributeApply,
         };
     }
 
@@ -238,6 +240,21 @@ export default class EngineHelper {
 
         for (const unsetProperty of unsetProperties) {
             delete value![property][unsetProperty];
+        }
+    }
+
+    private attributeApply = (
+        value: EngineAttributeValue,
+        property: string,
+        operations: EngineAttributeUpdateOperation[],
+    ) => {
+        for (const operation of operations) {
+            this.runOperation<void, MapObject<AttributeUpdateHandler>>(
+                operation,
+                this.attributeUpdates,
+                value,
+                property,
+            );
         }
     }
 
