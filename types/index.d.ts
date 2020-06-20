@@ -16,6 +16,7 @@ export {
     EngineAttributeFilter,
     EngineAttributeLeafValue,
     EngineAttributeUpdate,
+    EngineAttributeUpdateOperation,
     EngineAttributeValue,
     EngineDocument,
     EngineDocumentsCollection,
