@@ -96,6 +96,8 @@ export class Model<Key = any> {
 
     public setAttribute(field: string, value: any): void;
 
+    public setAttributes(attributes: Attributes): void;
+
     public getAttribute(field: string): any;
 
     public getAttributes(includeUndefined?: boolean): Attributes;

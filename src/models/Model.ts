@@ -330,6 +330,12 @@ export default abstract class Model<Key = any> {
         }
     }
 
+    public setAttributes(attributes: Attributes): void {
+        for (const [field, value] of Object.entries(attributes)) {
+            this.setAttribute(field, value);
+        }
+    }
+
     public getAttribute(field: string, includeUndefined: boolean = false): any {
         const fields = field.split('.');
         let value = this.getAttributes(includeUndefined);
