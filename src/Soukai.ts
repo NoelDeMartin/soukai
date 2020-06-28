@@ -4,13 +4,11 @@ import Model from '@/models/Model';
 
 import SoukaiError from '@/errors/SoukaiError';
 
-import Arr from '@/internal/utils/Arr';
-
 export class Soukai {
 
     private _engine: Engine;
 
-    private _bootedModels: Array<typeof Model> = [];
+    private _bootedModels: { [name: string]: typeof Model } = {};
 
     public useEngine(engine: Engine): void {
         this._engine = engine;
@@ -21,12 +19,12 @@ export class Soukai {
     }
 
     public loadModel(name: string, model: typeof Model): void {
-        if (Arr.contains(this._bootedModels, model)) {
+        if (name in model) {
             return;
         }
 
         model.boot(name);
-        this._bootedModels.push(model);
+        this._bootedModels[name] = model;
     }
 
     public loadModels(models: { [name: string]: typeof Model}): void {
