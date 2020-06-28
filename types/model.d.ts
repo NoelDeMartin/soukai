@@ -67,14 +67,14 @@ export class Model<Key = any> {
 
     [field: string]: any;
 
+    public modelClass: typeof Model;
+
     protected _exists: boolean;
     protected _proxy: Model;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Attributes;
     protected _relations: { [relation: string]: Relation };
-
-    protected classDef: typeof Model;
 
     constructor(attributes?: Attributes, exists?: boolean);
 

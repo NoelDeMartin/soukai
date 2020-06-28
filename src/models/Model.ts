@@ -82,28 +82,28 @@ export default abstract class Model<Key = any> {
     }
 
     public static boot(name: string): void {
-        const classDef = this;
+        const modelClass = this;
         const fieldDefinitions: FieldsDefinition = {};
 
         // Validate collection
-        if (typeof classDef.collection === 'undefined') {
-            classDef.collection = name.toLowerCase() + 's';
-        } else if (typeof classDef.collection !== 'string') {
+        if (typeof modelClass.collection === 'undefined') {
+            modelClass.collection = name.toLowerCase() + 's';
+        } else if (typeof modelClass.collection !== 'string') {
             throw new InvalidModelDefinition(name, 'Collection name not defined or invalid format');
         }
 
         // Validate timestamps
-        if (typeof classDef.timestamps === 'boolean' || typeof classDef.timestamps === 'undefined') {
-            if (typeof classDef.timestamps === 'undefined' || classDef.timestamps) {
+        if (typeof modelClass.timestamps === 'boolean' || typeof modelClass.timestamps === 'undefined') {
+            if (typeof modelClass.timestamps === 'undefined' || modelClass.timestamps) {
                 for (const field of TIMESTAMP_FIELDS) {
                     fieldDefinitions[field] = { type: FieldType.Date, required: false };
                 }
-                classDef.timestamps = TIMESTAMP_FIELDS;
+                modelClass.timestamps = TIMESTAMP_FIELDS;
             } else {
-                classDef.timestamps = [];
+                modelClass.timestamps = [];
             }
-        } else if (Array.isArray(classDef.timestamps)) {
-            for (const field of classDef.timestamps) {
+        } else if (Array.isArray(modelClass.timestamps)) {
+            for (const field of modelClass.timestamps) {
                 if (TIMESTAMP_FIELDS.indexOf(field) === -1) {
                     throw new InvalidModelDefinition(name, `Invalid timestamp field defined (${field})`);
                 }
@@ -115,13 +115,13 @@ export default abstract class Model<Key = any> {
         }
 
         // Validate fields
-        if (typeof classDef.fields !== 'undefined') {
-            for (const field in classDef.fields) {
-                if (classDef.fields.hasOwnProperty(field)) {
-                    fieldDefinitions[field] = validateFieldDefinition(name, field, classDef.fields[field]);
+        if (typeof modelClass.fields !== 'undefined') {
+            for (const field in modelClass.fields) {
+                if (modelClass.fields.hasOwnProperty(field)) {
+                    fieldDefinitions[field] = validateFieldDefinition(name, field, modelClass.fields[field]);
 
                     if (
-                        classDef.timestamps.indexOf(field) !== -1 && (
+                        modelClass.timestamps.indexOf(field) !== -1 && (
                             fieldDefinitions[field].type !== FieldType.Date ||
                             fieldDefinitions[field].required
                         )
@@ -138,23 +138,23 @@ export default abstract class Model<Key = any> {
         }
 
         // Define primary key field
-        if (!(classDef.primaryKey in fieldDefinitions)) {
-            fieldDefinitions[classDef.primaryKey] = {
+        if (!(modelClass.primaryKey in fieldDefinitions)) {
+            fieldDefinitions[modelClass.primaryKey] = {
                 type: FieldType.Key,
                 required: false,
             };
         }
 
         // Obtain class definition information
-        const classFields: string[] = Object.getOwnPropertyNames(classDef.pureInstance);
+        const classFields: string[] = Object.getOwnPropertyNames(modelClass.pureInstance);
         const relations: string[] = [];
 
-        let prototype = Object.getPrototypeOf(classDef.pureInstance);
+        let prototype = Object.getPrototypeOf(modelClass.pureInstance);
         while (prototype !== Model.prototype) {
             classFields.push(...prototype.constructor.classFields);
 
             for (const property of Object.getOwnPropertyNames(prototype)) {
-                if (property.endsWith('Relationship') && typeof classDef.pureInstance[property] === 'function') {
+                if (property.endsWith('Relationship') && typeof modelClass.pureInstance[property] === 'function') {
                     relations.push(property.substring(0, property.length - 12));
                 }
             }
@@ -162,10 +162,10 @@ export default abstract class Model<Key = any> {
             prototype = Object.getPrototypeOf(prototype);
         }
 
-        classDef.classFields = Arr.unique(classFields);
-        classDef.relations = Arr.unique(relations);
-        classDef.fields = fieldDefinitions;
-        classDef.modelName = name;
+        modelClass.classFields = Arr.unique(classFields);
+        modelClass.relations = Arr.unique(relations);
+        modelClass.fields = fieldDefinitions;
+        modelClass.modelName = name;
     }
 
     public static create<T extends Model>(attributes: Attributes = {}): Promise<T> {
@@ -216,9 +216,9 @@ export default abstract class Model<Key = any> {
     }
 
     private static ensureBooted(): void {
-        const classDef = (<any> this);
+        const modelClass = (<any> this);
 
-        if (typeof classDef.modelName === 'undefined') {
+        if (typeof modelClass.modelName === 'undefined') {
             throw new SoukaiError(
                 'Model has not been booted (did you forget to call Soukai.loadModel?) ' +
                 'Learn more at https://soukai.js.org/guide/defining-models.html',
@@ -233,10 +233,6 @@ export default abstract class Model<Key = any> {
     protected _dirtyAttributes: Attributes;
     protected _relations: { [relation: string]: Relation };
 
-    protected get classDef(): typeof Model {
-        return (this.constructor as any);
-    }
-
     [field: string]: any;
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
@@ -247,16 +243,20 @@ export default abstract class Model<Key = any> {
             return;
         }
 
-        this.classDef.ensureBooted();
+        this.modelClass.ensureBooted();
         this.initialize(attributes, exists);
 
         return this._proxy;
     }
 
+    public get modelClass(): typeof Model {
+        return (this.constructor as any);
+    }
+
     public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
         // TODO validate protected fields (e.g. id)
 
-        attributes = this.castAttributes(attributes, this.classDef.fields);
+        attributes = this.castAttributes(attributes, this.modelClass.fields);
 
         for (const field in attributes) {
             this.setAttribute(field, attributes[field]);
@@ -270,7 +270,7 @@ export default abstract class Model<Key = any> {
     }
 
     public hasRelation(relation: string): boolean {
-        return this.classDef.relations.indexOf(relation) !== -1;
+        return this.modelClass.relations.indexOf(relation) !== -1;
     }
 
     public getRelation(relation: string): Relation | null {
@@ -299,7 +299,7 @@ export default abstract class Model<Key = any> {
 
     public hasAttribute(field: string): boolean {
         const fields = field.split('.');
-        let value = <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
+        let value = <Attributes> cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
 
         while (fields.length > 0) {
             value = value[<string> fields.shift()];
@@ -315,7 +315,7 @@ export default abstract class Model<Key = any> {
     public setAttribute(field: string, value: any): void {
         // TODO implement deep setter
 
-        value = this.castAttribute(value, this.classDef.fields[field]);
+        value = this.castAttribute(value, this.modelClass.fields[field]);
 
         this._attributes[field] = value;
 
@@ -354,14 +354,14 @@ export default abstract class Model<Key = any> {
     public getAttributes(includeUndefined: boolean = false): Attributes {
         return includeUndefined
             ? deepClone(this._attributes)
-            : <Attributes> cleanUndefinedAttributes(this._attributes, this.classDef.fields);
+            : <Attributes> cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
     }
 
     public unsetAttribute(field: string): void {
         // TODO implement deep unsetter
         // TODO validate protected fields (e.g. id)
         if (this._attributes.hasOwnProperty(field)) {
-            if (field in this.classDef.fields) {
+            if (field in this.modelClass.fields) {
                 this._attributes[field] = undefined;
             } else {
                 delete this._attributes[field];
@@ -384,7 +384,7 @@ export default abstract class Model<Key = any> {
     }
 
     public getPrimaryKey(): Key | null {
-        return this._attributes[this.classDef.primaryKey];
+        return this._attributes[this.modelClass.primaryKey];
     }
 
     public getSerializedPrimaryKey(): string | null {
@@ -401,11 +401,11 @@ export default abstract class Model<Key = any> {
         return Soukai
             .requireEngine()
             .delete(
-                this.classDef.collection,
+                this.modelClass.collection,
                 this.getSerializedPrimaryKey()!,
             )
             .then(() => {
-                delete this._attributes[this.classDef.primaryKey];
+                delete this._attributes[this.modelClass.primaryKey];
                 this._exists = false;
 
                 return this as any;
@@ -413,7 +413,7 @@ export default abstract class Model<Key = any> {
     }
 
     public async save<T extends Model>(): Promise<T> {
-        ensureRequiredAttributes(this._attributes, this.classDef.fields);
+        ensureRequiredAttributes(this._attributes, this.modelClass.fields);
 
         if (!this.isDirty()) {
             return this as any;
@@ -421,7 +421,7 @@ export default abstract class Model<Key = any> {
 
         const id = await this.syncDirty();
 
-        this._attributes[this.classDef.primaryKey] = this.parseKey(id);
+        this._attributes[this.modelClass.primaryKey] = this.parseKey(id);
         this.cleanDirty();
 
         return this as any;
@@ -455,7 +455,7 @@ export default abstract class Model<Key = any> {
                 if (
                     typeof property !== 'string' ||
                     property in target ||
-                    target.classDef.classFields.indexOf(property) !== -1
+                    target.modelClass.classFields.indexOf(property) !== -1
                 ) {
                     return Reflect.get(target, property, receiver);
                 }
@@ -485,7 +485,7 @@ export default abstract class Model<Key = any> {
                 if (
                     typeof property !== 'string' ||
                     property in target ||
-                    target.classDef.classFields.indexOf(property) !== -1
+                    target.modelClass.classFields.indexOf(property) !== -1
                 ) {
                     return Reflect.set(target, property, value, receiver);
                 }
@@ -510,7 +510,7 @@ export default abstract class Model<Key = any> {
 
                 if (
                     !(property in target._attributes) ||
-                    target.classDef.classFields.indexOf(property) !== -1
+                    target.modelClass.classFields.indexOf(property) !== -1
                 ) {
                     return Reflect.deleteProperty(target, property);
                 }
@@ -541,14 +541,14 @@ export default abstract class Model<Key = any> {
         this._attributes = this.castAttributes(
             ensureAttributesExistance(
                 this._attributes,
-                this.classDef.fields,
+                this.modelClass.fields,
             ),
-            this.classDef.fields,
+            this.modelClass.fields,
         );
     }
 
     protected initializeRelations(): void {
-        this._relations = this.classDef.relations.reduce((relations, name) => {
+        this._relations = this.modelClass.relations.reduce((relations, name) => {
             const relation = this._proxy[camelCase(name) + 'Relationship']();
 
             relation.name = name;
@@ -561,9 +561,9 @@ export default abstract class Model<Key = any> {
     protected async createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T> {
         const attributes = await this.parseEngineDocumentAttributes(id, document);
 
-        attributes[this.classDef.primaryKey] = id;
+        attributes[this.modelClass.primaryKey] = id;
 
-        return new (this.classDef as any)(attributes, true);
+        return new (this.modelClass as any)(attributes, true);
     }
 
     protected async syncDirty(): Promise<string> {
@@ -571,7 +571,7 @@ export default abstract class Model<Key = any> {
 
         if (!this._exists) {
             return engine.create(
-                this.classDef.collection,
+                this.modelClass.collection,
                 this.toEngineDocument(),
                 this.getSerializedPrimaryKey() || undefined,
             );
@@ -580,7 +580,7 @@ export default abstract class Model<Key = any> {
         const updates = this.getDirtyEngineDocumentUpdates();
         const id = this.getSerializedPrimaryKey()!;
 
-        await engine.update(this.classDef.collection, id, updates);
+        await engine.update(this.modelClass.collection, id, updates);
 
         return id;
     }
@@ -708,13 +708,13 @@ export default abstract class Model<Key = any> {
     }
 
     protected hasAutomaticTimestamp(timestamp: string): boolean {
-        return (this.classDef.timestamps as string[]).indexOf(timestamp) !== -1;
+        return (this.modelClass.timestamps as string[]).indexOf(timestamp) !== -1;
     }
 
     protected toEngineDocument(): EngineDocument {
         return cleanUndefinedAttributes(
             this._attributes,
-            this.classDef.fields,
+            this.modelClass.fields,
         ) as Attributes;
     }
 

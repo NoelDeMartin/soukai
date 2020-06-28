@@ -16,6 +16,10 @@ export class Soukai {
         this._engine = engine;
     }
 
+    public model(name: string): typeof Model {
+        return this._bootedModels[name];
+    }
+
     public loadModel(name: string, model: typeof Model): void {
         if (Arr.contains(this._bootedModels, model)) {
             return;

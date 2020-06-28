@@ -9,6 +9,8 @@ interface Soukai {
 
     requireEngine(): Engine;
 
+    model(name: string): typeof Model;
+
     loadModel(name: string, model: typeof Model): void;
 
     loadModels(models: { [name: string]: typeof Model }): void;
