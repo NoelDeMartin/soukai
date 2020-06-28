@@ -1,6 +1,6 @@
 import { MultiModelRelation, Relation, SingleModelRelation } from './relations';
 
-import { EngineDocument, Engine, EngineFilters, EngineUpdates } from './engines';
+import { EngineDocument, EngineFilters, EngineUpdates } from './engines';
 
 export interface Attributes {
     [field: string]: any;
@@ -33,7 +33,7 @@ export interface FieldDefinition {
 
 }
 
-export class Model<Key = any> {
+export abstract class Model<Key = any> {
 
     public static collection: string;
 
