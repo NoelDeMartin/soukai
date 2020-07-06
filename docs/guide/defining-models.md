@@ -221,13 +221,34 @@ The current implementation of the name inflection is naive and should be improve
 
 ## Relationships
 
-There are two types of relationships than can be defined between models: SingleModel and MultiModel relationships.
+Relationships are a great way to work with referenced models.
 
-SingleModel relationships return an instance of a related model. For example, if we have a model `Post` and a model `User`, the `author` of the post will be a user. Relationships are implemented by defining a method with the name `{relationship-name}Relationship` that returns a [Relation](https://soukai.js.org/api/classes/models_relations.relation.html) instance. For SingleModel relationships you can use the method [belongsToOne](https://soukai.js.org/api/classes/models.model.html#belongstoone):
+Conceptually, there are three types of relationships: One-to-one, One-to-many and Many-to-many. But this taxonomy can be limiting to declare relationships in non-relational databases. This is because documents can hold array fields, and the same relationship can be represented in multiple ways.
+
+For example, imagine that you have a `Post` model and a `User` model. Conceptually, a user can write many posts and a post can have a single author (a user). This is a One-to-many relationship, one user (the author) to many posts. However, there are different ways of representing this relationship in the database:
+
+- The post model could have an `authorId` field.
+- The user model could have a `postIds` array field.
+- Both `authorId` and `postIds` could be declared.
+
+For this reason, it's more useful to declare relationships in each model indicating how they reference each other. You can do it using the following 4 methods:
+
+| | A model references | A model is referenced by |
+|-|-----------------------|-------------------------|
+| **One model**  | [belongsToOne](https://soukai.js.org/api/classes/models.model.html#belongstoone) | [hasOne](https://soukai.js.org/api/classes/models.model.html#hasone) |
+| **Multiple models** | [belongsToMany](https://soukai.js.org/api/classes/models.model.html#belongstomany) | [hasMany](https://soukai.js.org/api/classes/models.model.html#hasmany) |
+
+The 3 scenarios we explored above would be declared as:
+
+- A post belongs to one user and a user has many posts.
+- A user belongs to many posts and a post has one user.
+- All 4 relationships can be declared.
+
+These relations can be declared in a model defining a method with the relation name and the `Relationship` suffix.
+
+Here's how you'd implement the first scenario:
 
 ```javascript
-class User extends Model {}
-
 class Post extends Model {
     static fields = {
         authorId: FieldType.Key,
@@ -237,16 +258,6 @@ class Post extends Model {
         return this.belongsToOne(User, 'authorId');
     }
 }
-```
-
-MultiModel relationships return an array of related models. In the same example as before, a user would be related to multiple posts of which they are the author. To define MultiModel relationships you can use the method [hasMany](https://soukai.js.org/api/classes/models.model.html#hasmany):
-
-```javascript
-class Post extends Model {
-    static fields = {
-        authorId: FieldType.Key,
-    };
-}
 
 class User extends Model {
     postsRelationship() {
@@ -254,6 +265,8 @@ class User extends Model {
     }
 }
 ```
+
+The arguments for these methods are the related model class, the foreign key name and the local key name. Key names can be infered from model and primary key names. In the example above, the foreign key would have been infered to be `userId`, but we had to declare it because it was `authorId` instead. The local key is correctly inferred to `id`, the primary key of the User model.
 
 Learn how to use the relationships we just defined in the [next section](/guide/using-models.html#working-with-relationships).
 
@@ -295,14 +308,14 @@ class Post extends Model {
         authorId: FieldType.Key,
     };
 
-    initialize(attributes, exists) {
+    async initialize(attributes, exists) {
         super.initialize(attributes, exists);
 
         console.log('this is fine', this.getAttribute('title'));
 
-        this.loadRelation('author').then(() => {
-            console.log('this is also fine', this.getRelationModels('author'));
-        });
+        await this.loadRelation('author');
+
+        console.log('this is also fine', this.getRelationModels('author'));
     }
 
     authorRelationship() {

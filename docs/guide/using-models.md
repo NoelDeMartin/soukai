@@ -11,21 +11,21 @@ const user = new User({
     birthDate: new Date(),
 });
 
-user.save().then(() => {
-    console.log('User saved', user);
-});
+await user.save();
+
+console.log('User saved', user);
 ```
 
 The same operation can be performed using [Model.create](https://soukai.js.org/api/classes/models.model.html#create):
 
 ```javascript
-User.create({
+const user = await User.create({
     name: 'John',
     surname: 'Doe',
     birthDate: new Date(),
-}).then(user => {
-    console.log('User created', user);
 });
+
+console.log('User created', user);
 ```
 
 ## Reading
@@ -33,17 +33,17 @@ User.create({
 Single models can be retrieved using the [Model.find](https://soukai.js.org/api/classes/models.model.html#find) method using their id:
 
 ```javascript
-User.find('1').then(user => {
-    console.log('User with id "1"', user);
-});
+const user = await User.find('1');
+
+console.log('User with id "1"', user);
 ```
 
 And multiple models can be retrieved using the [Model.all](https://soukai.js.org/api/classes/models.model.html#all) method:
 
 ```javascript
-User.all().then(users => {
-    console.log('All users', users);
-});
+const users = await User.all();
+
+console.log('All users', users);
 ```
 
 ### Using filters
@@ -53,25 +53,44 @@ When retrieving models, it's common to use filters to retrieve a reduced amount 
 The `$in` filter defines an array of ids with the models to retrieve:
 
 ```javascript
-User.all({ $in: ['1', '2', '3'] }).then(users => {
-    console.log('Users with id "1", "2" and "3"', users);
-});
+const users = await User.all({ $in: ['1', '2', '3'] });
+
+console.log('Users with id "1", "2" and "3"', users);
 ```
 
 An alternative is to filter results by fields, indicating the attribute values:
 
 ```javascript
-User.all({ name: 'John' }).then(users => {
-    console.log('Users with name "John"', users);
-});
+const users = await User.all({ name: 'John' });
+
+console.log('Users with name "John"', users);
 ```
 
-To filter by array fields, the special `$contains` operator is available to perform partial matches:
+There is also some special operators to perform advanced filters.
+
+The `$contains` operator can be used to perform partial matches in array fields:
 
 ```javascript
-User.all({ hobbies: { $contains: ['hiking', 'surfing'] } }).then(users => {
-    console.log('Users whose hobbies array contains "hiking" and "surfing"', users);
+const users = await User.all({
+    hobbies: { $contains: ['hiking', 'surfing'] },
 });
+
+console.log('Users whose hobbies array contains "hiking" and "surfing"', users);
+```
+
+The `$or` operator can be used to search documents that match one of multiple conditions. This can be used in root filters combined with `$eq`, the implicit operator:
+
+```javascript
+const users = await User.all({
+    role: {
+        $or: [
+            { $eq: 'developer' },
+            { $eq: 'designer' },
+        ],
+    },
+});
+
+console.log('Users who have a "developer" or "designer" role', users);
 ```
 
 ::: warning ⚠️ Advanced filters and pagination
@@ -87,17 +106,17 @@ user.name = 'Jane';
 // or...
 user.setAttribute('name', 'Jane');
 
-user.save().then(() => {
-    console.log('User updated', user);
-});
+await user.save();
+
+console.log('User updated', user);
 ```
 
 Or using the [update](https://soukai.js.org/api/classes/models.model.html#update) method:
 
 ```javascript
-user.update({ name: 'Jane' }).then(() => {
-    console.log('User updated', user);
-});
+await user.update({ name: 'Jane' });
+
+console.log('User updated', user);
 ```
 
 ## Deleting
@@ -105,9 +124,9 @@ user.update({ name: 'Jane' }).then(() => {
 Models can be deleted from the database using the [delete](https://soukai.js.org/api/classes/models.model.html#delete) method:
 
 ```javascript
-user.delete().then(() => {
-    console.log('User deleted');
-});
+await user.delete();
+
+console.log('User deleted');
 ```
 
 ## Working with relationships
@@ -115,16 +134,23 @@ user.delete().then(() => {
 Related models can be accessed like a normal property, but they will be undefined until they are loaded explicitly using the [loadRelation](https://soukai.js.org/api/classes/models.model.html#loadrelation) method. For example, if we continue with the same example explained on the [defining relationships](/guide/defining-models.html#relationships) section:
 
 ```javascript
-User.all().then(users => {
-    const user = users[0];
+const users = await User.all();
+const user = users[0];
 
-    // At this point, this will return undefined
-    console.log(user.posts);
+// At this point, this will return undefined
+console.log(user.posts);
 
-    user.loadRelation('posts').then(posts => {
-        // Loaded models will be returned and also be accesible as a model property
-        console.log(posts);
-        console.log(user.posts);
-    });
-});
+const posts = await user.loadRelation('posts');
+
+// Loaded models will be returned and also be accesible as a model property
+console.log(posts);
+console.log(user.posts);
+```
+
+The [Relation](https://soukai.js.org/api/classes/models_relations.relation.html) instance can also be obtained from the `related{relation-name}` property:
+
+```javascript
+const posts = await user.relatedPosts.resolve();
+
+console.log(posts);
 ```
