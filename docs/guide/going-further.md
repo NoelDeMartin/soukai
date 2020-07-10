@@ -23,7 +23,7 @@ If you want to learn more about the library the best way is to look at some code
 
 Other than that, don't be afraid to go into the source code. It's written in TypeScript, so you'll probably learn more by looking at it.
 
-One folder in particular that will be useful to learn how to define and use models is the [tests folder](https://github.com/NoelDeMartin/soukai/tree/master/tests/lib/suites).
+One folder in particular that will be useful to learn how to define and use models is the [tests folder](https://github.com/NoelDeMartin/soukai/tree/master/tests/lib/suites) (this is currently being migrated, so you'll also find tests throughout the source code in files ending with `.test.ts`.)
 
 ## Extending the Library
 
