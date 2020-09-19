@@ -4,7 +4,7 @@ import Soukai from '@/Soukai';
 
 import Engine from '@/engines/Engine';
 
-import BelongsToRelation from '@/models/relations/BelongsToRelation';
+import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
 import Relation from '@/models/relations/Relation';
@@ -209,7 +209,7 @@ describe('Model Relations', () => {
         const user = new User({ id: userId, name: userName });
 
         // Assert
-        expect(post.relatedAuthor).toBeInstanceOf(BelongsToRelation);
+        expect(post.relatedAuthor).toBeInstanceOf(BelongsToOneRelation);
         expect(post.relatedAuthor.parent).toBe(post);
 
         expect(user.relatedPosts).toBeInstanceOf(HasManyRelation);

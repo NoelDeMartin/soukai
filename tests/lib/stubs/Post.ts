@@ -12,7 +12,7 @@ export default class Post extends Model {
     };
 
     public authorRelationship(): Relation {
-        return this.belongsTo(User, 'authorId');
+        return this.belongsToOne(User, 'authorId');
     }
 
 }

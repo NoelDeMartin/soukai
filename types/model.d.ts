@@ -140,6 +140,15 @@ export abstract class Model<Key = any> {
         localKeyField?: string,
     ): SingleModelRelation;
 
+    protected belongsToOne(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): SingleModelRelation;
+
+    /**
+     * @deprecated use belongsToOne instead.
+     */
     protected belongsTo(
         relatedClass: typeof Model,
         foreignKeyField?: string,

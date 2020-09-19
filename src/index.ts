@@ -14,7 +14,7 @@ import LocalStorageEngine from '@/engines/LocalStorageEngine';
 import LogEngine from '@/engines/LogEngine';
 
 import BelongsToManyRelation from '@/models/relations/BelongsToManyRelation';
-import BelongsToRelation from '@/models/relations/BelongsToRelation';
+import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
 import MultiModelRelation from '@/models/relations/MultiModelRelation';
@@ -33,7 +33,8 @@ export { InMemoryEngineDatabase } from '@/engines/InMemoryEngine';
 
 export {
     BelongsToManyRelation,
-    BelongsToRelation,
+    BelongsToOneRelation,
+    BelongsToOneRelation as BelongsToRelation,
     HasManyRelation,
     HasOneRelation,
     MultiModelRelation,

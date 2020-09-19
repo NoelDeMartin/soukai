@@ -1,7 +1,7 @@
 import Model from '@/models/Model';
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
 
-export default class BelongsToRelation<
+export default class BelongsToOneRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends typeof Model = typeof Model,

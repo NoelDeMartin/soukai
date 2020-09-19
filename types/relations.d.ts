@@ -75,7 +75,7 @@ export class HasOneRelation<
 
 }
 
-export class BelongsToRelation<
+export class BelongsToOneRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends typeof Model = typeof Model,
@@ -84,6 +84,11 @@ export class BelongsToRelation<
     public resolve(): Promise<Related | null>;
 
 }
+
+/**
+ * @deprecated use BelongsToOneRelation instead.
+ */
+export class BelongsToRelation extends BelongsToOneRelation {}
 
 export class HasManyRelation<
     Parent extends Model = Model,

@@ -12,7 +12,7 @@ import { camelCase, studlyCase } from '@/internal/utils/Str';
 import { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
-import BelongsToRelation from './relations/BelongsToRelation';
+import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
 import HasOneRelation from './relations/HasOneRelation';
 import MultiModelRelation from './relations/MultiModelRelation';
@@ -615,12 +615,23 @@ export default abstract class Model<Key = any> {
      * @param localKeyField Name of the local key field in the related model. Defaults to
      * the primary key name defined in the related model class.
      */
+    protected belongsToOne(
+        relatedClass: typeof Model,
+        foreignKeyField?: string,
+        localKeyField?: string,
+    ): SingleModelRelation {
+        return new BelongsToOneRelation(this, relatedClass, foreignKeyField, localKeyField);
+    }
+
+    /**
+     * @deprecated use belongsToOne instead.
+     */
     protected belongsTo(
         relatedClass: typeof Model,
         foreignKeyField?: string,
         localKeyField?: string,
     ): SingleModelRelation {
-        return new BelongsToRelation(this, relatedClass, foreignKeyField, localKeyField);
+        return this.belongsToOne(relatedClass, foreignKeyField, localKeyField);
     }
 
     /**

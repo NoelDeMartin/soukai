@@ -9,6 +9,15 @@ export default class extends TestSuite {
 
     public static title: string = 'Definitions';
 
+    public testInstanceOf(): void {
+        // tslint:disable-next-line:max-classes-per-file
+        class StubModel extends Model {}
+
+        Soukai.loadModel('Stub', StubModel);
+
+        expect(new StubModel).toBeInstanceOf(StubModel);
+    }
+
     public testCollection(): void {
         // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
