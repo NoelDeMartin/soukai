@@ -46,6 +46,7 @@
     "fake-indexeddb": "^3.0.0",
     "faker": "^4.1.0",
     "jest": "^22.4.3",
+    "terser-webpack-plugin": "^4.2.2",
     "ts-jest": "^22.4.4",
     "ts-loader": "^4.3.0",
     "tslint": "^5.10.0",

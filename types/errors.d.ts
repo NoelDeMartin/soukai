@@ -1,10 +1,6 @@
-export class SoukaiError implements Error {
+export class SoukaiError extends Error {
 
-    public name: string;
-    public message: string;
-    public stack?: string;
-
-    constructor(...args: any[]);
+    constructor(message?: string);
 
 }
 
