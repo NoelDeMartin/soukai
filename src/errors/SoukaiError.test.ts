@@ -31,8 +31,8 @@ describe('SoukaiError', () => {
         // Arrange
         class CustomSoukaiError extends SoukaiError {
 
-            constructor(message: string) {
-                super(`Custom message: ${message}`);
+            constructor(m: string) {
+                super(`Custom message: ${m}`);
             }
 
         }

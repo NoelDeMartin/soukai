@@ -15,7 +15,7 @@ export default class extends TestSuite {
 
         Soukai.loadModel('Stub', StubModel);
 
-        expect(new StubModel).toBeInstanceOf(StubModel);
+        expect(new StubModel()).toBeInstanceOf(StubModel);
     }
 
     public testCollection(): void {
