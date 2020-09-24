@@ -59,6 +59,8 @@ export abstract class Model<Key = any> {
 
     public static createFromEngineDocument<T extends Model, Key = any>(id: Key, document: EngineDocument): Promise<T>;
 
+    public static createManyFromEngineDocuments<T extends Model>(documents: { [id: string]: EngineDocument }): Promise<T[]>;
+
     public static find<T extends Model, Key = any>(id: Key): Promise<T | null>;
 
     public static all<T extends Model>(filters?: EngineFilters): Promise<T[]>;
@@ -129,6 +131,8 @@ export abstract class Model<Key = any> {
     protected initializeRelations(): void;
 
     protected createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T>;
+
+    protected createManyFromEngineDocuments<T extends Model>(documents: { [id: string]: EngineDocument }): Promise<T[]>;
 
     protected syncDirty(): Promise<string>;
 

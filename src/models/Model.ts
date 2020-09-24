@@ -177,6 +177,10 @@ export default abstract class Model<Key = any> {
         return this.instance.createFromEngineDocument(id, document);
     }
 
+    public static createManyFromEngineDocuments<T extends Model>(documents: MapObject<EngineDocument>): Promise<T[]> {
+        return this.instance.createManyFromEngineDocuments(documents);
+    }
+
     public static find<T extends Model, Key = any>(id: Key): Promise<T | null> {
         this.ensureBooted();
 
@@ -197,15 +201,9 @@ export default abstract class Model<Key = any> {
 
         const engine = Soukai.requireEngine();
         const documents = await engine.readMany(this.collection, filters);
+        const models = await this.createManyFromEngineDocuments(documents);
 
-        return Promise.all(
-            Object
-                .entries(documents)
-                .map(
-                    ([id, document]) =>
-                        this.createFromEngineDocument<T>(this.instance.parseKey(id), document),
-                ),
-        );
+        return models as any as T[];
     }
 
     public static async first<T extends Model>(filters?: EngineFilters): Promise<T|null> {
@@ -564,6 +562,14 @@ export default abstract class Model<Key = any> {
         attributes[this.modelClass.primaryKey] = id;
 
         return new (this.modelClass as any)(attributes, true);
+    }
+
+    protected async createManyFromEngineDocuments<T extends Model>(documents: MapObject<EngineDocument>): Promise<T[]> {
+        return Promise.all(
+            Object
+                .entries(documents)
+                .map(([id, document]) => this.createFromEngineDocument<T>(this.parseKey(id), document)),
+        );
     }
 
     protected async syncDirty(): Promise<string> {
