@@ -293,6 +293,19 @@ describe('EngineHelper', () => {
             },
             expected: { items: [{ foo: 'bar' }, {}] },
         });
+
+        assertDocumentUpdate({
+            original: { scabbards: [{ name: 'Kinemon' }, { name: 'Kanjuro' }, { name: 'Raizo' }] },
+            update: {
+                scabbards: {
+                    $updateItems: {
+                        $where: { name: 'Kanjuro' },
+                        $unset: true,
+                    },
+                },
+            },
+            expected: { scabbards: [{ name: 'Kinemon' }, { name: 'Raizo' }] },
+        });
     });
 
     it('updates documents using $unset', () => {

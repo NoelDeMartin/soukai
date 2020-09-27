@@ -41,7 +41,8 @@ export type EngineAttributeUpdateOperation =
 
 export interface EngineUpdateItemsOperatorData {
     $where?: EngineFilters;
-    $update: EngineAttributeUpdate;
+    $update?: EngineAttributeUpdate;
+    $unset?: true;
 }
 
 interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}

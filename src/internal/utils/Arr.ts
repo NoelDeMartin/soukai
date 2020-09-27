@@ -13,6 +13,13 @@ class Arr {
         return output;
     }
 
+    public withoutIndexes<T>(items: T[], indexes: number[]): T[] {
+        return items
+            .map((value, index) => ([value, index] as [T, number]))
+            .filter(([_, index]) => !this.contains(indexes, index))
+            .map(([value]) => value);
+    }
+
 }
 
 export default new Arr();

@@ -194,7 +194,7 @@ export default class EngineHelper {
             updateData = [updateData];
         }
 
-        for (const { $where, $update } of updateData) {
+        for (const { $where, $update, $unset } of updateData) {
             if ($where && $where.$in) {
                 $where.$in = $where.$in.map(index => index.toString());
             }
@@ -211,10 +211,16 @@ export default class EngineHelper {
                 $where || {},
             );
 
-            for (const index of Object.keys(filteredDocuments)) {
-                this.updateAttributes(filteredDocuments, { [index]: $update });
+            if ($update) {
+                Object.keys(filteredDocuments).forEach(index => {
+                    this.updateAttributes(filteredDocuments, { [index]: $update });
 
-                array[index] = filteredDocuments[index];
+                    array[index] = filteredDocuments[index];
+                });
+            }
+
+            if ($unset) {
+                value![property] = Arr.withoutIndexes(array, Object.keys(filteredDocuments).map(parseInt));
             }
         }
     }
