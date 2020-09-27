@@ -88,6 +88,8 @@ export abstract class Model<Key = any> {
 
     public loadRelation(relation: string): Promise<null | Model | Model[]>;
 
+    public loadRelationIfUnloaded(relation: string): Promise<null | Model | Model[]>;
+
     public getRelationModels(relation: string): null | Model[] | Model;
 
     public setRelationModels(relation: string, models: null | Model | Model[]): void;

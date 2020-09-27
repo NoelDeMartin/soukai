@@ -279,6 +279,12 @@ export default abstract class Model<Key = any> {
         return this.requireRelation(relation).resolve();
     }
 
+    public async loadRelationIfUnloaded(relation: string): Promise<null | Model | Model[]> {
+        return this.isRelationLoaded(relation)
+            ? this.getRelationModels(relation)
+            : this.loadRelation(relation);
+    }
+
     public unloadRelation(relation: string): void {
         this.requireRelation(relation).unload();
     }
