@@ -138,6 +138,8 @@ export abstract class Model<Key = any> {
 
     protected cleanDirty(): void;
 
+    protected deleteFromDatabase(): Promise<void>;
+
     protected hasOne(
         relatedClass: typeof Model,
         foreignKeyField?: string,

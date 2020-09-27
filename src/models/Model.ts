@@ -391,23 +391,17 @@ export default abstract class Model<Key = any> {
         return primaryKey ? this.serializeKey(primaryKey) : null;
     }
 
-    public delete<T extends Model>(): Promise<T> {
+    public async delete<T extends Model>(): Promise<T> {
         if (!this._exists) {
             return this as any;
         }
 
-        return Soukai
-            .requireEngine()
-            .delete(
-                this.modelClass.collection,
-                this.getSerializedPrimaryKey()!,
-            )
-            .then(() => {
-                delete this._attributes[this.modelClass.primaryKey];
-                this._exists = false;
+        await this.deleteFromDatabase();
 
-                return this as any;
-            });
+        delete this._attributes[this.modelClass.primaryKey];
+        this._exists = false;
+
+        return this as any;
     }
 
     public async save<T extends Model>(): Promise<T> {
@@ -595,6 +589,12 @@ export default abstract class Model<Key = any> {
         this._originalAttributes = Obj.deepClone(this._attributes);
         this._dirtyAttributes = {};
         this._exists = true;
+    }
+
+    protected async deleteFromDatabase(): Promise<void> {
+        const engine = Soukai.requireEngine();
+
+        await engine.delete(this.modelClass.collection, this.getSerializedPrimaryKey()!);
     }
 
     /**
