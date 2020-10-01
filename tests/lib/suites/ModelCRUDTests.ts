@@ -9,6 +9,7 @@ import SoukaiError from '@/errors/SoukaiError';
 import TestSuite from '../TestSuite';
 import { seconds, wait } from '../utils';
 
+import Post from '../stubs/Post';
 import User from '../stubs/User';
 
 import MockEngine from '../mocks/MockEngine';
@@ -23,7 +24,7 @@ export default class extends TestSuite {
         MockEngine.mockClear();
 
         Soukai.useEngine(this.mockEngine = new MockEngine());
-        Soukai.loadModels({ User });
+        Soukai.loadModels({ User, Post });
     }
 
     public testCreate(): Promise<void> {

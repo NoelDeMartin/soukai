@@ -402,10 +402,11 @@ export default abstract class Model<Key = any> {
             return this as any;
         }
 
-        await this.deleteFromDatabase();
+        const models = await this.getCascadeModels();
 
-        delete this._attributes[this.modelClass.primaryKey];
-        this._exists = false;
+        await this.deleteModelsFromEngine(models);
+
+        models.forEach(model => model.resetEngineData());
 
         return this as any;
     }
@@ -597,10 +598,47 @@ export default abstract class Model<Key = any> {
         this._exists = true;
     }
 
-    protected async deleteFromDatabase(): Promise<void> {
+    protected async getCascadeModels(): Promise<Model[]> {
+        const getRelationModels = async (relation): Promise<Model[]> => {
+            const relationModels = await this.loadRelationIfUnloaded(relation.name);
+
+            if (Array.isArray(relationModels)) {
+                return relationModels;
+            }
+
+            if (relationModels) {
+                return [relationModels];
+            }
+
+            return [];
+        };
+
+        const relationPromises = this.modelClass.relations
+            .map(relation => this._relations[relation])
+            .filter(relation => relation.deleteMode === 'cascade')
+            .map(async relation => {
+                const relationModels = await getRelationModels(relation);
+
+                return relationModels.map(model => model.getCascadeModels());
+            });
+        const modelPromises = await Promise.all(relationPromises);
+        const models = await Promise.all(Arr.flatten(modelPromises));
+
+        return [...Arr.flatten(models), this];
+    }
+
+    protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
         const engine = Soukai.requireEngine();
 
-        await engine.delete(this.modelClass.collection, this.getSerializedPrimaryKey()!);
+        // TODO cluster by collection and implement deleteMany
+        const modelsData = models.map(model => [model.modelClass.collection, model.getSerializedPrimaryKey()!]);
+
+        await Promise.all(modelsData.map(([collection, id]) => engine.delete(collection, id)));
+    }
+
+    protected resetEngineData(): void {
+        delete this._attributes[this.modelClass.primaryKey];
+        this._exists = false;
     }
 
     /**

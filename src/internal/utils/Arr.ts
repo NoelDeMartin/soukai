@@ -4,6 +4,14 @@ class Arr {
         return items.indexOf(item) !== -1;
     }
 
+    public flatten<T>(arr: T[][]): T[] {
+        if ('flat' in arr) {
+            return (arr as any).flat();
+        }
+
+        return [].concat(...arr as any);
+    }
+
     public unique<T>(input: T[]): T[] {
         const set = new Set(input);
         const output: T[] = [];

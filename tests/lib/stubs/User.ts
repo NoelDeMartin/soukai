@@ -25,7 +25,9 @@ export default class User extends Model {
     };
 
     public postsRelationship(): Relation {
-        return this.hasMany(Post, 'authorId');
+        return this
+            .hasMany(Post, 'authorId')
+            .onDelete('cascade');
     }
 
     public birthPlaceRelationship(): Relation {

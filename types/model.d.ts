@@ -140,7 +140,11 @@ export abstract class Model<Key = any> {
 
     protected cleanDirty(): void;
 
-    protected deleteFromDatabase(): Promise<void>;
+    protected getCascadeModels(): Promise<Model[]>;
+
+    protected deleteModelsFromEngine(models: Model[]): Promise<void>;
+
+    protected resetEngineData(): void;
 
     protected hasOne(
         relatedClass: typeof Model,
