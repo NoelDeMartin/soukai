@@ -624,7 +624,7 @@ export default abstract class Model<Key = any> {
         const modelPromises = await Promise.all(relationPromises);
         const models = await Promise.all(Arr.flatten(modelPromises));
 
-        return [...Arr.flatten(models), this];
+        return [...Arr.flatten(models), this].filter(model => model.exists());
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
