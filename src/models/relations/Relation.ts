@@ -34,6 +34,26 @@ export default abstract class Relation<
 
     public abstract resolve(): Promise<Related[] | Related | null>;
 
+    public async getModels(): Promise<Related[]> {
+        if (!this.loaded) {
+            await this.resolve();
+        }
+
+        return this.getLoadedModels();
+    }
+
+    public getLoadedModels(): Related[] {
+        if (Array.isArray(this.related)) {
+            return this.related;
+        }
+
+        if (this.related) {
+            return [this.related];
+        }
+
+        return [];
+    }
+
     public unload(): void {
         this.related = null;
     }

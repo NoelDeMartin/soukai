@@ -26,6 +26,10 @@ export abstract class Relation<
 
     public abstract resolve(): Promise<Related[] | Related | null>;
 
+    public getModels(): Promise<Related[]>;
+
+    public getLoadedModels(): Related[];
+
     public unload(): void;
 
     public onDelete(mode: RelationDeleteMode): this;

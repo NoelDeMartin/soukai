@@ -599,25 +599,11 @@ export default abstract class Model<Key = any> {
     }
 
     protected async getCascadeModels(): Promise<Model[]> {
-        const getRelationModels = async (relation): Promise<Model[]> => {
-            const relationModels = await this.loadRelationIfUnloaded(relation.name);
-
-            if (Array.isArray(relationModels)) {
-                return relationModels;
-            }
-
-            if (relationModels) {
-                return [relationModels];
-            }
-
-            return [];
-        };
-
         const relationPromises = this.modelClass.relations
             .map(relation => this._relations[relation])
             .filter(relation => relation.deleteMode === 'cascade')
             .map(async relation => {
-                const relationModels = await getRelationModels(relation);
+                const relationModels = await relation.getModels();
 
                 return relationModels.map(model => model.getCascadeModels());
             });
