@@ -11,7 +11,12 @@ export default class HasManyRelation<
         const localKey = this.parent.getAttribute(this.localKeyName);
 
         this.related = await this.relatedClass.all<Related>({
-            [this.foreignKeyName]: localKey,
+            [this.foreignKeyName]: {
+                $or: [
+                    { $eq: localKey },
+                    { $contains: localKey },
+                ],
+            },
         });
 
         return this.related;

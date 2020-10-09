@@ -108,7 +108,17 @@ describe('Model Relations', () => {
         expect(user.posts[1].body).toBe(secondPostBody);
 
         expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
-        expect(mockEngine.readMany).toHaveBeenCalledWith(Post.collection, { authorId: id });
+        expect(mockEngine.readMany).toHaveBeenCalledWith(
+            Post.collection,
+            {
+                authorId: {
+                    $or: [
+                        { $eq: id },
+                        { $contains: id },
+                    ],
+                },
+            },
+        );
     });
 
     it('loads belongsToMany relations', async () => {
