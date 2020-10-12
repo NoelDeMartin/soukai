@@ -19,6 +19,7 @@ export type EngineAttributeFilter =
     EngineAttributeValue |
     { $eq: EngineAttributeValue } |
     { $or: EngineAttributeFilter[] } |
+    { $in: EngineAttributeLeafValue[] } |
     { $contains: EngineAttributeFilter | EngineAttributeFilter[] };
 
 export interface EngineRootFilter {

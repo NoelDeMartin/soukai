@@ -299,7 +299,7 @@ describe('EngineHelper', () => {
             update: {
                 scabbards: {
                     $updateItems: {
-                        $where: { name: 'Kanjuro' },
+                        $where: { name: { $in: ['Kanjuro'] } },
                         $unset: true,
                     },
                 },

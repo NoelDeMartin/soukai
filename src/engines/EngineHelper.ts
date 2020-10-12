@@ -34,6 +34,7 @@ export default class EngineHelper {
             $eq: this.attributeEq,
             $contains: this.attributeContains,
             $or: this.attributeOr,
+            $in: this.attributeIn,
         };
         this.attributeUpdates = {
             $update: this.attributeUpdate,
@@ -153,6 +154,10 @@ export default class EngineHelper {
         return !!filters.find(
             filter => !!this.filterValue(attributes, { [attribute]: filter }),
         );
+    }
+
+    private attributeIn = (attributes: AttributesMap, attribute: string, values: any[]): boolean => {
+        return Arr.contains(values, attributes[attribute]);
     }
 
     private attributeUpdate = (attributes: AttributesMap, attribute: string, updateData: EngineAttributeUpdate) => {
