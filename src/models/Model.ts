@@ -625,6 +625,7 @@ export default abstract class Model<Key = any> {
     protected resetEngineData(): void {
         delete this._attributes[this.modelClass.primaryKey];
         this._exists = false;
+        this._dirtyAttributes = Obj.deepClone(this._attributes);
     }
 
     /**
