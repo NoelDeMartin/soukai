@@ -225,6 +225,7 @@ export default abstract class Model<Key = any> {
     }
 
     protected _exists: boolean;
+    protected _wasRecentlyCreated: boolean;
     protected _proxy: Model;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
@@ -418,8 +419,10 @@ export default abstract class Model<Key = any> {
             return this as any;
         }
 
+        const existed = this._exists;
         const id = await this.syncDirty();
 
+        this._wasRecentlyCreated = this._wasRecentlyCreated || !existed;
         this._attributes[this.modelClass.primaryKey] = this.parseKey(id);
         this.cleanDirty();
 
@@ -441,8 +444,14 @@ export default abstract class Model<Key = any> {
         return this._exists;
     }
 
+    public wasRecentlyCreated(): boolean {
+        return this._wasRecentlyCreated;
+    }
+
     protected initialize(attributes: Attributes, exists: boolean): void {
         this._exists = exists;
+        this._wasRecentlyCreated = false;
+
         this.initializeProxy();
         this.initializeAttributes(attributes, exists);
         this.initializeRelations();

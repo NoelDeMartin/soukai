@@ -72,6 +72,7 @@ export abstract class Model<Key = any> {
     public modelClass: typeof Model;
 
     protected _exists: boolean;
+    protected _wasRecentlyCreated: boolean;
     protected _proxy: Model;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
@@ -123,6 +124,8 @@ export abstract class Model<Key = any> {
     public setExists(exists: boolean): void;
 
     public exists(): boolean;
+
+    public wasRecentlyCreated(): boolean;
 
     protected initialize(attributes: Attributes, exists: boolean): void;
 
