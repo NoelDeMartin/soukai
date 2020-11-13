@@ -67,6 +67,8 @@ export abstract class Model<Key = any> {
 
     public static first<T extends Model>(filters?: EngineFilters): Promise<T|null>;
 
+    protected static ensureBooted(): void;
+
     [field: string]: any;
 
     public modelClass: typeof Model;

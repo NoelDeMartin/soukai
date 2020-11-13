@@ -213,7 +213,7 @@ export default abstract class Model<Key = any> {
         return model || null;
     }
 
-    private static ensureBooted(): void {
+    protected static ensureBooted(): void {
         const modelClass = (<any> this);
 
         if (typeof modelClass.modelName === 'undefined') {
