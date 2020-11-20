@@ -1,6 +1,6 @@
 import { Model } from './model';
 
-type RelationDeleteMode = null | 'cascade';
+type RelationDeleteStrategy = null | 'cascade';
 
 export abstract class Relation<
     Parent extends Model = Model,
@@ -15,7 +15,7 @@ export abstract class Relation<
     public relatedClass: RelatedClass;
     public foreignKeyName: string;
     public localKeyName: string;
-    public deleteMode: RelationDeleteMode;
+    public deleteStrategy: RelationDeleteStrategy;
 
     public constructor(
         parent: Parent,
@@ -32,7 +32,7 @@ export abstract class Relation<
 
     public unload(): void;
 
-    public onDelete(mode: RelationDeleteMode): this;
+    public onDelete(strategy: RelationDeleteStrategy): this;
 
 }
 

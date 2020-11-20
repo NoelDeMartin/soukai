@@ -2,11 +2,11 @@
 
 Database entities are called models, and their structure can be defined extending the [Model](https://soukai.js.org/api/classes/models.model.html) class. You'll need to load them using [Soukai.loadModel](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodel) or [Soukai.loadModels](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodels).
 
-Simply by declaring models like this is enough to get started, but you may want to read the following sections to learn how to customize their behaviour.
+Simply by declaring models like this is enough to get started, but you may want to read the following sections to learn how to customize their behavior.
 
 ## Fields
 
-The static attribute `fields` can be defined in the model class to declare the format and expecations of model attributes. This attribute should be an object where keys are field names and values are field definitions. Field definitions can either be a [FieldType](https://soukai.js.org/api/enums/models.fieldtype.html) or a [FieldDefinition](https://soukai.js.org/api/interfaces/models.fielddefinition.html) with the following attributes:
+The static attribute `fields` can be defined in the model class to declare the format and expectations of model attributes. This attribute should be an object where keys are field names and values are field definitions. Field definitions can either be a [FieldType](https://soukai.js.org/api/enums/models.fieldtype.html) or a [FieldDefinition](https://soukai.js.org/api/interfaces/models.fielddefinition.html) with the following attributes:
 
 | Attribute | Type | Default | Description |
 | --------- | ---- | ------- | ----------- |
@@ -113,7 +113,7 @@ The long form of our example above would be defined as such (`createdAt` and `up
 
 Some model timestamps can be managed automatically. `createdAt` will be set as the initial date when the model is created, and `updatedAt` will be updated every time the model is modified.
 
-By default both timestamps are created and modified automatically, but the static attribute `timestamps` can be declared to control this behaviour. It can either be a boolean to enable or disable the mechanism as a whole, or an array of strings indicating which timestamps to enable.
+By default both timestamps are created and modified automatically, but the static attribute `timestamps` can be declared to control this behavior. It can either be a boolean to enable or disable the mechanism as a whole, or an array of strings indicating which timestamps to enable.
 
 For example, if we only want the `createdAt` attribute to be managed automatically:
 
@@ -207,7 +207,7 @@ class User extends Model {
 
 The interpretation of what this string means will depend on the engine being used (it could be the name of a database collection or a url to a storage location).
 
-If this property is ommitted, the name of the collection will be inferred from the model name. This means this property will be available at runtime whether you defined it or not.
+If this property is omitted, the name of the collection will be inferred from the model name. This means this property will be available at runtime whether you defined it or not.
 
 ::: tip Model name definition
 Since modern build systems don't guarantee a reliable mechanism to obtain a class names in javascript, the model name is provided explicitly when loading models using [Soukai.loadModel](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodel) or [Soukai.loadModels](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodels).
@@ -216,7 +216,7 @@ If you are using webpack, the combination of [definitionsFromContext](https://so
 :::
 
 ::: warning ⚠️ Model name inflection
-The current implementation of the name inflection is naive and should be improved. At the moment, the model name is only converted to lower case and appended an 's' character, so it shouldn't be trusted to do proper plularization.
+The current implementation of the name inflection is naive and should be improved. At the moment, the model name is only converted to lower case and appended an 's' character, so it shouldn't be trusted to do proper pluralization.
 :::
 
 ## Relationships
@@ -266,7 +266,17 @@ class User extends Model {
 }
 ```
 
-The arguments for these methods are the related model class, the foreign key name and the local key name. Key names can be infered from model and primary key names. In the example above, the foreign key would have been infered to be `userId`, but we had to declare it because it was `authorId` instead. The local key is correctly inferred to `id`, the primary key of the User model.
+The arguments for these methods are the related model class, the foreign key name and the local key name. Key names can be inferred from model and primary key names. In the example above, the foreign key would have been inferred to be `userId`, but we had to declare it because it was `authorId` instead. The local key is correctly inferred to `id`, the primary key of the User model.
+
+It's also possible to indicate what happens with related models upon deletion. For example, if you want to delete all the posts belonging to a user when they are removed:
+
+```javascript
+class User extends Model {
+    postsRelationship() {
+        return this.hasMany(Post, 'authorId').onDelete('cascade');
+    }
+}
+```
 
 Learn how to use the relationships we just defined in the [next section](/guide/using-models.html#working-with-relationships).
 

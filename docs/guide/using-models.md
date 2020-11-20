@@ -66,6 +66,14 @@ const users = await User.all({ name: 'John' });
 console.log('Users with name "John"', users);
 ```
 
+The `$in` filter can also be used with individual fields:
+
+```javascript
+const users = await User.all({ name: { $in: ['John', 'Amy'] } });
+
+console.log('Users with name "John" or "Amy"', users);
+```
+
 There is also some special operators to perform advanced filters.
 
 The `$contains` operator can be used to perform partial matches in array fields:
@@ -142,7 +150,7 @@ console.log(user.posts);
 
 const posts = await user.loadRelation('posts');
 
-// Loaded models will be returned and also be accesible as a model property
+// Loaded models will be returned and also be accessible as a model property
 console.log(posts);
 console.log(user.posts);
 ```

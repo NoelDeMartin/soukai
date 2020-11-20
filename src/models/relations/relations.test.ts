@@ -57,7 +57,7 @@ describe('Model Relations', () => {
         });
     });
 
-    it('loads belongsTo relations', async () => {
+    it('loads belongsToOne relations', async () => {
         // Arrange
         const id = Faker.random.uuid();
         const name = Faker.random.word();
