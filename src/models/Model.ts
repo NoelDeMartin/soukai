@@ -610,7 +610,7 @@ export default abstract class Model<Key = any> {
     protected async getCascadeModels(): Promise<Model[]> {
         const relationPromises = this.modelClass.relations
             .map(relation => this._relations[relation])
-            .filter(relation => relation.deleteMode === 'cascade')
+            .filter(relation => relation.deleteStrategy === 'cascade')
             .map(async relation => {
                 const relationModels = await relation.getModels();
 
