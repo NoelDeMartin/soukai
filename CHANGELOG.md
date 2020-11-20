@@ -1,46 +1,51 @@
 # Changelog
 
-## v0.3.0
+All notable changes to this project will be documented in this file.
 
-- Added `IndexedDBEngine` engine.
-- A Bunch of new operators for filtering and updating have been added to engines. [Read the docs](https://soukai.js.org/guide/using-models.html#using-filters) and see [EngineHelper.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/engines/EngineHelper.test.ts) for examples.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Breaking changes
+## [v0.3.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.3.0) - 2020-07-17
+
+### Added
+
+- `IndexedDBEngine` engine.
+- A bunch of new operators for filtering and updating. [Read the docs](https://soukai.js.org/guide/using-models.html#using-filters) and see [EngineHelper.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/engines/EngineHelper.test.ts) for examples.
+
+### Changed
 
 - `Soukai.withEngine` has been removed in favor of `Soukai.requireEngine`.
-- Some method signatures have changed in the `Engine` interface. Check out those changes [here](https://github.com/NoelDeMartin/soukai/compare/v0.2.0...v0.3.0#diff-a1932e76d8e479b1bf3926275e2700b0R54-R66).
-- Model relations have been refactored to better reflect the nature of non-relational databases. Related model instances are now stored in the Relation instance, which is exposed in `{relation-name}Relation`. Relation definitions have also been renamed to use local/foreign nomenclature. [Read the docs](https://soukai.js.org/guide/defining-models.html#relationships) and see [relations.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/models/relations/relations.test.ts) for examples.
+- Some method signatures in the `Engine` interface. Check out those changes [here](https://github.com/NoelDeMartin/soukai/compare/v0.2.0...v0.3.0#diff-a1932e76d8e479b1bf3926275e2700b0R54-R66).
+- Model relations have been refactored to better reflect the nature of non-relational databases. Related model instances are now stored in the `Relation` instance, which is exposed in `{relation-name}Relation` model properties. Relation definitions have also been renamed to use local/foreign nomenclature. [Read the docs](https://soukai.js.org/guide/defining-models.html#relationships) and see [relations.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/models/relations/relations.test.ts) for examples.
 - Models hydration has been extracted and refactored into multiple protected methods: `createFromEngineDocument`, `toEngineDocument`, `getDirtyEngineDocumentUpdates`, `syncDirty`, `cleanDirty`, etc.
 
-[Compare changes with previous version](https://github.com/NoelDeMartin/soukai/compare/v0.2.0...v0.3.0)
+## [v0.2.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.2.0) - 2019-08-05
 
-## v0.2.0
+### Added
 
-- Added filters for reading data.
-- Added LocalStorageEngine and EngineHelper.
-- Added relationships.
-- Added `classFields` attribute to model
+- Filters for reading data.
+- `LocalStorageEngine` and `EngineHelper`.
+- Relationships.
+- `classFields` attribute in `Model`.
 
-### Breaking changes
+### Changed
 
-- Engines have been refactored to know nothing about the models, they'll only get attributes now. Multiple methods have been modified and added to the Model class in order to control attributes serialization.
+- Engines have been refactored to know nothing about the models, they'll only get attributes now. Multiple methods have been modified and added to the `Model` class in order to control attributes serialization.
 - InMemoryEngine database format has been changed.
-- Some methods and its arguments have changed, be sure to check out new [type definitions](https://github.com/NoelDeMartin/soukai/tree/v0.2.0/types).
+- Some methods and its arguments have changed, be sure to check out the new [type definitions](https://github.com/NoelDeMartin/soukai/tree/v0.2.0/types).
 
-[Compare changes with previous version](https://github.com/NoelDeMartin/soukai/compare/v0.1.0...v0.2.0)
+## [v0.1.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.1.0) - 2019-03-23
 
-## v0.1.0
+### Added
 
-- Implemented support for attribute accessors.
-- Fixed bugs.
+- Attribute accessors.
 
-### Breaking changes
+### Changed
 
-- Refactored types (Database removed, constructors fixed, etc.).
+- Refactored type definitions.
 - Converted attribute names to camelCase (created_at -> createdAt, updated_at -> updatedAt, ...).
 
-[Compare changes with previous version](https://github.com/NoelDeMartin/soukai/compare/v0.0.1...v0.1.0)
+## [v0.0.1](https://github.com/NoelDeMartin/soukai/releases/tag/v0.0.1) - 2018-05-17
 
-## v0.0.1
+### Added
 
-- First released version.
+- Everything!
