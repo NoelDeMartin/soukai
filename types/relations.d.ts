@@ -94,11 +94,6 @@ export class BelongsToOneRelation<
 
 }
 
-/**
- * @deprecated use BelongsToOneRelation instead.
- */
-export class BelongsToRelation extends BelongsToOneRelation {}
-
 export class HasManyRelation<
     Parent extends Model = Model,
     Related extends Model = Model,

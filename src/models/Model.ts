@@ -670,17 +670,6 @@ export default abstract class Model<Key = any> {
     }
 
     /**
-     * @deprecated use belongsToOne instead.
-     */
-    protected belongsTo(
-        relatedClass: typeof Model,
-        foreignKeyField?: string,
-        localKeyField?: string,
-    ): SingleModelRelation {
-        return this.belongsToOne(relatedClass, foreignKeyField, localKeyField);
-    }
-
-    /**
      * Creates a relation when this model is referenced by multiple instances of another model.
      *
      * @param relatedClass Related model class.

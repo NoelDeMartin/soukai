@@ -34,7 +34,6 @@ export { InMemoryEngineDatabase } from '@/engines/InMemoryEngine';
 export {
     BelongsToManyRelation,
     BelongsToOneRelation,
-    BelongsToOneRelation as BelongsToRelation,
     HasManyRelation,
     HasOneRelation,
     MultiModelRelation,

@@ -43,7 +43,6 @@ export {
 export {
     BelongsToManyRelation,
     BelongsToOneRelation,
-    BelongsToRelation,
     HasManyRelation,
     HasOneRelation,
     MultiModelRelation,
