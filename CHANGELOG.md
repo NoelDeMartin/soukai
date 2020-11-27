@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.4.0) - 2020-11-20
+
+### Added
+
+- `$in` filter for individual fields.
+- `onDelete` method to relations.
+- `wasRecentlyCreated` method to `Model`.
+
+### Changed
+
+- `SoukaiError` now extends properly from the native `Error` class.
+- `BelongsToRelation` class has been renamed to `BelongsToOneRelation`, and the `Model` method `belongsTo` to `belongsToOne`.
+
 ## [v0.3.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.3.0) - 2020-07-17
 
 ### Added
