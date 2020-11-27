@@ -15,16 +15,16 @@ import { deepEquals, isObject } from '@/internal/utils/Obj';
 import Arr from '@/internal/utils/Arr';
 import UUID from '@/internal/utils/UUID';
 
-type AttributesMap = MapObject<EngineAttributeValue>;
+type AttributesMap = Record<string, EngineAttributeValue>;
 type RootFilterHandler = (id: string, document: EngineDocument, filterData: any) => boolean;
 type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: any) => boolean;
 type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: any) => void;
 
 export default class EngineHelper {
 
-    private rootFilters: MapObject<RootFilterHandler>;
-    private attributeFilters: MapObject<AttributeFilterHandler>;
-    private attributeUpdates: MapObject<AttributeUpdateHandler>;
+    private rootFilters: Record<string, RootFilterHandler>;
+    private attributeFilters: Record<string, AttributeFilterHandler>;
+    private attributeUpdates: Record<string, AttributeUpdateHandler>;
 
     public constructor() {
         this.rootFilters = {
@@ -58,7 +58,7 @@ export default class EngineHelper {
         }, {});
     }
 
-    public updateAttributes(attributes: MapObject<EngineAttributeValue>, updates: EngineUpdates): void {
+    public updateAttributes(attributes: Record<string, EngineAttributeValue>, updates: EngineUpdates): void {
         if (this.isOperation(updates, { $unset: this.attributeUnset })) {
             const unsetValue = (updates as { $unset: string | string[ ]}).$unset;
             const unsetProperties = Array.isArray(unsetValue) ? unsetValue : [unsetValue];
@@ -113,7 +113,7 @@ export default class EngineHelper {
                 const matchesFilter =
                     this.isOperation(filterValue, this.attributeFilters)
                         ? this.runOperation(filterValue, this.attributeFilters, value, filterAttribute)
-                        : this.attributeEq(value as MapObject<EngineAttributeValue>, filterAttribute, filterValue);
+                        : this.attributeEq(value as Record<string, EngineAttributeValue>, filterAttribute, filterValue);
 
                 return !matchesFilter;
             });
@@ -168,7 +168,7 @@ export default class EngineHelper {
         }
 
         if (this.isOperation(updateData, this.attributeUpdates)) {
-            this.runOperation<void, MapObject<AttributeUpdateHandler>>(
+            this.runOperation<void, Record<string, AttributeUpdateHandler>>(
                 updateData,
                 this.attributeUpdates,
                 attributes,
@@ -185,8 +185,8 @@ export default class EngineHelper {
         }
 
         this.updateAttributes(
-            attributes[attribute] as MapObject<EngineAttributeValue>,
-            updateData as MapObject<EngineAttributeUpdate>,
+            attributes[attribute] as Record<string, EngineAttributeValue>,
+            updateData as Record<string, EngineAttributeUpdate>,
         );
     }
 
@@ -260,7 +260,7 @@ export default class EngineHelper {
         operations: EngineAttributeUpdateOperation[],
     ) => {
         for (const operation of operations) {
-            this.runOperation<void, MapObject<AttributeUpdateHandler>>(
+            this.runOperation<void, Record<string, AttributeUpdateHandler>>(
                 operation,
                 this.attributeUpdates,
                 value,
@@ -269,7 +269,7 @@ export default class EngineHelper {
         }
     }
 
-    private isOperation(value: any, handlers: MapObject<(...params: any[]) => any>): boolean {
+    private isOperation(value: any, handlers: Record<string, (...params: any[]) => any>): boolean {
         if (!isObject(value)) {
             return false;
         }
@@ -279,7 +279,7 @@ export default class EngineHelper {
         return !!(firstKey && otherKeys.length === 0 && firstKey in handlers);
     }
 
-    private runOperation<R, H extends MapObject<(...params: any[]) => R>>(
+    private runOperation<R, H extends Record<string, (...params: any[]) => R>>(
         operation: { [key in keyof H]: any },
         handlers: H,
         ...params: any[]

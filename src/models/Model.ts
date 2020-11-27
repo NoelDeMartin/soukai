@@ -177,7 +177,9 @@ export default abstract class Model<Key = any> {
         return this.instance.createFromEngineDocument(id, document);
     }
 
-    public static createManyFromEngineDocuments<T extends Model>(documents: MapObject<EngineDocument>): Promise<T[]> {
+    public static createManyFromEngineDocuments<T extends Model>(
+        documents: Record<string, EngineDocument>,
+    ): Promise<T[]> {
         return this.instance.createManyFromEngineDocuments(documents);
     }
 
@@ -574,7 +576,9 @@ export default abstract class Model<Key = any> {
         return new (this.modelClass as any)(attributes, true);
     }
 
-    protected async createManyFromEngineDocuments<T extends Model>(documents: MapObject<EngineDocument>): Promise<T[]> {
+    protected async createManyFromEngineDocuments<T extends Model>(
+        documents: Record<string, EngineDocument>,
+    ): Promise<T[]> {
         return Promise.all(
             Object
                 .entries(documents)

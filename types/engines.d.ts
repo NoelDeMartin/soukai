@@ -14,8 +14,8 @@ export type EngineAttributeValue =
     EngineAttributeValueArrayMap;
 
 interface EngineAttributeValueArray extends Array<EngineAttributeValue> {}
-interface EngineAttributeValueMap extends MapObject<EngineAttributeValue> {}
-interface EngineAttributeValueArrayMap extends Array<MapObject<EngineAttributeValue>> {}
+interface EngineAttributeValueMap extends Record<string, EngineAttributeValue> {}
+interface EngineAttributeValueArrayMap extends Array<Record<string, EngineAttributeValue>> {}
 
 export type EngineAttributeFilter =
     EngineAttributeValue |
@@ -45,12 +45,12 @@ export interface EngineUpdateItemsOperatorData {
     $unset?: true;
 }
 
-interface EngineAttributeUpdateMap extends MapObject<EngineAttributeUpdate> {}
+interface EngineAttributeUpdateMap extends Record<string, EngineAttributeUpdate> {}
 
-export type EngineDocument = MapObject<EngineAttributeValue>;
-export type EngineDocumentsCollection = MapObject<EngineDocument>;
-export type EngineFilters = EngineRootFilter & MapObject<EngineAttributeFilter>;
-export type EngineUpdates = MapObject<EngineAttributeUpdate> | { $unset: string | string[] };
+export type EngineDocument = Record<string, EngineAttributeValue>;
+export type EngineDocumentsCollection = Record<string, EngineDocument>;
+export type EngineFilters = EngineRootFilter & Record<string, EngineAttributeFilter>;
+export type EngineUpdates = Record<string, EngineAttributeUpdate> | { $unset: string | string[] };
 
 export interface Engine {
 
@@ -70,9 +70,9 @@ export class EngineHelper {
 
     filterDocuments(documents: EngineDocumentsCollection, filters?: EngineFilters): EngineDocumentsCollection;
 
-    updateAttributes(attributes: MapObject<EngineAttributeValue>, updates: EngineUpdates): void;
+    updateAttributes(attributes: Record<string, EngineAttributeValue>, updates: EngineUpdates): void;
 
-    removeAttributes(attributes: MapObject<EngineAttributeValue>, removedAttributes: string[][]): void;
+    removeAttributes(attributes: Record<string, EngineAttributeValue>, removedAttributes: string[][]): void;
 
     obtainDocumentId(id?: string): string;
 
