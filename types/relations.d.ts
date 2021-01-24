@@ -10,12 +10,13 @@ export abstract class Relation<
 
     public name: string;
     public related: Related[] | Related | null;
-    public loaded: boolean;
     public parent: Parent;
     public relatedClass: RelatedClass;
     public foreignKeyName: string;
     public localKeyName: string;
     public deleteStrategy: RelationDeleteStrategy;
+
+    public readonly loaded: boolean;
 
     public constructor(
         parent: Parent,
