@@ -335,4 +335,4 @@ class Post extends Model {
 ```
 :::
 
-If you want to learn more about the internal implementation details, check out the source code of the [Model](https://github.com/NoelDeMartin/soukai/tree/master/src/models/Model.ts) class and learn how instances are initialized using Proxy.
+If you want to learn more about the internal implementation details, check out the source code of the [Model](https://github.com/NoelDeMartin/soukai/tree/main/src/models/Model.ts) class and learn how instances are initialized using Proxy.

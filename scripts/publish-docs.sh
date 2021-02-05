@@ -21,6 +21,6 @@ git add -A
 git commit -m 'deploy'
 
 # push updates
-git push $REPO_URL master:gh-pages --force
+git push $REPO_URL main:gh-pages --force
 
 cd -

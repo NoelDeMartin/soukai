@@ -16,7 +16,7 @@
     "build-umd": "cross-env NODE_ENV=production TARGET_BUILD=umd webpack --mode='production' --no-progress --hide-modules",
     "build-common": "cross-env NODE_ENV=production TARGET_BUILD=commonjs webpack --mode='production' --no-progress --hide-modules",
     "build-esm": "cross-env NODE_ENV=production TARGET_BUILD=esmodule webpack --mode='production' --no-progress --hide-modules",
-    "publish-dev": "scripts/publish-dev.sh",
+    "publish-next": "scripts/publish-next.sh",
     "docs:dev": "vuepress dev docs",
     "docs:build-vuepress": "vuepress build docs",
     "docs:build-typedoc": "typedoc --options docs/.typedoc/config.js ./src/index.ts",

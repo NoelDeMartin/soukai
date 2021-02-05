@@ -77,4 +77,4 @@ CREATED '1'
 
 ## Other engines
 
-To learn more about other engines, be sure to check out the ones [included in the core library](https://github.com/NoelDeMartin/soukai/tree/master/src/engines) and the [#soukai](https://github.com/topics/soukai) and [#soukai-engine](https://github.com/topics/soukai-engine) topics in GitHub and elsewhere.
+To learn more about other engines, be sure to check out the ones [included in the core library](https://github.com/NoelDeMartin/soukai/tree/main/src/engines) and the [#soukai](https://github.com/topics/soukai) and [#soukai-engine](https://github.com/topics/soukai-engine) topics in GitHub and elsewhere.
