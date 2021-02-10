@@ -8,7 +8,7 @@ export default class BelongsToOneRelation<
 > extends SingleModelRelation<Parent, Related, RelatedClass> {
 
     public async resolve(): Promise<Related | null> {
-        const foreignKey = this.parent.getAttribute(this.foreignKeyName);
+        const foreignKey = this.parent.getAttribute<string>(this.foreignKeyName);
 
         this.related = this.localKeyName === this.relatedClass.primaryKey
             ? await this.relatedClass.find<Related>(foreignKey)

@@ -10,7 +10,6 @@ export default class extends TestSuite {
     public static title: string = 'Definitions';
 
     public testInstanceOf(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {}
 
         Soukai.loadModel('Stub', StubModel);
@@ -19,9 +18,10 @@ export default class extends TestSuite {
     }
 
     public testCollection(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static collection = 'collection';
+
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -30,7 +30,6 @@ export default class extends TestSuite {
     }
 
     public testEmptyCollection(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {}
 
         Soukai.loadModel('Stub', StubModel);
@@ -39,9 +38,10 @@ export default class extends TestSuite {
     }
 
     public testTimestamps(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static timestamps = ['createdAt'];
+
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -59,9 +59,10 @@ export default class extends TestSuite {
     }
 
     public testEmptyTimestamps(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static timestamps = false;
+
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -75,9 +76,10 @@ export default class extends TestSuite {
     }
 
     public testInvalidTimestamps(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static timestamps = ['foobar'];
+
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
@@ -86,8 +88,8 @@ export default class extends TestSuite {
     }
 
     public testFields(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static fields = {
                 name: {
                     type: FieldType.String,
@@ -101,7 +103,7 @@ export default class extends TestSuite {
                 meta: {
                     type: FieldType.Object,
                     fields: {
-                        birthdate: FieldType.Date,
+                        birthDate: FieldType.Date,
                     },
                 },
                 cache: {
@@ -109,6 +111,7 @@ export default class extends TestSuite {
                     totalFriends: FieldType.Number,
                 },
             };
+
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -137,7 +140,7 @@ export default class extends TestSuite {
                 type: FieldType.Object,
                 required: false,
                 fields: {
-                    birthdate: {
+                    birthDate: {
                         type: FieldType.Date,
                         required: false,
                     },
@@ -169,7 +172,6 @@ export default class extends TestSuite {
     }
 
     public testEmptyFields(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {}
 
         Soukai.loadModel('Stub', StubModel);
@@ -191,11 +193,12 @@ export default class extends TestSuite {
     }
 
     public testInvalidArrayField(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static fields = {
                 tags: FieldType.Array,
             };
+
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
@@ -204,11 +207,12 @@ export default class extends TestSuite {
     }
 
     public testInvalidObjectField(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static fields = {
                 meta: FieldType.Object,
             };
+
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
@@ -217,8 +221,8 @@ export default class extends TestSuite {
     }
 
     public testInvalidTimestampField(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public static timestamps = ['createdAt'];
 
             public static fields = {
@@ -227,6 +231,7 @@ export default class extends TestSuite {
                     required: true,
                 },
             };
+
         }
 
         const loadModel = () => Soukai.loadModel('Stub', StubModel);
@@ -237,9 +242,10 @@ export default class extends TestSuite {
     }
 
     public testAccessingClassProperties(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public myArray = [];
+
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -250,9 +256,10 @@ export default class extends TestSuite {
     }
 
     public testSettingClassProperties(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class StubModel extends Model {
+
             public myArray: string[] = [];
+
         }
 
         Soukai.loadModel('Stub', StubModel);
@@ -265,16 +272,18 @@ export default class extends TestSuite {
     }
 
     public testClassPropertiesDontModifyParentModels(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class Parent extends Model {
+
             public static classFields = ['parentField'];
             public parentProp: string[] = [];
+
         }
 
-        // tslint:disable-next-line:max-classes-per-file
         class Child extends Parent {
+
             public static classFields = ['childField'];
             public childProp: string[] = [];
+
         }
 
         Soukai.loadModels({ Parent, Child });

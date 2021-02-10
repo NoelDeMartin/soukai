@@ -15,11 +15,8 @@ import ClosesConnections from '@/engines/ClosesConnections';
 import EngineHelper from '@/engines/EngineHelper';
 
 interface DatabaseConnection<Schema extends DBSchema> {
-    readonly objectStoreNames: TypedDOMStringList<any>;
-    transaction(
-        storeNames: string | string[],
-        mode?: IDBTransactionMode,
-    ): DatabaseTransaction<Schema>;
+    readonly objectStoreNames: TypedDOMStringList<string>;
+    transaction(storeNames: string | string[], mode?: IDBTransactionMode): DatabaseTransaction<Schema>;
     close(): void;
 }
 
@@ -219,7 +216,7 @@ export default class IndexedDBEngine implements Engine, ClosesConnections {
         mode: IDBTransactionMode,
         operation: (transaction: DatabaseTransaction<MetadataSchema>) => R,
     ): Promise<R> {
-        this._metadataConnection = this._metadataConnection
+        const connection = this._metadataConnection = this._metadataConnection
             || await openDB(`${this.database}-meta`, 1, {
                 upgrade(db) {
                     if (db.objectStoreNames.contains('collections')) {
@@ -229,10 +226,10 @@ export default class IndexedDBEngine implements Engine, ClosesConnections {
                     db.createObjectStore('collections', { keyPath: 'name' });
                 },
                 blocked: () => this.throwDatabaseBlockedError(),
-            }) as any as DatabaseConnection<MetadataSchema>;
+            }) as unknown as DatabaseConnection<MetadataSchema>;
 
         return this.retryingOnTransactionInactive(() => {
-            const transaction = this._metadataConnection!.transaction('collections', mode);
+            const transaction = connection.transaction('collections', mode);
 
             return operation(transaction);
         });
@@ -244,7 +241,7 @@ export default class IndexedDBEngine implements Engine, ClosesConnections {
         mode: IDBTransactionMode,
         operation: (transaction: DatabaseTransaction<DocumentsSchema>) => R,
     ): Promise<R> {
-        this._documentsConnection = this._documentsConnection
+        const connection = this._documentsConnection = this._documentsConnection
             || await openDB(this.database, collections.length, {
                 upgrade(db) {
                     for (const documentsCollection of collections) {
@@ -256,10 +253,10 @@ export default class IndexedDBEngine implements Engine, ClosesConnections {
                     }
                 },
                 blocked: () => this.throwDatabaseBlockedError(),
-            }) as any as DatabaseConnection<DocumentsSchema>;
+            }) as unknown as DatabaseConnection<DocumentsSchema>;
 
         return this.retryingOnTransactionInactive(() => {
-            const transaction = this._documentsConnection!.transaction(collection, mode);
+            const transaction = connection.transaction(collection, mode);
 
             return operation(transaction);
         });

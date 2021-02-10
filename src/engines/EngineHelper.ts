@@ -1,8 +1,11 @@
+import { arrayWithoutIndexes, deepEquals, isObject } from '@noeldemartin/utils';
+
 import {
     EngineAttributeFilter,
     EngineAttributeUpdate,
     EngineAttributeUpdateOperation,
     EngineAttributeValue,
+    EngineAttributeValueMap,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
@@ -10,21 +13,20 @@ import {
     EngineUpdates,
 } from '@/engines/Engine';
 
-import { deepEquals, isObject } from '@/internal/utils/Obj';
-
-import Arr from '@/internal/utils/Arr';
 import UUID from '@/internal/utils/UUID';
 
+type Handler<T = unknown> = (...params: any[]) => T;
+type Operation<T extends Record<string, unknown> = Record<string, unknown>> = Record<keyof T, unknown>;
 type AttributesMap = Record<string, EngineAttributeValue>;
-type RootFilterHandler = (id: string, document: EngineDocument, filterData: any) => boolean;
-type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: any) => boolean;
-type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: any) => void;
+type RootFilterHandler = (id: string, document: EngineDocument, filterData: unknown) => boolean;
+type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: unknown) => boolean;
+type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: unknown) => void;
 
 export default class EngineHelper {
 
-    private rootFilters: Record<string, RootFilterHandler>;
-    private attributeFilters: Record<string, AttributeFilterHandler>;
-    private attributeUpdates: Record<string, AttributeUpdateHandler>;
+    private rootFilters: Record<'$in', RootFilterHandler>;
+    private attributeFilters: Record<'$eq' | '$contains' | '$or' | '$in', AttributeFilterHandler>;
+    private attributeUpdates: Record<'$update' |'$updateItems' |'$push' |'$unset' |'$apply', AttributeUpdateHandler>;
 
     public constructor() {
         this.rootFilters = {
@@ -70,7 +72,7 @@ export default class EngineHelper {
             return;
         }
 
-        for (const [attribute, value] of Object.entries(updates)) {
+        for (const [attribute, value] of Object.entries(updates as EngineUpdates)) {
             this.attributeUpdate(attributes, attribute, value);
         }
     }
@@ -120,8 +122,8 @@ export default class EngineHelper {
     }
 
     private documentsIn = (id: string, _: EngineDocument, ids: string[]): boolean => {
-        return Arr.contains(ids, id);
-    }
+        return ids.includes(id);
+    };
 
     private attributeEq = (
         attributes: AttributesMap,
@@ -129,7 +131,7 @@ export default class EngineHelper {
         filterValue: EngineAttributeValue,
     ): boolean => {
         return deepEquals(attributes[attribute], filterValue);
-    }
+    };
 
     private attributeContains = (
         attributes: AttributesMap,
@@ -148,17 +150,17 @@ export default class EngineHelper {
         return !(filters as EngineAttributeFilter[]).find(
             filter => !attributeItems.find(item => this.filterValue(item, filter)),
         );
-    }
+    };
 
     private attributeOr = (attributes: AttributesMap, attribute: string, filters: EngineAttributeFilter[]): boolean => {
         return !!filters.find(
             filter => !!this.filterValue(attributes, { [attribute]: filter }),
         );
-    }
+    };
 
-    private attributeIn = (attributes: AttributesMap, attribute: string, values: any[]): boolean => {
-        return Arr.contains(values, attributes[attribute]);
-    }
+    private attributeIn = (attributes: AttributesMap, attribute: string, values: unknown[]): boolean => {
+        return values.includes(attributes[attribute]);
+    };
 
     private attributeUpdate = (attributes: AttributesMap, attribute: string, updateData: EngineAttributeUpdate) => {
         if (!isObject(updateData)) {
@@ -188,10 +190,10 @@ export default class EngineHelper {
             attributes[attribute] as Record<string, EngineAttributeValue>,
             updateData as Record<string, EngineAttributeUpdate>,
         );
-    }
+    };
 
     private attributeUpdateItems = (
-        value: EngineAttributeValue,
+        value: EngineAttributeValueMap,
         property: string,
         updateData: EngineUpdateItemsOperatorData | EngineUpdateItemsOperatorData[],
     ) => {
@@ -225,24 +227,24 @@ export default class EngineHelper {
             }
 
             if ($unset) {
-                value![property] = Arr.withoutIndexes(array, Object.keys(filteredDocuments).map(parseInt));
+                value[property] = arrayWithoutIndexes(array, Object.keys(filteredDocuments).map(parseInt));
             }
         }
-    }
+    };
 
-    private attributePush = (value: EngineAttributeValue, property: string, item: any) => {
+    private attributePush = (value: EngineAttributeValue, property: string, item: EngineAttributeValue) => {
         const array = this.requireArrayProperty('$push', value, property);
 
         array.push(item);
-    }
+    };
 
     private attributeUnset = (
-        value: EngineAttributeValue,
+        value: EngineAttributeValueMap,
         property: string,
         unsetProperties: string | string[] | true,
     ) => {
         if (unsetProperties === true) {
-            delete value![property!];
+            delete value[property];
 
             return;
         }
@@ -250,9 +252,9 @@ export default class EngineHelper {
         unsetProperties = Array.isArray(unsetProperties) ? unsetProperties : [unsetProperties];
 
         for (const unsetProperty of unsetProperties) {
-            delete value![property][unsetProperty];
+            delete value[property]?.[unsetProperty];
         }
-    }
+    };
 
     private attributeApply = (
         value: EngineAttributeValue,
@@ -267,20 +269,19 @@ export default class EngineHelper {
                 property,
             );
         }
-    }
+    };
 
-    private isOperation(value: any, handlers: Record<string, (...params: any[]) => any>): boolean {
-        if (!isObject(value)) {
+    private isOperation<H extends Record<string, Handler>>(value: unknown, handlers: H): value is Operation<H> {
+        if (!isObject(value))
             return false;
-        }
 
         const [firstKey, ...otherKeys] = Object.keys(value);
 
         return !!(firstKey && otherKeys.length === 0 && firstKey in handlers);
     }
 
-    private runOperation<R, H extends Record<string, (...params: any[]) => R>>(
-        operation: { [key in keyof H]: any },
+    private runOperation<R, H extends Record<string, Handler<R>>>(
+        operation: Record<keyof H, unknown>,
         handlers: H,
         ...params: any[]
     ): R {

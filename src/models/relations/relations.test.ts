@@ -183,18 +183,20 @@ describe('Model Relations', () => {
 
     it('keeps relations in local class', () => {
         // Arrange
-        // tslint:disable-next-line:max-classes-per-file
         class Parent extends Model {
+
             public fooRelationship(): Relation {
                 return this.belongsToOne(Model, 'id');
             }
+
         }
 
-        // tslint:disable-next-line:max-classes-per-file
         class Child extends Parent {
+
             public barRelationship(): Relation {
                 return this.belongsToOne(Model, 'id');
             }
+
         }
 
         // Act

@@ -8,7 +8,7 @@ export default class BelongsToManyRelation<
 > extends MultiModelRelation<Parent, Related, RelatedClass> {
 
     public async resolve(): Promise<Related[]> {
-        const foreignKeys = this.parent.getAttribute(this.foreignKeyName);
+        const foreignKeys = this.parent.getAttribute<string[]>(this.foreignKeyName);
 
         this.related = this.localKeyName === this.relatedClass.primaryKey
             ? await this.relatedClass.all<Related>({

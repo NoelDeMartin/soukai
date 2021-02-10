@@ -9,7 +9,7 @@ const output = {
     path: path.resolve(__dirname, 'dist'),
     library: 'Soukai',
     libraryTarget: 'umd',
-    umdNamedDefine: true
+    umdNamedDefine: true,
 };
 
 switch (process.env.TARGET_BUILD) {
@@ -46,7 +46,6 @@ module.exports = {
                             onlyCompileBundledFiles: true,
                         },
                     },
-                    'tslint-loader'
                 ],
                 exclude: /node_modules/,
             },

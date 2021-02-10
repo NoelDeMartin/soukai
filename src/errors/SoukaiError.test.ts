@@ -21,10 +21,12 @@ describe('SoukaiError', () => {
         expect(error).not.toBeNull();
         expect(error).toBeInstanceOf(Error);
         expect(error).toBeInstanceOf(SoukaiError);
-        expect(error!.name).toEqual('SoukaiError');
-        expect(error!.message).toEqual(message);
-        expect(error!.stack).not.toBeNull();
-        expect(error!.stack).toContain('SoukaiError.test');
+
+        const soukaiError = error as SoukaiError;
+        expect(soukaiError.name).toEqual('SoukaiError');
+        expect(soukaiError.message).toEqual(message);
+        expect(soukaiError.stack).not.toBeNull();
+        expect(soukaiError.stack).toContain('SoukaiError.test');
     });
 
     it('can be subclassed', () => {
@@ -53,10 +55,12 @@ describe('SoukaiError', () => {
         expect(error).toBeInstanceOf(Error);
         expect(error).toBeInstanceOf(SoukaiError);
         expect(error).toBeInstanceOf(CustomSoukaiError);
-        expect(error!.name).toEqual('CustomSoukaiError');
-        expect(error!.message).toEqual(`Custom message: ${message}`);
-        expect(error!.stack).not.toBeNull();
-        expect(error!.stack).toContain('SoukaiError.test');
+
+        const customSoukaiError = error as CustomSoukaiError;
+        expect(customSoukaiError.name).toEqual('CustomSoukaiError');
+        expect(customSoukaiError.message).toEqual(`Custom message: ${message}`);
+        expect(customSoukaiError.stack).not.toBeNull();
+        expect(customSoukaiError.stack).toContain('SoukaiError.test');
     });
 
 });

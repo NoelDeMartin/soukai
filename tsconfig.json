@@ -3,7 +3,7 @@
     "target": "es5",
     "module": "commonjs",
     "moduleResolution": "node",
-    "lib": ["es2017.object", "es6", "dom"],
+    "lib": ["es2019", "es6", "dom"],
     "noImplicitThis": true,
     "removeComments": true,
     "pretty": true,

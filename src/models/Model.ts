@@ -1,12 +1,10 @@
+import { arrayUnique, deepEquals, isObject, objectDeepClone, objectHasOwnProperty } from '@noeldemartin/utils';
+
 import Soukai from '@/Soukai';
 
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 
-import { deepClone } from '@/internal/utils/Obj';
-
-import Arr from '@/internal/utils/Arr';
-import Obj from '@/internal/utils/Obj';
 import { camelCase, studlyCase } from '@/internal/utils/Str';
 
 import { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
@@ -19,9 +17,7 @@ import MultiModelRelation from './relations/MultiModelRelation';
 import Relation from './relations/Relation';
 import SingleModelRelation from './relations/SingleModelRelation';
 
-export interface Attributes {
-    [field: string]: any;
-}
+export type Attributes = Record<string, unknown>;
 
 export enum FieldType {
     Number = 'number',
@@ -33,31 +29,35 @@ export enum FieldType {
     Key = 'key',
 }
 
-export interface FieldsDefinition {
-    [field: string]: FieldDefinition;
-}
-
-export interface FieldDefinition {
-
-    type: FieldType;
+export interface FieldDefinitionBase {
     required: boolean;
-
-    // Only with type FieldType.Array
-    items?: FieldDefinition;
-
-    // Only with type FieldType.Object
-    fields?: FieldsDefinition;
-
 }
+
+export interface BasicFieldDefinition extends FieldDefinitionBase {
+    type: Exclude<FieldType, FieldType.Array | FieldType.Object>;
+}
+
+export interface ArrayFieldDefinition extends FieldDefinitionBase {
+    type: FieldType.Array;
+    items: Omit<FieldDefinition, 'required'> | FieldType;
+}
+
+export interface ObjectFieldDefinition extends FieldDefinitionBase {
+    type: FieldType.Object;
+    fields: FieldsDefinition;
+}
+
+export type FieldDefinition = BasicFieldDefinition | ArrayFieldDefinition | ObjectFieldDefinition;
+export type FieldsDefinition = Record<string, FieldDefinition>;
+export type Stringable = { toString(): string };
 
 const TYPE_VALUES = Object.values(FieldType);
-
 const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
 
 /**
  * Active record model definition.
  */
-export default abstract class Model<Key = any> {
+export default abstract class Model<Key extends Stringable = Stringable> {
 
     public static collection: string;
 
@@ -65,7 +65,7 @@ export default abstract class Model<Key = any> {
 
     public static timestamps: string[] | boolean;
 
-    public static fields: FieldsDefinition | any;
+    public static fields: FieldsDefinition;
 
     public static modelName: string;
 
@@ -74,11 +74,15 @@ export default abstract class Model<Key = any> {
     public static relations: string[] = [];
 
     public static get instance(): Model {
-        return new (this as any)();
+        const ModelClass = this as unknown as { new(): Model };
+
+        return new ModelClass();
     }
 
     protected static get pureInstance(): Model {
-        return new (this as any)({ __pureInstance: true });
+        const ModelClass = this as unknown as { new(attributes: Attributes): Model };
+
+        return new ModelClass({ __pureInstance: true });
     }
 
     public static boot(name: string): void {
@@ -117,7 +121,7 @@ export default abstract class Model<Key = any> {
         // Validate fields
         if (typeof modelClass.fields !== 'undefined') {
             for (const field in modelClass.fields) {
-                if (modelClass.fields.hasOwnProperty(field)) {
+                if (objectHasOwnProperty(modelClass.fields, field)) {
                     fieldDefinitions[field] = validateFieldDefinition(name, field, modelClass.fields[field]);
 
                     if (
@@ -129,7 +133,7 @@ export default abstract class Model<Key = any> {
                         throw new InvalidModelDefinition(
                             name,
                             `Field ${field} definition must be type date and not required ` +
-                            `because it is used an automatic timestamp. ` +
+                            'because it is used an automatic timestamp. ' +
                             'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
                         );
                     }
@@ -162,18 +166,23 @@ export default abstract class Model<Key = any> {
             prototype = Object.getPrototypeOf(prototype);
         }
 
-        modelClass.classFields = Arr.unique(classFields);
-        modelClass.relations = Arr.unique(relations);
+        modelClass.classFields = arrayUnique(classFields);
+        modelClass.relations = arrayUnique(relations);
         modelClass.fields = fieldDefinitions;
         modelClass.modelName = name;
     }
 
     public static create<T extends Model>(attributes: Attributes = {}): Promise<T> {
-        const model = new (<any> this)(attributes);
+        const ModelClass = this as unknown as { new (attributes: Attributes): T };
+        const model = new ModelClass(attributes);
+
         return model.save();
     }
 
-    public static createFromEngineDocument<T extends Model, Key = any>(id: Key, document: EngineDocument): Promise<T> {
+    public static createFromEngineDocument<T extends Model, Key = unknown>(
+        id: Key,
+        document: EngineDocument,
+    ): Promise<T> {
         return this.instance.createFromEngineDocument(id, document);
     }
 
@@ -183,7 +192,7 @@ export default abstract class Model<Key = any> {
         return this.instance.createManyFromEngineDocuments(documents);
     }
 
-    public static find<T extends Model, Key = any>(id: Key): Promise<T | null> {
+    public static find<T extends Model, Key = unknown>(id: Key): Promise<T | null> {
         this.ensureBooted();
 
         return Soukai
@@ -205,7 +214,7 @@ export default abstract class Model<Key = any> {
         const documents = await engine.readMany(this.collection, filters);
         const models = await this.createManyFromEngineDocuments(documents);
 
-        return models as any as T[];
+        return models as T[];
     }
 
     public static async first<T extends Model>(filters?: EngineFilters): Promise<T|null> {
@@ -216,25 +225,22 @@ export default abstract class Model<Key = any> {
     }
 
     protected static ensureBooted(): void {
-        const modelClass = (<any> this);
+        const modelClass = this as unknown as { modelName?: string };
 
-        if (typeof modelClass.modelName === 'undefined') {
+        if (typeof modelClass.modelName === 'undefined')
             throw new SoukaiError(
                 'Model has not been booted (did you forget to call Soukai.loadModel?) ' +
                 'Learn more at https://soukai.js.org/guide/defining-models.html',
             );
-        }
     }
 
     protected _exists: boolean;
     protected _wasRecentlyCreated: boolean;
-    protected _proxy: Model;
+    protected _proxy: Model<Key>;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Attributes;
     protected _relations: { [relation: string]: Relation };
-
-    [field: string]: any;
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
         // We need to do this in order to get a pure instance during boot,
@@ -251,7 +257,7 @@ export default abstract class Model<Key = any> {
     }
 
     public get modelClass(): typeof Model {
-        return (this.constructor as any);
+        return this.constructor as typeof Model;
     }
 
     public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
@@ -305,21 +311,20 @@ export default abstract class Model<Key = any> {
     }
 
     public hasAttribute(field: string): boolean {
-        const fields = field.split('.');
-        let value = <Attributes> cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
+        const parts = field.split('.');
+        let value = cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
 
-        while (fields.length > 0) {
-            value = value[<string> fields.shift()];
-
-            if (typeof value === 'undefined') {
+        for (const part of parts) {
+            if (!isObject(value) || !(part in value))
                 return false;
-            }
+
+            value = value[part] as Attributes;
         }
 
-        return true;
+        return value !== undefined;
     }
 
-    public setAttribute(field: string, value: any): void {
+    public setAttribute(field: string, value: unknown): void {
         // TODO implement deep setter
 
         value = this.castAttribute(value, this.modelClass.fields[field]);
@@ -328,7 +333,7 @@ export default abstract class Model<Key = any> {
 
         delete this._dirtyAttributes[field];
 
-        if (!Obj.deepEquals(this._originalAttributes[field], value)) {
+        if (!deepEquals(this._originalAttributes[field], value)) {
             this._dirtyAttributes[field] = value;
         }
 
@@ -343,31 +348,32 @@ export default abstract class Model<Key = any> {
         }
     }
 
-    public getAttribute(field: string, includeUndefined: boolean = false): any {
+    public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
         const fields = field.split('.');
         let value = this.getAttributes(includeUndefined);
 
         while (fields.length > 0) {
-            value = value[fields.shift() as string];
+            const fieldValue = value[fields.shift() as string];
 
-            if (typeof value === 'undefined') {
-                return value;
-            }
+            if (!isObject(fieldValue))
+                return fieldValue as T;
+
+            value = fieldValue;
         }
 
-        return value;
+        return value as T;
     }
 
     public getAttributes(includeUndefined: boolean = false): Attributes {
         return includeUndefined
-            ? deepClone(this._attributes)
+            ? objectDeepClone(this._attributes)
             : <Attributes> cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
     }
 
     public unsetAttribute(field: string): void {
         // TODO implement deep unsetter
         // TODO validate protected fields (e.g. id)
-        if (this._attributes.hasOwnProperty(field)) {
+        if (objectHasOwnProperty(this._attributes, field)) {
             if (field in this.modelClass.fields) {
                 this._attributes[field] = undefined;
             } else {
@@ -391,7 +397,7 @@ export default abstract class Model<Key = any> {
     }
 
     public getPrimaryKey(): Key | null {
-        return this._attributes[this.modelClass.primaryKey];
+        return this._attributes[this.modelClass.primaryKey] as Key ?? null;
     }
 
     public getSerializedPrimaryKey(): string | null {
@@ -402,7 +408,7 @@ export default abstract class Model<Key = any> {
 
     public async delete<T extends Model>(): Promise<T> {
         if (!this._exists) {
-            return this as any;
+            return this as unknown as T;
         }
 
         const models = await this.getCascadeModels();
@@ -411,14 +417,14 @@ export default abstract class Model<Key = any> {
 
         models.forEach(model => model.resetEngineData());
 
-        return this as any;
+        return this as unknown as T;
     }
 
     public async save<T extends Model>(): Promise<T> {
         ensureRequiredAttributes(this._attributes, this.modelClass.fields);
 
         if (!this.isDirty()) {
-            return this as any;
+            return this as unknown as T;
         }
 
         const existed = this._exists;
@@ -428,7 +434,7 @@ export default abstract class Model<Key = any> {
         this._attributes[this.modelClass.primaryKey] = this.parseKey(id);
         this.cleanDirty();
 
-        return this as any;
+        return this as unknown as T;
     }
 
     /**
@@ -532,9 +538,9 @@ export default abstract class Model<Key = any> {
     }
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void {
-        this._attributes = Obj.deepClone(attributes);
-        this._originalAttributes = exists ? Obj.deepClone(attributes) : {};
-        this._dirtyAttributes = exists ? {} : Obj.deepClone(attributes);
+        this._attributes = objectDeepClone(attributes);
+        this._originalAttributes = exists ? objectDeepClone(attributes) : {};
+        this._dirtyAttributes = exists ? {} : objectDeepClone(attributes);
 
         if (!exists) {
             if (this.hasAutomaticTimestamp('createdAt') && !('createdAt' in attributes)) {
@@ -549,7 +555,7 @@ export default abstract class Model<Key = any> {
         }
 
         this._attributes = this.castAttributes(
-            ensureAttributesExistance(
+            ensureAttributesExistence(
                 this._attributes,
                 this.modelClass.fields,
             ),
@@ -570,10 +576,11 @@ export default abstract class Model<Key = any> {
 
     protected async createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T> {
         const attributes = await this.parseEngineDocumentAttributes(id, document);
+        const ModelClass = this.modelClass as unknown as { new(attributes: Attributes, exists: boolean): T };
 
         attributes[this.modelClass.primaryKey] = id;
 
-        return new (this.modelClass as any)(attributes, true);
+        return new ModelClass(attributes, true);
     }
 
     protected async createManyFromEngineDocuments<T extends Model>(
@@ -598,7 +605,7 @@ export default abstract class Model<Key = any> {
         }
 
         const updates = this.getDirtyEngineDocumentUpdates();
-        const id = this.getSerializedPrimaryKey()!;
+        const id = this.getSerializedPrimaryKey() as string;
 
         await engine.update(this.modelClass.collection, id, updates);
 
@@ -606,7 +613,7 @@ export default abstract class Model<Key = any> {
     }
 
     protected cleanDirty(): void {
-        this._originalAttributes = Obj.deepClone(this._attributes);
+        this._originalAttributes = objectDeepClone(this._attributes);
         this._dirtyAttributes = {};
         this._exists = true;
     }
@@ -621,16 +628,18 @@ export default abstract class Model<Key = any> {
                 return relationModels.map(model => model.getCascadeModels());
             });
         const modelPromises = await Promise.all(relationPromises);
-        const models = await Promise.all(Arr.flatten(modelPromises));
+        const models = await Promise.all(modelPromises.flat());
 
-        return [...Arr.flatten(models), this].filter(model => model.exists());
+        return [...models.flat(), this].filter(model => model.exists());
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
         const engine = Soukai.requireEngine();
 
         // TODO cluster by collection and implement deleteMany
-        const modelsData = models.map(model => [model.modelClass.collection, model.getSerializedPrimaryKey()!]);
+        const modelsData = models.map(
+            model => [model.modelClass.collection, model.getSerializedPrimaryKey() as string],
+        );
 
         await Promise.all(modelsData.map(([collection, id]) => engine.delete(collection, id)));
     }
@@ -638,7 +647,7 @@ export default abstract class Model<Key = any> {
     protected resetEngineData(): void {
         delete this._attributes[this.modelClass.primaryKey];
         this._exists = false;
-        this._dirtyAttributes = Obj.deepClone(this._attributes);
+        this._dirtyAttributes = objectDeepClone(this._attributes);
     }
 
     /**
@@ -718,15 +727,14 @@ export default abstract class Model<Key = any> {
         return castedAttributes;
     }
 
-    protected castAttribute(value: any, definition?: FieldDefinition): any {
-        if (isEmpty(value)) {
+    protected castAttribute(value: unknown, definition?: FieldDefinition): unknown {
+        if (isEmpty(value))
             return value;
-        }
 
         if (typeof definition === 'undefined') {
             switch (typeof value) {
                 case 'object':
-                    return value.toString();
+                    return (value as Record<string, unknown>).toString();
                 case 'symbol':
                 case 'function':
                 case 'undefined':
@@ -738,20 +746,41 @@ export default abstract class Model<Key = any> {
 
         switch (definition.type) {
             case FieldType.Date:
-                return new Date(value);
+                if (!['string', 'number'].includes(typeof value) && !(value instanceof Date))
+                    throw new SoukaiError(`Invalid Date value: ${value}`);
+
+                return new Date(value as string | number | Date);
             case FieldType.Object:
-                return this.castAttributes(value, definition.fields as FieldsDefinition);
+                if (!isObject(value))
+                    throw new SoukaiError(`Invalid Object value: ${value}`);
+
+                return this.castAttributes(value, definition.fields as Record<string, FieldDefinition>);
             case FieldType.Array:
+                if (!Array.isArray(value))
+                    throw new SoukaiError(`Invalid Array value: ${value}`);
+
                 return value.map(attribute => this.castAttribute(
                     attribute,
                     definition.items as FieldDefinition,
                 ));
             case FieldType.Boolean:
                 return !!value;
-            case FieldType.Number:
-                return parseFloat(value);
-            case FieldType.String:
-                return value.toString();
+            case FieldType.Number: {
+                const number = parseFloat(value as string);
+
+                if (isNaN(number))
+                    throw new SoukaiError(`Invalid Number value: ${value}`);
+
+                return number;
+            }
+            case FieldType.String: {
+                const toString = (value as { toString?(): string })['toString'] ?? null;
+
+                if (!toString)
+                    throw new SoukaiError(`Invalid String value: ${value}`);
+
+                return toString.call(value);
+            }
             default:
                 return value;
         }
@@ -762,14 +791,11 @@ export default abstract class Model<Key = any> {
     }
 
     protected toEngineDocument(): EngineDocument {
-        return cleanUndefinedAttributes(
-            this._attributes,
-            this.modelClass.fields,
-        ) as Attributes;
+        return cleanUndefinedAttributes(this._attributes, this.modelClass.fields) as EngineDocument;
     }
 
     protected getDirtyEngineDocumentUpdates(): EngineUpdates {
-        const updates = Obj.deepClone(this._dirtyAttributes);
+        const updates = objectDeepClone(this._dirtyAttributes);
 
         for (const field in updates) {
             if (updates[field] !== undefined) {
@@ -787,11 +813,11 @@ export default abstract class Model<Key = any> {
     }
 
     protected serializeKey(key: Key): string {
-        return (key as any).toString();
+        return key.toString();
     }
 
     protected parseKey(key: string): Key {
-        return key as any as Key;
+        return key as unknown as Key;
     }
 
     protected requireRelation(relation: string): Relation {
@@ -807,63 +833,63 @@ export default abstract class Model<Key = any> {
 function validateFieldDefinition(
     model: string,
     field: string,
-    definition: any,
+    definition: FieldDefinition | Omit<FieldDefinition, 'required'> | FieldType,
     hasRequired: boolean = true,
 ): FieldDefinition {
-    let fieldDefinition: FieldDefinition = <any> {};
+    let fieldDefinition = {} as Partial<FieldDefinition>;
 
-    if (TYPE_VALUES.indexOf(definition) !== -1) {
+    if (typeof definition === 'string' && TYPE_VALUES.indexOf(definition) !== -1)
         fieldDefinition.type = definition;
-    } else if (typeof definition === 'object') {
+    else if (typeof definition === 'object')
         fieldDefinition = definition;
-    } else {
+    else
         throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
-    }
 
-    if (typeof fieldDefinition.type === 'undefined') {
-        fieldDefinition = <any> {
-            fields: fieldDefinition,
+    if (typeof fieldDefinition.type === 'undefined')
+        fieldDefinition = {
             type: FieldType.Object,
-        };
-    } else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1) {
+            fields: fieldDefinition,
+        } as ObjectFieldDefinition;
+    else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1)
         throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
-    }
 
-    if (hasRequired) {
+    if (hasRequired)
         fieldDefinition.required = !!fieldDefinition.required;
-    }
 
     switch (fieldDefinition.type) {
         case FieldType.Object:
-            if (typeof fieldDefinition.fields !== 'undefined') {
-                for (const f in fieldDefinition.fields) {
-                    if (fieldDefinition.fields.hasOwnProperty(f)) {
-                        fieldDefinition.fields[f] = validateFieldDefinition(model, f, fieldDefinition.fields[f]);
-                    }
-                }
-            } else {
+            if (typeof fieldDefinition.fields === 'undefined')
                 throw new InvalidModelDefinition(
                     model,
                     `Field definition of type object requires fields attribute ${field}`,
                 );
+
+            for (const f in fieldDefinition.fields) {
+                if (objectHasOwnProperty(fieldDefinition.fields, f)) {
+                    fieldDefinition.fields[f] = validateFieldDefinition(model, f, fieldDefinition.fields[f]);
+                }
             }
             break;
         case FieldType.Array:
-            if (typeof fieldDefinition.items !== 'undefined') {
-                fieldDefinition.items = validateFieldDefinition(model, 'items', fieldDefinition.items, false);
-            } else {
+            if (typeof fieldDefinition.items === 'undefined')
                 throw new InvalidModelDefinition(
                     model,
                     `Field definition of type array requires items attribute. Field: '${field}'`,
                 );
-            }
+
+            fieldDefinition.items = validateFieldDefinition(
+                model,
+                'items',
+                fieldDefinition.items,
+                false,
+            );
             break;
     }
 
-    return fieldDefinition;
+    return fieldDefinition as FieldDefinition;
 }
 
-function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinition): Attributes {
+function ensureAttributesExistence(attributes: Attributes, fields: FieldsDefinition): Attributes {
     for (const field in fields) {
         const definition = fields[field];
 
@@ -882,7 +908,12 @@ function ensureAttributesExistance(attributes: Attributes, fields: FieldsDefinit
         }
 
         if (definition.type === FieldType.Object) {
-            attributes[field] = ensureAttributesExistance(attributes[field], <FieldsDefinition> definition.fields);
+            const value = attributes[field];
+
+            if (!isObject(value))
+                throw new SoukaiError(`Invalid value for field ${field}`);
+
+            attributes[field] = ensureAttributesExistence(value, definition.fields as FieldsDefinition);
         }
     }
 
@@ -893,32 +924,48 @@ function ensureRequiredAttributes(attributes: Attributes, fields: FieldsDefiniti
     for (const field in fields) {
         const definition = fields[field];
 
-        if (definition.required && (!(field in attributes) || isEmpty(attributes[field]))) {
+        if (definition.required && (!(field in attributes) || isEmpty(attributes[field])))
             throw new SoukaiError(`The ${field} attribute is required.`);
-        }
 
         if ((field in attributes) && !isEmpty(attributes[field]) && definition.type === FieldType.Object) {
-            ensureRequiredAttributes(attributes[field], <FieldsDefinition> definition.fields);
+            const value = attributes[field];
+
+            if (!isObject(value))
+                throw new SoukaiError(`Invalid value for field ${field}`);
+
+            ensureRequiredAttributes(value, <FieldsDefinition> definition.fields);
         }
     }
 }
 
-function isEmpty(value: any): boolean {
+function isEmpty(value: unknown): value is undefined | null {
     return typeof value === 'undefined' || value === null;
 }
 
+function cleanUndefinedAttributes(attributes: Attributes, fields: FieldsDefinition): Attributes;
+function cleanUndefinedAttributes(
+    attributes: Attributes,
+    fields: FieldsDefinition,
+    returnUndefined: true,
+): Attributes | undefined;
 function cleanUndefinedAttributes(
     attributes: Attributes,
     fields: FieldsDefinition,
     returnUndefined: boolean = false,
 ): Attributes | undefined {
-    attributes = deepClone(attributes);
+    attributes = objectDeepClone(attributes);
 
     for (const field in attributes) {
+        const definition = fields[field];
+
         if (typeof attributes[field] === 'undefined') {
             delete attributes[field];
-        } else if (field in fields && fields[field].type === FieldType.Object) {
-            const value = cleanUndefinedAttributes(attributes[field], <FieldsDefinition> fields[field].fields, true);
+        } else if (field in fields && definition.type === FieldType.Object) {
+            const value = cleanUndefinedAttributes(
+                attributes[field] as Attributes,
+                 definition.fields as FieldsDefinition,
+                 true,
+            );
 
             if (typeof value === 'undefined') {
                 delete attributes[field];

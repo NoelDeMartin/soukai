@@ -204,7 +204,7 @@ export default class extends TestSuite {
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
 
-        this.mockEngine.readMany.mockReturnValue(Promise.resolve({[id]: { id, name }}));
+        this.mockEngine.readMany.mockReturnValue(Promise.resolve({ [id]: { id, name } }));
 
         return User.all().then(models => {
             expect(models).toHaveLength(1);
@@ -349,7 +349,6 @@ export default class extends TestSuite {
     }
 
     public testThrowModelNotBootedErrorOnConstructor(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class NonBootedModel extends Model {
         }
 
@@ -359,7 +358,6 @@ export default class extends TestSuite {
     }
 
     public testThrowModelNotBootedErrorOnAll(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class NonBootedModel extends Model {
         }
 
@@ -369,7 +367,6 @@ export default class extends TestSuite {
     }
 
     public testThrowModelNotBootedErrorOnFind(): void {
-        // tslint:disable-next-line:max-classes-per-file
         class NonBootedModel extends Model {
         }
 

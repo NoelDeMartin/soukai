@@ -11,9 +11,9 @@ export type EngineAttributeValue =
     EngineAttributeValueArray |
     EngineAttributeValueArrayMap;
 
-interface EngineAttributeValueArray extends Array<EngineAttributeValue> {}
-interface EngineAttributeValueMap extends Record<string, EngineAttributeValue> {}
-interface EngineAttributeValueArrayMap extends Array<Record<string, EngineAttributeValue>> {}
+export interface EngineAttributeValueArray extends Array<EngineAttributeValue> {}
+export interface EngineAttributeValueMap extends Record<string, EngineAttributeValue> {}
+export interface EngineAttributeValueArrayMap extends Array<Record<string, EngineAttributeValue>> {}
 
 export type EngineAttributeFilter =
     EngineAttributeValue |

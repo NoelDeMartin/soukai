@@ -1,3 +1,5 @@
+import { objectHasOwnProperty } from '@noeldemartin/utils';
+
 import { engineClosesConnections } from '@/engines/ClosesConnections';
 import Engine from '@/engines/Engine';
 import Model from '@/models/Model';
@@ -27,9 +29,9 @@ export class Soukai {
         this._bootedModels[name] = model;
     }
 
-    public loadModels(models: { [name: string]: typeof Model}): void {
+    public loadModels(models: { [name: string]: typeof Model }): void {
         for (const name in models) {
-            if (models.hasOwnProperty(name)) {
+            if (objectHasOwnProperty(models, name)) {
                 this.loadModel(name, models[name]);
             }
         }

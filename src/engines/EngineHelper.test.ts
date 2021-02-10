@@ -384,9 +384,9 @@ describe('EngineHelper', () => {
 
 function assertDocumentUpdate(
     { original: document, update, expected }: {
-        original: EngineDocument,
-        update: EngineUpdates,
-        expected: EngineDocument,
+        original: EngineDocument;
+        update: EngineUpdates;
+        expected: EngineDocument;
     },
 ) {
     helper.updateAttributes(document, update);
