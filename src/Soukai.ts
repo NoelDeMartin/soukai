@@ -16,7 +16,13 @@ export class Soukai {
         return this._engine;
     }
 
-    public useEngine(engine: Engine): void {
+    public useEngine(engine: Engine | null): void {
+        if (!engine) {
+            delete this._engine;
+
+            return;
+        }
+
         this._engine = engine;
     }
 

@@ -19,8 +19,4 @@ export default Model.schema({
             mastodon: FieldType.String,
         },
     },
-    friendIds: {
-        type: FieldType.Array,
-        items: FieldType.Key,
-    },
 });

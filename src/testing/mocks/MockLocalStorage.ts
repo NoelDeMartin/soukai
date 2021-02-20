@@ -2,6 +2,7 @@ class MockLocalStorage implements Storage {
 
     private data: { [key: string]: string } = {};
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [name: string]: any;
 
     get length(): number {
@@ -15,11 +16,11 @@ class MockLocalStorage implements Storage {
     public reset(): void {
         this.data = {};
 
-        (this.clear as any).mockClear();
-        (this.getItem as any).mockClear();
-        (this.removeItem as any).mockClear();
-        (this.setItem as any).mockClear();
-        (this.key as any).mockClear();
+        (this.clear as jest.Mock).mockClear();
+        (this.getItem as jest.Mock).mockClear();
+        (this.removeItem as jest.Mock).mockClear();
+        (this.setItem as jest.Mock).mockClear();
+        (this.key as jest.Mock).mockClear();
     }
 
     public clear(): void {

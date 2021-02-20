@@ -27,7 +27,7 @@ export type MagicAttributes<T extends FieldsDefinition> =
         createdAt: typeof FieldType.Date;
         updatedAt: typeof FieldType.Date;
     }> &
-    // TODO infer attribute aliases
+    // TODO infer virtual attributes
     // TODO infer relationship attributes
     NestedMagicAttributes<T>;
 

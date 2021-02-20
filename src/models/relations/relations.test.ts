@@ -11,11 +11,11 @@ import Relation from '@/models/relations/Relation';
 
 import { Model } from '@/models/Model';
 
-import MockEngine from '@testing/mocks/MockEngine';
+import MockEngine from '@/testing/mocks/MockEngine';
 
-import City from '@testing/stubs/City';
-import Post from '@testing/stubs/Post';
-import User from '@testing/stubs/User';
+import City from '@/testing/stubs/City';
+import Post from '@/testing/stubs/Post';
+import User from '@/testing/stubs/User';
 
 describe('Model Relations', () => {
 

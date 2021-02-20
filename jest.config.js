@@ -7,7 +7,7 @@ module.exports = {
     collectCoverageFrom: ['<rootDir>/src/**/*'],
     coveragePathIgnorePatterns: ['<rootDir>/src/main.ts'],
     moduleFileExtensions: ['js', 'ts'],
-    moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
+    moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/src/' }),
     globals: {
         'ts-jest': {
             babelConfig: {

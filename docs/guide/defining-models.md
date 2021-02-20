@@ -131,11 +131,11 @@ In the same way that fields definition is expanded when the model is loaded, thi
 Field definitions will also be added for the timestamps that are enabled.
 :::
 
-### Attribute accessors
+### Attribute getters
 
-In some scenarios it may be useful to create aliases or virtual attributes (attributes that are only available in the model instance and not persisted). They can be defined with an attribute accessor implemented by declaring a method with the name `get{attribute-name}Attribute`. Where `{attribute-name}` is the name of the attribute starting with an uppercase letter.
+In some scenarios it may be useful to create aliases or virtual attributes (attributes that are only available in the model instance and not persisted). They can be defined with an attribute getter implemented by declaring a method with the name `get{attribute-name}Attribute`. Where `{attribute-name}` is the name of the attribute starting with an uppercase letter.
 
-Attribute accessors can also override reading a real attribute.
+Attribute getters can also override reading a real attribute.
 
 For example, imagine that we have the following model:
 
@@ -151,7 +151,7 @@ class User extends Model {
 }
 ```
 
-Instances of this model will respond to accessing to the `nickname` property by invoking the attribute accessor:
+Instances of this model will respond to accessing to the `nickname` property by invoking the attribute getter:
 
 ```javascript
 const user = new User({ name: 'John Doe' });
@@ -160,7 +160,7 @@ const user = new User({ name: 'John Doe' });
 console.log(user.name === user.nickname);
 ```
 
-::: warning ⚠️ Defining an accessor does not create new attributes
+::: warning ⚠️ Defining a getter does not create new attributes
 Keep in mind that doing this will only allow for such getters to be used, but the model will continue having the same attributes. This means that methods such as [getAttribute](https://soukai.js.org/api/classes/models.model.html#getattribute) or [getAttributes](https://soukai.js.org/api/classes/models.model.html#getattributes) will not take into account these virtual attributes. They will also be ignored in any interaction with engines.
 :::
 

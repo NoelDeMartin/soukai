@@ -6,60 +6,56 @@ import { LocalStorageEngine } from '@/engines/LocalStorageEngine';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
-import TestSuite from '../TestSuite';
+import MockLocalStorage from '@/testing/mocks/MockLocalStorage';
 
-import MockLocalStorage from '../mocks/MockLocalStorage';
+import User from '@/testing/stubs/User';
 
-import User from '../stubs/User';
+describe('LocalStorageEngine', () => {
 
-export default class extends TestSuite {
+    let engine: LocalStorageEngine;
+    let prefix: string;
 
-    public static title: string = 'LocalStorage';
-
-    private engine!: LocalStorageEngine;
-    private prefix!: string;
-
-    public setUp(): void {
+    beforeEach(() => {
         Soukai.loadModels({ User });
         MockLocalStorage.reset();
 
-        (window as any).localStorage = MockLocalStorage;
+        (window as unknown as { _localStorage: unknown })._localStorage = MockLocalStorage;
 
-        this.engine = new LocalStorageEngine(this.prefix = Faker.random.word());
-    }
+        engine = new LocalStorageEngine(prefix = Faker.random.word());
+    });
 
-    public testCreate(): Promise<void> {
+    it('testCreate', async () => {
         const name = Faker.name.firstName();
 
-        return this.engine.create(User.collection, { name }).then(id => {
+        return engine.create(User.collection, { name }).then(id => {
             expect(MockLocalStorage.setItem).toHaveBeenCalledTimes(1);
             expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
-                this.prefix + User.collection,
+                prefix + User.collection,
                 JSON.stringify({ [id]: { name } }),
             );
         });
-    }
+    });
 
-    public testReadOne(): Promise<void> {
+    it('testReadOne', async () => {
         const name = Faker.name.firstName();
         const id = Faker.random.uuid();
 
         MockLocalStorage.setData({
-            [this.prefix + User.collection]: JSON.stringify({
+            [prefix + User.collection]: JSON.stringify({
                 [id]: { name },
             }),
         });
 
-        return this.engine.readOne(User.collection, id).then(document => {
+        return engine.readOne(User.collection, id).then(document => {
             expect(document).toEqual({ name });
         });
-    }
+    });
 
-    public async testReadOneNonExistent(): Promise<void> {
-        await expect(this.engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
-    }
+    it('testReadOneNonExistent', async () => {
+        await expect(engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+    });
 
-    public testReadMany(): Promise<void> {
+    it('testReadMany', async () => {
         let otherCollection;
 
         do {
@@ -72,91 +68,94 @@ export default class extends TestSuite {
         const secondName = Faker.name.firstName();
 
         MockLocalStorage.setData({
-            [this.prefix + User.collection]: JSON.stringify({
+            [prefix + User.collection]: JSON.stringify({
                 [firstId]: { name: firstName },
                 [secondId]: { name: secondName },
             }),
-            [this.prefix + otherCollection]: JSON.stringify({
+            [prefix + otherCollection]: JSON.stringify({
                 [Faker.random.uuid()]: { name: Faker.name.firstName() },
             }),
         });
 
-        return this.engine.readMany(User.collection).then(documents => {
+        return engine.readMany(User.collection).then(documents => {
             expect(Object.values(documents)).toHaveLength(2);
             expect(documents[firstId]).toEqual({ name: firstName });
             expect(documents[secondId]).toEqual({ name: secondName });
         });
-    }
+    });
 
-    public async testReadManyFilters(): Promise<void> {
+    it('testReadManyFilters', async () => {
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
 
         MockLocalStorage.setData({
-            [this.prefix + User.collection]: JSON.stringify({
+            [prefix + User.collection]: JSON.stringify({
                 [Faker.random.uuid()]: { name: Faker.name.firstName() },
                 [id]: { name },
             }),
         });
 
-        const documents = await this.engine.readMany(User.collection, { name });
+        const documents = await engine.readMany(User.collection, { name });
 
         expect(Object.values(documents)).toHaveLength(1);
         expect(documents[id]).toEqual({ name });
-    }
+    });
 
-    public testUpdate(): Promise<void> {
+    it('testUpdate', async () => {
         const id = Faker.random.uuid();
         const initialName = Faker.name.firstName();
         const newName = Faker.name.firstName();
         const age = Faker.random.number();
 
         MockLocalStorage.setData({
-            [this.prefix + User.collection]: JSON.stringify({
+            [prefix + User.collection]: JSON.stringify({
                 [id]: { name: initialName, surname: Faker.name.lastName(), age },
             }),
         });
 
-        return this.engine.update(User.collection, id, { name: newName, surname: { $unset: true } }).then(() => {
+        return engine.update(User.collection, id, { name: newName, surname: { $unset: true } }).then(() => {
             expect(MockLocalStorage.setItem).toHaveBeenCalledTimes(1);
             expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
-                this.prefix + User.collection,
+                prefix + User.collection,
                 JSON.stringify({
                     [id]: { name: newName, age },
                 }),
             );
         });
-    }
+    });
 
-    public async testUpdateNonExistent(): Promise<void> {
-        await expect(this.engine.update(User.collection, Faker.random.uuid(), {}))
+    it('testUpdateNonExistent', async () => {
+        await expect(engine.update(User.collection, Faker.random.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
-    }
+    });
 
-    public testDelete(): Promise<void> {
+    it('testDelete', async () => {
+        // Arrange
         const firstId = Faker.random.uuid();
         const secondId = Faker.random.uuid();
         const name = Faker.name.firstName();
 
         MockLocalStorage.setData({
-            [this.prefix + User.collection]: JSON.stringify({
+            [prefix + User.collection]: JSON.stringify({
                 [firstId]: { name: Faker.name.firstName() },
                 [secondId]: { name },
             }),
         });
 
-        return this.engine.delete(User.collection, firstId).then(() => {
-            expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
-                this.prefix + User.collection,
-                JSON.stringify({
-                    [secondId]: { name },
-                }),
-            );
-        });
-    }
+        // Act
+        await engine.delete(User.collection, firstId);
 
-    public async testDeleteNonExistent(): Promise<void> {
-        await expect(this.engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
-    }
+        // Assert
+        expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
+            prefix + User.collection,
+            JSON.stringify({
+                [secondId]: { name },
+            }),
+        );
+    });
 
-}
+    it('testDeleteNonExistent', async () => {
+        await expect(engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+    });
+
+});

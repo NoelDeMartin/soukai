@@ -493,12 +493,10 @@ export class Model {
                     return Reflect.get(target, property, receiver);
                 }
 
-                const instance = target as Record<string, unknown>;
-                const attributeAccessor = stringToCamelCase(`get_${property}_attribute`);
-                if (typeof instance[attributeAccessor] === 'function') {
-                    const accessorMethod = instance[attributeAccessor] as () => unknown;
-
-                    return accessorMethod();
+                const instance = target as unknown as Record<string, () => unknown>;
+                const attributeGetter = stringToCamelCase(`get_${property}_attribute`);
+                if (typeof instance[attributeGetter] === 'function') {
+                    return instance[attributeGetter].call(target._proxy);
                 }
 
                 if (target.hasRelation(property)) {
