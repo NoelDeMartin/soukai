@@ -1,11 +1,12 @@
-import Engine, {
+import {
+    Engine,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
 
-export default class LogEngine<InnerEngine extends Engine = Engine> implements Engine {
+export class LogEngine<InnerEngine extends Engine = Engine> implements Engine {
 
     public readonly engine: InnerEngine;
 

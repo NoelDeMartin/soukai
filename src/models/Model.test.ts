@@ -1,9 +1,11 @@
 import Faker from 'faker';
 
+import { Engine } from '@/engines/Engine';
+import { Key } from '@/models/Model';
 import Soukai from '@/Soukai';
 
-import Engine from '@/engines/Engine';
-
+import { Assert, Equals, Expect, Extends } from '@/testing';
+import City from '@testing/stubs/City';
 import MockEngine from '@testing/mocks/MockEngine';
 import Post from '@testing/stubs/Post';
 import User from '@testing/stubs/User';
@@ -15,7 +17,7 @@ describe('Model', () => {
     beforeEach(() => {
         MockEngine.mockClear();
         Soukai.useEngine(mockEngine = new MockEngine());
-        Soukai.loadModels({ User, Post });
+        Soukai.loadModels({ User, Post, City });
     });
 
     it('deletes related models with cascade delete mode', async () => {
@@ -42,3 +44,17 @@ describe('Model', () => {
     });
 
 });
+
+export type InfersProxyAttributes =
+    Expect<Equals<User['name'], string>> |
+    Expect<Equals<User['surname'], string | undefined>> |
+    Expect<Equals<User['age'], number | undefined>> |
+    Expect<Equals<User['birthDate'], Date | undefined>> |
+    Expect<Extends<User['contact'], undefined>> |
+    Expect<Equals<Assert<User['contact']>['email'], string | undefined>> |
+    Expect<Extends<User['social'], undefined>> |
+    Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
+    Expect<Equals<User['friendIds'], Key[] | undefined>> |
+    Expect<Equals<Post['title'], string>> |
+    Expect<Equals<City['name'], string>> |
+    true;

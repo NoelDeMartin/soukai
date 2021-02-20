@@ -1,16 +1,20 @@
 import { objectHasOwnProperty } from '@noeldemartin/utils';
 
 import { engineClosesConnections } from '@/engines/ClosesConnections';
-import Engine from '@/engines/Engine';
-import Model from '@/models/Model';
+import { Engine } from '@/engines/Engine';
+import { Model } from '@/models/Model';
 
 import SoukaiError from '@/errors/SoukaiError';
 
 export class Soukai {
 
-    private _engine: Engine;
+    private _engine?: Engine;
 
-    private _bootedModels: { [name: string]: typeof Model } = {};
+    private _bootedModels: Record<string, typeof Model> = {};
+
+    public get engine(): Engine | undefined {
+        return this._engine;
+    }
 
     public useEngine(engine: Engine): void {
         this._engine = engine;
@@ -21,15 +25,14 @@ export class Soukai {
     }
 
     public loadModel(name: string, model: typeof Model): void {
-        if (name in model) {
+        if (name in model)
             return;
-        }
 
         model.boot(name);
         this._bootedModels[name] = model;
     }
 
-    public loadModels(models: { [name: string]: typeof Model }): void {
+    public loadModels(models: Record<string, typeof Model>): void {
         for (const name in models) {
             if (objectHasOwnProperty(models, name)) {
                 this.loadModel(name, models[name]);
@@ -38,12 +41,11 @@ export class Soukai {
     }
 
     public requireEngine(): Engine {
-        if (!this._engine) {
+        if (!this._engine)
             throw new SoukaiError(
                 'Engine must be initialized before performing any operations. ' +
                 'Learn more at https://soukai.js.org/guide/engines.html',
             );
-        }
 
         return this._engine;
     }
@@ -54,10 +56,6 @@ export class Soukai {
         }
 
         await this._engine.closeConnections();
-    }
-
-    public get engine(): Engine {
-        return this._engine;
     }
 
 }

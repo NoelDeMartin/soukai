@@ -5,7 +5,7 @@ import { deleteDB, IDBPDatabase, IDBPTransaction, openDB } from 'idb';
 
 import Soukai from '@/Soukai';
 
-import IndexedDBEngine from '@/engines/IndexedDBEngine';
+import { IndexedDBEngine } from '@/engines/IndexedDBEngine';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
@@ -18,11 +18,11 @@ export default class extends TestSuite {
 
     public static title: string = 'IndexedDB';
 
-    private databaseName: string;
-    private databaseCollections: string[];
-    private engine: IndexedDBEngine;
-    private metadataConnection: IDBPDatabase;
-    private collectionsConnection: IDBPDatabase;
+    private databaseName!: string;
+    private databaseCollections!: string[];
+    private engine!: IndexedDBEngine;
+    private metadataConnection?: IDBPDatabase;
+    private collectionsConnection?: IDBPDatabase;
 
     public async setUp(): Promise<void> {
         Soukai.loadModels({ User });
@@ -287,7 +287,7 @@ export default class extends TestSuite {
         collection: string,
         mode: IDBTransactionMode,
     ): Promise<IDBPTransaction<unknown, [string]>> {
-        return this.collectionsConnection.transaction(collection, mode);
+        return this.collectionsConnection!.transaction(collection, mode);
     }
 
 }

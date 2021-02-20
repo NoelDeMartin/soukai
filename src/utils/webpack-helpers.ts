@@ -1,7 +1,7 @@
-import Model from '@/models/Model';
+import { Model } from '@/models/index';
 
-export function definitionsFromContext(context: __WebpackModuleApi.RequireContext): { [name: string]: typeof Model } {
-    const models = {};
+export function definitionsFromContext(context: __WebpackModuleApi.RequireContext): Record<string, typeof Model> {
+    const models = {} as Record<string, typeof Model>;
 
     for (const fileName of context.keys()) {
         const name = (fileName.match(/^(?:\.\/)?(.+)\.(j|t)s$/) || [])[1];

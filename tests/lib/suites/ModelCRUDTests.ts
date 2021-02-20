@@ -1,7 +1,7 @@
 import Faker from 'faker';
 
-import Engine from '@/engines/Engine';
-import Model from '@/models/Model';
+import { Engine } from '@/engines/Engine';
+import { Model } from '@/models/Model';
 import Soukai from '@/Soukai';
 
 import SoukaiError from '@/errors/SoukaiError';
@@ -18,7 +18,7 @@ export default class extends TestSuite {
 
     public static title: string = 'CRUD';
 
-    private mockEngine: jest.Mocked<Engine>;
+    private mockEngine!: jest.Mocked<Engine>;
 
     public setUp(): void {
         MockEngine.mockClear();

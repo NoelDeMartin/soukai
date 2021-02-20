@@ -1,6 +1,6 @@
 import Faker from 'faker';
 
-import Engine from '@/engines/Engine';
+import { Engine } from '@/engines/Engine';
 import Soukai from '@/Soukai';
 
 import { seconds, wait } from '../utils';
@@ -15,7 +15,7 @@ export default class extends TestSuite {
 
     public static title: string = 'Attributes';
 
-    private mockEngine: jest.Mocked<Engine>;
+    private mockEngine!: jest.Mocked<Engine>;
 
     public setUp(): void {
         MockEngine.mockClear();
@@ -136,7 +136,7 @@ export default class extends TestSuite {
         model.name = Faker.name.firstName();
         model.surname = Faker.name.lastName();
         model.surname = originalSurname;
-        model.social = { twitter: Faker.internet.userName() };
+        model.social = { mastodon: Faker.internet.userName() };
         delete model.contact;
 
         expect(model.isDirty('name')).toBe(true);
@@ -153,7 +153,7 @@ export default class extends TestSuite {
             contact: { phone: Faker.phone.phoneNumber() },
         }, true);
 
-        this.mockEngine.create.mockReturnValue(Promise.resolve());
+        this.mockEngine.create.mockReturnValue(Promise.resolve(''));
 
         model.update({
             name: Faker.name.firstName(),

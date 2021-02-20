@@ -1,15 +1,16 @@
-import Model from '@/models/Model';
-import Relation from '@/models/relations/Relation';
+import { stringToCamelCase } from '@noeldemartin/utils';
 
-import { camelCase } from '@/internal/utils/Str';
+import { ModelConstructor } from '@/models/inference';
+import { Model } from '@/models/Model';
+import Relation from '@/models/relations/Relation';
 
 export default abstract class MultiModelRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
-    RelatedClass extends typeof Model = typeof Model,
+    RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
-    public related: Related[] | null;
+    public related: Related[] | null = null;
 
     public constructor(
         parent: Parent,
@@ -20,7 +21,7 @@ export default abstract class MultiModelRelation<
         super(
             parent,
             relatedClass,
-            foreignKeyName || camelCase(relatedClass.name + '_' + relatedClass.primaryKey + 's'),
+            foreignKeyName || stringToCamelCase(relatedClass.name + '_' + relatedClass.primaryKey + 's'),
             localKeyName,
         );
     }

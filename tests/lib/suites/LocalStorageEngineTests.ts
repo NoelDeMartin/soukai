@@ -2,7 +2,7 @@ import Faker from 'faker';
 
 import Soukai from '@/Soukai';
 
-import LocalStorageEngine from '@/engines/LocalStorageEngine';
+import { LocalStorageEngine } from '@/engines/LocalStorageEngine';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
@@ -16,9 +16,8 @@ export default class extends TestSuite {
 
     public static title: string = 'LocalStorage';
 
-    private engine: LocalStorageEngine;
-
-    private prefix: string;
+    private engine!: LocalStorageEngine;
+    private prefix!: string;
 
     public setUp(): void {
         Soukai.loadModels({ User });
@@ -36,7 +35,7 @@ export default class extends TestSuite {
             expect(MockLocalStorage.setItem).toHaveBeenCalledTimes(1);
             expect(MockLocalStorage.setItem).toHaveBeenCalledWith(
                 this.prefix + User.collection,
-                JSON.stringify({ [id]: { name} }),
+                JSON.stringify({ [id]: { name } }),
             );
         });
     }

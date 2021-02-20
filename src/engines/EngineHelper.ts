@@ -18,11 +18,17 @@ import UUID from '@/internal/utils/UUID';
 type Handler<T = unknown> = (...params: any[]) => T;
 type Operation<T extends Record<string, unknown> = Record<string, unknown>> = Record<keyof T, unknown>;
 type AttributesMap = Record<string, EngineAttributeValue>;
-type RootFilterHandler = (id: string, document: EngineDocument, filterData: unknown) => boolean;
-type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: unknown) => boolean;
-type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: unknown) => void;
 
-export default class EngineHelper {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RootFilterHandler = (id: string, document: EngineDocument, filterData: any) => boolean;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: any) => boolean;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: any) => void;
+
+export class EngineHelper {
 
     private rootFilters: Record<'$in', RootFilterHandler>;
     private attributeFilters: Record<'$eq' | '$contains' | '$or' | '$in', AttributeFilterHandler>;
@@ -57,7 +63,7 @@ export default class EngineHelper {
             }
 
             return filteredDocuments;
-        }, {});
+        }, {} as Record<string, EngineDocument>);
     }
 
     public updateAttributes(attributes: Record<string, EngineAttributeValue>, updates: EngineUpdates): void {
@@ -87,7 +93,9 @@ export default class EngineHelper {
         const rootFilters = Object.keys(filters).filter(filter => filter in this.rootFilters);
 
         for (const rootFilter of rootFilters) {
-            if (!this.rootFilters[rootFilter](id, document, filters[rootFilter])) {
+            const handler = (this.rootFilters as Record<string, RootFilterHandler>)[rootFilter];
+
+            if (!handler(id, document, filters[rootFilter])) {
                 return false;
             }
 
@@ -222,7 +230,7 @@ export default class EngineHelper {
                 Object.keys(filteredDocuments).forEach(index => {
                     this.updateAttributes(filteredDocuments, { [index]: $update });
 
-                    array[index] = filteredDocuments[index];
+                    array[parseInt(index)] = filteredDocuments[index];
                 });
             }
 
@@ -249,10 +257,15 @@ export default class EngineHelper {
             return;
         }
 
+        const propertyValue = value[property];
+
+        if (!isObject(propertyValue))
+            return;
+
         unsetProperties = Array.isArray(unsetProperties) ? unsetProperties : [unsetProperties];
 
         for (const unsetProperty of unsetProperties) {
-            delete value[property]?.[unsetProperty];
+            delete propertyValue[unsetProperty];
         }
     };
 
@@ -295,11 +308,11 @@ export default class EngineHelper {
         value: EngineAttributeValue,
         property: string,
     ): EngineAttributeValue[] {
-        if (!value || !Array.isArray(value[property])) {
+        if (!value || !isObject(value) || !Array.isArray(value[property])) {
             throw new Error(`${operator} operator can only be applied to array attributes`);
         }
 
-        return value[property];
+        return value[property] as EngineAttributeValue[];
     }
 
 }

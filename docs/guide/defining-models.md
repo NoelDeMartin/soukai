@@ -280,6 +280,9 @@ class User extends Model {
 
 Learn how to use the relationships we just defined in the [next section](/guide/using-models.html#working-with-relationships).
 
+## TypeScript inference
+
+TODO
 
 ## A word about constructors
 

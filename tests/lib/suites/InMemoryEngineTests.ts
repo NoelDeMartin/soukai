@@ -2,9 +2,9 @@ import Faker from 'faker';
 
 import Soukai from '@/Soukai';
 
-import Model from '@/models/Model';
+import { Model } from '@/models/Model';
 
-import InMemoryEngine from '@/engines/InMemoryEngine';
+import { InMemoryEngine } from '@/engines/InMemoryEngine';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
@@ -16,7 +16,7 @@ export default class extends TestSuite {
 
     public static title: string = 'InMemory';
 
-    private engine: InMemoryEngine;
+    private engine!: InMemoryEngine;
 
     public setUp(): void {
         Soukai.loadModels({ User });
@@ -55,7 +55,7 @@ export default class extends TestSuite {
     }
 
     public testReadMany(): Promise<void> {
-        let otherCollection;
+        let otherCollection: string;
 
         do {
             otherCollection = Faker.lorem.word();
@@ -64,7 +64,7 @@ export default class extends TestSuite {
         class StubModel extends Model {
 
             public static collection = otherCollection;
-        
+
         }
 
         const firstName = Faker.name.firstName();
@@ -103,7 +103,7 @@ export default class extends TestSuite {
         const newName = Faker.name.firstName();
         const age = Faker.random.number();
 
-        let id;
+        let id: string;
 
         return this.engine.create(User.collection, { name: initialName, surname: Faker.name.lastName(), age })
             .then(documentId => {

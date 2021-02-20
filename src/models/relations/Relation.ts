@@ -1,14 +1,15 @@
-import Model from '@/models/Model';
+import { ModelConstructor } from '@/models/inference';
+import { Model } from '@/models/Model';
 
-type RelationDeleteStrategy = null | 'cascade';
+export type RelationDeleteStrategy = null | 'cascade';
 
 export default abstract class Relation<
     Parent extends Model = Model,
     Related extends Model = Model,
-    RelatedClass extends typeof Model = typeof Model,
+    RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > {
 
-    public name: string;
+    public name!: string;
     public related: Related[] | Related | null = null;
     public parent: Parent;
     public relatedClass: RelatedClass;

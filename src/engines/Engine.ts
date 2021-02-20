@@ -51,7 +51,7 @@ export type EngineDocumentsCollection = Record<string, EngineDocument>;
 export type EngineFilters = EngineRootFilter & Record<string, EngineAttributeFilter>;
 export type EngineUpdates = Record<string, EngineAttributeUpdate> | { $unset: string | string[] };
 
-export default interface Engine {
+export interface Engine {
 
     create(collection: string, document: EngineDocument, id?: string): Promise<string>;
 

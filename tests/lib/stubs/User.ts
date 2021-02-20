@@ -1,28 +1,21 @@
-import Model, { FieldType } from '@/models/Model';
-import Relation from '@/models/relations/Relation';
+import { Relation, MultiModelRelation, SingleModelRelation } from '@/models/index';
 
-import City from './City';
+import Model from './User.schema';
 import Post from './Post';
+import City from './City';
 
 export default class User extends Model {
 
-    public static fields = {
-        name: {
-            type: FieldType.String,
-            required: true,
-        },
-        surname: FieldType.String,
-        age: FieldType.Number,
-        birthDate: FieldType.Date,
-        contact: {
-            email: FieldType.String,
-            phone: FieldType.String,
-        },
-        social: {
-            facebook: FieldType.String,
-            twitter: FieldType.String,
-        },
-    };
+    alias!: string;
+    posts!: Post[] | null;
+    birthPlace!: City | null;
+
+    relatedPosts!: MultiModelRelation<User, Post, typeof Post>;
+    relatedBirthPlace!: SingleModelRelation<User, City, typeof City>;
+
+    public getAliasAttribute(): string {
+        return this.name;
+    }
 
     public postsRelationship(): Relation {
         return this
@@ -32,10 +25,6 @@ export default class User extends Model {
 
     public birthPlaceRelationship(): Relation {
         return this.hasOne(City, 'birthRecords');
-    }
-
-    public getAliasAttribute(): string {
-        return this.getAttribute('name');
     }
 
 }

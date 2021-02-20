@@ -5,3 +5,5 @@ import ModelDefinitionTests from './lib/suites/ModelDefinitionTests';
 ModelAttributeTests.run();
 ModelDefinitionTests.run();
 ModelCRUDTests.run();
+
+it.todo('migrate to standard test format');

@@ -4,15 +4,16 @@ import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 import SoukaiError from '@/errors/SoukaiError';
 
-import Engine, {
+import {
+    Engine,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
 
-import ClosesConnections from '@/engines/ClosesConnections';
-import EngineHelper from '@/engines/EngineHelper';
+import { ClosesConnections } from '@/engines/ClosesConnections';
+import { EngineHelper } from '@/engines/EngineHelper';
 
 interface DatabaseConnection<Schema extends DBSchema> {
     readonly objectStoreNames: TypedDOMStringList<string>;
@@ -39,7 +40,7 @@ interface DocumentsSchema extends DBSchema {
     };
 }
 
-export default class IndexedDBEngine implements Engine, ClosesConnections {
+export class IndexedDBEngine implements Engine, ClosesConnections {
 
     private database: string;
     private helper: EngineHelper;
@@ -99,7 +100,7 @@ export default class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
-        const documents = {};
+        const documents = {} as EngineDocumentsCollection;
         const collections = await this.getCollections();
 
         if (collections.indexOf(collection) === -1) {
@@ -107,7 +108,7 @@ export default class IndexedDBEngine implements Engine, ClosesConnections {
         }
 
         await this.withDocumentsTransaction(collections, collection, 'readonly', transaction => {
-            const processCursor = (cursor: IDBPCursorWithValue<DocumentsSchema> | null) => {
+            const processCursor = async (cursor: IDBPCursorWithValue<DocumentsSchema> | null): Promise<void> => {
                 if (!cursor) {
                     return;
                 }

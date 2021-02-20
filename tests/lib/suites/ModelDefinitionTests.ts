@@ -1,4 +1,4 @@
-import Model, { FieldType } from '@/models/Model';
+import { Model, FieldType, TimestampField, TimestampFieldValue } from '@/models/index';
 import Soukai from '@/Soukai';
 
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
@@ -40,7 +40,7 @@ export default class extends TestSuite {
     public testTimestamps(): void {
         class StubModel extends Model {
 
-            public static timestamps = ['createdAt'];
+            public static timestamps = [TimestampField.CreatedAt];
 
         }
 
@@ -78,7 +78,7 @@ export default class extends TestSuite {
     public testInvalidTimestamps(): void {
         class StubModel extends Model {
 
-            public static timestamps = ['foobar'];
+            public static timestamps = ['foobar'] as unknown as TimestampFieldValue[];
 
         }
 
@@ -223,7 +223,7 @@ export default class extends TestSuite {
     public testInvalidTimestampField(): void {
         class StubModel extends Model {
 
-            public static timestamps = ['createdAt'];
+            public static timestamps = [TimestampField.CreatedAt];
 
             public static fields = {
                 createdAt: {

@@ -23,7 +23,7 @@ export default abstract class {
         }
     }
 
-    public disabled: boolean;
+    public disabled: boolean = false;
 
     public setUp(): void {
         //

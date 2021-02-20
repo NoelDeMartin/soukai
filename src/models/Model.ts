@@ -1,14 +1,30 @@
-import { arrayUnique, deepEquals, isObject, objectDeepClone, objectHasOwnProperty } from '@noeldemartin/utils';
-
-import Soukai from '@/Soukai';
-
-import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
-import SoukaiError from '@/errors/SoukaiError';
-
-import { camelCase, studlyCase } from '@/internal/utils/Str';
+import {
+    arrayUnique,
+    deepEquals,
+    isNullable,
+    isObject,
+    objectDeepClone,
+    objectHasOwnProperty,
+    stringToCamelCase,
+} from '@noeldemartin/utils';
 
 import { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
+import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
+import Soukai from '@/Soukai';
+import SoukaiError from '@/errors/SoukaiError';
 
+import {
+    BootedFieldDefinition,
+    BootedFieldsDefinition,
+    expandFieldDefinition,
+    FieldsDefinition,
+    FieldType,
+    TIMESTAMP_FIELDS,
+    TimestampField,
+    TimestampFieldValue,
+} from './fields';
+import { ModelConstructor, MagicAttributes, Constructor } from './inference';
+import { Attributes, removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
@@ -17,53 +33,18 @@ import MultiModelRelation from './relations/MultiModelRelation';
 import Relation from './relations/Relation';
 import SingleModelRelation from './relations/SingleModelRelation';
 
-export type Attributes = Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Key = any;
 
-export enum FieldType {
-    Number = 'number',
-    String = 'string',
-    Boolean = 'boolean',
-    Array = 'array',
-    Object = 'object',
-    Date = 'date',
-    Key = 'key',
-}
+export type ModelInterface<T extends typeof Model> = MagicAttributes<T['fields']>;
 
-export interface FieldDefinitionBase {
-    required: boolean;
-}
-
-export interface BasicFieldDefinition extends FieldDefinitionBase {
-    type: Exclude<FieldType, FieldType.Array | FieldType.Object>;
-}
-
-export interface ArrayFieldDefinition extends FieldDefinitionBase {
-    type: FieldType.Array;
-    items: Omit<FieldDefinition, 'required'> | FieldType;
-}
-
-export interface ObjectFieldDefinition extends FieldDefinitionBase {
-    type: FieldType.Object;
-    fields: FieldsDefinition;
-}
-
-export type FieldDefinition = BasicFieldDefinition | ArrayFieldDefinition | ObjectFieldDefinition;
-export type FieldsDefinition = Record<string, FieldDefinition>;
-export type Stringable = { toString(): string };
-
-const TYPE_VALUES = Object.values(FieldType);
-const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
-
-/**
- * Active record model definition.
- */
-export default abstract class Model<Key extends Stringable = Stringable> {
+export class Model {
 
     public static collection: string;
 
     public static primaryKey: string = 'id';
 
-    public static timestamps: string[] | boolean;
+    public static timestamps: TimestampFieldValue[] | boolean;
 
     public static fields: FieldsDefinition;
 
@@ -73,21 +54,12 @@ export default abstract class Model<Key extends Stringable = Stringable> {
 
     public static relations: string[] = [];
 
-    public static get instance(): Model {
-        const ModelClass = this as unknown as { new(): Model };
+    private static instances = new WeakMap;
+    private static pureInstances = new WeakMap;
 
-        return new ModelClass();
-    }
-
-    protected static get pureInstance(): Model {
-        const ModelClass = this as unknown as { new(attributes: Attributes): Model };
-
-        return new ModelClass({ __pureInstance: true });
-    }
-
-    public static boot(name: string): void {
+    public static boot<T extends Model>(this: ModelConstructor<T>, name: string): void {
         const modelClass = this;
-        const fieldDefinitions: FieldsDefinition = {};
+        const fieldDefinitions: BootedFieldsDefinition = {};
 
         // Validate collection
         if (typeof modelClass.collection === 'undefined') {
@@ -108,7 +80,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
             }
         } else if (Array.isArray(modelClass.timestamps)) {
             for (const field of modelClass.timestamps) {
-                if (TIMESTAMP_FIELDS.indexOf(field) === -1) {
+                if (!TIMESTAMP_FIELDS.includes(field)) {
                     throw new InvalidModelDefinition(name, `Invalid timestamp field defined (${field})`);
                 }
 
@@ -119,20 +91,20 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         }
 
         // Validate fields
-        if (typeof modelClass.fields !== 'undefined') {
-            for (const field in modelClass.fields) {
-                if (objectHasOwnProperty(modelClass.fields, field)) {
-                    fieldDefinitions[field] = validateFieldDefinition(name, field, modelClass.fields[field]);
+        if (typeof this.fields !== 'undefined') {
+            for (const field in this.fields) {
+                if (objectHasOwnProperty(this.fields, field)) {
+                    fieldDefinitions[field] = expandFieldDefinition(name, field, this.fields[field]);
 
                     if (
-                        modelClass.timestamps.indexOf(field) !== -1 && (
+                        modelClass.timestamps.includes(field as TimestampFieldValue) && (
                             fieldDefinitions[field].type !== FieldType.Date ||
                             fieldDefinitions[field].required
                         )
                     ) {
                         throw new InvalidModelDefinition(
                             name,
-                            `Field ${field} definition must be type date and not required ` +
+                            `Field ${field} definition must be type Date and not required ` +
                             'because it is used an automatic timestamp. ' +
                             'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
                         );
@@ -150,15 +122,19 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         }
 
         // Obtain class definition information
-        const classFields: string[] = Object.getOwnPropertyNames(modelClass.pureInstance);
+        const pureInstance = modelClass.pureInstance();
+        const classFields: string[] = Object.getOwnPropertyNames(pureInstance);
         const relations: string[] = [];
 
-        let prototype = Object.getPrototypeOf(modelClass.pureInstance);
+        let prototype = Object.getPrototypeOf(pureInstance);
         while (prototype !== Model.prototype) {
             classFields.push(...prototype.constructor.classFields);
 
             for (const property of Object.getOwnPropertyNames(prototype)) {
-                if (property.endsWith('Relationship') && typeof modelClass.pureInstance[property] === 'function') {
+                if (
+                    property.endsWith('Relationship') &&
+                    typeof pureInstance[property as keyof typeof pureInstance] === 'function'
+                ) {
                     relations.push(property.substring(0, property.length - 12));
                 }
             }
@@ -166,48 +142,44 @@ export default abstract class Model<Key extends Stringable = Stringable> {
             prototype = Object.getPrototypeOf(prototype);
         }
 
-        modelClass.classFields = arrayUnique(classFields);
-        modelClass.relations = arrayUnique(relations);
-        modelClass.fields = fieldDefinitions;
+        this.classFields = arrayUnique(classFields);
+        this.relations = arrayUnique(relations);
+        this.fields = fieldDefinitions;
         modelClass.modelName = name;
     }
 
-    public static create<T extends Model>(attributes: Attributes = {}): Promise<T> {
-        const ModelClass = this as unknown as { new (attributes: Attributes): T };
-        const model = new ModelClass(attributes);
+    public static create<T extends Model>(this: ModelConstructor<T>, attributes: Attributes = {}): Promise<T> {
+        const model = new this(attributes);
 
         return model.save();
     }
 
-    public static createFromEngineDocument<T extends Model, Key = unknown>(
+    public static createFromEngineDocument<T extends Model>(
+        this: ModelConstructor<T>,
         id: Key,
         document: EngineDocument,
     ): Promise<T> {
-        return this.instance.createFromEngineDocument(id, document);
+        return this.instance().createFromEngineDocument(id, document);
     }
 
     public static createManyFromEngineDocuments<T extends Model>(
+        this: ModelConstructor<T>,
         documents: Record<string, EngineDocument>,
     ): Promise<T[]> {
-        return this.instance.createManyFromEngineDocuments(documents);
+        return this.instance().createManyFromEngineDocuments(documents);
     }
 
-    public static find<T extends Model, Key = unknown>(id: Key): Promise<T | null> {
+    public static find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
         this.ensureBooted();
 
         return Soukai
             .requireEngine()
-            .readOne(this.collection, this.instance.serializeKey(id))
-            .then(document => this.createFromEngineDocument<T, Key>(id, document))
+            .readOne(this.collection, this.instance().serializeKey(id))
+            .then(document => this.createFromEngineDocument(id, document))
             .catch(() => null);
     }
 
-    /**
-     * Get all models matching the given filters.
-     *
-     * @param filters
-     */
-    public static async all<T extends Model>(filters?: EngineFilters): Promise<T[]> {
+    public static async all<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T[]> {
         this.ensureBooted();
 
         const engine = Soukai.requireEngine();
@@ -217,30 +189,55 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         return models as T[];
     }
 
-    public static async first<T extends Model>(filters?: EngineFilters): Promise<T|null> {
+    public static async first<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T | null> {
         // TODO implement limit 1
-        const [model] = await this.all<T>(filters);
+        const [model] = await this.all(filters);
 
         return model || null;
     }
 
-    protected static ensureBooted(): void {
-        const modelClass = this as unknown as { modelName?: string };
+    public static schema<T extends Model, F extends FieldsDefinition>(
+        this: ModelConstructor<T>,
+        fields: F,
+    ): Constructor<MagicAttributes<F>> & ModelConstructor<T> {
+        return class extends Model {
 
-        if (typeof modelClass.modelName === 'undefined')
+            static fields = fields;
+
+        } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    }
+
+    public static instance<T extends Model>(this: ModelConstructor<T>): T {
+        if (!this.instances.has(this)) {
+            this.instances.set(this, new this());
+        }
+
+        return this.instances.get(this);
+    }
+
+    protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {
+        if (!this.pureInstances.has(this)) {
+            this.pureInstances.set(this, new this({ __pureInstance: true }));
+        }
+
+        return this.pureInstances.get(this);
+    }
+
+    protected static ensureBooted<T extends Model>(this: ModelConstructor<T>): void {
+        if (typeof this.modelName === 'undefined')
             throw new SoukaiError(
                 'Model has not been booted (did you forget to call Soukai.loadModel?) ' +
                 'Learn more at https://soukai.js.org/guide/defining-models.html',
             );
     }
 
-    protected _exists: boolean;
-    protected _wasRecentlyCreated: boolean;
-    protected _proxy: Model<Key>;
-    protected _attributes: Attributes;
-    protected _originalAttributes: Attributes;
-    protected _dirtyAttributes: Attributes;
-    protected _relations: { [relation: string]: Relation };
+    protected _exists!: boolean;
+    protected _wasRecentlyCreated!: boolean;
+    protected _proxy!: Model;
+    protected _attributes!: Attributes;
+    protected _originalAttributes!: Attributes;
+    protected _dirtyAttributes!: Attributes;
+    protected _relations!: { [relation: string]: Relation };
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
         // We need to do this in order to get a pure instance during boot,
@@ -250,26 +247,42 @@ export default abstract class Model<Key extends Stringable = Stringable> {
             return;
         }
 
-        this.modelClass.ensureBooted();
+        this.static().ensureBooted();
         this.initialize(attributes, exists);
 
         return this._proxy;
     }
 
-    public get modelClass(): typeof Model {
-        return this.constructor as typeof Model;
+    public static(): ModelConstructor<this>;
+    public static(property: 'fields'): BootedFieldsDefinition;
+    public static(property: 'timestamps'): TimestampFieldValue[];
+    public static<T extends keyof ModelConstructor<this>>(property: T): ModelConstructor<this>[T];
+    public static<T extends keyof ModelConstructor<this>>(
+        property?: T,
+    ): ModelConstructor<this> | ModelConstructor<this>[T] {
+        const constructor = this.constructor as ModelConstructor<this>;
+
+        return property
+            ? constructor[property] as ModelConstructor<this>[T]
+            : constructor;
     }
 
-    public update<T extends Model>(attributes: Attributes = {}): Promise<T> {
+    public newInstance<T extends Model>(this: T, ...params: ConstructorParameters<ModelConstructor<T>>): T {
+        const constructor = this.constructor as ModelConstructor<T>;
+
+        return new constructor(...params);
+    }
+
+    public update(attributes: Attributes = {}): Promise<this> {
         // TODO validate protected fields (e.g. id)
 
-        attributes = this.castAttributes(attributes, this.modelClass.fields);
+        attributes = this.castAttributes(attributes, this.static('fields'));
 
         for (const field in attributes) {
             this.setAttribute(field, attributes[field]);
         }
 
-        if (this.hasAutomaticTimestamp('updatedAt')) {
+        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
             this.touch();
         }
 
@@ -277,29 +290,33 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     }
 
     public hasRelation(relation: string): boolean {
-        return this.modelClass.relations.indexOf(relation) !== -1;
+        return this.static('relations').indexOf(relation) !== -1;
     }
 
-    public getRelation(relation: string): Relation | null {
-        return this._relations[relation] || null;
+    public getRelation<T extends Relation = Relation>(relation: string): T | null {
+        return this._relations[relation] as T || null;
     }
 
-    public loadRelation(relation: string): Promise<null | Model | Model[]> {
-        return this.requireRelation(relation).resolve();
+    public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
+        relation: string,
+    ): Promise<T> {
+        return this.requireRelation(relation).resolve() as Promise<T>;
     }
 
-    public async loadRelationIfUnloaded(relation: string): Promise<null | Model | Model[]> {
+    public async loadRelationIfUnloaded<T extends Model | null | Model[] = Model | null | Model[]>(
+        relation: string,
+    ): Promise<T> {
         return this.isRelationLoaded(relation)
-            ? this.getRelationModels(relation)
-            : this.loadRelation(relation);
+            ? this.getRelationModels<T>(relation)
+            : this.loadRelation<T>(relation);
     }
 
     public unloadRelation(relation: string): void {
         this.requireRelation(relation).unload();
     }
 
-    public getRelationModels(relation: string): null | Model[] | Model {
-        return this.requireRelation(relation).related;
+    public getRelationModels<T extends Model | null | Model[] = Model | null | Model[]>(relation: string): T {
+        return this.requireRelation(relation).related as T;
     }
 
     public setRelationModels(relation: string, models: null | Model | Model[]): void {
@@ -312,7 +329,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
 
     public hasAttribute(field: string): boolean {
         const parts = field.split('.');
-        let value = cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
+        let value = removeUndefinedAttributes(this._attributes, this.static('fields'));
 
         for (const part of parts) {
             if (!isObject(value) || !(part in value))
@@ -327,7 +344,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     public setAttribute(field: string, value: unknown): void {
         // TODO implement deep setter
 
-        value = this.castAttribute(value, this.modelClass.fields[field]);
+        value = this.castAttribute(value, this.static('fields')[field]);
 
         this._attributes[field] = value;
 
@@ -337,7 +354,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
             this._dirtyAttributes[field] = value;
         }
 
-        if (this.hasAutomaticTimestamp('updatedAt') && field !== 'updatedAt') {
+        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && field !== TimestampField.UpdatedAt) {
             this.touch();
         }
     }
@@ -367,14 +384,14 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     public getAttributes(includeUndefined: boolean = false): Attributes {
         return includeUndefined
             ? objectDeepClone(this._attributes)
-            : <Attributes> cleanUndefinedAttributes(this._attributes, this.modelClass.fields);
+            : removeUndefinedAttributes(this._attributes, this.static('fields')) as Attributes;
     }
 
     public unsetAttribute(field: string): void {
         // TODO implement deep unsetter
         // TODO validate protected fields (e.g. id)
         if (objectHasOwnProperty(this._attributes, field)) {
-            if (field in this.modelClass.fields) {
+            if (field in this.static('fields')) {
                 this._attributes[field] = undefined;
             } else {
                 delete this._attributes[field];
@@ -384,7 +401,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
                 this._dirtyAttributes[field] = undefined;
             }
 
-            if (this.hasAutomaticTimestamp('updatedAt')) {
+            if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
                 this.touch();
             }
         }
@@ -397,7 +414,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     }
 
     public getPrimaryKey(): Key | null {
-        return this._attributes[this.modelClass.primaryKey] as Key ?? null;
+        return this._attributes[this.static('primaryKey')] ?? null;
     }
 
     public getSerializedPrimaryKey(): string | null {
@@ -406,9 +423,9 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         return primaryKey ? this.serializeKey(primaryKey) : null;
     }
 
-    public async delete<T extends Model>(): Promise<T> {
+    public async delete(): Promise<this> {
         if (!this._exists) {
-            return this as unknown as T;
+            return this;
         }
 
         const models = await this.getCascadeModels();
@@ -417,31 +434,31 @@ export default abstract class Model<Key extends Stringable = Stringable> {
 
         models.forEach(model => model.resetEngineData());
 
-        return this as unknown as T;
+        return this;
     }
 
-    public async save<T extends Model>(): Promise<T> {
-        ensureRequiredAttributes(this._attributes, this.modelClass.fields);
+    public async save(): Promise<this> {
+        validateRequiredAttributes(this._attributes, this.static('fields'));
 
         if (!this.isDirty()) {
-            return this as unknown as T;
+            return this;
         }
 
         const existed = this._exists;
         const id = await this.syncDirty();
 
         this._wasRecentlyCreated = this._wasRecentlyCreated || !existed;
-        this._attributes[this.modelClass.primaryKey] = this.parseKey(id);
+        this._attributes[this.static('primaryKey')] = this.parseKey(id);
         this.cleanDirty();
 
-        return this as unknown as T;
+        return this;
     }
 
     /**
      * Set the `updatedAt` attribute to the current time.
      */
     public touch(): void {
-        this.setAttribute('updatedAt', new Date());
+        this.setAttribute(TimestampField.UpdatedAt, new Date());
     }
 
     public setExists(exists: boolean): void {
@@ -471,14 +488,17 @@ export default abstract class Model<Key extends Stringable = Stringable> {
                 if (
                     typeof property !== 'string' ||
                     property in target ||
-                    target.modelClass.classFields.indexOf(property) !== -1
+                    target.static('classFields').indexOf(property) !== -1
                 ) {
                     return Reflect.get(target, property, receiver);
                 }
 
-                const attributeAccessor = 'get' + studlyCase(property) + 'Attribute';
-                if (typeof target[attributeAccessor] === 'function') {
-                    return target[attributeAccessor]();
+                const instance = target as Record<string, unknown>;
+                const attributeAccessor = stringToCamelCase(`get_${property}_attribute`);
+                if (typeof instance[attributeAccessor] === 'function') {
+                    const accessorMethod = instance[attributeAccessor] as () => unknown;
+
+                    return accessorMethod();
                 }
 
                 if (target.hasRelation(property)) {
@@ -488,7 +508,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
                 }
 
                 if (property.startsWith('related')) {
-                    const relation = camelCase(property.substr(7));
+                    const relation = stringToCamelCase(property.substr(7));
 
                     if (target.hasRelation(relation)) {
                         return target._relations[relation];
@@ -501,7 +521,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
                 if (
                     typeof property !== 'string' ||
                     property in target ||
-                    target.modelClass.classFields.indexOf(property) !== -1
+                    target.static('classFields').indexOf(property) !== -1
                 ) {
                     return Reflect.set(target, property, value, receiver);
                 }
@@ -526,7 +546,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
 
                 if (
                     !(property in target._attributes) ||
-                    target.modelClass.classFields.indexOf(property) !== -1
+                    target.static('classFields').indexOf(property) !== -1
                 ) {
                     return Reflect.deleteProperty(target, property);
                 }
@@ -538,58 +558,52 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     }
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void {
+        const fields = this.static('fields');
+
         this._attributes = objectDeepClone(attributes);
         this._originalAttributes = exists ? objectDeepClone(attributes) : {};
         this._dirtyAttributes = exists ? {} : objectDeepClone(attributes);
 
         if (!exists) {
-            if (this.hasAutomaticTimestamp('createdAt') && !('createdAt' in attributes)) {
+            if (this.hasAutomaticTimestamp(TimestampField.CreatedAt) && !(TimestampField.CreatedAt in attributes)) {
                 this._attributes.createdAt = new Date();
                 this._dirtyAttributes.createdAt = this._attributes.createdAt;
             }
 
-            if (this.hasAutomaticTimestamp('updatedAt') && !('updatedAt' in attributes)) {
+            if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && !(TimestampField.UpdatedAt in attributes)) {
                 this._attributes.updatedAt = new Date();
                 this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
             }
         }
 
-        this._attributes = this.castAttributes(
-            ensureAttributesExistence(
-                this._attributes,
-                this.modelClass.fields,
-            ),
-            this.modelClass.fields,
-        );
+        this._attributes = this.castAttributes(validateAttributes(this._attributes, fields), fields);
     }
 
     protected initializeRelations(): void {
-        this._relations = this.modelClass.relations.reduce((relations, name) => {
-            const relation = this._proxy[camelCase(name) + 'Relationship']();
+        this._relations = this.static('relations').reduce((relations, name) => {
+            const proxy = this._proxy as unknown as Record<string, () => Relation>;
+            const relation = proxy[stringToCamelCase(name) + 'Relationship']();
 
             relation.name = name;
             relations[name] = relation;
 
             return relations;
-        }, {});
+        }, {} as Record<string, Relation>);
     }
 
-    protected async createFromEngineDocument<T extends Model>(id: Key, document: EngineDocument): Promise<T> {
+    protected async createFromEngineDocument(id: Key, document: EngineDocument): Promise<this> {
         const attributes = await this.parseEngineDocumentAttributes(id, document);
-        const ModelClass = this.modelClass as unknown as { new(attributes: Attributes, exists: boolean): T };
 
-        attributes[this.modelClass.primaryKey] = id;
+        attributes[this.static('primaryKey')] = id;
 
-        return new ModelClass(attributes, true);
+        return this.newInstance(attributes, true);
     }
 
-    protected async createManyFromEngineDocuments<T extends Model>(
-        documents: Record<string, EngineDocument>,
-    ): Promise<T[]> {
+    protected async createManyFromEngineDocuments(documents: Record<string, EngineDocument>): Promise<this[]> {
         return Promise.all(
             Object
                 .entries(documents)
-                .map(([id, document]) => this.createFromEngineDocument<T>(this.parseKey(id), document)),
+                .map(([id, document]) => this.createFromEngineDocument(this.parseKey(id), document)),
         );
     }
 
@@ -598,7 +612,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
 
         if (!this._exists) {
             return engine.create(
-                this.modelClass.collection,
+                this.static('collection'),
                 this.toEngineDocument(),
                 this.getSerializedPrimaryKey() || undefined,
             );
@@ -607,7 +621,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         const updates = this.getDirtyEngineDocumentUpdates();
         const id = this.getSerializedPrimaryKey() as string;
 
-        await engine.update(this.modelClass.collection, id, updates);
+        await engine.update(this.static('collection'), id, updates);
 
         return id;
     }
@@ -619,7 +633,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     }
 
     protected async getCascadeModels(): Promise<Model[]> {
-        const relationPromises = this.modelClass.relations
+        const relationPromises = this.static('relations')
             .map(relation => this._relations[relation])
             .filter(relation => relation.deleteStrategy === 'cascade')
             .map(async relation => {
@@ -638,14 +652,14 @@ export default abstract class Model<Key extends Stringable = Stringable> {
 
         // TODO cluster by collection and implement deleteMany
         const modelsData = models.map(
-            model => [model.modelClass.collection, model.getSerializedPrimaryKey() as string],
+            model => [model.static('collection'), model.getSerializedPrimaryKey() as string],
         );
 
         await Promise.all(modelsData.map(([collection, id]) => engine.delete(collection, id)));
     }
 
     protected resetEngineData(): void {
-        delete this._attributes[this.modelClass.primaryKey];
+        delete this._attributes[this.static('primaryKey')];
         this._exists = false;
         this._dirtyAttributes = objectDeepClone(this._attributes);
     }
@@ -706,16 +720,16 @@ export default abstract class Model<Key extends Stringable = Stringable> {
      * @param localKeyField Name of the local key field in the related model. Defaults to
      * the primary key name defined in the related model class.
      */
-    protected belongsToMany(
-        relatedClass: typeof Model,
+    protected belongsToMany<T extends typeof Model>(
+        relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
     ): MultiModelRelation {
         return new BelongsToManyRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
-    protected castAttributes(attributes: Attributes, definitions: FieldsDefinition): Attributes {
-        const castedAttributes = {};
+    protected castAttributes(attributes: Attributes, definitions: BootedFieldsDefinition): Attributes {
+        const castedAttributes = {} as Record<string, unknown>;
 
         for (const field in attributes) {
             castedAttributes[field] = this.castAttribute(
@@ -727,8 +741,8 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         return castedAttributes;
     }
 
-    protected castAttribute(value: unknown, definition?: FieldDefinition): unknown {
-        if (isEmpty(value))
+    protected castAttribute(value: unknown, definition?: BootedFieldDefinition): unknown {
+        if (isNullable(value))
             return value;
 
         if (typeof definition === 'undefined') {
@@ -754,14 +768,14 @@ export default abstract class Model<Key extends Stringable = Stringable> {
                 if (!isObject(value))
                     throw new SoukaiError(`Invalid Object value: ${value}`);
 
-                return this.castAttributes(value, definition.fields as Record<string, FieldDefinition>);
+                return this.castAttributes(value, definition.fields as Record<string, BootedFieldDefinition>);
             case FieldType.Array:
                 if (!Array.isArray(value))
                     throw new SoukaiError(`Invalid Array value: ${value}`);
 
                 return value.map(attribute => this.castAttribute(
                     attribute,
-                    definition.items as FieldDefinition,
+                    definition.items as BootedFieldDefinition,
                 ));
             case FieldType.Boolean:
                 return !!value;
@@ -786,12 +800,12 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         }
     }
 
-    protected hasAutomaticTimestamp(timestamp: string): boolean {
-        return (this.modelClass.timestamps as string[]).indexOf(timestamp) !== -1;
+    protected hasAutomaticTimestamp(timestamp: TimestampFieldValue): boolean {
+        return (this.static('timestamps')).indexOf(timestamp) !== -1;
     }
 
     protected toEngineDocument(): EngineDocument {
-        return cleanUndefinedAttributes(this._attributes, this.modelClass.fields) as EngineDocument;
+        return removeUndefinedAttributes(this._attributes, this.static('fields')) as EngineDocument;
     }
 
     protected getDirtyEngineDocumentUpdates(): EngineUpdates {
@@ -817,7 +831,7 @@ export default abstract class Model<Key extends Stringable = Stringable> {
     }
 
     protected parseKey(key: string): Key {
-        return key as unknown as Key;
+        return key;
     }
 
     protected requireRelation(relation: string): Relation {
@@ -828,152 +842,4 @@ export default abstract class Model<Key extends Stringable = Stringable> {
         return this._relations[relation];
     }
 
-}
-
-function validateFieldDefinition(
-    model: string,
-    field: string,
-    definition: FieldDefinition | Omit<FieldDefinition, 'required'> | FieldType,
-    hasRequired: boolean = true,
-): FieldDefinition {
-    let fieldDefinition = {} as Partial<FieldDefinition>;
-
-    if (typeof definition === 'string' && TYPE_VALUES.indexOf(definition) !== -1)
-        fieldDefinition.type = definition;
-    else if (typeof definition === 'object')
-        fieldDefinition = definition;
-    else
-        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
-
-    if (typeof fieldDefinition.type === 'undefined')
-        fieldDefinition = {
-            type: FieldType.Object,
-            fields: fieldDefinition,
-        } as ObjectFieldDefinition;
-    else if (TYPE_VALUES.indexOf(fieldDefinition.type) === -1)
-        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
-
-    if (hasRequired)
-        fieldDefinition.required = !!fieldDefinition.required;
-
-    switch (fieldDefinition.type) {
-        case FieldType.Object:
-            if (typeof fieldDefinition.fields === 'undefined')
-                throw new InvalidModelDefinition(
-                    model,
-                    `Field definition of type object requires fields attribute ${field}`,
-                );
-
-            for (const f in fieldDefinition.fields) {
-                if (objectHasOwnProperty(fieldDefinition.fields, f)) {
-                    fieldDefinition.fields[f] = validateFieldDefinition(model, f, fieldDefinition.fields[f]);
-                }
-            }
-            break;
-        case FieldType.Array:
-            if (typeof fieldDefinition.items === 'undefined')
-                throw new InvalidModelDefinition(
-                    model,
-                    `Field definition of type array requires items attribute. Field: '${field}'`,
-                );
-
-            fieldDefinition.items = validateFieldDefinition(
-                model,
-                'items',
-                fieldDefinition.items,
-                false,
-            );
-            break;
-    }
-
-    return fieldDefinition as FieldDefinition;
-}
-
-function ensureAttributesExistence(attributes: Attributes, fields: FieldsDefinition): Attributes {
-    for (const field in fields) {
-        const definition = fields[field];
-
-        if (!(field in attributes)) {
-            switch (definition.type) {
-                case FieldType.Object:
-                    attributes[field] = {};
-                    break;
-                case FieldType.Array:
-                    attributes[field] = [];
-                    break;
-                default:
-                    attributes[field] = undefined;
-                    break;
-            }
-        }
-
-        if (definition.type === FieldType.Object) {
-            const value = attributes[field];
-
-            if (!isObject(value))
-                throw new SoukaiError(`Invalid value for field ${field}`);
-
-            attributes[field] = ensureAttributesExistence(value, definition.fields as FieldsDefinition);
-        }
-    }
-
-    return attributes;
-}
-
-function ensureRequiredAttributes(attributes: Attributes, fields: FieldsDefinition): void {
-    for (const field in fields) {
-        const definition = fields[field];
-
-        if (definition.required && (!(field in attributes) || isEmpty(attributes[field])))
-            throw new SoukaiError(`The ${field} attribute is required.`);
-
-        if ((field in attributes) && !isEmpty(attributes[field]) && definition.type === FieldType.Object) {
-            const value = attributes[field];
-
-            if (!isObject(value))
-                throw new SoukaiError(`Invalid value for field ${field}`);
-
-            ensureRequiredAttributes(value, <FieldsDefinition> definition.fields);
-        }
-    }
-}
-
-function isEmpty(value: unknown): value is undefined | null {
-    return typeof value === 'undefined' || value === null;
-}
-
-function cleanUndefinedAttributes(attributes: Attributes, fields: FieldsDefinition): Attributes;
-function cleanUndefinedAttributes(
-    attributes: Attributes,
-    fields: FieldsDefinition,
-    returnUndefined: true,
-): Attributes | undefined;
-function cleanUndefinedAttributes(
-    attributes: Attributes,
-    fields: FieldsDefinition,
-    returnUndefined: boolean = false,
-): Attributes | undefined {
-    attributes = objectDeepClone(attributes);
-
-    for (const field in attributes) {
-        const definition = fields[field];
-
-        if (typeof attributes[field] === 'undefined') {
-            delete attributes[field];
-        } else if (field in fields && definition.type === FieldType.Object) {
-            const value = cleanUndefinedAttributes(
-                attributes[field] as Attributes,
-                 definition.fields as FieldsDefinition,
-                 true,
-            );
-
-            if (typeof value === 'undefined') {
-                delete attributes[field];
-            } else {
-                attributes[field] = value;
-            }
-        }
-    }
-
-    return returnUndefined && Object.keys(attributes).length === 0 ? undefined : attributes;
 }

@@ -2,14 +2,14 @@ import Faker from 'faker';
 
 import Soukai from '@/Soukai';
 
-import Engine from '@/engines/Engine';
+import { Engine } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
 import Relation from '@/models/relations/Relation';
 
-import Model from '@/models/Model';
+import { Model } from '@/models/Model';
 
 import MockEngine from '@testing/mocks/MockEngine';
 
@@ -43,8 +43,10 @@ describe('Model Relations', () => {
 
         // Assert
         expect(user.birthPlace).toBeInstanceOf(City);
-        expect(user.birthPlace.id).toBe(cityId);
-        expect(user.birthPlace.name).toBe(name);
+
+        const birthPlace = user.birthPlace as City;
+        expect(birthPlace.id).toBe(cityId);
+        expect(birthPlace.name).toBe(name);
 
         expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
         expect(mockEngine.readMany).toHaveBeenCalledWith(City.collection, {
@@ -70,8 +72,10 @@ describe('Model Relations', () => {
 
         // Assert
         expect(post.author).toBeInstanceOf(User);
-        expect(post.author.id).toBe(id);
-        expect(post.author.name).toBe(name);
+
+        const author = post.author as User;
+        expect(author.id).toBe(id);
+        expect(author.name).toBe(name);
 
         expect(mockEngine.readOne).toHaveBeenCalledTimes(1);
         expect(mockEngine.readOne).toHaveBeenCalledWith(User.collection, id);
@@ -97,15 +101,18 @@ describe('Model Relations', () => {
         await user.loadRelation('posts');
 
         // Assert
+        expect(user.posts).not.toBeNull();
         expect(user.posts).toHaveLength(2);
-        expect(user.posts[0]).toBeInstanceOf(Post);
-        expect(user.posts[0].id).toBe(firstPostId);
-        expect(user.posts[0].title).toBe(firstPostTitle);
-        expect(user.posts[0].body).toBe(firstPostBody);
-        expect(user.posts[1]).toBeInstanceOf(Post);
-        expect(user.posts[1].id).toBe(secondPostId);
-        expect(user.posts[1].title).toBe(secondPostTitle);
-        expect(user.posts[1].body).toBe(secondPostBody);
+
+        const posts = user.posts as Post[];
+        expect(posts[0]).toBeInstanceOf(Post);
+        expect(posts[0].id).toBe(firstPostId);
+        expect(posts[0].title).toBe(firstPostTitle);
+        expect(posts[0].body).toBe(firstPostBody);
+        expect(posts[1]).toBeInstanceOf(Post);
+        expect(posts[1].id).toBe(secondPostId);
+        expect(posts[1].title).toBe(secondPostTitle);
+        expect(posts[1].body).toBe(secondPostBody);
 
         expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
         expect(mockEngine.readMany).toHaveBeenCalledWith(
@@ -135,10 +142,13 @@ describe('Model Relations', () => {
         await city.loadRelation('natives');
 
         // Assert
+        expect(city.natives).not.toBeNull();
         expect(city.natives).toHaveLength(1);
-        expect(city.natives[0]).toBeInstanceOf(User);
-        expect(city.natives[0].id).toBe(id);
-        expect(city.natives[0].name).toBe(name);
+
+        const natives = city.natives as User[];
+        expect(natives[0]).toBeInstanceOf(User);
+        expect(natives[0].id).toBe(id);
+        expect(natives[0].name).toBe(name);
 
         expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
         expect(mockEngine.readMany).toHaveBeenCalledWith(User.collection, {
@@ -170,7 +180,7 @@ describe('Model Relations', () => {
         post.author = new User({ id, name });
 
         // Act
-        delete post.author;
+        delete (post as { author?: unknown }).author;
 
         // Assert
         expect(post.author).toBeUndefined();

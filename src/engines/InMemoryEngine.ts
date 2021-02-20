@@ -1,10 +1,11 @@
-import Engine, {
+import {
+    Engine,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
-import EngineHelper from '@/engines/EngineHelper';
+import { EngineHelper } from '@/engines/EngineHelper';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
@@ -21,7 +22,7 @@ export interface InMemoryEngineDatabase {
  * Engine that stores data in memory. Data can be accessed with the [[database]] property to
  * get an [[InMemoryEngineDatabase]].
  */
-export default class InMemoryEngine implements Engine {
+export class InMemoryEngine implements Engine {
 
     private db: InMemoryEngineDatabase = {};
 

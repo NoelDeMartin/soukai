@@ -6,7 +6,7 @@ import {
     EngineUpdates,
 } from '@/engines/Engine';
 
-import EngineHelper from './EngineHelper';
+import { EngineHelper } from './EngineHelper';
 
 let helper: EngineHelper;
 

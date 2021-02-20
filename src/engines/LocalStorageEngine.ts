@@ -1,18 +1,19 @@
 import { isObject } from '@noeldemartin/utils';
 
-import Engine, {
+import {
+    Engine,
     EngineAttributeValue,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
-import EngineHelper from '@/engines/EngineHelper';
+import { EngineHelper } from '@/engines/EngineHelper';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
-export default class LocalStorageEngine implements Engine {
+export class LocalStorageEngine implements Engine {
 
     private prefix: string;
 
@@ -34,7 +35,7 @@ export default class LocalStorageEngine implements Engine {
     }
 
     public async create(collection: string, document: EngineDocument, id?: string): Promise<string> {
-        const documents = this.readItem(collection, {});
+        const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
         id = this.helper.obtainDocumentId(id);
 
@@ -50,7 +51,7 @@ export default class LocalStorageEngine implements Engine {
     }
 
     public async readOne(collection: string, id: string): Promise<EngineDocument> {
-        const documents = this.readItem(collection, {});
+        const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
         if (!(id in documents)) {
             throw new DocumentNotFound(id);
@@ -60,7 +61,7 @@ export default class LocalStorageEngine implements Engine {
     }
 
     public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
-        const documents = this.readItem(collection, {});
+        const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
         for (const id in documents) {
             documents[id] = this.deserializeAttributes(documents[id]);
@@ -70,7 +71,7 @@ export default class LocalStorageEngine implements Engine {
     }
 
     public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
-        const documentsCollection = this.readItem(collection, {});
+        const documentsCollection = this.readItem(collection, {} as EngineDocumentsCollection);
 
         if (!(id in documentsCollection)) {
             throw new DocumentNotFound(id);
@@ -86,7 +87,7 @@ export default class LocalStorageEngine implements Engine {
     }
 
     public async delete(collection: string, id: string): Promise<void> {
-        const documents = this.readItem(collection, {});
+        const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
         if (!(id in documents)) {
             throw new DocumentNotFound(id);

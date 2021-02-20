@@ -1,34 +1,19 @@
 {
-  "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "lib": ["es2019", "es6", "dom"],
-    "noImplicitThis": true,
-    "removeComments": true,
-    "pretty": true,
-    "strictNullChecks": true,
-    "inlineSourceMap": true,
-    "declaration": false,
-    "suppressImplicitAnyIndexErrors": true,
-    "allowSyntheticDefaultImports": true,
-    "rootDir": ".",
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@testing/*": [
-        "tests/lib/*"
-      ]
-    }
-  },
-  "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "esnext",
+        "moduleResolution": "node",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"],
+            "@testing/*": ["tests/lib/*"]
+        }
+    },
+    "include": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+    ]
 }
