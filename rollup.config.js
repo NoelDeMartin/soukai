@@ -4,8 +4,36 @@ import typescript from '@rollup/plugin-typescript';
 
 import { browser, module, main } from './package.json';
 
-function build(output, bundlePolyfills = false) {
+function build(output, includePolyfills = false) {
     const extensions = ['.ts'];
+    const plugins = [];
+
+    plugins.push(typescript());
+
+    if (includePolyfills)
+        plugins.push(babel({
+            extensions,
+            babelHelpers: 'bundled',
+            plugins: [
+                '@babel/plugin-proposal-class-properties',
+            ],
+            presets: [
+                '@babel/preset-typescript',
+                [
+                    '@babel/preset-env',
+                    {
+                        targets: '> 0.5%, last 2 versions, Firefox ESR, not dead',
+                        corejs: { version: '3.8', proposals: true },
+                        useBuiltIns: 'usage',
+                    },
+                ],
+            ],
+        }));
+
+    plugins.push(terser({
+        keep_classnames: /Error$/,
+        keep_fnames: /Error$/,
+    }));
 
     return {
         input: 'src/main.ts',
@@ -21,34 +49,8 @@ function build(output, bundlePolyfills = false) {
         external: [
             '@noeldemartin/utils',
             'idb',
-            ...(bundlePolyfills ? [] : [/^@babel\/runtime\//, /^core-js\//]),
         ],
-        plugins: [
-            typescript(),
-            babel({
-                extensions,
-                babelHelpers: bundlePolyfills ? 'bundled' : 'runtime',
-                plugins: [
-                    '@babel/plugin-proposal-class-properties',
-                    ...(bundlePolyfills ? [] : ['@babel/plugin-transform-runtime']),
-                ],
-                presets: [
-                    '@babel/preset-typescript',
-                    [
-                        '@babel/preset-env',
-                        {
-                            targets: '> 0.5%, last 2 versions, Firefox ESR, not dead',
-                            corejs: { version: '3.8', proposals: true },
-                            useBuiltIns: 'usage',
-                        },
-                    ],
-                ],
-            }),
-            terser({
-                keep_classnames: /Error$/,
-                keep_fnames: /Error$/,
-            }),
-        ],
+        plugins,
     };
 }
 
