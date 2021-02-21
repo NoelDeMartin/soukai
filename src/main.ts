@@ -3,6 +3,8 @@ export * from './errors/index';
 export * from './engines/index';
 export * from './utils/index';
 
-import Soukai from '@/Soukai';
+export { Soukai } from './Soukai';
 
-export default Soukai;
+import SoukaiSingleton from './Soukai';
+
+export default SoukaiSingleton;

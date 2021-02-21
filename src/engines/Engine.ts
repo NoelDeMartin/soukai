@@ -44,7 +44,7 @@ export interface EngineUpdateItemsOperatorData {
     $unset?: true;
 }
 
-interface EngineAttributeUpdateMap extends Record<string, EngineAttributeUpdate> {}
+export interface EngineAttributeUpdateMap extends Record<string, EngineAttributeUpdate> {}
 
 export type EngineDocument = Record<string, EngineAttributeValue>;
 export type EngineDocumentsCollection = Record<string, EngineDocument>;

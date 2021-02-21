@@ -665,9 +665,9 @@ export class Model {
     /**
      * Creates a relation when this model is referenced by one instance of another model.
      *
-     * @param relatedClass Related model class.
-     * @param foreignKeyField Name of the foreign key field in the related model.
-     * @param localKeyField Name of the local key field in the local model. Defaults to
+     * @param relatedClass - Related model class.
+     * @param foreignKeyField - Name of the foreign key field in the related model.
+     * @param localKeyField - Name of the local key field in the local model. Defaults to
      * the primary key name defined in the local model class.
      */
     protected hasOne(
@@ -681,9 +681,9 @@ export class Model {
     /**
      * Creates a relation when this model references one instance of another model.
      *
-     * @param relatedClass Related model class.
-     * @param foreignKeyField Name of the foreign key field in the local model.
-     * @param localKeyField Name of the local key field in the related model. Defaults to
+     * @param relatedClass - Related model class.
+     * @param foreignKeyField - Name of the foreign key field in the local model.
+     * @param localKeyField - Name of the local key field in the related model. Defaults to
      * the primary key name defined in the related model class.
      */
     protected belongsToOne(
@@ -697,9 +697,9 @@ export class Model {
     /**
      * Creates a relation when this model is referenced by multiple instances of another model.
      *
-     * @param relatedClass Related model class.
-     * @param foreignKeyField Name of the foreign key field in the related model.
-     * @param localKeyField Name of the local key field in the local model. Defaults to
+     * @param relatedClass - Related model class.
+     * @param foreignKeyField - Name of the foreign key field in the related model.
+     * @param localKeyField - Name of the local key field in the local model. Defaults to
      * the primary key name defined in the local model class.
      */
     protected hasMany(
@@ -713,9 +713,9 @@ export class Model {
     /**
      * Creates a relation when this model references multiple instances of another model.
      *
-     * @param relatedClass Related model class.
-     * @param foreignKeyField Name of the foreign key field in the local model.
-     * @param localKeyField Name of the local key field in the related model. Defaults to
+     * @param relatedClass - Related model class.
+     * @param foreignKeyField - Name of the foreign key field in the local model.
+     * @param localKeyField - Name of the local key field in the related model. Defaults to
      * the primary key name defined in the related model class.
      */
     protected belongsToMany<T extends typeof Model>(

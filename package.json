@@ -7,17 +7,22 @@
   "browser": "dist/soukai.umd.js",
   "unpkg": "dist/soukai.umd.js",
   "jsdelivr": "dist/soukai.umd.js",
-  "types": "types/index.d.ts",
+  "types": "dist/soukai.d.ts",
   "scripts": {
     "lint": "eslint src",
     "test": "jest --verbose",
     "test:coverage": "jest --coverage",
-    "build": "rm dist -rf && rollup -c",
+    "build": "rm dist -rf && npm run build:js && npm run build:types",
+    "build:js": "rollup -c",
+    "build:types": "node scripts/build-types.js",
     "publish-next": "scripts/publish-next.sh",
     "docs:dev": "vuepress dev docs",
     "docs:build-vuepress": "vuepress build docs",
     "docs:build-typedoc": "typedoc --options docs/.typedoc/config.js ./src/index.ts",
     "docs:publish": "scripts/publish-docs.sh"
+  },
+  "engines": {
+    "node": ">=12.x"
   },
   "repository": {
     "type": "git",
@@ -45,6 +50,7 @@
     "@babel/plugin-transform-runtime": "^7.12.15",
     "@babel/preset-env": "^7.12.16",
     "@babel/preset-typescript": "^7.12.16",
+    "@microsoft/api-extractor": "^7.13.1",
     "@noeldemartin/eslint-config-typescript": "0.0.0-next.8b478102d26aaeb64ad9d577c063f9b9553af137",
     "@rollup/plugin-alias": "^3.1.2",
     "@rollup/plugin-babel": "^5.2.3",

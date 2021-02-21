@@ -1,5 +1,25 @@
-export * from './fields';
 export * from './inference';
-export * from './attributes';
 export * from './relations/index';
 export * from './Model';
+
+export {
+    ArrayFieldDefinition,
+    BasicFieldDefinition,
+    BootedArrayFieldDefinition,
+    BootedBasicFieldDefinition,
+    BootedFieldDefinition,
+    BootedFieldDefinitionBase,
+    BootedFieldsDefinition,
+    BootedObjectFieldDefinition,
+    FieldDefinition,
+    FieldDefinitionBase,
+    FieldRequired,
+    FieldsDefinition,
+    FieldType,
+    FieldTypeValue,
+    ObjectFieldDefinition,
+    TimestampField,
+    TimestampFieldValue,
+} from './fields';
+
+export { Attributes, AttributeValue } from './attributes';

@@ -1,8 +1,14 @@
+
+.eslintrc.js
 .vscode
+*.test.ts
+*.tgz
+api-extractor.json
+coverage
 docs
+jest.config.js
+rollup.config.js
 scripts
 src/**/*.test.ts
-tests
-jest.config.js
+src/testing
 tsconfig.json
-webpack.config.js
