@@ -4,7 +4,7 @@ import typescript from '@rollup/plugin-typescript';
 
 import { browser, module, main } from './package.json';
 
-function build(output, includePolyfills = false) {
+function build(output, includePolyfills = false, bundlePolyfills = false) {
     const extensions = ['.ts'];
     const plugins = [];
 
@@ -13,9 +13,10 @@ function build(output, includePolyfills = false) {
     if (includePolyfills)
         plugins.push(babel({
             extensions,
-            babelHelpers: 'bundled',
+            babelHelpers: bundlePolyfills ? 'bundled' : 'runtime',
             plugins: [
                 '@babel/plugin-proposal-class-properties',
+                ...(bundlePolyfills ? [] : ['@babel/plugin-transform-runtime']),
             ],
             presets: [
                 '@babel/preset-typescript',
@@ -49,6 +50,7 @@ function build(output, includePolyfills = false) {
         external: [
             '@noeldemartin/utils',
             'idb',
+            ...(bundlePolyfills ? [] : [/^core-js\//, /^@babel\/runtime\//]),
         ],
         plugins,
     };
@@ -56,6 +58,6 @@ function build(output, includePolyfills = false) {
 
 export default [
     build({ file: module, format: 'esm' }),
-    build({ file: main, format: 'cjs' }),
-    build({ file: browser, format: 'umd', name: 'Soukai' }, true),
+    build({ file: main, format: 'cjs' }, true),
+    build({ file: browser, format: 'umd', name: 'Soukai' }, true, true),
 ];

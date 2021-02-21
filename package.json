@@ -38,8 +38,10 @@
   },
   "homepage": "https://soukai.js.org",
   "dependencies": {
-    "@noeldemartin/utils": "0.0.1-next.e32f151f3f754a22769d1cd6e99e49b6fea92d55",
+    "@babel/runtime": "^7.12.18",
+    "@noeldemartin/utils": "0.0.1-next.bf4e240acd36cd41232b0e3086c02a9e1548f761",
     "@types/webpack-env": "^1.13.6",
+    "core-js": "^3.9.0",
     "idb": "^5.0.2"
   },
   "devDependencies": {
@@ -48,7 +50,6 @@
     "@babel/plugin-transform-runtime": "^7.12.15",
     "@babel/preset-env": "^7.12.16",
     "@babel/preset-typescript": "^7.12.16",
-    "@babel/runtime": "^7.12.18",
     "@microsoft/api-extractor": "^7.13.1",
     "@noeldemartin/eslint-config-typescript": "0.0.0-next.8b478102d26aaeb64ad9d577c063f9b9553af137",
     "@rollup/plugin-alias": "^3.1.2",
@@ -59,7 +60,6 @@
     "@strictsoftware/typedoc-plugin-monorepo": "^0.2.1",
     "@types/faker": "^4.1.2",
     "@types/jest": "^26.0.20",
-    "core-js": "^3.9.0",
     "eslint": "^7.19.0",
     "fake-indexeddb": "^3.0.0",
     "faker": "^4.1.0",
