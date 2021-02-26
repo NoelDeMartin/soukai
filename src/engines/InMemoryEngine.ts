@@ -55,7 +55,7 @@ export class InMemoryEngine implements Engine {
         if (id in collection) {
             return Promise.resolve(collection[id]);
         } else {
-            return Promise.reject(new DocumentNotFound(id));
+            return Promise.reject(new DocumentNotFound(id, collectionName));
         }
     }
 
@@ -78,7 +78,7 @@ export class InMemoryEngine implements Engine {
 
             return Promise.resolve();
         } else {
-            return Promise.reject(new DocumentNotFound(id));
+            return Promise.reject(new DocumentNotFound(id, collectionName));
         }
     }
 
@@ -88,7 +88,7 @@ export class InMemoryEngine implements Engine {
             delete collection[id];
             return Promise.resolve();
         } else {
-            return Promise.reject(new DocumentNotFound(id));
+            return Promise.reject(new DocumentNotFound(id, collectionName));
         }
     }
 

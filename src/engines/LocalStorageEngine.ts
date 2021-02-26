@@ -54,7 +54,7 @@ export class LocalStorageEngine implements Engine {
         const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
         if (!(id in documents)) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         return this.deserializeAttributes(documents[id]);
@@ -74,7 +74,7 @@ export class LocalStorageEngine implements Engine {
         const documentsCollection = this.readItem(collection, {} as EngineDocumentsCollection);
 
         if (!(id in documentsCollection)) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         const document = this.deserializeAttributes(documentsCollection[id]);
@@ -90,7 +90,7 @@ export class LocalStorageEngine implements Engine {
         const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
         if (!(id in documents)) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         delete documents[id];

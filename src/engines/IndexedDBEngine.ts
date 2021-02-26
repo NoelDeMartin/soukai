@@ -88,12 +88,12 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     public async readOne(collection: string, id: string): Promise<EngineDocument> {
         if (!(await this.collectionExists(collection))) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         const document = await this.getDocument(collection, id);
         if (!document) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         return document;
@@ -128,7 +128,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         const document = await this.getDocument(collection, id);
 
         if (!document) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         this.helper.updateAttributes(document, updates);
@@ -138,7 +138,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     public async delete(collection: string, id: string): Promise<void> {
         if (!(await this.documentExists(collection, id))) {
-            throw new DocumentNotFound(id);
+            throw new DocumentNotFound(id, collection);
         }
 
         await this.deleteDocument(collection, id);
