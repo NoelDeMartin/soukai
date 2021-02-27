@@ -36,55 +36,55 @@ export type TimestampFieldValue = typeof TimestampField[keyof typeof TimestampFi
 export const TIMESTAMP_FIELDS = Object.values(TimestampField);
 export const FIELD_TYPES = Object.values(FieldType);
 
-export type FieldsDefinition = Record<string, FieldDefinition>;
-export type FieldDefinition =
-    BasicFieldDefinition |
-    ArrayFieldDefinition |
-    ObjectFieldDefinition |
+export type FieldsDefinition<T = unknown> = Record<string, FieldDefinition<T>>;
+export type FieldDefinition<T = unknown> =
+    BasicFieldDefinition<T> |
+    ArrayFieldDefinition<T> |
+    ObjectFieldDefinition<T> |
     FieldTypeValue |
     Record<string, FieldTypeValue>;
 
-export interface FieldDefinitionBase {
+export type FieldDefinitionBase<T = unknown> = T & {
     required?: boolean;
-}
+};
 
-export interface BasicFieldDefinition extends FieldDefinitionBase {
+export type BasicFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
     type: Exclude<FieldTypeValue, typeof FieldType.Array | typeof FieldType.Object>;
-}
+};
 
-export interface ArrayFieldDefinition extends FieldDefinitionBase {
+export type ArrayFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
     type: typeof FieldType.Array;
-    items: Omit<FieldDefinition, 'required'>;
-}
+    items: Omit<FieldDefinition<T>, 'required'>;
+};
 
-export interface ObjectFieldDefinition extends FieldDefinitionBase {
+export type ObjectFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
     type: typeof FieldType.Object;
-    fields: FieldsDefinition;
-}
+    fields: FieldsDefinition<T>;
+};
 
-export type BootedFieldsDefinition = Record<string, BootedFieldDefinition>;
-export type BootedFieldDefinition =
-    BootedBasicFieldDefinition |
-    BootedArrayFieldDefinition |
-    BootedObjectFieldDefinition;
+export type BootedFieldsDefinition<T = unknown> = Record<string, BootedFieldDefinition<T>>;
+export type BootedFieldDefinition<T = unknown> =
+    BootedBasicFieldDefinition<T> |
+    BootedArrayFieldDefinition<T> |
+    BootedObjectFieldDefinition<T>;
 
-export interface BootedFieldDefinitionBase {
+export type BootedFieldDefinitionBase<T = unknown> = T & {
     required: boolean;
-}
+};
 
-export interface BootedBasicFieldDefinition extends BootedFieldDefinitionBase {
+export type BootedBasicFieldDefinition<T = unknown> = BootedFieldDefinitionBase<T> & {
     type: Exclude<FieldTypeValue, typeof FieldType.Array | typeof FieldType.Object>;
-}
+};
 
-export interface BootedArrayFieldDefinition extends BootedFieldDefinitionBase {
+export type BootedArrayFieldDefinition<T = unknown> = BootedFieldDefinitionBase<T> & {
     type: typeof FieldType.Array;
-    items: Omit<BootedFieldDefinition, 'required'>;
-}
+    items: Omit<BootedFieldDefinition<T>, 'required'>;
+};
 
-export interface BootedObjectFieldDefinition extends BootedFieldDefinitionBase {
+export type BootedObjectFieldDefinition<T = unknown> = BootedFieldDefinitionBase<T> & {
     type: typeof FieldType.Object;
-    fields: BootedFieldsDefinition;
-}
+    fields: BootedFieldsDefinition<T>;
+};
 
 export function expandFieldDefinition(
     model: string,
