@@ -129,7 +129,8 @@ export class Model {
 
         let prototype = Object.getPrototypeOf(pureInstance);
         while (prototype !== Model.prototype) {
-            classFields.push(...prototype.constructor.classFields);
+            if (prototype.constructor.classFields)
+                classFields.push(...prototype.constructor.classFields);
 
             for (const property of Object.getOwnPropertyNames(prototype)) {
                 if (
