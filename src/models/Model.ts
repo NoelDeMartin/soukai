@@ -6,6 +6,7 @@ import {
     objectDeepClone,
     objectHasOwnProperty,
     stringToCamelCase,
+    toString,
 } from '@noeldemartin/utils';
 
 import { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
@@ -196,6 +197,13 @@ export class Model {
         return model || null;
     }
 
+    public static newInstance<T extends Model>(
+        this: ModelConstructor<T>,
+        ...params: ConstructorParameters<ModelConstructor<T>>
+    ): T{
+        return this.instance().newInstance(...params);
+    }
+
     public static schema<T extends Model, F extends FieldsDefinition>(
         this: ModelConstructor<T>,
         fields: F,
@@ -271,6 +279,18 @@ export class Model {
         const constructor = this.constructor as ModelConstructor<T>;
 
         return new constructor(...params);
+    }
+
+    public async fresh(): Promise<this> {
+        const primaryKey = this.getPrimaryKey();
+        const freshInstance = await this.static().find(primaryKey);
+
+        if (!freshInstance)
+            throw new SoukaiError(
+                `Couldn't get fresh instance for ${this.static('modelName')} with id '${primaryKey}'`,
+            );
+
+        return freshInstance;
     }
 
     public update(attributes: Attributes = {}): Promise<this> {
@@ -670,8 +690,8 @@ export class Model {
      * @param localKeyField - Name of the local key field in the local model. Defaults to
      * the primary key name defined in the local model class.
      */
-    protected hasOne(
-        relatedClass: typeof Model,
+    protected hasOne<T extends typeof Model>(
+        relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
     ): SingleModelRelation {
@@ -686,8 +706,8 @@ export class Model {
      * @param localKeyField - Name of the local key field in the related model. Defaults to
      * the primary key name defined in the related model class.
      */
-    protected belongsToOne(
-        relatedClass: typeof Model,
+    protected belongsToOne<T extends typeof Model>(
+        relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
     ): SingleModelRelation {
@@ -702,8 +722,8 @@ export class Model {
      * @param localKeyField - Name of the local key field in the local model. Defaults to
      * the primary key name defined in the local model class.
      */
-    protected hasMany(
-        relatedClass: typeof Model,
+    protected hasMany<T extends typeof Model>(
+        relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
     ): MultiModelRelation {
@@ -825,7 +845,7 @@ export class Model {
     }
 
     protected serializeKey(key: Key): string {
-        return key.toString();
+        return toString(key);
     }
 
     protected parseKey(key: string): Key {
