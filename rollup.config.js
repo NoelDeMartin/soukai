@@ -16,7 +16,18 @@ function build(output, includePolyfills = false, bundlePolyfills = false) {
             babelHelpers: bundlePolyfills ? 'bundled' : 'runtime',
             plugins: [
                 '@babel/plugin-proposal-class-properties',
-                ...(bundlePolyfills ? [] : ['@babel/plugin-transform-runtime']),
+                ...(bundlePolyfills ? [] : [
+                    [
+                        '@babel/plugin-transform-runtime',
+                        { useESModules: output.format === 'esm' },
+                    ],
+                    [
+                        // This can be removed when this is closed: https://github.com/babel/babel/issues/10759
+                        'babel-plugin-transform-remove-imports', {
+                            test: /^regenerator-runtime\//,
+                        },
+                    ],
+                ]),
             ],
             presets: [
                 '@babel/preset-typescript',
@@ -50,7 +61,11 @@ function build(output, includePolyfills = false, bundlePolyfills = false) {
         external: [
             '@noeldemartin/utils',
             'idb',
-            ...(bundlePolyfills ? [] : [/^core-js\//, /^@babel\/runtime\//]),
+            ...(bundlePolyfills ? [] : [
+                /^core-js\//,
+                /^@babel\/runtime\//,
+                /^regenerator-runtime\//,
+            ]),
         ],
         plugins,
     };
