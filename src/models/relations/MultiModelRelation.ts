@@ -1,8 +1,8 @@
 import { stringToCamelCase } from '@noeldemartin/utils';
 
-import { ModelConstructor } from '@/models/inference';
-import { Model } from '@/models/Model';
 import Relation from '@/models/relations/Relation';
+import type { ModelConstructor } from '@/models/inference';
+import type { Model } from '@/models/Model';
 
 export default abstract class MultiModelRelation<
     Parent extends Model = Model,

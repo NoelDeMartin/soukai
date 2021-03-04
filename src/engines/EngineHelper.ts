@@ -1,6 +1,6 @@
 import { arrayWithoutIndexes, deepEquals, isObject } from '@noeldemartin/utils';
 
-import {
+import type {
     EngineAttributeFilter,
     EngineAttributeUpdate,
     EngineAttributeUpdateOperation,

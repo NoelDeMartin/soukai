@@ -1,12 +1,12 @@
-import { Model, Key } from './Model';
+import type { Key, Model } from './Model';
 
-import {
+import type {
     ArrayFieldDefinition,
     BasicFieldDefinition,
     FieldDefinition,
-    FieldsDefinition,
     FieldType,
     FieldTypeValue,
+    FieldsDefinition,
     ObjectFieldDefinition,
 } from './fields';
 

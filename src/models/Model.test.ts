@@ -1,17 +1,19 @@
 import Faker from 'faker';
 
-import { Engine } from '@/engines/Engine';
-import { Model, FieldType, TimestampField, TimestampFieldValue, Key } from '@/models/index';
+import { FieldType, Model, TimestampField } from '@/models/index';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import Soukai from '@/Soukai';
+import type { Engine } from '@/engines/Engine';
+import type { Key, TimestampFieldValue } from '@/models/index';
 
-import { Assert, Equals, Expect, Extends, testTypes } from '@/testing';
+import { testTypes } from '@/testing';
 import { seconds, wait } from '@/testing/utils';
 import City from '@/testing/stubs/City';
 import MockEngine from '@/testing/mocks/MockEngine';
 import Post from '@/testing/stubs/Post';
 import User from '@/testing/stubs/User';
 import { SoukaiError } from '@/errors';
+import type { Assert, Equals, Expect, Extends } from '@/testing';
 
 describe('Model', () => {
 

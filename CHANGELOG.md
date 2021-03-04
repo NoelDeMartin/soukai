@@ -64,6 +64,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - Attribute accessors.
+- Polyfills added for CJS (runtime) and UMD (bundled), not with ESM due to https://github.com/zloirock/core-js/issues/385 (and most clients using ESM should already be using modern environments)
 
 ### Changed
 

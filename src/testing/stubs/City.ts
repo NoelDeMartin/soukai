@@ -1,4 +1,5 @@
-import { Model, ModelInterface, FieldType, FieldRequired, Relation, MultiModelRelation } from '@/models/index';
+import { FieldRequired, FieldType, Model } from '@/models/index';
+import type { ModelInterface, MultiModelRelation, Relation } from '@/models/index';
 
 import User from './User';
 

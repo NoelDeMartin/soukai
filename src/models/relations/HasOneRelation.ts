@@ -1,6 +1,6 @@
-import { ModelConstructor } from '@/models/inference';
-import { Model } from '@/models/Model';
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
+import type { ModelConstructor } from '@/models/inference';
+import type { Model } from '@/models/Model';
 
 export default class HasOneRelation<
     Parent extends Model = Model,

@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 
+import { deleteDB, openDB } from 'idb';
 import Faker from 'faker';
-import { deleteDB, IDBPDatabase, IDBPTransaction, openDB } from 'idb';
+import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
 import Soukai from '@/Soukai';
 

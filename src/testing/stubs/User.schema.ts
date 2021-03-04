@@ -1,4 +1,4 @@
-import { Model, FieldType } from '@/models/index';
+import { FieldType, Model } from '@/models/index';
 
 export default Model.schema({
     name: {

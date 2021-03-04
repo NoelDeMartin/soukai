@@ -9,30 +9,33 @@ import {
     toString,
 } from '@noeldemartin/utils';
 
-import { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import Soukai from '@/Soukai';
 import SoukaiError from '@/errors/SoukaiError';
+import type { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
 import {
-    BootedFieldDefinition,
-    BootedFieldsDefinition,
-    expandFieldDefinition,
-    FieldsDefinition,
     FieldType,
     TIMESTAMP_FIELDS,
     TimestampField,
-    TimestampFieldValue,
+    expandFieldDefinition,
 } from './fields';
-import { ModelConstructor, MagicAttributes, Constructor } from './inference';
-import { Attributes, removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
+import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
 import HasOneRelation from './relations/HasOneRelation';
-import MultiModelRelation from './relations/MultiModelRelation';
-import Relation from './relations/Relation';
-import SingleModelRelation from './relations/SingleModelRelation';
+import type {
+    BootedFieldDefinition,
+    BootedFieldsDefinition,
+    FieldsDefinition,
+    TimestampFieldValue,
+} from './fields';
+import type { Constructor, MagicAttributes, ModelConstructor } from './inference';
+import type { Attributes } from './attributes';
+import type MultiModelRelation from './relations/MultiModelRelation';
+import type Relation from './relations/Relation';
+import type SingleModelRelation from './relations/SingleModelRelation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;

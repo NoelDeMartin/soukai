@@ -1,6 +1,7 @@
 import { isObject } from '@noeldemartin/utils';
 
-import {
+import { EngineHelper } from '@/engines/EngineHelper';
+import type {
     Engine,
     EngineAttributeValue,
     EngineDocument,
@@ -8,7 +9,6 @@ import {
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
-import { EngineHelper } from '@/engines/EngineHelper';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';

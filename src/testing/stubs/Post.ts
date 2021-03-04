@@ -1,4 +1,5 @@
-import { Model, ModelInterface, FieldType, SingleModelRelation, Relation } from '@/models/index';
+import { FieldType, Model } from '@/models/index';
+import type { ModelInterface, Relation, SingleModelRelation } from '@/models/index';
 
 import User from './User';
 

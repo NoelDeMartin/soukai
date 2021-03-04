@@ -1,6 +1,6 @@
 import Faker from 'faker';
 
-import { Engine } from '@/engines';
+import type { Engine } from '@/engines';
 
 export default jest.fn<jest.Mocked<Engine>, []>((): jest.Mocked<Engine> => {
     return {

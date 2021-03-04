@@ -1,10 +1,11 @@
-import { DBSchema, deleteDB, IDBPCursorWithValue, IDBPObjectStore, openDB, TypedDOMStringList } from 'idb';
+import { deleteDB, openDB } from 'idb';
+import type { DBSchema, IDBPCursorWithValue, IDBPObjectStore, TypedDOMStringList } from 'idb';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';
 import SoukaiError from '@/errors/SoukaiError';
 
-import {
+import type {
     Engine,
     EngineDocument,
     EngineDocumentsCollection,
@@ -12,8 +13,8 @@ import {
     EngineUpdates,
 } from '@/engines/Engine';
 
-import { ClosesConnections } from '@/engines/ClosesConnections';
 import { EngineHelper } from '@/engines/EngineHelper';
+import type { ClosesConnections } from '@/engines/ClosesConnections';
 
 interface DatabaseConnection<Schema extends DBSchema> {
     readonly objectStoreNames: TypedDOMStringList<string>;

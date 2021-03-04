@@ -1,4 +1,4 @@
-import { Relation, MultiModelRelation, SingleModelRelation } from '@/models/index';
+import type { MultiModelRelation, Relation, SingleModelRelation } from '@/models/index';
 
 import Model from './User.schema';
 import Post from './Post';

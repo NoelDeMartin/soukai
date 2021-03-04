@@ -2,12 +2,12 @@ import Faker from 'faker';
 
 import Soukai from '@/Soukai';
 
-import { Engine } from '@/engines/Engine';
+import type { Engine } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
-import Relation from '@/models/relations/Relation';
+import type Relation from '@/models/relations/Relation';
 
 import { Model } from '@/models/Model';
 

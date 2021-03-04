@@ -1,6 +1,6 @@
-import { ModelConstructor } from '@/models/inference';
-import { Model } from '@/models/Model';
 import MultiModelRelation from '@/models/relations/MultiModelRelation';
+import type { ModelConstructor } from '@/models/inference';
+import type { Model } from '@/models/Model';
 
 export default class BelongsToManyRelation<
     Parent extends Model = Model,

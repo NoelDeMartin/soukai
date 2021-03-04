@@ -1,6 +1,6 @@
 import Faker from 'faker';
 
-import {
+import type {
     EngineDocument,
     EngineDocumentsCollection,
     EngineUpdates,

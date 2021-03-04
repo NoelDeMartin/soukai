@@ -2,7 +2,8 @@ import { isEmpty, isNullable, isObject, objectDeepClone } from '@noeldemartin/ut
 
 import SoukaiError from '@/errors/SoukaiError';
 
-import { BootedFieldsDefinition, FieldType } from './fields';
+import { FieldType } from './fields';
+import type { BootedFieldsDefinition } from './fields';
 
 export type Attributes = Record<string, AttributeValue>;
 export type AttributeValue = any; // eslint-disable-line @typescript-eslint/no-explicit-any

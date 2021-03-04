@@ -1,5 +1,5 @@
-import { ModelConstructor } from '@/models/inference';
-import { Model } from '@/models/Model';
+import type { ModelConstructor } from '@/models/inference';
+import type { Model } from '@/models/Model';
 
 export type RelationDeleteStrategy = null | 'cascade';
 

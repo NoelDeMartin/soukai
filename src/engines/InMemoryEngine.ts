@@ -1,11 +1,11 @@
-import {
+import { EngineHelper } from '@/engines/EngineHelper';
+import type {
     Engine,
     EngineDocument,
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
 } from '@/engines/Engine';
-import { EngineHelper } from '@/engines/EngineHelper';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
 import DocumentNotFound from '@/errors/DocumentNotFound';

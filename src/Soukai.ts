@@ -1,8 +1,8 @@
 import { objectHasOwnProperty } from '@noeldemartin/utils';
 
 import { engineClosesConnections } from '@/engines/ClosesConnections';
-import { Engine } from '@/engines/Engine';
-import { Model } from '@/models/Model';
+import type { Engine } from '@/engines/Engine';
+import type { Model } from '@/models/Model';
 
 import SoukaiError from '@/errors/SoukaiError';
 

@@ -1,4 +1,4 @@
-import { Model } from '@/models/index';
+import type { Model } from '@/models/index';
 
 export function definitionsFromContext(context: __WebpackModuleApi.RequireContext): Record<string, typeof Model> {
     const models = {} as Record<string, typeof Model>;
