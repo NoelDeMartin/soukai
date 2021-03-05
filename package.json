@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@noeldemartin/eslint-config-typescript": "0.0.0-next.fa3c9edeea6e1526504797ddd3097cbd1f039287",
-    "@noeldemartin/scripts": "0.0.0-next.a6c21192da110b84e4c17dcd22e057d224d4d01d",
+    "@noeldemartin/scripts": "0.0.0-next.8c3720ca71c3cced5cb8673d0297646404773fca",
     "@strictsoftware/typedoc-plugin-monorepo": "^0.2.1",
     "@types/faker": "^4.1.2",
     "@types/jest": "^26.0.20",

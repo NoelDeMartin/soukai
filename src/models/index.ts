@@ -22,4 +22,4 @@ export {
     TimestampFieldValue,
 } from './fields';
 
-export { Attributes, AttributeValue } from './attributes';
+export type { Attributes, AttributeValue } from './attributes';

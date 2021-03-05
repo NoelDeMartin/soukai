@@ -23,7 +23,10 @@ export type ModelConstructor<T extends Model> = Constructor<T> & typeof Model;
 
 export type MagicAttributes<T extends FieldsDefinition> =
     MagicAttributeProperties<{
+        // TODO this should be optional
         id: typeof FieldType.String;
+
+        // TODO this should depend on static timestamps attribute
         createdAt: typeof FieldType.Date;
         updatedAt: typeof FieldType.Date;
     }> &

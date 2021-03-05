@@ -865,3 +865,5 @@ export class Model {
     }
 
 }
+
+export interface Model extends ModelInterface<typeof Model> {}
