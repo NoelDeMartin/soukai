@@ -63,6 +63,8 @@ export class Model {
     private static bootedModels = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
+        this.bootedModels.set(this, true);
+
         const modelClass = this;
         const instance = modelClass.pureInstance();
         const fieldDefinitions: BootedFieldsDefinition = {};
@@ -243,7 +245,6 @@ export class Model {
             return;
 
         this.boot();
-        this.bootedModels.set(this, true);
     }
 
     protected _exists!: boolean;
