@@ -677,33 +677,6 @@ describe('Models CRUD', () => {
         expect(createModel()).rejects.toThrow('Engine must be initialized before performing any operations');
     });
 
-    it('testThrowModelNotBootedErrorOnConstructor', () => {
-        class NonBootedModel extends Model {
-        }
-
-        const createInstance = () => new NonBootedModel();
-        expect(createInstance).toThrow(SoukaiError);
-        expect(createInstance).toThrow('Model has not been booted (did you forget to call loadModel?)');
-    });
-
-    it('testThrowModelNotBootedErrorOnAll', () => {
-        class NonBootedModel extends Model {
-        }
-
-        const retrieveAll = () => NonBootedModel.all();
-        expect(retrieveAll()).rejects.toThrow(SoukaiError);
-        expect(retrieveAll()).rejects.toThrow('Model has not been booted (did you forget to call loadModel?)');
-    });
-
-    it('testThrowModelNotBootedErrorOnFind', () => {
-        class NonBootedModel extends Model {
-        }
-
-        const findOne = () => NonBootedModel.find(Faker.random.uuid());
-        expect(findOne).toThrow(SoukaiError);
-        expect(findOne).toThrow('Model has not been booted (did you forget to call loadModel?)');
-    });
-
 });
 
 describe('Model attributes', () => {

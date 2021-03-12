@@ -20,7 +20,6 @@ import {
     TimestampField,
     expandFieldDefinition,
 } from './fields';
-import { isModelBooted } from './registration';
 import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
@@ -61,16 +60,20 @@ export class Model {
 
     private static instances = new WeakMap;
     private static pureInstances = new WeakMap;
+    private static bootedModels = new WeakMap;
 
-    public static boot<T extends Model>(this: ModelConstructor<T>, name: string): void {
+    public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
         const modelClass = this;
         const fieldDefinitions: BootedFieldsDefinition = {};
 
+        // Set model name
+        modelClass.modelName = modelClass.modelName ?? name ?? modelClass.name;
+
         // Validate collection
         if (typeof modelClass.collection === 'undefined') {
-            modelClass.collection = name.toLowerCase() + 's';
+            modelClass.collection = modelClass.modelName.toLowerCase() + 's';
         } else if (typeof modelClass.collection !== 'string') {
-            throw new InvalidModelDefinition(name, 'Collection name not defined or invalid format');
+            throw new InvalidModelDefinition(modelClass.modelName, 'Collection name not defined or invalid format');
         }
 
         // Validate timestamps
@@ -86,20 +89,23 @@ export class Model {
         } else if (Array.isArray(modelClass.timestamps)) {
             for (const field of modelClass.timestamps) {
                 if (!TIMESTAMP_FIELDS.includes(field)) {
-                    throw new InvalidModelDefinition(name, `Invalid timestamp field defined (${field})`);
+                    throw new InvalidModelDefinition(
+                        modelClass.modelName,
+                        `Invalid timestamp field defined (${field})`,
+                    );
                 }
 
                 fieldDefinitions[field] = { type: FieldType.Date, required: false };
             }
         } else {
-            throw new InvalidModelDefinition(name, 'Invalid timestamps definition');
+            throw new InvalidModelDefinition(modelClass.modelName, 'Invalid timestamps definition');
         }
 
         // Validate fields
         if (typeof this.fields !== 'undefined') {
             for (const field in this.fields) {
                 if (objectHasOwnProperty(this.fields, field)) {
-                    fieldDefinitions[field] = expandFieldDefinition(name, field, this.fields[field]);
+                    fieldDefinitions[field] = expandFieldDefinition(modelClass.modelName, field, this.fields[field]);
 
                     if (
                         modelClass.timestamps.includes(field as TimestampFieldValue) && (
@@ -108,7 +114,7 @@ export class Model {
                         )
                     ) {
                         throw new InvalidModelDefinition(
-                            name,
+                            modelClass.modelName,
                             `Field ${field} definition must be type Date and not required ` +
                             'because it is used an automatic timestamp. ' +
                             'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
@@ -151,7 +157,6 @@ export class Model {
         this.classFields = arrayUnique(classFields);
         this.relations = arrayUnique(relations);
         this.fields = fieldDefinitions;
-        modelClass.modelName = name;
     }
 
     public static create<T extends Model>(this: ModelConstructor<T>, attributes: Attributes = {}): Promise<T> {
@@ -238,14 +243,11 @@ export class Model {
     }
 
     protected static ensureBooted<T extends Model>(this: ModelConstructor<T>): void {
-        if (!isModelBooted(this)) {
-            console.log('non booted model', this);
+        if (this.bootedModels.has(this))
+            return;
 
-            throw new SoukaiError(
-                'Model has not been booted (did you forget to call loadModel?) ' +
-                'Learn more at https://soukai.js.org/guide/defining-models.html',
-            );
-        }
+        this.boot();
+        this.bootedModels.set(this, true);
     }
 
     protected _exists!: boolean;

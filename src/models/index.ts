@@ -1,6 +1,5 @@
 export * from './inference';
 export * from './Model';
-export * from './registration';
 export * from './relations/index';
 
 export {
