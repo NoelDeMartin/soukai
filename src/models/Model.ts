@@ -212,11 +212,13 @@ export class Model {
         this: ModelConstructor<T>,
         fields: F,
     ): Constructor<MagicAttributes<F>> & ModelConstructor<T> {
-        return class extends Model {
+        const ModelClass = this as typeof Model;
+
+        return class extends ModelClass {
 
             static fields = fields;
 
-        } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+        } as unknown as Constructor<MagicAttributes<F>> & ModelConstructor<T>;
     }
 
     public static instance<T extends Model>(this: ModelConstructor<T>): T {
