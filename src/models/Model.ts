@@ -64,17 +64,14 @@ export class Model {
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
         const modelClass = this;
+        const instance = modelClass.pureInstance();
         const fieldDefinitions: BootedFieldsDefinition = {};
 
         // Set model name
         modelClass.modelName = modelClass.modelName ?? name ?? modelClass.name;
 
         // Validate collection
-        if (typeof modelClass.collection === 'undefined') {
-            modelClass.collection = modelClass.modelName.toLowerCase() + 's';
-        } else if (typeof modelClass.collection !== 'string') {
-            throw new InvalidModelDefinition(modelClass.modelName, 'Collection name not defined or invalid format');
-        }
+        modelClass.collection = modelClass.collection ?? instance.getDefaultCollection();
 
         // Validate timestamps
         if (typeof modelClass.timestamps === 'boolean' || typeof modelClass.timestamps === 'undefined') {
@@ -133,7 +130,6 @@ export class Model {
         }
 
         // Obtain class definition information
-        const instance = modelClass.pureInstance();
         const classFields: string[] = Object.getOwnPropertyNames(instance);
         const relations: string[] = [];
 
@@ -618,6 +614,10 @@ export class Model {
 
             return relations;
         }, {} as Record<string, Relation>);
+    }
+
+    protected getDefaultCollection(): string {
+        return this.static('modelName').toLowerCase() + 's';
     }
 
     protected async createFromEngineDocument(id: Key, document: EngineDocument): Promise<this> {
