@@ -31,7 +31,7 @@ export class Soukai {
     }
 
     public loadModel(name: string, model: typeof Model): void {
-        if (name in model)
+        if (model.modelName)
             return;
 
         model.boot(name);
