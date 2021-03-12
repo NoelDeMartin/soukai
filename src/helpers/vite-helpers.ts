@@ -1,14 +1,6 @@
 import { bootModels } from '@/models';
 import type { Model } from '@/models';
 
-declare global {
-
-    interface ImportMeta {
-        globEager(path: string): Record<string, { default: typeof Model }>;
-    }
-
-}
-
 export function getModelsFromViteGlob(
     glob: Record<string, Record<string, unknown>>,
     ignoreSuffixes: string[] = ['.schema'],
