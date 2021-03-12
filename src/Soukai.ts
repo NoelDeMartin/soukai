@@ -46,14 +46,16 @@ export class Soukai {
     }
 
     /**
-     * @deprecated This is no longer necessary, models are loaded automatically now.
+     * @deprecated This is no longer necessary, models are loaded automatically now (even though you may still want to
+     * boot them to avoid obfuscation).
      */
     public loadModel(name: string, model: typeof Model): void {
         model.boot(name);
     }
 
     /**
-     * @deprecated This is no longer necessary, models are loaded automatically now.
+     * @deprecated This is no longer necessary, models are loaded automatically now (even though you may still want to
+     * boot them to avoid obfuscation, use the global `bootModels` method instead).
      */
     public loadModels(models: Record<string, typeof Model>): void {
         for (const [name, model] of Object.entries(models)) {
