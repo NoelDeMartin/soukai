@@ -683,7 +683,7 @@ describe('Models CRUD', () => {
 
         const createInstance = () => new NonBootedModel();
         expect(createInstance).toThrow(SoukaiError);
-        expect(createInstance).toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
+        expect(createInstance).toThrow('Model has not been booted (did you forget to call loadModel?)');
     });
 
     it('testThrowModelNotBootedErrorOnAll', () => {
@@ -692,7 +692,7 @@ describe('Models CRUD', () => {
 
         const retrieveAll = () => NonBootedModel.all();
         expect(retrieveAll()).rejects.toThrow(SoukaiError);
-        expect(retrieveAll()).rejects.toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
+        expect(retrieveAll()).rejects.toThrow('Model has not been booted (did you forget to call loadModel?)');
     });
 
     it('testThrowModelNotBootedErrorOnFind', () => {
@@ -701,7 +701,7 @@ describe('Models CRUD', () => {
 
         const findOne = () => NonBootedModel.find(Faker.random.uuid());
         expect(findOne).toThrow(SoukaiError);
-        expect(findOne).toThrow('Model has not been booted (did you forget to call Soukai.loadModel?)');
+        expect(findOne).toThrow('Model has not been booted (did you forget to call loadModel?)');
     });
 
 });

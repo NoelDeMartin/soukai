@@ -9,8 +9,8 @@ import {
     toString,
 } from '@noeldemartin/utils';
 
+import { requireEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
-import Soukai from '@/Soukai';
 import SoukaiError from '@/errors/SoukaiError';
 import type { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
@@ -20,6 +20,7 @@ import {
     TimestampField,
     expandFieldDefinition,
 } from './fields';
+import { isModelBooted } from './registration';
 import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
@@ -126,11 +127,11 @@ export class Model {
         }
 
         // Obtain class definition information
-        const pureInstance = modelClass.pureInstance();
-        const classFields: string[] = Object.getOwnPropertyNames(pureInstance);
+        const instance = modelClass.pureInstance();
+        const classFields: string[] = Object.getOwnPropertyNames(instance);
         const relations: string[] = [];
 
-        let prototype = Object.getPrototypeOf(pureInstance);
+        let prototype = Object.getPrototypeOf(instance);
         while (prototype !== Model.prototype) {
             if (prototype.constructor.classFields)
                 classFields.push(...prototype.constructor.classFields);
@@ -138,7 +139,7 @@ export class Model {
             for (const property of Object.getOwnPropertyNames(prototype)) {
                 if (
                     property.endsWith('Relationship') &&
-                    typeof pureInstance[property as keyof typeof pureInstance] === 'function'
+                    typeof instance[property as keyof typeof instance] === 'function'
                 ) {
                     relations.push(property.substring(0, property.length - 12));
                 }
@@ -177,8 +178,7 @@ export class Model {
     public static find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
         this.ensureBooted();
 
-        return Soukai
-            .requireEngine()
+        return requireEngine()
             .readOne(this.collection, this.instance().serializeKey(id))
             .then(document => this.createFromEngineDocument(id, document))
             .catch(() => null);
@@ -187,7 +187,7 @@ export class Model {
     public static async all<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T[]> {
         this.ensureBooted();
 
-        const engine = Soukai.requireEngine();
+        const engine = requireEngine();
         const documents = await engine.readMany(this.collection, filters);
         const models = await this.createManyFromEngineDocuments(documents);
 
@@ -238,11 +238,14 @@ export class Model {
     }
 
     protected static ensureBooted<T extends Model>(this: ModelConstructor<T>): void {
-        if (typeof this.modelName === 'undefined')
+        if (!isModelBooted(this)) {
+            console.log('non booted model', this);
+
             throw new SoukaiError(
-                'Model has not been booted (did you forget to call Soukai.loadModel?) ' +
+                'Model has not been booted (did you forget to call loadModel?) ' +
                 'Learn more at https://soukai.js.org/guide/defining-models.html',
             );
+        }
     }
 
     protected _exists!: boolean;
@@ -254,9 +257,9 @@ export class Model {
     protected _relations!: { [relation: string]: Relation };
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
-        // We need to do this in order to get a pure instance during boot,
-        // that is an instance that is not being proxied. This is necessary
-        // to obtain information about the class definition, for example class fields.
+        // We need to do this in order to get a pure instance during boot; that is an instance that is not a proxy.
+        // This is necessary in order to obtain information about the class definition without being polluted by magic
+        // accessors, for example class fields.
         if ('__pureInstance' in attributes) {
             return;
         }
@@ -632,7 +635,7 @@ export class Model {
     }
 
     protected async syncDirty(): Promise<string> {
-        const engine = Soukai.requireEngine();
+        const engine = requireEngine();
 
         if (!this._exists) {
             return engine.create(
@@ -672,7 +675,7 @@ export class Model {
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
-        const engine = Soukai.requireEngine();
+        const engine = requireEngine();
 
         // TODO cluster by collection and implement deleteMany
         const modelsData = models.map(

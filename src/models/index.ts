@@ -1,6 +1,7 @@
 export * from './inference';
-export * from './relations/index';
 export * from './Model';
+export * from './registration';
+export * from './relations/index';
 
 export {
     ArrayFieldDefinition,

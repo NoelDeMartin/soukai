@@ -1,69 +1,65 @@
-import { objectHasOwnProperty } from '@noeldemartin/utils';
-
-import { engineClosesConnections } from '@/engines/ClosesConnections';
+import { closeEngineConnections, getEngine, requireEngine, setEngine } from '@/engines';
+import { getModel, loadModel, loadModels } from '@/models';
 import type { Engine } from '@/engines/Engine';
 import type { Model } from '@/models/Model';
 
-import SoukaiError from '@/errors/SoukaiError';
-
+/**
+ * @deprecated import global methods instead.
+ */
 export class Soukai {
 
-    private _engine?: Engine;
-
-    private _bootedModels: Record<string, typeof Model> = {};
-
+    /**
+     * @deprecated import global `getEngine` method instead.
+     */
     public get engine(): Engine | undefined {
-        return this._engine;
+        return getEngine();
     }
 
+    /**
+     * @deprecated import global `setEngine` method instead.
+     */
     public useEngine(engine: Engine | null): void {
-        if (!engine) {
-            delete this._engine;
-
-            return;
-        }
-
-        this._engine = engine;
+        setEngine(engine);
     }
 
+    /**
+     * @deprecated import global `getModel` method instead.
+     */
     public model(name: string): typeof Model {
-        return this._bootedModels[name];
+        return getModel(name);
     }
 
+    /**
+     * @deprecated import global `loadModel` method instead.
+     */
     public loadModel(name: string, model: typeof Model): void {
-        if (model.modelName)
-            return;
-
-        model.boot(name);
-        this._bootedModels[name] = model;
+        loadModel(name, model);
     }
 
+    /**
+     * @deprecated import global `loadModels` method instead.
+     */
     public loadModels(models: Record<string, typeof Model>): void {
-        for (const name in models) {
-            if (objectHasOwnProperty(models, name)) {
-                this.loadModel(name, models[name]);
-            }
-        }
+        loadModels(models);
     }
 
+    /**
+     * @deprecated import global `requireEngine` method instead.
+     */
     public requireEngine(): Engine {
-        if (!this._engine)
-            throw new SoukaiError(
-                'Engine must be initialized before performing any operations. ' +
-                'Learn more at https://soukai.js.org/guide/engines.html',
-            );
-
-        return this._engine;
+        return requireEngine();
     }
 
+    /**
+     * @deprecated import global `closeConnections` method instead.
+     */
     public async closeConnections(): Promise<void> {
-        if (!this._engine || !engineClosesConnections(this._engine)) {
-            return;
-        }
-
-        await this._engine.closeConnections();
+        await closeEngineConnections();
     }
 
 }
 
+/**
+ * @deprecated import global methods instead.
+ */
 export default new Soukai();
