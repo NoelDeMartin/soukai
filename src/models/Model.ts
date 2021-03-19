@@ -40,7 +40,7 @@ import type SingleModelRelation from './relations/SingleModelRelation';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
 
-export type ModelInterface<T extends typeof Model> = MagicAttributes<T['fields']>;
+export type IModel<T extends typeof Model> = MagicAttributes<T['fields']>;
 
 export class Model {
 
@@ -874,4 +874,4 @@ export class Model {
 
 }
 
-export interface Model extends ModelInterface<typeof Model> {}
+export interface Model extends IModel<typeof Model> {}

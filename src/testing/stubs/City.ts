@@ -1,5 +1,5 @@
 import { FieldRequired, FieldType, Model } from '@/models/index';
-import type { ModelInterface, MultiModelRelation, Relation } from '@/models/index';
+import type { IModel, MultiModelRelation, Relation } from '@/models/index';
 
 import User from './User';
 
@@ -25,4 +25,4 @@ export default class City extends Model {
 
 }
 
-export default interface City extends ModelInterface<typeof City> {}
+export default interface City extends IModel<typeof City> {}

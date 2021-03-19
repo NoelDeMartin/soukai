@@ -1,5 +1,5 @@
 import { FieldType, Model } from '@/models/index';
-import type { ModelInterface, Relation, SingleModelRelation } from '@/models/index';
+import type { IModel, Relation, SingleModelRelation } from '@/models/index';
 
 import User from './User';
 
@@ -23,4 +23,4 @@ export default class Post extends Model {
 
 }
 
-export default interface Post extends ModelInterface<typeof Post> {}
+export default interface Post extends IModel<typeof Post> {}
