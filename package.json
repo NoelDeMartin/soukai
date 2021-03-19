@@ -37,14 +37,14 @@
   "homepage": "https://soukai.js.org",
   "dependencies": {
     "@babel/runtime": "^7.12.18",
-    "@noeldemartin/utils": "0.0.1-next.5af1713d6197bebaf0b10a93adc4fc71e4194c1a",
+    "@noeldemartin/utils": "0.0.1-next.20e65ca115d795357e3f366a9f450aef812bd8f8",
     "@types/webpack-env": "^1.13.6",
     "core-js": "^3.9.0",
     "idb": "^5.0.2"
   },
   "devDependencies": {
     "@noeldemartin/eslint-config-typescript": "0.0.0-next.fa3c9edeea6e1526504797ddd3097cbd1f039287",
-    "@noeldemartin/scripts": "0.0.0-next.0fe4a5ffafe6325621fd501c83dcd42fb8bf1930",
+    "@noeldemartin/scripts": "0.0.0-next.fc10faa540c836a703b087e3bfe615dd68424745",
     "@strictsoftware/typedoc-plugin-monorepo": "^0.2.1",
     "@types/faker": "^4.1.2",
     "@types/jest": "^26.0.20",

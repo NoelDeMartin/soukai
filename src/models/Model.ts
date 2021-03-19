@@ -8,6 +8,7 @@ import {
     stringToCamelCase,
     toString,
 } from '@noeldemartin/utils';
+import type { Constructor } from '@noeldemartin/utils';
 
 import { requireEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
@@ -31,7 +32,7 @@ import type {
     FieldsDefinition,
     TimestampFieldValue,
 } from './fields';
-import type { Constructor, MagicAttributes, ModelConstructor } from './inference';
+import type { MagicAttributes, ModelConstructor } from './inference';
 import type { Attributes } from './attributes';
 import type MultiModelRelation from './relations/MultiModelRelation';
 import type Relation from './relations/Relation';

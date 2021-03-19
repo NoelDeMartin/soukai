@@ -1,3 +1,5 @@
+import type { Constructor } from '@noeldemartin/utils';
+
 import type { Key, Model } from './Model';
 
 import type {
@@ -18,7 +20,6 @@ import type {
 // See https://soukai.js.org/guide/defining-models.html#typescript-inference
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type Constructor<T> = { new (...args: any[]): T };
 export type ModelConstructor<T extends Model> = Constructor<T> & typeof Model;
 
 export type MagicAttributes<T extends FieldsDefinition> =
