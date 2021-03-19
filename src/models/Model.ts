@@ -250,7 +250,7 @@ export class Model {
 
     protected _exists!: boolean;
     protected _wasRecentlyCreated!: boolean;
-    protected _proxy!: Model;
+    protected _proxy!: this;
     protected _attributes!: Attributes;
     protected _originalAttributes!: Attributes;
     protected _dirtyAttributes!: Attributes;
