@@ -1,6 +1,7 @@
 import {
     arrayUnique,
     deepEquals,
+    fail,
     isNullable,
     isObject,
     objectDeepClone,
@@ -324,6 +325,10 @@ export class Model {
 
     public getRelation<T extends Relation = Relation>(relation: string): T | null {
         return this._relations[relation] as T || null;
+    }
+
+    public requireRelation<T extends Relation = Relation>(relation: string): T {
+        return this._relations[relation] as T ?? fail(SoukaiError, `Attempting to use undefined ${relation} relation.`);
     }
 
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
@@ -863,14 +868,6 @@ export class Model {
 
     protected parseKey(key: string): Key {
         return key;
-    }
-
-    protected requireRelation(relation: string): Relation {
-        if (!(relation in this._relations)) {
-            throw new SoukaiError(`Attempting to use undefined ${relation} relation.`);
-        }
-
-        return this._relations[relation];
     }
 
 }
