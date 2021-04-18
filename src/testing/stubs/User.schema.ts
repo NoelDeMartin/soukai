@@ -19,4 +19,8 @@ export default Model.schema({
             mastodon: FieldType.String,
         },
     },
+    externalUrls: {
+        type: FieldType.Array,
+        items: FieldType.String,
+    },
 });

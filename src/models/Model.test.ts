@@ -1,19 +1,18 @@
+import { after, seconds, tt } from '@noeldemartin/utils';
 import Faker from 'faker';
+import type { Assert, Equals, Expect, Extends, Not } from '@noeldemartin/utils';
 
-import { FieldType, Model, TimestampField } from '@/models/index';
+import { FieldType, Model, TimestampField, bootModels } from '@/models/index';
+import { SoukaiError } from '@/errors';
+import { setEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
-import Soukai from '@/Soukai';
 import type { Engine } from '@/engines/Engine';
 import type { Key, TimestampFieldValue } from '@/models/index';
 
-import { testTypes } from '@/testing';
-import { seconds, wait } from '@/testing/utils';
 import City from '@/testing/stubs/City';
 import MockEngine from '@/testing/mocks/MockEngine';
 import Post from '@/testing/stubs/Post';
 import User from '@/testing/stubs/User';
-import { SoukaiError } from '@/errors';
-import type { Assert, Equals, Expect, Extends } from '@/testing';
 
 describe('Model', () => {
 
@@ -21,8 +20,9 @@ describe('Model', () => {
 
     beforeEach(() => {
         MockEngine.mockClear();
-        Soukai.useEngine(mockEngine = new MockEngine());
-        Soukai.loadModels({ User, Post, City });
+
+        setEngine(mockEngine = new MockEngine());
+        bootModels({ User, Post, City });
     });
 
     it('deletes related models with cascade delete mode', async () => {
@@ -55,7 +55,7 @@ describe('Models definition', () => {
     it('testInstanceOf', () => {
         class StubModel extends Model {}
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         expect(new StubModel()).toBeInstanceOf(StubModel);
     });
@@ -67,7 +67,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         expect(StubModel.collection).toBe('collection');
     });
@@ -75,7 +75,7 @@ describe('Models definition', () => {
     it('testEmptyCollection', () => {
         class StubModel extends Model {}
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ stub: StubModel });
 
         expect(StubModel.collection).toBe('stubs');
     });
@@ -87,7 +87,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         expect(StubModel.fields).toEqual({
             id: {
@@ -108,7 +108,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         expect(StubModel.fields).toEqual({
             id: {
@@ -125,7 +125,7 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => Soukai.loadModel('Stub', StubModel);
+        const loadModel = () => bootModels({ StubModel });
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow('Invalid timestamp field defined');
     });
@@ -157,7 +157,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         expect(StubModel.fields).toEqual({
             id: {
@@ -217,7 +217,7 @@ describe('Models definition', () => {
     it('testEmptyFields', () => {
         class StubModel extends Model {}
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         expect(StubModel.fields).toEqual({
             id: {
@@ -244,7 +244,7 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => Soukai.loadModel('Stub', StubModel);
+        const loadModel = () => bootModels({ StubModel });
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow('array requires items attribute');
     });
@@ -258,7 +258,7 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => Soukai.loadModel('Stub', StubModel);
+        const loadModel = () => bootModels({ StubModel });
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow('object requires fields attribute');
     });
@@ -277,7 +277,7 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => Soukai.loadModel('Stub', StubModel);
+        const loadModel = () => bootModels({ StubModel });
         expect(loadModel).toThrow(InvalidModelDefinition);
         expect(loadModel).toThrow(
             'Field createdAt definition must be type Date and not required because it is used an automatic timestamp',
@@ -291,7 +291,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         const model = new StubModel();
 
@@ -305,7 +305,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModel('Stub', StubModel);
+        bootModels({ StubModel });
 
         const model = new StubModel();
 
@@ -329,7 +329,7 @@ describe('Models definition', () => {
 
         }
 
-        Soukai.loadModels({ Parent, Child });
+        bootModels({ Parent, Child });
 
         expect(Parent.classFields).toHaveLength(2);
         expect(Parent.classFields).toContain('parentProp');
@@ -351,8 +351,8 @@ describe('Models CRUD', () => {
     beforeEach(() => {
         MockEngine.mockClear();
 
-        Soukai.useEngine(mockEngine = new MockEngine());
-        Soukai.loadModels({ User, Post });
+        setEngine(mockEngine = new MockEngine());
+        bootModels({ User, Post });
     });
 
     it('testCreate', async () => {
@@ -377,10 +377,9 @@ describe('Models CRUD', () => {
                 User.collection,
                 {
                     ...attributes,
-                    ...{
-                        createdAt: model.createdAt,
-                        updatedAt: model.updatedAt,
-                    },
+                    externalUrls: [],
+                    createdAt: model.createdAt,
+                    updatedAt: model.updatedAt,
                 },
                 undefined,
             );
@@ -411,10 +410,9 @@ describe('Models CRUD', () => {
                 User.collection,
                 {
                     ...attributes,
-                    ...{
-                        createdAt: model.createdAt,
-                        updatedAt: model.updatedAt,
-                    },
+                    externalUrls: [],
+                    createdAt: model.createdAt,
+                    updatedAt: model.updatedAt,
                 },
                 undefined,
             );
@@ -449,6 +447,7 @@ describe('Models CRUD', () => {
             User.collection,
             {
                 ...attributes,
+                externalUrls: [],
                 createdAt: model.createdAt,
                 updatedAt: model.updatedAt,
             },
@@ -466,7 +465,7 @@ describe('Models CRUD', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(Faker.random.uuid()));
 
         return User.create({ name: Faker.name.firstName() })
-            .then(model => wait().then(() => {
+            .then(model => after().then(() => {
                 model.unsetAttribute('name');
 
                 const saveModel = () => model.save();
@@ -555,7 +554,7 @@ describe('Models CRUD', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         return User.create({ name: initialName, surname })
-            .then(model => wait().then(() => model.update({ name: newName })))
+            .then(model => after().then(() => model.update({ name: newName })))
             .then(model => {
                 expect(model).toBeInstanceOf(User);
                 expect(model.id).toBe(id);
@@ -582,7 +581,7 @@ describe('Models CRUD', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         return User.create({ name: Faker.name.firstName(), birthDate: null })
-            .then(model => wait().then(() => model.update({ name: Faker.name.firstName() })))
+            .then(model => after().then(() => model.update({ name: Faker.name.firstName() })))
             .then(model => {
                 expect(model.birthDate).toBeNull();
             });
@@ -598,7 +597,7 @@ describe('Models CRUD', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         return User.create({ name: initialName, surname })
-            .then(model => wait().then(() => {
+            .then(model => after().then(() => {
                 model.setAttribute('name', newName);
                 return model.save();
             }))
@@ -630,7 +629,7 @@ describe('Models CRUD', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         return User.create({ name, surname: Faker.name.lastName() })
-            .then(model => wait().then(() => {
+            .then(model => after().then(() => {
                 model.unsetAttribute('surname');
                 return model.save();
             }))
@@ -670,7 +669,7 @@ describe('Models CRUD', () => {
     });
 
     it('testThrowEngineMissingError', () => {
-        Soukai.useEngine(null);
+        setEngine(null);
 
         const createModel = () => User.create({ name: Faker.name.firstName() });
         expect(createModel()).rejects.toThrow(SoukaiError);
@@ -686,8 +685,8 @@ describe('Model attributes', () => {
     beforeEach(() => {
         MockEngine.mockClear();
 
-        Soukai.useEngine(mockEngine = new MockEngine());
-        Soukai.loadModels({ User });
+        setEngine(mockEngine = new MockEngine());
+        bootModels({ User });
     });
 
     it('magic getters work', () => {
@@ -715,7 +714,7 @@ describe('Model attributes', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         return User.create({ name: initialName, surname })
-            .then(model => wait().then(() => {
+            .then(model => after().then(() => {
                 model.name = newName;
                 return model.save();
             }))
@@ -747,7 +746,7 @@ describe('Model attributes', () => {
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         return User.create({ name, surname: Faker.name.lastName() })
-            .then(model => wait().then(() => {
+            .then(model => after().then(() => {
                 delete model.surname;
                 return model.save();
             }))
@@ -845,7 +844,7 @@ describe('Model attributes', () => {
 
 describe('Model types', () => {
 
-    it('infers magic attributes', testTypes<
+    it('infers magic attributes', tt<
         Expect<Equals<User['name'], string>> |
         Expect<Equals<User['surname'], string | undefined>> |
         Expect<Equals<User['age'], number | undefined>> |
@@ -854,9 +853,11 @@ describe('Model types', () => {
         Expect<Equals<Assert<User['contact']>['email'], string | undefined>> |
         Expect<Extends<User['social'], undefined>> |
         Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
+        Expect<Equals<User['externalUrls'], string[]>> |
         Expect<Equals<Post['title'], string>> |
         Expect<Equals<City['name'], string>> |
-        Expect<Equals<City['birthRecords'], Key[] | undefined>> |
+        Expect<Equals<City['birthRecords'], Key[]>> |
+        Expect<Not<Extends<keyof User, 'undefinedProperty'>>> |
         true
     >());
 

@@ -37,7 +37,8 @@ export type MagicAttributes<T extends FieldsDefinition> =
 
 export type NestedMagicAttributes<T extends FieldsDefinition> =
     MagicAttributeProperties<Pick<T, GetRequiredFields<T>>> &
-    Partial<MagicAttributeProperties<Pick<T, GetOptionalFields<T>>>>;
+    MagicAttributeProperties<Pick<T, GetArrayFields<T>>> &
+    Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>>>;
 
 export type MagicAttributeProperties<T extends FieldsDefinition> = {
     [K in keyof T]: MagicAttributeValue<GetFieldType<T[K]>>;
@@ -71,6 +72,14 @@ export type GetRequiredFields<F extends FieldsDefinition> = {
     [K in keyof F]: F[K] extends { required: true } ? K : never;
 }[keyof F];
 
-export type GetOptionalFields<F extends FieldsDefinition> = {
-    [K in keyof F]: F[K] extends { required: true } ? never : K;
+export type GetArrayFields<F extends FieldsDefinition> = {
+    [K in keyof F]: F[K] extends { type: typeof FieldType.Array } ? K : never;
+}[keyof F];
+
+export type GetDefinedFields<F extends FieldsDefinition> = {
+    [K in keyof F]: F[K] extends string | { type: string }
+        ? K
+        : F[K] extends Record<string, string>
+            ? K
+            : never;
 }[keyof F];
