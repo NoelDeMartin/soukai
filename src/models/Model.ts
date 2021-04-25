@@ -446,6 +446,10 @@ export class Model {
         }
     }
 
+    public is(another: this): boolean {
+        return this.getPrimaryKey() === another.getPrimaryKey();
+    }
+
     public isDirty(field?: string): boolean {
         return field
             ? field in this._dirtyAttributes
