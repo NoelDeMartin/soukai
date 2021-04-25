@@ -1,4 +1,5 @@
 import { engineClosesConnections } from '@/engines/ClosesConnections';
+import { fail } from '@noeldemartin/utils';
 import { SoukaiError } from '@/errors';
 import type { Engine } from '@/engines/Engine';
 
@@ -17,13 +18,11 @@ export function getEngine(): Engine | undefined {
 }
 
 export function requireEngine(): Engine {
-    if (!_engine)
-        throw new SoukaiError(
-            'Engine must be initialized before performing any operations. ' +
-                'Learn more at https://soukai.js.org/guide/engines.html',
-        );
-
-    return _engine;
+    return _engine || fail(
+        SoukaiError,
+        'Engine must be initialized before performing any operations. ' +
+            'Learn more at https://soukai.js.org/guide/engines.html',
+    );
 }
 
 export function setEngine(engine: Engine | null): void {

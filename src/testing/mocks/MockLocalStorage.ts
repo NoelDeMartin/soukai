@@ -5,7 +5,7 @@ class MockLocalStorage implements Storage {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [name: string]: any;
 
-    get length(): number {
+    public get length(): number {
         return Object.keys(this.data).length;
     }
 

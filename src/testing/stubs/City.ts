@@ -5,7 +5,7 @@ import User from './User';
 
 export default class City extends Model {
 
-    static fields = {
+    public static fields = {
         name: {
             type: FieldType.String,
             required: FieldRequired.Required,
@@ -16,8 +16,8 @@ export default class City extends Model {
         },
     };
 
-    natives!: User[] | null;
-    relatedNatives!: MultiModelRelation<City, User, typeof User>;
+    public natives!: User[] | null;
+    public relatedNatives!: MultiModelRelation<City, User, typeof User>;
 
     public nativesRelationship(): Relation {
         return this.belongsToMany(User, 'birthRecords');

@@ -5,7 +5,7 @@ import User from './User';
 
 export default class Post extends Model {
 
-    static fields = {
+    public static fields = {
         title: {
             type: FieldType.String,
             required: true,
@@ -14,8 +14,8 @@ export default class Post extends Model {
         authorId: FieldType.Key,
     } as const;
 
-    author!: User | null;
-    relatedAuthor!: SingleModelRelation<Post, User, typeof User>;
+    public author!: User | null;
+    public relatedAuthor!: SingleModelRelation<Post, User, typeof User>;
 
     public authorRelationship(): Relation {
         return this.belongsToOne(User, 'authorId');

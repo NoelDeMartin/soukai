@@ -14,7 +14,7 @@ import type { Constructor } from '@noeldemartin/utils';
 import { requireEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
-import type { EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
+import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
 import {
     FieldType,
@@ -41,24 +41,18 @@ import type SingleModelRelation from './relations/SingleModelRelation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
-
 export type IModel<T extends typeof Model> = MagicAttributes<T['fields']>;
 
 export class Model {
 
     public static collection: string;
-
     public static primaryKey: string = 'id';
-
     public static timestamps: TimestampFieldValue[] | boolean;
-
     public static fields: FieldsDefinition;
-
     public static modelName: string;
-
     public static classFields: string[] = [];
-
     public static relations: string[] = [];
+    public static engine?: Engine;
 
     private static instances = new WeakMap;
     private static pureInstances = new WeakMap;
@@ -134,7 +128,8 @@ export class Model {
         }
 
         // Obtain class definition information
-        const classFields: string[] = Object.getOwnPropertyNames(instance);
+        const builtInClassFields = ['_engine'];
+        const classFields: string[] = Object.getOwnPropertyNames(instance).concat(builtInClassFields);
         const relations: string[] = [];
 
         let prototype = Object.getPrototypeOf(instance);
@@ -183,7 +178,7 @@ export class Model {
     public static find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
         this.ensureBooted();
 
-        return requireEngine()
+        return (this.engine ?? requireEngine())
             .readOne(this.collection, this.instance().serializeKey(id))
             .then(document => this.createFromEngineDocument(id, document))
             .catch(() => null);
@@ -192,7 +187,7 @@ export class Model {
     public static async all<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T[]> {
         this.ensureBooted();
 
-        const engine = requireEngine();
+        const engine = this.engine ?? requireEngine();
         const documents = await engine.readMany(this.collection, filters);
         const models = await this.createManyFromEngineDocuments(documents);
 
@@ -221,7 +216,7 @@ export class Model {
 
         return class extends ModelClass {
 
-            static fields = fields;
+            public static fields = fields;
 
         } as unknown as Constructor<MagicAttributes<F>> & ModelConstructor<T>;
     }
@@ -257,6 +252,8 @@ export class Model {
     protected _dirtyAttributes!: Attributes;
     protected _relations!: { [relation: string]: Relation };
 
+    private _engine?: Engine;
+
     constructor(attributes: Attributes = {}, exists: boolean = false) {
         // We need to do this in order to get a pure instance during boot; that is an instance that is not a proxy.
         // This is necessary in order to obtain information about the class definition without being polluted by magic
@@ -269,6 +266,10 @@ export class Model {
         this.initialize(attributes, exists);
 
         return this._proxy;
+    }
+
+    protected get engine(): Engine {
+        return this._engine ?? this.static('engine') ?? requireEngine();
     }
 
     public static(): ModelConstructor<this>;
@@ -397,6 +398,10 @@ export class Model {
         for (const [field, value] of Object.entries(attributes)) {
             this.setAttribute(field, value);
         }
+    }
+
+    public setEngine(engine: Engine): void {
+        this._engine = engine;
     }
 
     public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
@@ -644,10 +649,8 @@ export class Model {
     }
 
     protected async syncDirty(): Promise<string> {
-        const engine = requireEngine();
-
         if (!this._exists) {
-            return engine.create(
+            return this.engine.create(
                 this.static('collection'),
                 this.toEngineDocument(),
                 this.getSerializedPrimaryKey() || undefined,
@@ -657,7 +660,7 @@ export class Model {
         const updates = this.getDirtyEngineDocumentUpdates();
         const id = this.getSerializedPrimaryKey() as string;
 
-        await engine.update(this.static('collection'), id, updates);
+        await this.engine.update(this.static('collection'), id, updates);
 
         return id;
     }
@@ -684,14 +687,12 @@ export class Model {
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
-        const engine = requireEngine();
-
         // TODO cluster by collection and implement deleteMany
         const modelsData = models.map(
             model => [model.static('collection'), model.getSerializedPrimaryKey() as string],
         );
 
-        await Promise.all(modelsData.map(([collection, id]) => engine.delete(collection, id)));
+        await Promise.all(modelsData.map(([collection, id]) => this.engine.delete(collection, id)));
     }
 
     protected resetEngineData(): void {

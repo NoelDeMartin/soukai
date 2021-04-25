@@ -331,11 +331,13 @@ describe('Models definition', () => {
 
         bootModels({ Parent, Child });
 
-        expect(Parent.classFields).toHaveLength(2);
+        expect(Parent.classFields).toHaveLength(3);
+        expect(Parent.classFields).toContain('_engine');
         expect(Parent.classFields).toContain('parentProp');
         expect(Parent.classFields).toContain('parentField');
 
-        expect(Child.classFields).toHaveLength(4);
+        expect(Child.classFields).toHaveLength(5);
+        expect(Child.classFields).toContain('_engine');
         expect(Child.classFields).toContain('parentProp');
         expect(Child.classFields).toContain('parentField');
         expect(Child.classFields).toContain('childProp');
