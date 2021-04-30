@@ -1,6 +1,6 @@
 import SingleModelRelation from '@/models/relations/SingleModelRelation';
 import type { ModelConstructor } from '@/models/inference';
-import type { Model } from '@/models/Model';
+import type { Key, Model } from '@/models/Model';
 
 export default class BelongsToOneRelation<
     Parent extends Model = Model,
@@ -8,14 +8,20 @@ export default class BelongsToOneRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends SingleModelRelation<Parent, Related, RelatedClass> {
 
-    public async resolve(): Promise<Related | null> {
-        const foreignKey = this.parent.getAttribute<string>(this.foreignKeyName);
+    public isEmpty(): boolean {
+        return !this.parent.getAttribute<Key>(this.foreignKeyName);
+    }
 
-        this.related = this.localKeyName === this.relatedClass.primaryKey
-            ? await this.relatedClass.find(foreignKey)
-            : await this.relatedClass.first({
-                [this.localKeyName]: foreignKey,
-            });
+    public async resolve(): Promise<Related | null> {
+        const foreignKey = this.parent.getAttribute<Key>(this.foreignKeyName);
+
+        this.related = this.isEmpty()
+            ? null
+            : (
+                this.localKeyName === this.relatedClass.primaryKey
+                    ? await this.relatedClass.find(foreignKey)
+                    : await this.relatedClass.first({ [this.localKeyName]: foreignKey })
+            );
 
         return this.related;
     }

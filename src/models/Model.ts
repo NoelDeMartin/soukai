@@ -27,6 +27,8 @@ import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
 import HasOneRelation from './relations/HasOneRelation';
+import MultiModelRelation from './relations/MultiModelRelation';
+import SingleModelRelation from './relations/SingleModelRelation';
 import type {
     BootedFieldDefinition,
     BootedFieldsDefinition,
@@ -35,9 +37,7 @@ import type {
 } from './fields';
 import type { MagicAttributes, ModelConstructor } from './inference';
 import type { Attributes } from './attributes';
-import type MultiModelRelation from './relations/MultiModelRelation';
 import type Relation from './relations/Relation';
-import type SingleModelRelation from './relations/SingleModelRelation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
@@ -341,21 +341,41 @@ export class Model {
     public async loadRelationIfUnloaded<T extends Model | null | Model[] = Model | null | Model[]>(
         relation: string,
     ): Promise<T> {
-        return this.isRelationLoaded(relation)
-            ? this.getRelationModels<T>(relation)
-            : this.loadRelation<T>(relation);
+        const relationInstance = this.requireRelation(relation);
+
+        return relationInstance.loaded
+            ? relationInstance.getLoadedModels() as T
+            : this.loadRelation(relation);
     }
 
     public unloadRelation(relation: string): void {
         this.requireRelation(relation).unload();
     }
 
-    public getRelationModels<T extends Model | null | Model[] = Model | null | Model[]>(relation: string): T {
-        return this.requireRelation(relation).related as T;
+    public getRelationModel<T extends Model | null = Model | null>(relation: string): T {
+        return (this.requireRelation(relation).related || null) as T;
     }
 
-    public setRelationModels(relation: string, models: null | Model | Model[]): void {
-        this.requireRelation(relation).related = models;
+    public getRelationModels<T extends Model[] | null = Model[] | null>(relation: string): T {
+        return (this.requireRelation(relation).related || null) as T;
+    }
+
+    public setRelationModel(relation: string, model: Model | null): void {
+        const relationInstance = this.requireRelation(relation);
+
+        if (relationInstance instanceof MultiModelRelation)
+            throw new SoukaiError('Can\'t set a single model for MultiModelRelation, use setRelationModels instead');
+
+        relationInstance.related = model;
+    }
+
+    public setRelationModels(relation: string, models: Model[] | null): void {
+        const relationInstance = this.requireRelation(relation);
+
+        if (relationInstance instanceof SingleModelRelation)
+            throw new SoukaiError('Can\'t set a single model for SingleModelRelation, use setRelationModels instead');
+
+        relationInstance.related = models;
     }
 
     public isRelationLoaded(relation: string): boolean {
@@ -483,9 +503,8 @@ export class Model {
     public async save(): Promise<this> {
         validateRequiredAttributes(this._attributes, this.static('fields'));
 
-        if (!this.isDirty()) {
+        if (!this.isDirty())
             return this;
-        }
 
         const existed = this._exists;
         const id = await this.syncDirty();
@@ -493,6 +512,7 @@ export class Model {
         this._wasRecentlyCreated = this._wasRecentlyCreated || !existed;
         this._attributes[this.static('primaryKey')] = this.parseKey(id);
         this.cleanDirty();
+        this.loadEmptyRelations();
 
         return this;
     }
@@ -568,7 +588,8 @@ export class Model {
                 }
 
                 if (target.hasRelation(property)) {
-                    target.setRelationModels(property, value);
+                    target._relations[property].related = value;
+
                     return true;
                 }
 
@@ -767,6 +788,13 @@ export class Model {
         localKeyField?: string,
     ): MultiModelRelation {
         return new BelongsToManyRelation(this, relatedClass, foreignKeyField, localKeyField);
+    }
+
+    protected loadEmptyRelations(): void {
+        Object
+            .values(this._relations)
+            .filter(relation => !relation.loaded && relation.isEmpty())
+            .forEach(relation => relation.resolve());
     }
 
     protected castAttributes(attributes: Attributes, definitions: BootedFieldsDefinition): Attributes {

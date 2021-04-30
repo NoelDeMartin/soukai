@@ -1,3 +1,5 @@
+import { arrayFrom } from '@noeldemartin/utils';
+
 import type { ModelConstructor } from '@/models/inference';
 import type { Model } from '@/models/Model';
 
@@ -10,7 +12,7 @@ export default abstract class Relation<
 > {
 
     public name!: string;
-    public related: Related[] | Related | null = null;
+    public related?: Related[] | Related | null;
     public parent: Parent;
     public relatedClass: RelatedClass;
     public foreignKeyName: string;
@@ -30,10 +32,14 @@ export default abstract class Relation<
     }
 
     public get loaded(): boolean {
-        return this.related !== null;
+        return this.related !== undefined;
     }
 
     public abstract resolve(): Promise<Related[] | Related | null>;
+
+    public isEmpty(): boolean | null {
+        return null;
+    }
 
     public async getModels(): Promise<Related[]> {
         if (!this.loaded) {
@@ -44,19 +50,11 @@ export default abstract class Relation<
     }
 
     public getLoadedModels(): Related[] {
-        if (Array.isArray(this.related)) {
-            return this.related;
-        }
-
-        if (this.related) {
-            return [this.related];
-        }
-
-        return [];
+        return this.related ? arrayFrom(this.related) as Related[] : [];
     }
 
     public unload(): void {
-        this.related = null;
+        delete this.related;
     }
 
     public onDelete(strategy: RelationDeleteStrategy): this {

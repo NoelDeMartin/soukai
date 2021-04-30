@@ -171,7 +171,20 @@ describe('Model Relations', () => {
         expect(post.author.name).toBe(name);
     });
 
-    it('unloads relations using deleters', () => {
+    it('loads empty relations for new models', async () => {
+        // Arrange & Act
+        const post = await Post.create({ title: Faker.lorem.sentence() });
+        const city = await City.create({ name: Faker.random.word() });
+
+        // Assert
+        expect(post.isRelationLoaded('author')).toBe(true);
+        expect(city.isRelationLoaded('natives')).toBe(true);
+
+        expect(post.author).toBeNull();
+        expect(city.natives).toHaveLength(0);
+    });
+
+    it('unloads relations using deletes', () => {
         // Arrange
         const id = Faker.random.uuid();
         const name = Faker.random.word();
