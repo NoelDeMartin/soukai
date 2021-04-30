@@ -1,4 +1,4 @@
-import { arrayWithoutIndexes, deepEquals, isObject } from '@noeldemartin/utils';
+import { arrayWithoutIndexes, deepEquals, isObject, uuid } from '@noeldemartin/utils';
 
 import type {
     EngineAttributeFilter,
@@ -12,8 +12,6 @@ import type {
     EngineUpdateItemsOperatorData,
     EngineUpdates,
 } from '@/engines/Engine';
-
-import UUID from '@/internal/utils/UUID';
 
 type Handler<T = unknown> = (...params: any[]) => T;
 type Operation<T extends Record<string, unknown> = Record<string, unknown>> = Record<keyof T, unknown>;
@@ -84,7 +82,7 @@ export class EngineHelper {
     }
 
     public obtainDocumentId(id?: string): string {
-        return id || UUID.generate();
+        return id ?? uuid();
     }
 
     private filterDocument(id: string, document: EngineDocument, filters: EngineFilters = {}): boolean {
