@@ -268,10 +268,6 @@ export class Model {
         return this._proxy;
     }
 
-    protected get engine(): Engine {
-        return this._engine ?? this.static('engine') ?? requireEngine();
-    }
-
     public static(): ModelConstructor<this>;
     public static(property: 'fields'): BootedFieldsDefinition;
     public static(property: 'timestamps'): TimestampFieldValue[];
@@ -330,6 +326,10 @@ export class Model {
 
     public requireRelation<T extends Relation = Relation>(relation: string): T {
         return this._relations[relation] as T ?? fail(SoukaiError, `Attempting to use undefined ${relation} relation.`);
+    }
+
+    public requireEngine(): Engine {
+        return this._engine ?? this.static('engine') ?? requireEngine();
     }
 
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
@@ -654,7 +654,7 @@ export class Model {
 
     protected async syncDirty(): Promise<string> {
         if (!this._exists) {
-            return this.engine.create(
+            return this.requireEngine().create(
                 this.static('collection'),
                 this.toEngineDocument(),
                 this.getSerializedPrimaryKey() || undefined,
@@ -664,7 +664,7 @@ export class Model {
         const updates = this.getDirtyEngineDocumentUpdates();
         const id = this.getSerializedPrimaryKey() as string;
 
-        await this.engine.update(this.static('collection'), id, updates);
+        await this.requireEngine().update(this.static('collection'), id, updates);
 
         return id;
     }
@@ -696,7 +696,7 @@ export class Model {
             model => [model.static('collection'), model.getSerializedPrimaryKey() as string],
         );
 
-        await Promise.all(modelsData.map(([collection, id]) => this.engine.delete(collection, id)));
+        await Promise.all(modelsData.map(([collection, id]) => this.requireEngine().delete(collection, id)));
     }
 
     protected resetEngineData(): void {
