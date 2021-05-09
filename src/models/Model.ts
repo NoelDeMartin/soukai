@@ -11,7 +11,7 @@ import {
 } from '@noeldemartin/utils';
 import type { Constructor } from '@noeldemartin/utils';
 
-import { requireEngine } from '@/engines';
+import { getEngine, requireEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
@@ -52,8 +52,8 @@ export class Model {
     public static modelName: string;
     public static classFields: string[] = [];
     public static relations: string[] = [];
-    public static engine?: Engine;
 
+    private static engine?: Engine;
     private static instances = new WeakMap;
     private static pureInstances = new WeakMap;
     private static bootedModels = new WeakMap;
@@ -178,7 +178,7 @@ export class Model {
     public static find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
         this.ensureBooted();
 
-        return (this.engine ?? requireEngine())
+        return (this.requireEngine())
             .readOne(this.collection, this.instance().serializeKey(id))
             .then(document => this.createFromEngineDocument(id, document))
             .catch(() => null);
@@ -187,7 +187,7 @@ export class Model {
     public static async all<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T[]> {
         this.ensureBooted();
 
-        const engine = this.engine ?? requireEngine();
+        const engine = this.requireEngine();
         const documents = await engine.readMany(this.collection, filters);
         const models = await this.createManyFromEngineDocuments(documents);
 
@@ -227,6 +227,18 @@ export class Model {
         }
 
         return this.instances.get(this);
+    }
+
+    public static getEngine(): Engine | undefined {
+        return this.engine ?? getEngine();
+    }
+
+    public static requireEngine(): Engine {
+        return this.engine ?? requireEngine();
+    }
+
+    public static setEngine(engine: Engine): void {
+        this.engine = engine;
     }
 
     protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {
@@ -328,8 +340,12 @@ export class Model {
         return this._relations[relation] as T ?? fail(SoukaiError, `Attempting to use undefined ${relation} relation.`);
     }
 
+    public getEngine(): Engine | undefined {
+        return this._engine ?? this.static().getEngine();
+    }
+
     public requireEngine(): Engine {
-        return this._engine ?? this.static('engine') ?? requireEngine();
+        return this._engine ?? this.static().requireEngine();
     }
 
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
