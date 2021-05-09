@@ -373,7 +373,7 @@ export class Model {
         const relationInstance = this.requireRelation(relation);
 
         if (relationInstance instanceof SingleModelRelation)
-            throw new SoukaiError('Can\'t set a single model for SingleModelRelation, use setRelationModels instead');
+            throw new SoukaiError('Can\'t set multiple models for SingleModelRelation, use setRelationModel instead');
 
         relationInstance.related = models;
     }

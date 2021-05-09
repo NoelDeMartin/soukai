@@ -10,7 +10,7 @@ export default abstract class MultiModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
-    public related?: Related[] | null;
+    public related?: Related[];
 
     public constructor(
         parent: Parent,
