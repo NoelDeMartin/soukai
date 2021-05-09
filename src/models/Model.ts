@@ -501,6 +501,12 @@ export class Model {
             : Object.values(this._dirtyAttributes).length > 0;
     }
 
+    public cleanDirty(): void {
+        this._originalAttributes = objectDeepClone(this._attributes);
+        this._dirtyAttributes = {};
+        this._exists = true;
+    }
+
     public getPrimaryKey(): Key | null {
         return this._attributes[this.static('primaryKey')] ?? null;
     }
@@ -731,12 +737,6 @@ export class Model {
         await this.requireEngine().update(this.static('collection'), id, updates);
 
         return id;
-    }
-
-    protected cleanDirty(): void {
-        this._originalAttributes = objectDeepClone(this._attributes);
-        this._dirtyAttributes = {};
-        this._exists = true;
     }
 
     protected async getCascadeModels(): Promise<Model[]> {
