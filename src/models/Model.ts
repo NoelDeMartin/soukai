@@ -552,6 +552,24 @@ export class Model {
         return this._wasRecentlyCreated;
     }
 
+    public clone(): this;
+    public clone<T extends Model>(constructor: Constructor<T>): T;
+    public clone<T extends Model>(constructor?: Constructor<T>): T {
+        const classConstructor = constructor ?? this.static();
+        const clone = new classConstructor(this.getAttributes());
+
+        for (const relation of Object.values(this._relations)) {
+            if (!relation.loaded)
+                continue;
+
+            relation instanceof SingleModelRelation
+                ? clone.setRelationModel(relation.name, (relation.related as Model).clone())
+                : clone.setRelationModels(relation.name, (relation.related as Model[]).map(model => model.clone()));
+        }
+
+        return clone as T;
+    }
+
     protected initialize(attributes: Attributes, exists: boolean): void {
         this._exists = exists;
         this._wasRecentlyCreated = false;
