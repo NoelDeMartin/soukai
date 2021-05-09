@@ -430,6 +430,15 @@ export class Model {
         }
     }
 
+    public setOriginalAttribute(field: string, value: unknown): void {
+        value = this.castAttribute(value, this.static('fields')[field]);
+
+        this._originalAttributes[field] = value;
+        this._attributes[field] = value;
+
+        delete this._dirtyAttributes[field];
+    }
+
     public setAttributes(attributes: Attributes): void {
         for (const [field, value] of Object.entries(attributes)) {
             this.setAttribute(field, value);
