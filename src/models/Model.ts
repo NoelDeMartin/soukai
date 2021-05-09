@@ -7,6 +7,7 @@ import {
     objectDeepClone,
     objectHasOwnProperty,
     stringToCamelCase,
+    tap,
     toString,
 } from '@noeldemartin/utils';
 import type { Constructor } from '@noeldemartin/utils';
@@ -445,8 +446,22 @@ export class Model {
         }
     }
 
-    public setEngine(engine: Engine): void {
+    public setEngine(engine?: Engine): void {
+        if (!engine) {
+            delete this._engine;
+
+            return;
+        }
+
         this._engine = engine;
+    }
+
+    public withEngine<T>(engine: Engine, operation: (model: this) => T): T {
+        const modelEngine = this.getEngine();
+
+        this.setEngine(engine);
+
+        return tap(operation(this), () => this.setEngine(modelEngine));
     }
 
     public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
