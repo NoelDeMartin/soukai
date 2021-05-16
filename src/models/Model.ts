@@ -53,6 +53,8 @@ export class Model {
     public static modelName: string;
     public static classFields: string[] = [];
     public static relations: string[] = [];
+    public static __attributeGetters = new Map<string, () => unknown>();
+    public static __attributeSetters = new Map<string, (value: unknown) => void>();
 
     private static engine?: Engine;
     private static instances = new WeakMap;
@@ -132,19 +134,32 @@ export class Model {
         const builtInClassFields = ['_engine'];
         const classFields: string[] = Object.getOwnPropertyNames(instance).concat(builtInClassFields);
         const relations: string[] = [];
+        const attributeGetters: Map<string, () => unknown> = new Map<string, () => unknown>();
+        const attributeSetters: Map<string, (value: unknown) => void> = new Map<string, (value: unknown) => void>();
 
         let prototype = Object.getPrototypeOf(instance);
         while (prototype !== Model.prototype) {
             if (prototype.constructor.classFields)
                 classFields.push(...prototype.constructor.classFields);
 
-            for (const property of Object.getOwnPropertyNames(prototype)) {
-                if (
-                    property.endsWith('Relationship') &&
-                    typeof instance[property as keyof typeof instance] === 'function'
-                ) {
-                    relations.push(property.substring(0, property.length - 12));
-                }
+            for (const p of Object.getOwnPropertyNames(prototype)) {
+                const property = p as keyof typeof instance & string;
+
+                if (typeof instance[property] !== 'function')
+                    continue;
+
+                if (property.endsWith('Relationship'))
+                    relations.push(property.slice(0, - 12));
+                else if (property.match(/get.+Attribute/))
+                    attributeGetters.set(
+                        stringToCamelCase(property.slice(3, -9)),
+                        instance[property] as unknown as () => unknown,
+                    );
+                else if (property.match(/set.+Attribute/))
+                    attributeSetters.set(
+                        stringToCamelCase(property.slice(3, -9)),
+                        instance[property] as unknown as () => unknown,
+                    );
             }
 
             prototype = Object.getPrototypeOf(prototype);
@@ -152,6 +167,8 @@ export class Model {
 
         this.classFields = arrayUnique(classFields);
         this.relations = arrayUnique(relations);
+        this.__attributeGetters = attributeGetters;
+        this.__attributeSetters = attributeSetters;
         this.fields = fieldDefinitions;
     }
 
@@ -414,6 +431,12 @@ export class Model {
     }
 
     public setAttribute(field: string, value: unknown): void {
+        return this.hasAttributeSetter(field)
+            ? this.callAttributeSetter(field, value)
+            : this.setAttributeValue(field, value);
+    }
+
+    public setAttributeValue(field: string, value: unknown): void {
         // TODO implement deep setter
 
         value = this.castAttribute(value, this.static('fields')[field]);
@@ -429,6 +452,16 @@ export class Model {
         if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && field !== TimestampField.UpdatedAt) {
             this.touch();
         }
+    }
+
+    public hasAttributeSetter(field: string): boolean {
+        return this.static('__attributeSetters').has(field);
+    }
+
+    public callAttributeSetter(field: string, value: unknown): void {
+        const setter = this.static('__attributeSetters').get(field);
+
+        return setter?.call(this, value);
     }
 
     public setOriginalAttribute(field: string, value: unknown): void {
@@ -465,6 +498,12 @@ export class Model {
     }
 
     public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
+        return this.hasAttributeGetter(field)
+            ? this.callAttributeGetter(field) as T
+            : this.getAttributeValue(field, includeUndefined);
+    }
+
+    public getAttributeValue<T = unknown>(field: string, includeUndefined: boolean = false): T {
         const fields = field.split('.');
         let value = this.getAttributes(includeUndefined);
 
@@ -484,6 +523,16 @@ export class Model {
         return includeUndefined
             ? objectDeepClone(this._attributes)
             : removeUndefinedAttributes(this._attributes, this.static('fields')) as Attributes;
+    }
+
+    public hasAttributeGetter(field: string): boolean {
+        return this.static('__attributeGetters').has(field);
+    }
+
+    public callAttributeGetter(field: string): unknown {
+        const getter = this.static('__attributeGetters').get(field);
+
+        return getter?.call(this);
     }
 
     public unsetAttribute(field: string): void {
@@ -616,68 +665,56 @@ export class Model {
                     typeof property !== 'string' ||
                     property in target ||
                     target.static('classFields').indexOf(property) !== -1
-                ) {
+                )
                     return Reflect.get(target, property, receiver);
-                }
 
-                const instance = target as unknown as Record<string, () => unknown>;
-                const attributeGetter = stringToCamelCase(`get_${property}_attribute`);
-                if (typeof instance[attributeGetter] === 'function') {
-                    return instance[attributeGetter].call(target._proxy);
-                }
-
-                if (target.hasRelation(property)) {
-                    return target.isRelationLoaded(property)
-                        ? target.getRelationModels(property)
+                if (target.hasRelation(property))
+                    return target._proxy.isRelationLoaded(property)
+                        ? target._proxy.getRelationModels(property)
                         : undefined;
-                }
 
                 if (property.startsWith('related')) {
                     const relation = stringToCamelCase(property.substr(7));
 
-                    if (target.hasRelation(relation)) {
+                    if (target._proxy.hasRelation(relation))
                         return target._relations[relation];
-                    }
                 }
 
-                return target.getAttribute(property);
+                return target._proxy.getAttribute(property);
             },
             set(target, property, value, receiver) {
                 if (
                     typeof property !== 'string' ||
                     property in target ||
                     target.static('classFields').indexOf(property) !== -1
-                ) {
+                )
                     return Reflect.set(target, property, value, receiver);
-                }
 
-                if (target.hasRelation(property)) {
+                if (target._proxy.hasRelation(property)) {
                     target._relations[property].related = value;
 
                     return true;
                 }
 
-                target.setAttribute(property, value);
+                target._proxy.setAttribute(property, value);
+
                 return true;
             },
             deleteProperty(target, property) {
-                if (typeof property !== 'string' || property in target) {
+                if (typeof property !== 'string' || property in target)
                     return Reflect.deleteProperty(target, property);
-                }
 
-                if (target.hasRelation(property)) {
-                    target.unloadRelation(property);
+                if (target._proxy.hasRelation(property)) {
+                    target._proxy.unloadRelation(property);
+
                     return true;
                 }
 
-                if (
-                    !(property in target._attributes) ||
-                    target.static('classFields').indexOf(property) !== -1
-                ) {
+                if (!(property in target._attributes) || target.static('classFields').indexOf(property) !== -1)
                     return Reflect.deleteProperty(target, property);
-                }
 
-                target.unsetAttribute(property);
+                target._proxy.unsetAttribute(property);
+
                 return true;
             },
         });
