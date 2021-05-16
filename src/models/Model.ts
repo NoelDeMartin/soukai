@@ -963,7 +963,11 @@ export class Model {
     }
 
     protected hasAutomaticTimestamp(timestamp: TimestampFieldValue): boolean {
-        return (this.static('timestamps')).indexOf(timestamp) !== -1;
+        return this.static('timestamps').indexOf(timestamp) !== -1;
+    }
+
+    protected hasAutomaticTimestamps(): boolean {
+        return this.static('timestamps').length > 0;
     }
 
     protected toEngineDocument(): EngineDocument {
