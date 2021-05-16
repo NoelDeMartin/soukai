@@ -635,15 +635,13 @@ export class Model {
     public clone<T extends Model>(constructor: Constructor<T>): T;
     public clone<T extends Model>(constructor?: Constructor<T>): T {
         const classConstructor = constructor ?? this.static();
-        const clone = new classConstructor(this.getAttributes());
+        const clone = new classConstructor(this.getAttributes()) as T;
 
-        for (const relation of Object.values(this._relations)) {
-            if (!relation.loaded)
-                continue;
-
-            relation instanceof SingleModelRelation
-                ? clone.setRelationModel(relation.name, (relation.related as Model).clone())
-                : clone.setRelationModels(relation.name, (relation.related as Model[]).map(model => model.clone()));
+        for (const [relationName, relationInstance] of Object.entries(this._relations)) {
+            clone._relations[relationName] = tap(
+                relationInstance.clone(),
+                relationClone => relationClone.parent = this,
+            );
         }
 
         return clone as T;

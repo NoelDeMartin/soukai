@@ -63,4 +63,24 @@ export default abstract class Relation<
         return this;
     }
 
+    public clone(): this {
+        const clone = Object.create(Object.getPrototypeOf(this)) as this;
+
+        clone.name = this.name;
+        clone.parent = this.parent;
+        clone.relatedClass = this.relatedClass;
+        clone.foreignKeyName = this.foreignKeyName;
+        clone.localKeyName = this.localKeyName;
+        clone.deleteStrategy = this.deleteStrategy;
+
+        if (this.related === null)
+            clone.related = null;
+        else if (Array.isArray(this.related))
+            clone.related = this.related.map(model => model.clone());
+        else if (this.related)
+            clone.related = this.related.clone();
+
+        return clone;
+    }
+
 }
