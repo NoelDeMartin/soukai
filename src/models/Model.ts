@@ -910,7 +910,9 @@ export class Model {
         if (typeof definition === 'undefined') {
             switch (typeof value) {
                 case 'object':
-                    return (value as Record<string, unknown>).toString();
+                    return Array.isArray(value) || value instanceof Date
+                        ? value
+                        : (value as Record<string, unknown>).toString();
                 case 'symbol':
                 case 'function':
                 case 'undefined':
