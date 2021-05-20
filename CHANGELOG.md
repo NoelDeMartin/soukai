@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Upgraded TypeScript version to 4.1.
 - Single model relations can now be loaded without a related model (when unloaded, it will be stored as undefined instead of null).
 - `setRelationModels` will no longer work for single model relations (hasOne or belongsToOne), use `setRelationModel` instead.
+- Automatic timestamps minting is now deferred until saving.
 
 ## [v0.4.1](https://github.com/NoelDeMartin/soukai/releases/tag/v0.4.1) - 2021-01-25
 

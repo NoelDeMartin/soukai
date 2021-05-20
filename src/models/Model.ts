@@ -339,10 +339,6 @@ export class Model {
             this.setAttribute(field, attributes[field]);
         }
 
-        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
-            this.touch();
-        }
-
         return this.save();
     }
 
@@ -448,10 +444,6 @@ export class Model {
         if (!deepEquals(this._originalAttributes[field], value)) {
             this._dirtyAttributes[field] = value;
         }
-
-        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && field !== TimestampField.UpdatedAt) {
-            this.touch();
-        }
     }
 
     public hasAttributeSetter(field: string): boolean {
@@ -548,10 +540,6 @@ export class Model {
             if (this._originalAttributes[field] !== undefined) {
                 this._dirtyAttributes[field] = undefined;
             }
-
-            if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
-                this.touch();
-            }
         }
     }
 
@@ -601,7 +589,9 @@ export class Model {
         if (!this.isDirty())
             return this;
 
-        const existed = this._exists;
+        await this.beforeSave();
+
+        const existed = this.exists();
         const id = await this.syncDirty();
 
         this._wasRecentlyCreated = this._wasRecentlyCreated || !existed;
@@ -724,19 +714,6 @@ export class Model {
         this._attributes = objectDeepClone(attributes);
         this._originalAttributes = exists ? objectDeepClone(attributes) : {};
         this._dirtyAttributes = exists ? {} : objectDeepClone(attributes);
-
-        if (!exists) {
-            if (this.hasAutomaticTimestamp(TimestampField.CreatedAt) && !(TimestampField.CreatedAt in attributes)) {
-                this._attributes.createdAt = new Date();
-                this._dirtyAttributes.createdAt = this._attributes.createdAt;
-            }
-
-            if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && !(TimestampField.UpdatedAt in attributes)) {
-                this._attributes.updatedAt = new Date();
-                this._dirtyAttributes.updatedAt = this._attributes.updatedAt;
-            }
-        }
-
         this._attributes = this.castAttributes(validateAttributes(this._attributes, fields), fields);
     }
 
@@ -772,8 +749,22 @@ export class Model {
         );
     }
 
+    protected async beforeSave(): Promise<void> {
+        const now = new Date();
+
+        if (
+            !this.exists() &&
+            this.hasAutomaticTimestamp(TimestampField.CreatedAt) &&
+            !this.isDirty(TimestampField.CreatedAt)
+        )
+            this.setAttribute(TimestampField.CreatedAt, now);
+
+        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && !this.isDirty(TimestampField.UpdatedAt))
+            this.setAttribute(TimestampField.UpdatedAt, now);
+    }
+
     protected async syncDirty(): Promise<string> {
-        if (!this._exists) {
+        if (!this.exists()) {
             return this.requireEngine().create(
                 this.static('collection'),
                 this.toEngineDocument(),

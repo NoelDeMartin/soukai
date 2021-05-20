@@ -812,7 +812,8 @@ describe('Model attributes', () => {
         expect(model.isDirty('contact')).toBe(true);
     });
 
-    it('testSmartDirtyAttributesOnUpdate', () => {
+    it('testSmartDirtyAttributesOnUpdate', async () => {
+        // Arrange
         const model = new User({
             id: Faker.random.uuid(),
             name: Faker.name.firstName(),
@@ -822,13 +823,15 @@ describe('Model attributes', () => {
 
         mockEngine.create.mockReturnValue(Promise.resolve(''));
 
-        model.update({
+        // Act
+        await model.update({
             name: Faker.name.firstName(),
             surname: model.surname,
             social: { twitter: Faker.internet.userName() },
             contact: undefined,
         });
 
+        // Assert
         expect(mockEngine.update).toHaveBeenCalledTimes(1);
         expect(mockEngine.update).toHaveBeenCalledWith(
             User.collection,
