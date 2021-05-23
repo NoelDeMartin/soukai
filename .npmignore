@@ -11,4 +11,5 @@ rollup.config.js
 scripts
 src/**/*.test.ts
 src/testing
+tmp
 tsconfig.json
