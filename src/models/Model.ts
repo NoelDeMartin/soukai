@@ -590,14 +590,8 @@ export class Model {
             return this;
 
         await this.beforeSave();
-
-        const existed = this.exists();
-        const id = await this.syncDirty();
-
-        this._wasRecentlyCreated = this._wasRecentlyCreated || !existed;
-        this._attributes[this.static('primaryKey')] = this.parseKey(id);
-        this.cleanDirty();
-        this.loadEmptyRelations();
+        await this.duringSave();
+        await this.afterSave();
 
         return this;
     }
@@ -761,6 +755,19 @@ export class Model {
 
         if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && !this.isDirty(TimestampField.UpdatedAt))
             this.setAttribute(TimestampField.UpdatedAt, now);
+    }
+
+    protected async duringSave(): Promise<void> {
+        const existed = this.exists();
+        const id = await this.syncDirty();
+
+        this._wasRecentlyCreated = this._wasRecentlyCreated || !existed;
+        this._attributes[this.static('primaryKey')] = this.parseKey(id);
+    }
+
+    protected async afterSave(): Promise<void> {
+        this.cleanDirty();
+        this.loadEmptyRelations();
     }
 
     protected async syncDirty(): Promise<string> {
