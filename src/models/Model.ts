@@ -910,7 +910,7 @@ export class Model {
                 case 'object':
                     return Array.isArray(value) || value instanceof Date
                         ? value
-                        : (value as Record<string, unknown>).toString();
+                        : toString(value);
                 case 'symbol':
                 case 'function':
                 case 'undefined':
@@ -949,14 +949,8 @@ export class Model {
 
                 return number;
             }
-            case FieldType.String: {
-                const toString = (value as { toString?(): string })['toString'] ?? null;
-
-                if (!toString)
-                    throw new SoukaiError(`Invalid String value: ${value}`);
-
-                return toString.call(value);
-            }
+            case FieldType.String:
+                return toString(value);
             default:
                 return value;
         }

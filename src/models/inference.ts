@@ -59,6 +59,9 @@ export type ResolveFieldType<T extends FieldTypeValue> =
     T extends typeof FieldType.Boolean ? boolean :
     T extends typeof FieldType.Date ? Date :
     T extends typeof FieldType.Key ? Key :
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    T extends typeof FieldType.Any ? any :
     never;
 
 export type GetFieldType<T extends FieldDefinition> =

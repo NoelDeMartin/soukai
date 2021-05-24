@@ -18,6 +18,7 @@ export const FieldType = {
     Object: 'object' as const,
     Date: 'date' as const,
     Key: 'key' as const,
+    Any: 'any' as const,
 };
 
 export const FieldRequired = {
