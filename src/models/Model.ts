@@ -285,7 +285,7 @@ export class Model {
     public static withEngine<T>(engine: Engine, operation: () => T): T;
     public static withEngine<T>(engine: Engine, operation: () => Promise<T>): Promise<T>;
     public static withEngine<T>(engine: Engine, operation: () => T | Promise<T>): T | Promise<T> {
-        const originalEngine = this.getEngine();
+        const originalEngine = this.engines.get(this);
 
         this.setEngine(engine);
 
@@ -402,7 +402,7 @@ export class Model {
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
         relation: string,
     ): Promise<T> {
-        return this.requireRelation(relation).resolve() as Promise<T>;
+        return this.withEngine(this.requireEngine(), () => this.requireRelation(relation).resolve()) as Promise<T>;
     }
 
     public async loadRelationIfUnloaded<T extends Model | null | Model[] = Model | null | Model[]>(
@@ -521,7 +521,7 @@ export class Model {
     public withEngine<T>(engine: Engine, operation: (model: this) => T): T;
     public withEngine<T>(engine: Engine, operation: (model: this) => Promise<T>): Promise<T>;
     public withEngine<T>(engine: Engine, operation: (model: this) => T | Promise<T>): T | Promise<T> {
-        const originalEngine = this.getEngine();
+        const originalEngine = this._engine;
 
         this.setEngine(engine);
 
