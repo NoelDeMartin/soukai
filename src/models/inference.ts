@@ -20,7 +20,7 @@ import type {
 // See https://soukai.js.org/guide/defining-models.html#typescript-inference
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type ModelConstructor<T extends Model> = Constructor<T> & typeof Model;
+export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof Model;
 
 export type MagicAttributes<T extends FieldsDefinition> =
     MagicAttributeProperties<{
