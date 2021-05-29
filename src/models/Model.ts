@@ -56,10 +56,10 @@ export class Model {
     public static __attributeGetters = new Map<string, () => unknown>();
     public static __attributeSetters = new Map<string, (value: unknown) => void>();
 
-    private static engine?: Engine;
     private static instances = new WeakMap;
     private static pureInstances = new WeakMap;
     private static bootedModels = new WeakMap;
+    private static engines = new WeakMap;
     private static listeners = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
@@ -265,15 +265,35 @@ export class Model {
     }
 
     public static getEngine(): Engine | undefined {
-        return this.engine ?? getEngine();
+        return this.engines.get(this) ?? getEngine();
     }
 
     public static requireEngine(): Engine {
-        return this.engine ?? requireEngine();
+        return this.engines.get(this) ?? requireEngine();
     }
 
-    public static setEngine(engine: Engine): void {
-        this.engine = engine;
+    public static setEngine(engine?: Engine): void {
+        if (!engine) {
+            this.engines.delete(this);
+
+            return;
+        }
+
+        this.engines.set(this, engine);
+    }
+
+    public static withEngine<T>(engine: Engine, operation: () => T): T;
+    public static withEngine<T>(engine: Engine, operation: () => Promise<T>): Promise<T>;
+    public static withEngine<T>(engine: Engine, operation: () => T | Promise<T>): T | Promise<T> {
+        const originalEngine = this.getEngine();
+
+        this.setEngine(engine);
+
+        const result = operation();
+
+        return result instanceof Promise
+            ? result.then(() => tap(result, () => this.setEngine(originalEngine)))
+            : tap(result, () => this.setEngine(originalEngine));
     }
 
     protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {
@@ -498,12 +518,18 @@ export class Model {
         this._engine = engine;
     }
 
-    public withEngine<T>(engine: Engine, operation: (model: this) => T): T {
-        const modelEngine = this.getEngine();
+    public withEngine<T>(engine: Engine, operation: (model: this) => T): T;
+    public withEngine<T>(engine: Engine, operation: (model: this) => Promise<T>): Promise<T>;
+    public withEngine<T>(engine: Engine, operation: (model: this) => T | Promise<T>): T | Promise<T> {
+        const originalEngine = this.getEngine();
 
         this.setEngine(engine);
 
-        return tap(operation(this), () => this.setEngine(modelEngine));
+        const result = operation(this);
+
+        return result instanceof Promise
+            ? result.then(() => tap(result, () => this.setEngine(originalEngine)))
+            : tap(result, () => this.setEngine(originalEngine));
     }
 
     public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
