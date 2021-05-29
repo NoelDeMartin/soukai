@@ -48,6 +48,32 @@ describe('Model', () => {
         expect(post.id).toBeUndefined();
     });
 
+    it('emits events', async () => {
+        // Arrange
+        let createCount = 0;
+        let updateCount = 0;
+        let deleteCount = 0;
+
+        Post.on('created', () => createCount++);
+        Post.on('updated', () => updateCount++);
+        Post.on('deleted', () => deleteCount++);
+
+        // Act
+        const post = await Post.create({ title: Faker.random.words() });
+
+        post.update({ title: Faker.random.words() });
+        post.update({ title: Faker.random.words() });
+        post.update({ title: Faker.random.words() });
+
+        await Post.create({ title: Faker.random.words() });
+        await post.delete();
+
+        // Assert
+        expect(createCount).toBe(2);
+        expect(updateCount).toBe(3);
+        expect(deleteCount).toBe(1);
+    });
+
 });
 
 describe('Models definition', () => {

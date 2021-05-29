@@ -60,6 +60,7 @@ export class Model {
     private static instances = new WeakMap;
     private static pureInstances = new WeakMap;
     private static bootedModels = new WeakMap;
+    private static listeners = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
         this.bootedModels.set(this, true);
@@ -224,6 +225,22 @@ export class Model {
         ...params: ConstructorParameters<ModelConstructor<T>>
     ): T{
         return this.instance().newInstance(...params);
+    }
+
+    public static on<T extends Model>(
+        this: ModelConstructor<T>,
+        event: 'created' | 'updated' | 'deleted',
+        listener: (model: T) => unknown | Promise<unknown>,
+    ): void {
+        if (!this.listeners.has(this))
+            this.listeners.set(this, {});
+
+        const modelListeners = this.listeners.get(this);
+
+        if (!(event in modelListeners))
+            modelListeners[event] = [];
+
+        modelListeners[event].push(listener);
     }
 
     public static schema<T extends Model, F extends FieldsDefinition>(
@@ -580,6 +597,8 @@ export class Model {
 
         models.forEach(model => model.resetEngineData());
 
+        await this.emit('deleted');
+
         return this;
     }
 
@@ -589,9 +608,12 @@ export class Model {
         if (!this.isDirty())
             return this;
 
+        const existed = this.exists();
+
         await this.beforeSave();
         await this.duringSave();
         await this.afterSave();
+        await this.emit(existed ? 'updated' : 'created');
 
         return this;
     }
@@ -768,6 +790,15 @@ export class Model {
     protected async afterSave(): Promise<void> {
         this.cleanDirty();
         this.loadEmptyRelations();
+    }
+
+    protected async emit(event: 'updated' | 'created' | 'deleted'): Promise<void> {
+        const listeners = this.static().listeners.get(this.static())?.[event];
+
+        if (!listeners)
+            return;
+
+        await Promise.all(listeners.map((listener: (model: this) => unknown) => listener(this)));
     }
 
     protected async syncDirty(): Promise<string> {
