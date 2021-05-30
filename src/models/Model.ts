@@ -69,6 +69,7 @@ export class Model {
     private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
     private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
+    private static originalEngines: WeakMap<typeof Model, [Engine | undefined, number]> = new WeakMap;
     private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
@@ -294,15 +295,30 @@ export class Model {
     public static withEngine<T>(engine: Engine, operation: () => T): T;
     public static withEngine<T>(engine: Engine, operation: () => Promise<T>): Promise<T>;
     public static withEngine<T>(engine: Engine, operation: () => T | Promise<T>): T | Promise<T> {
-        const originalEngine = this.engines.get(this);
+        // It is necessary to keep the replacements count to avoid race conditions when multiple
+        // operations are running concurrently with Promise.all()
+        const [originalEngine, replacementsCount] = this.originalEngines.get(this) ?? [this.engines.get(this), 0];
+        const restoreOriginalEngine = () => {
+            const [originalEngine, replacementsCount] = this.originalEngines.get(this) as [Engine | undefined, number];
 
+            if (replacementsCount > 1) {
+                this.originalEngines.set(this, [originalEngine, replacementsCount - 1]);
+
+                return;
+            }
+
+            this.originalEngines.delete(this);
+            this.setEngine(originalEngine);
+        };
+
+        this.originalEngines.set(this, [originalEngine, replacementsCount + 1]);
         this.setEngine(engine);
 
         const result = operation();
 
         return result instanceof Promise
-            ? result.then(() => tap(result, () => this.setEngine(originalEngine)))
-            : tap(result, () => this.setEngine(originalEngine));
+            ? result.then(() => tap(result, () => restoreOriginalEngine()))
+            : tap(result, () => restoreOriginalEngine());
     }
 
     protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {
@@ -411,7 +427,12 @@ export class Model {
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
         relation: string,
     ): Promise<T> {
-        return this.withEngine(this.requireEngine(), () => this.requireRelation(relation).resolve()) as Promise<T>;
+        const relationInstance = this.requireRelation(relation);
+
+        return this.withEngine(
+            relationInstance.relatedClass.requireEngine(),
+            () => relationInstance.resolve(),
+        ) as Promise<T>;
     }
 
     public async loadRelationIfUnloaded<T extends Model | null | Model[] = Model | null | Model[]>(
@@ -824,7 +845,8 @@ export class Model {
 
     protected async afterSave(): Promise<void> {
         this.cleanDirty();
-        this.loadEmptyRelations();
+
+        await this.loadEmptyRelations();
     }
 
     protected async emit(event: ModelEventValue): Promise<void> {
@@ -947,11 +969,13 @@ export class Model {
         return new BelongsToManyRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
-    protected loadEmptyRelations(): void {
-        Object
-            .values(this._relations)
-            .filter(relation => !relation.loaded && relation.isEmpty())
-            .forEach(relation => relation.resolve());
+    protected async loadEmptyRelations(): Promise<void> {
+        await Promise.all(
+            Object
+                .values(this._relations)
+                .filter(relation => !relation.loaded && relation.isEmpty())
+                .map(relation => relation.resolve()),
+        );
     }
 
     protected castAttributes(attributes: Attributes, definitions: BootedFieldsDefinition): Attributes {
