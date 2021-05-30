@@ -43,6 +43,15 @@ import type Relation from './relations/Relation';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
 export type IModel<T extends typeof Model> = MagicAttributes<T['fields']>;
+export type ModelListener<T extends Model = Model> = (model: T) => unknown;
+
+export const ModelEvent = {
+    Created: 'created' as const,
+    Updated: 'updated' as const,
+    Deleted: 'deleted' as const,
+};
+
+export type ModelEventValue = typeof ModelEvent[keyof typeof ModelEvent];
 
 export class Model {
 
@@ -56,11 +65,11 @@ export class Model {
     public static __attributeGetters = new Map<string, () => unknown>();
     public static __attributeSetters = new Map<string, (value: unknown) => void>();
 
-    private static instances = new WeakMap;
-    private static pureInstances = new WeakMap;
-    private static bootedModels = new WeakMap;
-    private static engines = new WeakMap;
-    private static listeners = new WeakMap;
+    private static instances: WeakMap<typeof Model, Model> = new WeakMap;
+    private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
+    private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
+    private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
+    private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
         this.bootedModels.set(this, true);
@@ -229,13 +238,13 @@ export class Model {
 
     public static on<T extends Model>(
         this: ModelConstructor<T>,
-        event: 'created' | 'updated' | 'deleted',
-        listener: (model: T) => unknown | Promise<unknown>,
+        event: ModelEventValue,
+        listener: ModelListener<T>,
     ): void {
         if (!this.listeners.has(this))
             this.listeners.set(this, {});
 
-        const modelListeners = this.listeners.get(this);
+        const modelListeners = this.listeners.get(this) as Record<string, ModelListener<T>[]>;
 
         if (!(event in modelListeners))
             modelListeners[event] = [];
@@ -261,7 +270,7 @@ export class Model {
             this.instances.set(this, new this());
         }
 
-        return this.instances.get(this);
+        return this.instances.get(this) as T;
     }
 
     public static getEngine(): Engine | undefined {
@@ -301,7 +310,7 @@ export class Model {
             this.pureInstances.set(this, new this({ __pureInstance: true }));
         }
 
-        return this.pureInstances.get(this);
+        return this.pureInstances.get(this) as T;
     }
 
     protected static ensureBooted<T extends Model>(this: ModelConstructor<T>): void {
@@ -623,7 +632,7 @@ export class Model {
 
         models.forEach(model => model.resetEngineData());
 
-        await this.emit('deleted');
+        await this.emit(ModelEvent.Deleted);
 
         return this;
     }
@@ -639,7 +648,7 @@ export class Model {
         await this.beforeSave();
         await this.duringSave();
         await this.afterSave();
-        await this.emit(existed ? 'updated' : 'created');
+        await this.emit(existed ? ModelEvent.Updated : ModelEvent.Created);
 
         return this;
     }
@@ -818,13 +827,13 @@ export class Model {
         this.loadEmptyRelations();
     }
 
-    protected async emit(event: 'updated' | 'created' | 'deleted'): Promise<void> {
+    protected async emit(event: ModelEventValue): Promise<void> {
         const listeners = this.static().listeners.get(this.static())?.[event];
 
         if (!listeners)
             return;
 
-        await Promise.all(listeners.map((listener: (model: this) => unknown) => listener(this)));
+        await Promise.all(listeners.map(listener => listener(this)));
     }
 
     protected async syncDirty(): Promise<string> {
