@@ -1,10 +1,10 @@
 import { fail } from '@noeldemartin/utils';
 
 import { SoukaiError } from '@/errors';
-import ModelKey from '@/models/ModelKey';
 import type { Model } from '@/models/Model';
 import type { ModelConstructor } from '@/models/inference';
 
+export { default as ModelKey } from './ModelKey';
 export * from './inference';
 export * from './Model';
 export * from './relations/index';
@@ -32,8 +32,6 @@ export {
 } from './fields';
 
 export type { Attributes, AttributeValue } from './attributes';
-
-export { ModelKey };
 
 const bootedModels: Map<string, typeof Model> = new Map;
 
