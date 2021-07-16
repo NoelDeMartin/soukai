@@ -28,6 +28,7 @@ import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
 import HasOneRelation from './relations/HasOneRelation';
+import ModelKey from './ModelKey';
 import MultiModelRelation from './relations/MultiModelRelation';
 import SingleModelRelation from './relations/SingleModelRelation';
 import type {
@@ -502,15 +503,11 @@ export class Model {
     public setAttributeValue(field: string, value: unknown): void {
         // TODO implement deep setter
 
-        value = this.castAttribute(value, this.static('fields')[field]);
+        this._attributes[field] = value = this.castAttribute(value, this.static('fields')[field]);
 
-        this._attributes[field] = value;
-
-        delete this._dirtyAttributes[field];
-
-        if (!deepEquals(this._originalAttributes[field], value)) {
-            this._dirtyAttributes[field] = value;
-        }
+        this.attributeValueChanged(this._originalAttributes[field], value)
+            ? this._dirtyAttributes[field] = value
+            : delete this._dirtyAttributes[field];
     }
 
     public hasAttributeSetter(field: string): boolean {
@@ -978,6 +975,13 @@ export class Model {
         );
     }
 
+    protected attributeValueChanged(originalValue: unknown, newValue: unknown): boolean {
+        if (originalValue instanceof ModelKey)
+            return toString(originalValue) !== toString(newValue);
+
+        return !deepEquals(originalValue, newValue);
+    }
+
     protected castAttributes(attributes: Attributes, definitions: BootedFieldsDefinition): Attributes {
         const castedAttributes = {} as Record<string, unknown>;
 
@@ -998,9 +1002,13 @@ export class Model {
         if (typeof definition === 'undefined') {
             switch (typeof value) {
                 case 'object':
-                    return Array.isArray(value) || value instanceof Date
-                        ? value
-                        : toString(value);
+                    if (Array.isArray(value))
+                        return value.map(attribute => this.castAttribute(attribute));
+
+                    if (value instanceof Date || value instanceof ModelKey)
+                        return value;
+
+                    return toString(value);
                 case 'symbol':
                 case 'function':
                 case 'undefined':
@@ -1041,6 +1049,12 @@ export class Model {
             }
             case FieldType.String:
                 return toString(value);
+            case FieldType.Key:
+                // TODO future versions of may not do this, for now this is here to minimize breaking changes
+                if (value instanceof ModelKey)
+                    return toString(value);
+
+                return value;
             default:
                 return value;
         }

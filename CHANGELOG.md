@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - `setRelationModels` will no longer work for single model relations (hasOne or belongsToOne), use `setRelationModel` instead.
 - Automatic timestamps minting is now deferred until saving.
 - Model events.
+- Added ModelKey for FieldType.Any, casted to string elsewhere (future versions of may not cast it).
 
 ## [v0.4.1](https://github.com/NoelDeMartin/soukai/releases/tag/v0.4.1) - 2021-01-25
 

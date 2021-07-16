@@ -10,7 +10,7 @@ export default abstract class SingleModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
-    public related?: Related | null;
+    declare public related?: Related | null;
 
     public constructor(
         parent: Parent,
