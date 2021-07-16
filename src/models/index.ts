@@ -24,6 +24,8 @@ export {
     FieldsDefinition,
     FieldType,
     FieldTypeValue,
+    isArrayFieldDefinition,
+    isObjectFieldDefinition,
     ObjectFieldDefinition,
     TimestampField,
     TimestampFieldValue,

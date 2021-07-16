@@ -146,3 +146,21 @@ export function expandFieldDefinition(
 
     return fieldDefinition;
 }
+
+/* eslint-disable max-len */
+export function isArrayFieldDefinition(fieldDefinition: BootedFieldDefinition): fieldDefinition is BootedArrayFieldDefinition;
+export function isArrayFieldDefinition(fieldDefinition: Omit<BootedFieldDefinition, 'required'>): fieldDefinition is Omit<BootedArrayFieldDefinition, 'required'>;
+/* eslint-enable max-len */
+
+export function isArrayFieldDefinition(fieldDefinition: { type: FieldTypeValue }): boolean {
+    return fieldDefinition.type === FieldType.Array;
+}
+
+/* eslint-disable max-len */
+export function isObjectFieldDefinition(fieldDefinition: BootedFieldDefinition): fieldDefinition is BootedObjectFieldDefinition;
+export function isObjectFieldDefinition(fieldDefinition: Omit<BootedFieldDefinition, 'required'>): fieldDefinition is Omit<BootedObjectFieldDefinition, 'required'>;
+/* eslint-enable max-len */
+
+export function isObjectFieldDefinition(fieldDefinition: { type: FieldTypeValue }): boolean {
+    return fieldDefinition.type === FieldType.Object;
+}
