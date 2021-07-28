@@ -886,6 +886,7 @@ describe('Model types', () => {
         Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
         Expect<Equals<User['externalUrls'], string[]>> |
         Expect<Equals<Post['title'], string>> |
+        Expect<Equals<Pick<Post, 'title'>, { title: string }>> |
         Expect<Equals<City['name'], string>> |
         Expect<Equals<City['birthRecords'], Key[]>> |
         Expect<Not<Extends<keyof User, 'undefinedProperty'>>> |

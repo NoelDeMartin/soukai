@@ -41,7 +41,7 @@ export type NestedMagicAttributes<T extends FieldsDefinition> =
     Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>>>;
 
 export type MagicAttributeProperties<T extends FieldsDefinition> = {
-    [K in keyof T]: MagicAttributeValue<GetFieldType<T[K]>>;
+    -readonly [K in keyof T]: MagicAttributeValue<GetFieldType<T[K]>>;
 };
 
 export type MagicAttributeValue<T> =
