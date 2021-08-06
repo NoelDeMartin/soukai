@@ -8,7 +8,7 @@ export default class BelongsToManyRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass> {
 
-    public isEmpty(): boolean {
+    public isEmpty(): boolean | null {
         return this.parent.getAttribute<Key[]>(this.foreignKeyName).length === 0;
     }
 
