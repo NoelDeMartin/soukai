@@ -23,4 +23,8 @@ export default class HasManyRelation<
         return this.related;
     }
 
+    protected initializeInverse(parent: Parent, related: Related): void {
+        this.related = [related];
+    }
+
 }

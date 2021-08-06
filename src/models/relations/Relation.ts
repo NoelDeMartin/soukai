@@ -83,4 +83,19 @@ export default abstract class Relation<
         return clone;
     }
 
+    protected initializeInverseRelations(model: Related): void {
+        const parentClass = this.parent.constructor;
+
+        for (const relationName of this.relatedClass.relations) {
+            const relationInstance = model.requireRelation(relationName);
+
+            if (relationInstance.relatedClass !== parentClass)
+                continue;
+
+            relationInstance.initializeInverse(model, this.parent);
+        }
+    }
+
+    protected abstract initializeInverse(parent: Parent, related: Related): void;
+
 }

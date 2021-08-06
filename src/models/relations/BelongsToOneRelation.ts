@@ -26,4 +26,10 @@ export default class BelongsToOneRelation<
         return this.related;
     }
 
+    protected initializeInverse(parent: Parent, related: Related): void {
+        parent.setAttribute(this.foreignKeyName, related.getPrimaryKey());
+
+        this.related = related;
+    }
+
 }
