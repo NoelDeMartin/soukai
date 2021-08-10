@@ -14,7 +14,7 @@
     "docs:build-vuepress": "vuepress build docs",
     "docs:dev": "vuepress dev docs",
     "docs:publish": "scripts/publish-docs.sh",
-    "lint": "eslint src",
+    "lint": "eslint src && tsc --noEmit",
     "publish-next": "noeldemartin-publish-next",
     "test:coverage": "jest --coverage",
     "test": "jest --verbose"
