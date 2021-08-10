@@ -23,8 +23,17 @@ export default class HasManyRelation<
         return this.related;
     }
 
-    protected initializeInverse(parent: Parent, related: Related): void {
-        this.related = [related];
+    public setForeignAttributes(related: Related): void {
+        const foreignKey = this.parent.getAttribute(this.localKeyName);
+
+        if (!foreignKey)
+            return;
+
+        const foreignValue = related.getAttribute(this.foreignKeyName);
+
+        Array.isArray(foreignValue)
+            ? related.setAttribute(this.foreignKeyName, [...foreignValue, foreignKey])
+            : related.setAttribute(this.foreignKeyName, foreignKey);
     }
 
 }

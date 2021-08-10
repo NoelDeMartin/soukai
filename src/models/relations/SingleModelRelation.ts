@@ -26,6 +26,10 @@ export default abstract class SingleModelRelation<
         );
     }
 
+    public addRelated(related: Related): void {
+        this.related = related;
+    }
+
     public abstract resolve(): Promise<Related | null>;
 
 }

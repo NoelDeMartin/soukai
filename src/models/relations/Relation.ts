@@ -1,15 +1,19 @@
 import { arrayFrom } from '@noeldemartin/utils';
+import type { Constructor } from '@noeldemartin/utils';
 
 import type { ModelConstructor } from '@/models/inference';
 import type { Model } from '@/models/Model';
 
 export type RelationDeleteStrategy = null | 'cascade';
+export type RelationConstructor<T extends Relation = Relation> = Constructor<T> & typeof Relation;
 
 export default abstract class Relation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > {
+
+    public static inverseRelationClasses: Constructor<Relation>[] = [];
 
     public name!: string;
     public related?: Related[] | Related | null;
@@ -36,6 +40,8 @@ export default abstract class Relation<
     }
 
     public abstract resolve(): Promise<Related[] | Related | null>;
+    public abstract setForeignAttributes(related: Related): void;
+    public abstract addRelated(related: Related): void;
 
     public isEmpty(): boolean | null {
         return null;
@@ -83,19 +89,29 @@ export default abstract class Relation<
         return clone;
     }
 
-    protected initializeInverseRelations(model: Related): void {
-        const parentClass = this.parent.constructor;
-
+    public initializeInverseRelations(model: Related): void {
         for (const relationName of this.relatedClass.relations) {
             const relationInstance = model.requireRelation(relationName);
 
-            if (relationInstance.relatedClass !== parentClass)
+            if (!relationInstance.isInverseOf(this))
                 continue;
 
-            relationInstance.initializeInverse(model, this.parent);
+            relationInstance.setForeignAttributes(this.parent);
+            relationInstance.addRelated(this.parent);
         }
     }
 
-    protected abstract initializeInverse(parent: Parent, related: Related): void;
+    protected static(): RelationConstructor<this> {
+        return this.constructor as RelationConstructor<this>;
+    }
+
+    protected isInverseOf(relation: Relation): boolean {
+        const isInstanceOf = (inverseClass: Constructor<Relation>) => relation instanceof inverseClass;
+
+        return this.static().inverseRelationClasses.some(isInstanceOf)
+            && relation.relatedClass === this.parent.constructor
+            && relation.foreignKeyName === this.foreignKeyName
+            && relation.localKeyName === this.localKeyName;
+    }
 
 }

@@ -3,8 +3,13 @@ import BelongsToOneRelation from './BelongsToOneRelation';
 import HasManyRelation from './HasManyRelation';
 import HasOneRelation from './HasOneRelation';
 import MultiModelRelation from './MultiModelRelation';
-import Relation, { RelationDeleteStrategy } from './Relation';
+import Relation, { RelationConstructor, RelationDeleteStrategy } from './Relation';
 import SingleModelRelation from './SingleModelRelation';
+
+HasOneRelation.inverseRelationClasses = [BelongsToOneRelation, BelongsToManyRelation];
+HasManyRelation.inverseRelationClasses = [BelongsToOneRelation, BelongsToManyRelation];
+BelongsToOneRelation.inverseRelationClasses = [HasOneRelation, HasManyRelation];
+BelongsToManyRelation.inverseRelationClasses = [HasOneRelation, HasManyRelation];
 
 export {
     BelongsToManyRelation,
@@ -13,6 +18,7 @@ export {
     HasOneRelation,
     MultiModelRelation,
     Relation,
+    RelationConstructor,
     RelationDeleteStrategy,
     SingleModelRelation,
 };

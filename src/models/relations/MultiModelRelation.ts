@@ -1,4 +1,4 @@
-import { stringToCamelCase } from '@noeldemartin/utils';
+import { arrayUnique, stringToCamelCase } from '@noeldemartin/utils';
 
 import Relation from '@/models/relations/Relation';
 import type { ModelConstructor } from '@/models/inference';
@@ -10,7 +10,7 @@ export default abstract class MultiModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
-    public related?: Related[];
+    declare public related?: Related[];
 
     public constructor(
         parent: Parent,
@@ -24,6 +24,13 @@ export default abstract class MultiModelRelation<
             foreignKeyName || stringToCamelCase(relatedClass.name + '_' + relatedClass.primaryKey + 's'),
             localKeyName,
         );
+    }
+
+    public addRelated(related: Related): void {
+        this.related = arrayUnique([
+            ...this.related ?? [],
+            related,
+        ]);
     }
 
     public abstract resolve(): Promise<Related[]>;
