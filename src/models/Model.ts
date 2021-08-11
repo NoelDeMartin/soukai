@@ -70,6 +70,7 @@ export class Model {
     private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
     private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
+    private static clones: WeakMap<Model, Model> = new WeakMap;
     private static originalEngines: WeakMap<typeof Model, [Engine | undefined, number]> = new WeakMap;
     private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
 
@@ -693,8 +694,15 @@ export class Model {
     public clone(): this;
     public clone<T extends Model>(constructor: Constructor<T>): T;
     public clone<T extends Model>(constructor?: Constructor<T>): T {
+        const clones = this.static().clones;
+
+        if (clones.has(this))
+            return clones.get(this) as T;
+
         const classConstructor = constructor ?? this.static();
         const clone = new classConstructor(this.getAttributes()) as T;
+
+        clones.set(this, clone);
 
         for (const [relationName, relationInstance] of Object.entries(this._relations)) {
             clone._relations[relationName] = tap(
@@ -702,6 +710,8 @@ export class Model {
                 relationClone => relationClone.parent = this,
             );
         }
+
+        clones.delete(this);
 
         return clone as T;
     }

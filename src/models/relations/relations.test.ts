@@ -9,7 +9,10 @@ import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
 import type Relation from '@/models/relations/Relation';
 
+import { bootModels } from '@/models';
+import { FieldType } from '@/models/fields';
 import { Model } from '@/models/Model';
+import type { IModel } from '@/models/Model';
 
 import MockEngine from '@/testing/mocks/MockEngine';
 
@@ -251,6 +254,65 @@ describe('Model Relations', () => {
         expect(user.relatedPosts.parent).toBe(user);
         expect(user.relatedBirthPlace).toBeInstanceOf(HasOneRelation);
         expect(user.relatedBirthPlace.parent).toBe(user);
+    });
+
+    it('resolves circular relationships in clones', () => {
+        // Arrange.
+        class Parent extends Model {
+
+            public children?: Child[];
+            public relatedChildren!: HasManyRelation<this, Child, typeof Child>;
+
+            public childrenRelationship(): Relation {
+                return this.hasMany(Child, 'parentId');
+            }
+
+        }
+
+        interface Child extends IModel<typeof Child> {}
+        class Child extends Model {
+
+            public static fields = { parentId: FieldType.Key };
+
+            public parent?: Parent;
+            public relatedParent!: HasOneRelation<this, Parent, typeof Parent>;
+
+            public parentRelationship(): Relation {
+                return this.belongsToOne(Parent, 'parentId');
+            }
+
+        }
+
+        const parent = new Parent({ id: 'parent' });
+
+        parent.relatedChildren.related = [
+            new Child({ id: 'child-1', parentId: 'parent' }),
+            new Child({ id: 'child-2', parentId: 'parent' }),
+            new Child({ id: 'child-3', parentId: 'parent' }),
+        ];
+
+        for (const child of parent.children ?? []) {
+            child.relatedParent.related = parent;
+        }
+
+        bootModels({ Parent, Child });
+
+        // Act.
+        const clone = parent.clone();
+
+        // Assert.
+        expect(clone.id).toEqual('parent');
+
+        const children = clone.children as Child[];
+        expect(children).toHaveLength(3);
+        expect(children[0].id).toEqual('child-1');
+        expect(children[1].id).toEqual('child-2');
+        expect(children[2].id).toEqual('child-3');
+
+        children.forEach(child => {
+            expect(child.parentId).toEqual('parent');
+            expect(child.parent).toBe(clone);
+        });
     });
 
 });
