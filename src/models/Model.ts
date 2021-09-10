@@ -649,7 +649,7 @@ export class Model {
 
         await this.deleteModelsFromEngine(models);
 
-        models.forEach(model => model.resetEngineData());
+        models.forEach(model => model.reset());
 
         await this.emit(ModelEvent.Deleted);
 
@@ -906,7 +906,14 @@ export class Model {
         await Promise.all(modelsData.map(([collection, id]) => this.requireEngine().delete(collection, id)));
     }
 
+    /**
+     * @deprecated use `reset` instead.
+     */
     protected resetEngineData(): void {
+        this.reset();
+    }
+
+    protected reset(): void {
         delete this._attributes[this.static('primaryKey')];
         this._exists = false;
         this._dirtyAttributes = objectDeepClone(this._attributes);
