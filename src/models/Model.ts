@@ -659,10 +659,10 @@ export class Model {
     public async save(): Promise<this> {
         validateRequiredAttributes(this._attributes, this.static('fields'));
 
-        if (!this.isDirty())
-            return this;
-
         const existed = this.exists();
+
+        if (existed && !this.isDirty())
+            return this;
 
         await this.beforeSave();
         await this.duringSave();
