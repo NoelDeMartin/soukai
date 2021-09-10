@@ -665,7 +665,7 @@ export class Model {
             return this;
 
         await this.beforeSave();
-        await this.duringSave();
+        await this.performSave();
         await this.afterSave();
         await this.emit(existed ? ModelEvent.Updated : ModelEvent.Created);
 
@@ -842,7 +842,7 @@ export class Model {
             this.setAttribute(TimestampField.UpdatedAt, now);
     }
 
-    protected async duringSave(): Promise<void> {
+    protected async performSave(): Promise<void> {
         const existed = this.exists();
         const id = await this.syncDirty();
 
