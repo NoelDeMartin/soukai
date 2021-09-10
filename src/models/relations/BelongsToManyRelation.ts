@@ -36,15 +36,15 @@ export default class BelongsToManyRelation<
     }
 
     public setForeignAttributes(related: Related): void {
-        const foreignKey = related.getAttribute(this.localKeyName);
+        const foreignKey = related.getAttribute<string>(this.localKeyName);
 
         if (!foreignKey)
             return;
 
-        this.parent.setAttribute(this.foreignKeyName, [
-            ...this.parent.getAttribute<string[]>(this.foreignKeyName),
-            foreignKey,
-        ]);
+        const foreignValues = this.parent.getAttribute<string[]>(this.foreignKeyName);
+
+        if (!foreignValues.includes(foreignKey))
+            this.parent.setAttribute(this.foreignKeyName, [...foreignValues, foreignKey]);
     }
 
 }

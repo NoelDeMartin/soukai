@@ -31,9 +31,16 @@ export default class HasManyRelation<
 
         const foreignValue = related.getAttribute(this.foreignKeyName);
 
-        Array.isArray(foreignValue)
-            ? related.setAttribute(this.foreignKeyName, [...foreignValue, foreignKey])
-            : related.setAttribute(this.foreignKeyName, foreignKey);
+        if (!Array.isArray(foreignValue)) {
+            related.setAttribute(this.foreignKeyName, foreignKey);
+
+            return;
+        }
+
+        if (foreignValue.includes(foreignKey))
+            return;
+
+        related.setAttribute(this.foreignKeyName, [...foreignValue, foreignKey]);
     }
 
 }
