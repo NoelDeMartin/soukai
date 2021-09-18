@@ -931,7 +931,7 @@ export class Model {
         relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
-    ): SingleModelRelation {
+    ): HasOneRelation {
         return new HasOneRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
@@ -947,7 +947,7 @@ export class Model {
         relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
-    ): SingleModelRelation {
+    ): BelongsToOneRelation {
         return new BelongsToOneRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
@@ -963,7 +963,7 @@ export class Model {
         relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
-    ): MultiModelRelation {
+    ): HasManyRelation {
         return new HasManyRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
@@ -979,7 +979,7 @@ export class Model {
         relatedClass: T,
         foreignKeyField?: string,
         localKeyField?: string,
-    ): MultiModelRelation {
+    ): BelongsToManyRelation {
         return new BelongsToManyRelation(this, relatedClass, foreignKeyField, localKeyField);
     }
 
