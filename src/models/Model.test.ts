@@ -767,33 +767,37 @@ describe('Model attributes', () => {
     });
 
     it('testAttributeDeleter', async () => {
+        // Arrange
         const id = Faker.random.uuid();
         const name = Faker.name.firstName();
         const now = seconds();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        return User.create({ name, surname: Faker.name.lastName() })
-            .then(model => after().then(() => {
-                delete model.surname;
-                return model.save();
-            }))
-            .then(model => {
-                expect(model).toBeInstanceOf(User);
-                expect(model.id).toBe(id);
-                expect(model.name).toBe(name);
-                expect(model.surname).toBeUndefined();
-                expect(model.getAttributes(true)).toHaveProperty('surname');
-                expect(model.updatedAt).toBeInstanceOf(Date);
-                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-                expect(mockEngine.update).toHaveBeenCalledTimes(1);
-                expect(mockEngine.update).toHaveBeenCalledWith(
-                    User.collection,
-                    id,
-                    { updatedAt: model.updatedAt, surname: { $unset: true } },
-                );
-            });
+        const user = await User.create({ name, surname: Faker.name.lastName() });
+
+        await after({ ms: 100 });
+
+        // Act
+        delete user.surname;
+
+        await user.save();
+
+        // Assert
+        expect(user).toBeInstanceOf(User);
+        expect(user.id).toBe(id);
+        expect(user.name).toBe(name);
+        expect(user.surname).toBeUndefined();
+        expect(user.getAttributes(true)).toHaveProperty('surname');
+        expect(user.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(user.updatedAt)).toBeLessThan(1);
+        expect(user.updatedAt.getTime()).toBeGreaterThan(user.createdAt.getTime() + 10);
+        expect(mockEngine.update).toHaveBeenCalledTimes(1);
+        expect(mockEngine.update).toHaveBeenCalledWith(
+            User.collection,
+            id,
+            { updatedAt: user.updatedAt, surname: { $unset: true } },
+        );
     });
 
     it('testUndefinedAttributes', () => {
