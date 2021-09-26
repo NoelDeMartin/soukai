@@ -7,7 +7,7 @@ import type { Engine } from '@/engines/Engine';
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
 import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
-import type Relation from '@/models/relations/Relation';
+import type { Relation } from '@/models/relations/Relation';
 
 import { bootModels } from '@/models';
 import { FieldType } from '@/models/fields';
@@ -308,6 +308,8 @@ describe('Model Relations', () => {
         expect(children[0].id).toEqual('child-1');
         expect(children[1].id).toEqual('child-2');
         expect(children[2].id).toEqual('child-3');
+
+        expect(clone.relatedChildren.parent).toBe(clone);
 
         children.forEach(child => {
             expect(child.parentId).toEqual('parent');

@@ -7,7 +7,12 @@ import type { Model } from '@/models/Model';
 export type RelationDeleteStrategy = null | 'cascade';
 export type RelationConstructor<T extends Relation = Relation> = Constructor<T> & typeof Relation;
 
-export default abstract class Relation<
+export type RelationCloneOptions = Partial<{
+    clones: WeakMap<Model, Model>;
+    constructors: WeakMap<typeof Model, typeof Model>;
+}>;
+
+export abstract class Relation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
@@ -73,22 +78,26 @@ export default abstract class Relation<
         return this;
     }
 
-    public clone(): this {
+    public clone(options: RelationCloneOptions = {}): this {
+        const clones = options.clones ?? new WeakMap;
+        const constructors = options.constructors ?? new WeakMap;
         const clone = Object.create(Object.getPrototypeOf(this)) as this;
 
         clone.name = this.name;
         clone.parent = this.parent;
-        clone.relatedClass = this.relatedClass;
         clone.foreignKeyName = this.foreignKeyName;
         clone.localKeyName = this.localKeyName;
         clone.deleteStrategy = this.deleteStrategy;
 
+        // TODO get from parent clone relation instead
+        clone.relatedClass = constructors.get(this.relatedClass) as RelatedClass ?? this.relatedClass;
+
         if (this.related === null)
             clone.related = null;
         else if (Array.isArray(this.related))
-            clone.related = this.related.map(model => model.clone());
+            clone.related = this.related.map(model => model.clone({ clones, constructors }));
         else if (this.related)
-            clone.related = this.related.clone();
+            clone.related = this.related.clone({ clones, constructors });
 
         return clone;
     }

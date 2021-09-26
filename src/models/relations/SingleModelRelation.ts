@@ -1,6 +1,6 @@
 import { stringToCamelCase } from '@noeldemartin/utils';
 
-import Relation from '@/models/relations/Relation';
+import { Relation } from '@/models/relations/Relation';
 import type { ModelConstructor } from '@/models/inference';
 import type { Model } from '@/models/Model';
 

@@ -37,14 +37,20 @@ import type {
     FieldsDefinition,
     TimestampFieldValue,
 } from './fields';
-import type { MagicAttributes, ModelConstructor } from './inference';
 import type { Attributes } from './attributes';
-import type Relation from './relations/Relation';
+import type { MagicAttributes, ModelConstructor } from './inference';
+import type { Relation } from './relations/Relation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
 export type IModel<T extends typeof Model> = MagicAttributes<T['fields']>;
 export type ModelListener<T extends Model = Model> = (model: T) => unknown;
+
+export type ModelCloneOptions = Partial<{
+    clean: boolean;
+    clones: WeakMap<Model, Model>;
+    constructors: WeakMap<typeof Model, typeof Model> | [typeof Model, typeof Model][];
+}>;
 
 export const ModelEvent = {
     Created: 'created' as const,
@@ -70,7 +76,6 @@ export class Model {
     private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
     private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
-    private static clones: WeakMap<Model, Model> = new WeakMap;
     private static originalEngines: WeakMap<typeof Model, [Engine | undefined, number]> = new WeakMap;
     private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
 
@@ -691,29 +696,36 @@ export class Model {
         return this._wasRecentlyCreated;
     }
 
-    public clone(): this;
-    public clone<T extends Model>(constructor: Constructor<T>): T;
-    public clone<T extends Model>(constructor?: Constructor<T>): T {
-        const clones = this.static().clones;
+    public clone(options?: ModelCloneOptions): this;
+    public clone<T extends Model>(options?: ModelCloneOptions): T;
+    public clone(options: ModelCloneOptions = {}): this {
+        const clones = options.clones ?? new WeakMap;
 
         if (clones.has(this))
-            return clones.get(this) as T;
+            return clones.get(this) as this;
 
-        const classConstructor = constructor ?? this.static();
-        const clone = new classConstructor(this.getAttributes()) as T;
+        const constructorsOption = options.constructors;
+        const constructors =
+            Array.isArray(constructorsOption)
+                ? tap(new WeakMap, map => {
+                    constructorsOption.forEach(([original, substitute]) => map.set(original, substitute));
+                })
+                : constructorsOption ?? new WeakMap<typeof Model, typeof Model>();
+        const classConstructor = constructors.get(this.static()) ?? this.static();
+        const clone = new classConstructor(this.getAttributes());
 
         clones.set(this, clone);
 
         for (const [relationName, relationInstance] of Object.entries(this._relations)) {
             clone._relations[relationName] = tap(
-                relationInstance.clone(),
-                relationClone => relationClone.parent = this,
+                relationInstance.clone({ clones, constructors }),
+                relationClone => relationClone.parent = clone,
             );
         }
 
-        clones.delete(this);
+        options.clean && clone.cleanDirty();
 
-        return clone as T;
+        return clone;
     }
 
     protected initialize(attributes: Attributes, exists: boolean): void {
