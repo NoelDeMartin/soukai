@@ -39,6 +39,10 @@ export default abstract class Relation<
         return this.related !== undefined;
     }
 
+    public static(): RelationConstructor<this> {
+        return this.constructor as RelationConstructor<this>;
+    }
+
     public abstract resolve(): Promise<Related[] | Related | null>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract addRelated(related: Related): void;
@@ -99,10 +103,6 @@ export default abstract class Relation<
             relationInstance.setForeignAttributes(this.parent);
             relationInstance.addRelated(this.parent);
         }
-    }
-
-    protected static(): RelationConstructor<this> {
-        return this.constructor as RelationConstructor<this>;
     }
 
     protected isInverseOf(relation: Relation): boolean {
