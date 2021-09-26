@@ -306,6 +306,41 @@ describe('EngineHelper', () => {
             },
             expected: { scabbards: [{ name: 'Kinemon' }, { name: 'Raizo' }] },
         });
+
+        assertDocumentUpdate({
+            original: {
+                bands: [
+                    {
+                        name: 'mugiwara',
+                        members: { name: 'luffy' },
+                    },
+                ],
+            },
+            update: {
+                bands: {
+                    $updateItems: {
+                        $where: { name: 'mugiwara' },
+                        $update: {
+                            members: [
+                                { name: 'luffy' },
+                                { name: 'zoro' },
+                            ],
+                        },
+                    },
+                },
+            },
+            expected: {
+                bands: [
+                    {
+                        name: 'mugiwara',
+                        members: [
+                            { name: 'luffy' },
+                            { name: 'zoro' },
+                        ],
+                    },
+                ],
+            },
+        });
     });
 
     it('updates documents using $unset', () => {

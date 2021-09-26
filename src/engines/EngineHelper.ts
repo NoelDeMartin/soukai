@@ -169,7 +169,7 @@ export class EngineHelper {
     };
 
     private attributeUpdate = (attributes: AttributesMap, attribute: string, updateData: EngineAttributeUpdate) => {
-        if (!isObject(updateData)) {
+        if (Array.isArray(updateData) || !isObject(updateData)) {
             attributes[attribute] = updateData;
 
             return;
