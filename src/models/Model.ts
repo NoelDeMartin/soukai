@@ -1,4 +1,5 @@
 import {
+    arrayRemove,
     arrayUnique,
     deepEquals,
     fail,
@@ -248,7 +249,7 @@ export class Model {
         this: ModelConstructor<T>,
         event: ModelEventValue,
         listener: ModelListener<T>,
-    ): void {
+    ): () => void {
         if (!this.listeners.has(this))
             this.listeners.set(this, {});
 
@@ -258,6 +259,8 @@ export class Model {
             modelListeners[event] = [];
 
         modelListeners[event].push(listener);
+
+        return () => arrayRemove(modelListeners[event], listener);
     }
 
     public static schema<T extends Model, F extends FieldsDefinition>(
