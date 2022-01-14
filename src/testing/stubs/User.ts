@@ -6,11 +6,11 @@ import City from './City';
 
 export default class User extends Model {
 
-    public alias!: string;
-    public posts!: Post[] | null;
-    public birthPlace!: City | null;
-    public relatedPosts!: MultiModelRelation<User, Post, typeof Post>;
-    public relatedBirthPlace!: SingleModelRelation<User, City, typeof City>;
+    declare public alias: string;
+    declare public posts: Post[] | null;
+    declare public birthPlace: City | null;
+    declare public relatedPosts: MultiModelRelation<User, Post, typeof Post>;
+    declare public relatedBirthPlace: SingleModelRelation<User, City, typeof City>;
 
     public getAliasAttribute(): string {
         return this.name;

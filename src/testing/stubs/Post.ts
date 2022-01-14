@@ -14,8 +14,8 @@ export default class Post extends Model {
         authorId: FieldType.Key,
     } as const;
 
-    public author!: User | null;
-    public relatedAuthor!: SingleModelRelation<Post, User, typeof User>;
+    declare public author: User | null;
+    declare public relatedAuthor: SingleModelRelation<Post, User, typeof User>;
 
     public authorRelationship(): Relation {
         return this.belongsToOne(User, 'authorId');

@@ -260,8 +260,8 @@ describe('Model Relations', () => {
         // Arrange.
         class Parent extends Model {
 
-            public children?: Child[];
-            public relatedChildren!: HasManyRelation<this, Child, typeof Child>;
+            declare public children?: Child[];
+            declare public relatedChildren: HasManyRelation<this, Child, typeof Child>;
 
             public childrenRelationship(): Relation {
                 return this.hasMany(Child, 'parentId');
@@ -274,8 +274,8 @@ describe('Model Relations', () => {
 
             public static fields = { parentId: FieldType.Key };
 
-            public parent?: Parent;
-            public relatedParent!: HasOneRelation<this, Parent, typeof Parent>;
+            declare public parent?: Parent;
+            declare public relatedParent: HasOneRelation<this, Parent, typeof Parent>;
 
             public parentRelationship(): Relation {
                 return this.belongsToOne(Parent, 'parentId');

@@ -346,15 +346,15 @@ export class Model {
         this.boot();
     }
 
-    protected _exists!: boolean;
-    protected _wasRecentlyCreated!: boolean;
-    protected _proxy!: this;
-    protected _attributes!: Attributes;
-    protected _originalAttributes!: Attributes;
-    protected _dirtyAttributes!: Attributes;
-    protected _relations!: { [relation: string]: Relation };
+    declare protected _exists: boolean;
+    declare protected _wasRecentlyCreated: boolean;
+    declare protected _proxy: this;
+    declare protected _attributes: Attributes;
+    declare protected _originalAttributes: Attributes;
+    declare protected _dirtyAttributes: Attributes;
+    declare protected _relations: { [relation: string]: Relation };
 
-    private _engine?: Engine;
+    declare private _engine?: Engine;
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
         // We need to do this in order to get a pure instance during boot; that is an instance that is not a proxy.

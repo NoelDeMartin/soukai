@@ -16,8 +16,8 @@ export default class City extends Model {
         },
     };
 
-    public natives!: User[] | null;
-    public relatedNatives!: MultiModelRelation<City, User, typeof User>;
+    declare public natives: User[] | null;
+    declare public relatedNatives: MultiModelRelation<City, User, typeof User>;
 
     public nativesRelationship(): Relation {
         return this.belongsToMany(User, 'birthRecords');
