@@ -14,13 +14,13 @@
     "docs:build-vuepress": "vuepress build docs",
     "docs:dev": "vuepress dev docs",
     "docs:publish": "scripts/publish-docs.sh",
-    "lint": "eslint src && tsc --noEmit",
+    "lint": "noeldemartin-lint src",
     "publish-next": "noeldemartin-publish-next",
     "test:coverage": "jest --coverage",
     "test": "jest --verbose"
   },
   "engines": {
-    "node": ">=12.x"
+    "node": ">=14.x"
   },
   "repository": {
     "type": "git",
@@ -37,14 +37,14 @@
   "homepage": "https://soukai.js.org",
   "dependencies": {
     "@babel/runtime": "^7.12.18",
-    "@noeldemartin/utils": "^0.2.1-next.1aba291913ffcb294cd352af9e5791fc68555b0c",
+    "@noeldemartin/utils": "^0.2.1-next.79e75835cf2fd1936233e4e3b60c5a9e1e949a23",
     "@types/webpack-env": "^1.13.6",
     "core-js": "^3.9.0",
     "idb": "^5.0.2"
   },
   "devDependencies": {
-    "@noeldemartin/eslint-config-typescript": "0.0.0-next.bded47b9bf0a8721f5ac7317adea94f5002a10d3",
-    "@noeldemartin/scripts": "0.0.0-next.fc10faa540c836a703b087e3bfe615dd68424745",
+    "@noeldemartin/eslint-config-typescript": "^0.1.0-next.e83e5d37837b9845675534ab9d3745820b1326b4",
+    "@noeldemartin/scripts": "^0.1.1-next.94a97814c74fc5c0ee1ed5f13cd570c243be6ac8",
     "@strictsoftware/typedoc-plugin-monorepo": "^0.2.1",
     "@types/faker": "^4.1.2",
     "@types/jest": "^26.0.20",

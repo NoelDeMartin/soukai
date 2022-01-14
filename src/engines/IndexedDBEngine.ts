@@ -283,10 +283,12 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     private async getCollections(): Promise<string[]> {
-        return this.withMetadataTransaction(
+        const keys = await this.withMetadataTransaction(
             'readonly',
             transaction => transaction.store.getAllKeys(),
         );
+
+        return keys.map(key => key.toString());
     }
 
     private async createCollection(collection: string): Promise<void> {

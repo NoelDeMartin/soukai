@@ -14,7 +14,7 @@ describe('SoukaiError', () => {
         try {
             throw new SoukaiError(message);
         } catch (e) {
-            error = e;
+            error = e as Error;
         }
 
         // Assert
@@ -47,7 +47,7 @@ describe('SoukaiError', () => {
         try {
             throw new CustomSoukaiError(message);
         } catch (e) {
-            error = e;
+            error = e as Error;
         }
 
         // Assert
