@@ -846,15 +846,16 @@ export class Model {
     protected async beforeSave(): Promise<void> {
         const now = new Date();
 
-        if (
-            !this.exists() &&
-            this.hasAutomaticTimestamp(TimestampField.CreatedAt) &&
-            !this.isDirty(TimestampField.CreatedAt)
-        )
-            this.setAttribute(TimestampField.CreatedAt, now);
+        if (this.hasAutomaticTimestamp(TimestampField.CreatedAt))
+            this.setAttribute(TimestampField.CreatedAt, this.getAttribute(TimestampField.CreatedAt) ?? now);
 
-        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt) && !this.isDirty(TimestampField.UpdatedAt))
-            this.setAttribute(TimestampField.UpdatedAt, now);
+        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
+            const updatedAt = this.isDirty(TimestampField.UpdatedAt)
+                ? this.getAttribute(TimestampField.UpdatedAt)
+                : now;
+
+            this.setAttribute(TimestampField.UpdatedAt, updatedAt ?? now);
+        }
     }
 
     protected async performSave(): Promise<void> {

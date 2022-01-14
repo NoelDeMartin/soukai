@@ -4,7 +4,7 @@ import type { Assert, Equals, Expect, Extends, Not } from '@noeldemartin/utils';
 
 import { FieldType, Model, TimestampField, bootModels } from '@/models/index';
 import { SoukaiError } from '@/errors';
-import { setEngine } from '@/engines';
+import { InMemoryEngine, setEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import type { Engine } from '@/engines/Engine';
 import type { Key, TimestampFieldValue } from '@/models/index';
@@ -125,6 +125,21 @@ describe('Models definition', () => {
                 required: false,
             },
         });
+    });
+
+    it('Avoids clearing timestamps', async () => {
+        // Arrange
+        class StubModel extends Model {}
+
+        setEngine(new InMemoryEngine);
+        bootModels({ StubModel });
+
+        // Act
+        const model = await StubModel.create({ createdAt: undefined, updatedAt: null });
+
+        // Assert
+        expect(model.createdAt).toBeInstanceOf(Date);
+        expect(model.updatedAt).toBeInstanceOf(Date);
     });
 
     it('testEmptyTimestamps', () => {
@@ -869,6 +884,7 @@ describe('Model attributes', () => {
             {
                 name: model.name,
                 social: model.social,
+                createdAt: model.createdAt,
                 updatedAt: model.updatedAt,
                 contact: { $unset: true },
             },
