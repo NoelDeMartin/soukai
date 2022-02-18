@@ -161,10 +161,10 @@ export class Model {
             if (prototype.constructor.classFields)
                 classFields.push(...prototype.constructor.classFields);
 
-            for (const p of Object.getOwnPropertyNames(prototype)) {
+            for (const [p, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(prototype))) {
                 const property = p as keyof typeof instance & string;
 
-                if (typeof instance[property] !== 'function')
+                if (typeof descriptor.value !== 'function')
                     continue;
 
                 if (property.endsWith('Relationship'))

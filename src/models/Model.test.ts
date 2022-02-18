@@ -732,6 +732,13 @@ describe('Model attributes', () => {
         bootModels({ User });
     });
 
+    it('custom getters work', () => {
+        const user = new User({ name: 'John Doe' });
+
+        expect(user.name).toEqual('John Doe');
+        expect(user.externalDomains).toEqual([]);
+    });
+
     it('magic getters work', () => {
         const name = Faker.name.firstName();
         const model = new User({ name });

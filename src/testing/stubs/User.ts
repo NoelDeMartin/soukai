@@ -1,3 +1,5 @@
+import { arrayFilter, arrayUnique, urlParse } from '@noeldemartin/utils';
+
 import type { MultiModelRelation, Relation, SingleModelRelation } from '@/models/index';
 
 import Model from './User.schema';
@@ -11,6 +13,10 @@ export default class User extends Model {
     declare public birthPlace: City | null;
     declare public relatedPosts: MultiModelRelation<User, Post, typeof Post>;
     declare public relatedBirthPlace: SingleModelRelation<User, City, typeof City>;
+
+    public get externalDomains(): string[] {
+        return arrayUnique(arrayFilter(this.externalUrls.map(url => urlParse(url)?.domain)));
+    }
 
     public getAliasAttribute(): string {
         return this.name;
