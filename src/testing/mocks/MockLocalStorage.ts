@@ -28,7 +28,7 @@ class MockLocalStorage implements Storage {
     }
 
     public getItem(key: string): string | null {
-        return key in this.data ? this.data[key] : null;
+        return this.data[key] ?? null;
     }
 
     public removeItem(key: string): void {
@@ -44,7 +44,7 @@ class MockLocalStorage implements Storage {
     public key(index: number): string | null {
         const keys = Object.keys(this.data);
 
-        return keys.length >= index ? null : keys[index];
+        return keys[index] ?? null;
     }
 
 }

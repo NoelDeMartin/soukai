@@ -3,15 +3,13 @@ import { isEmpty, isNullable, isObject, objectDeepClone } from '@noeldemartin/ut
 import SoukaiError from '@/errors/SoukaiError';
 
 import { FieldType } from './fields';
-import type { BootedFieldsDefinition } from './fields';
+import type { BootedFieldDefinition, BootedFieldsDefinition } from './fields';
 
 export type Attributes = Record<string, AttributeValue>;
 export type AttributeValue = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export function validateAttributes(attributes: Attributes, fields: BootedFieldsDefinition): Attributes {
-    for (const field in fields) {
-        const definition = fields[field];
-
+    for (const [field, definition] of Object.entries(fields)) {
         if (!(field in attributes)) {
             switch (definition.type) {
                 case FieldType.Object:
@@ -40,9 +38,7 @@ export function validateAttributes(attributes: Attributes, fields: BootedFieldsD
 }
 
 export function validateRequiredAttributes(attributes: Attributes, fields: BootedFieldsDefinition): void {
-    for (const field in fields) {
-        const definition = fields[field];
-
+    for (const [field, definition] of Object.entries(fields)) {
         if (definition.required && (!(field in attributes) || isNullable(attributes[field])))
             throw new SoukaiError(`The ${field} attribute is required.`);
 
@@ -61,7 +57,7 @@ export function removeUndefinedAttributes(attributes: Attributes, fields: Booted
     attributes = objectDeepClone(attributes);
 
     for (const field in attributes) {
-        const definition = fields[field];
+        const definition = fields[field] as BootedFieldDefinition;
 
         if (typeof attributes[field] === 'undefined') {
             delete attributes[field];

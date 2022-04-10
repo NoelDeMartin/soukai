@@ -1,4 +1,5 @@
 import Faker from 'faker';
+import type { Tuple } from '@noeldemartin/utils';
 
 import Soukai from '@/Soukai';
 
@@ -107,7 +108,7 @@ describe('Model Relations', () => {
         expect(user.posts).not.toBeNull();
         expect(user.posts).toHaveLength(2);
 
-        const posts = user.posts as Post[];
+        const posts = user.posts as Tuple<Post, 2>;
         expect(posts[0]).toBeInstanceOf(Post);
         expect(posts[0].id).toBe(firstPostId);
         expect(posts[0].title).toBe(firstPostTitle);
@@ -148,7 +149,7 @@ describe('Model Relations', () => {
         expect(city.natives).not.toBeNull();
         expect(city.natives).toHaveLength(1);
 
-        const natives = city.natives as User[];
+        const natives = city.natives as Tuple<User, 1>;
         expect(natives[0]).toBeInstanceOf(User);
         expect(natives[0].id).toBe(id);
         expect(natives[0].name).toBe(name);
@@ -303,7 +304,7 @@ describe('Model Relations', () => {
         // Assert.
         expect(clone.id).toEqual('parent');
 
-        const children = clone.children as Child[];
+        const children = clone.children as Tuple<Child, 3>;
         expect(children).toHaveLength(3);
         expect(children[0].id).toEqual('child-1');
         expect(children[1].id).toEqual('child-2');

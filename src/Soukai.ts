@@ -42,7 +42,7 @@ export class Soukai {
      * will be removed in an upcoming release.
      */
     public model(name: string): typeof Model {
-        return this._bootedModels[name];
+        return this._bootedModels[name] as typeof Model;
     }
 
     /**

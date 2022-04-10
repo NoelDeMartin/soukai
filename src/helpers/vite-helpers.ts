@@ -16,7 +16,8 @@ export function getModelsFromViteGlob(
         if (ignoreSuffixes.some(suffix => name.endsWith(suffix)))
             continue;
 
-        models[name] = (moduleExports['default'] ?? moduleExports[Object.keys(moduleExports)[0]]) as typeof Model;
+        models[name] = (moduleExports['default'] ??
+            moduleExports[Object.keys(moduleExports)[0] as string]) as typeof Model;
     }
 
     return models;

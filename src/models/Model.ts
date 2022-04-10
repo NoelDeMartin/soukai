@@ -120,14 +120,14 @@ export class Model {
 
         // Validate fields
         if (typeof this.fields !== 'undefined') {
-            for (const field in this.fields) {
+            for (const [field, definition] of Object.entries(this.fields)) {
                 if (objectHasOwnProperty(this.fields, field)) {
-                    fieldDefinitions[field] = expandFieldDefinition(modelClass.modelName, field, this.fields[field]);
+                    fieldDefinitions[field] = expandFieldDefinition(modelClass.modelName, field, definition);
 
                     if (
                         modelClass.timestamps.includes(field as TimestampFieldValue) && (
-                            fieldDefinitions[field].type !== FieldType.Date ||
-                            fieldDefinitions[field].required
+                            fieldDefinitions[field]?.type !== FieldType.Date ||
+                            fieldDefinitions[field]?.required
                         )
                     ) {
                         throw new InvalidModelDefinition(
@@ -254,13 +254,11 @@ export class Model {
             this.listeners.set(this, {});
 
         const modelListeners = this.listeners.get(this) as Record<string, ModelListener<T>[]>;
+        const listeners = modelListeners[event] ??= [];
 
-        if (!(event in modelListeners))
-            modelListeners[event] = [];
+        listeners.push(listener);
 
-        modelListeners[event].push(listener);
-
-        return () => arrayRemove(modelListeners[event], listener);
+        return () => arrayRemove(listeners, listener);
     }
 
     public static schema<T extends Model, F extends FieldsDefinition>(
@@ -773,7 +771,7 @@ export class Model {
                     return Reflect.set(target, property, value, receiver);
 
                 if (target._proxy.hasRelation(property)) {
-                    target._relations[property].related = value;
+                    (target._relations[property] as Relation).related = value;
 
                     return true;
                 }
@@ -814,7 +812,7 @@ export class Model {
     protected initializeRelations(): void {
         this._relations = this.static('relations').reduce((relations, name) => {
             const proxy = this._proxy as unknown as Record<string, () => Relation>;
-            const relation = proxy[stringToCamelCase(name) + 'Relationship']();
+            const relation = proxy[stringToCamelCase(name) + 'Relationship']?.() as Relation;
 
             relation.name = name;
             relations[name] = relation;
@@ -900,7 +898,7 @@ export class Model {
 
     protected async getCascadeModels(): Promise<Model[]> {
         const relationPromises = this.static('relations')
-            .map(relation => this._relations[relation])
+            .map(relation => this._relations[relation] as Relation)
             .filter(relation => relation.deleteStrategy === 'cascade')
             .map(async relation => {
                 const relationModels = await relation.getModels();
@@ -916,7 +914,7 @@ export class Model {
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
         // TODO cluster by collection and implement deleteMany
         const modelsData = models.map(
-            model => [model.static('collection'), model.getSerializedPrimaryKey() as string],
+            model => [model.static('collection'), model.getSerializedPrimaryKey()] as [string, string],
         );
 
         await Promise.all(modelsData.map(([collection, id]) => this.requireEngine().delete(collection, id)));

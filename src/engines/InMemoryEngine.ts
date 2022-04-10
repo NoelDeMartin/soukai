@@ -1,3 +1,5 @@
+import { fail } from '@noeldemartin/utils';
+
 import { EngineHelper } from '@/engines/EngineHelper';
 import type {
     Engine,
@@ -50,13 +52,10 @@ export class InMemoryEngine implements Engine {
         return Promise.resolve(id);
     }
 
-    public readOne(collectionName: string, id: string): Promise<EngineDocument> {
+    public async readOne(collectionName: string, id: string): Promise<EngineDocument> {
         const collection = this.collection(collectionName);
-        if (id in collection) {
-            return Promise.resolve(collection[id]);
-        } else {
-            return Promise.reject(new DocumentNotFound(id, collectionName));
-        }
+
+        return collection[id] ?? fail(DocumentNotFound, id, collection);
     }
 
     public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
@@ -69,17 +68,11 @@ export class InMemoryEngine implements Engine {
         return this.helper.filterDocuments(documents, filters);
     }
 
-    public update(collectionName: string, id: string, updates: EngineUpdates): Promise<void> {
+    public async update(collectionName: string, id: string, updates: EngineUpdates): Promise<void> {
         const collection = this.collection(collectionName);
-        if (id in collection) {
-            const document = collection[id];
+        const document = collection[id] as EngineDocument ?? fail(DocumentNotFound, id, 3, collectionName);
 
-            this.helper.updateAttributes(document, updates);
-
-            return Promise.resolve();
-        } else {
-            return Promise.reject(new DocumentNotFound(id, collectionName));
-        }
+        this.helper.updateAttributes(document, updates);
     }
 
     public delete(collectionName: string, id: string): Promise<void> {
@@ -97,11 +90,7 @@ export class InMemoryEngine implements Engine {
     }
 
     private collection(name: string): InMemoryEngineCollection {
-        if (!this.hasCollection(name)) {
-            this.db[name] = {};
-        }
-
-        return this.db[name];
+        return this.db[name] ??= {};
     }
 
 }

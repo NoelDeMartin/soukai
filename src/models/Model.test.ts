@@ -579,9 +579,11 @@ describe('Models CRUD', () => {
 
         return User.all().then(models => {
             expect(models).toHaveLength(1);
-            expect(models[0]).toBeInstanceOf(User);
-            expect(models[0].id).toBe(id);
-            expect(models[0].name).toBe(name);
+
+            const user = models[0] as User;
+            expect(user).toBeInstanceOf(User);
+            expect(user.id).toBe(id);
+            expect(user.name).toBe(name);
             expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
             expect(mockEngine.readMany).toHaveBeenCalledWith(User.collection, undefined);
         });

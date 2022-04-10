@@ -88,16 +88,14 @@ export class EngineHelper {
     private filterDocument(id: string, document: EngineDocument, filters: EngineFilters = {}): boolean {
         filters = { ...filters };
 
-        const rootFilters = Object.keys(filters).filter(filter => filter in this.rootFilters);
+        for (const [filter, handler] of Object.entries(this.rootFilters)) {
+            if (!(filter in filters))
+                continue;
 
-        for (const rootFilter of rootFilters) {
-            const handler = (this.rootFilters as Record<string, RootFilterHandler>)[rootFilter];
-
-            if (!handler(id, document, filters[rootFilter])) {
+            if (!handler(id, document, filters[filter]))
                 return false;
-            }
 
-            delete filters[rootFilter];
+            delete filters[filter];
         }
 
         return this.filterValue(document, filters);
@@ -228,7 +226,7 @@ export class EngineHelper {
                 Object.keys(filteredDocuments).forEach(index => {
                     this.updateAttributes(filteredDocuments, { [index]: $update });
 
-                    array[parseInt(index)] = filteredDocuments[index];
+                    array[parseInt(index)] = filteredDocuments[index] as EngineDocument;
                 });
             }
 
@@ -296,9 +294,9 @@ export class EngineHelper {
         handlers: H,
         ...params: any[]
     ): R {
-        const [operator, data] = Object.entries(operation)[0];
+        const [operator, data] = Object.entries(operation)[0] as [keyof H, unknown];
 
-        return handlers[operator](...params, data);
+        return (handlers[operator] as Handler<R>)(...params, data);
     }
 
     private requireArrayProperty(

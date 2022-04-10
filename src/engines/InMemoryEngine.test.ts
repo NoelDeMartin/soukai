@@ -5,6 +5,7 @@ import Soukai from '@/Soukai';
 import { Model } from '@/models/Model';
 
 import { InMemoryEngine } from '@/engines/InMemoryEngine';
+import type { InMemoryEngineCollection } from '@/engines/InMemoryEngine';
 
 import DocumentNotFound from '@/errors/DocumentNotFound';
 
@@ -26,8 +27,8 @@ describe('InMemoryEngine', () => {
         return engine.create(User.collection, { name }).then(id => {
             expect(engine.database).toHaveProperty(User.collection);
             expect(engine.database[User.collection]).toHaveProperty(id);
-            expect(Object.keys(engine.database[User.collection])).toHaveLength(1);
-            expect(engine.database[User.collection][id]).toEqual({ name });
+            expect(Object.keys(engine.database[User.collection] as InMemoryEngineCollection)).toHaveLength(1);
+            expect(engine.database[User.collection]?.[id]).toEqual({ name });
         });
     });
 
@@ -76,8 +77,8 @@ describe('InMemoryEngine', () => {
             .then(() => engine.readMany(User.collection))
             .then(documents => {
                 expect(Object.values(documents)).toHaveLength(2);
-                expect(documents[ids[0]]).toEqual({ name: firstName });
-                expect(documents[ids[1]]).toEqual({ name: secondName });
+                expect(documents[ids[0] as string]).toEqual({ name: firstName });
+                expect(documents[ids[1] as string]).toEqual({ name: secondName });
             });
     });
 
@@ -107,7 +108,7 @@ describe('InMemoryEngine', () => {
                 return engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
             })
             .then(() => {
-                expect(engine.database[User.collection][id]).toEqual({ name: newName, age });
+                expect(engine.database[User.collection]?.[id]).toEqual({ name: newName, age });
             });
     });
 
@@ -117,11 +118,11 @@ describe('InMemoryEngine', () => {
     });
 
     it('testDelete', async () => {
-        return engine.create(User.collection, { name: Faker.name.firstName() })
-            .then(id => engine.delete(User.collection, id))
-            .then(() => {
-                expect(Object.keys(engine.database[User.collection])).toHaveLength(0);
-            });
+        const id = await engine.create(User.collection, { name: Faker.name.firstName() });
+
+        await engine.delete(User.collection, id);
+
+        expect(Object.keys(engine.database[User.collection] as InMemoryEngineCollection)).toHaveLength(0);
     });
 
     it('testDeleteNonExistent', async () => {

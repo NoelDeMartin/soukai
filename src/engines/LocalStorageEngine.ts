@@ -52,19 +52,19 @@ export class LocalStorageEngine implements Engine {
 
     public async readOne(collection: string, id: string): Promise<EngineDocument> {
         const documents = this.readItem(collection, {} as EngineDocumentsCollection);
+        const document = documents[id];
 
-        if (!(id in documents)) {
+        if (!document)
             throw new DocumentNotFound(id, collection);
-        }
 
-        return this.deserializeAttributes(documents[id]);
+        return this.deserializeAttributes(document);
     }
 
     public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
         const documents = this.readItem(collection, {} as EngineDocumentsCollection);
 
-        for (const id in documents) {
-            documents[id] = this.deserializeAttributes(documents[id]);
+        for (const [id, document] of Object.entries(documents)) {
+            documents[id] = this.deserializeAttributes(document);
         }
 
         return this.helper.filterDocuments(documents, filters);
@@ -72,12 +72,12 @@ export class LocalStorageEngine implements Engine {
 
     public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
         const documentsCollection = this.readItem(collection, {} as EngineDocumentsCollection);
+        const serializedDocument = documentsCollection[id];
 
-        if (!(id in documentsCollection)) {
+        if (!serializedDocument)
             throw new DocumentNotFound(id, collection);
-        }
 
-        const document = this.deserializeAttributes(documentsCollection[id]);
+        const document = this.deserializeAttributes(serializedDocument);
 
         this.helper.updateAttributes(document, updates);
 

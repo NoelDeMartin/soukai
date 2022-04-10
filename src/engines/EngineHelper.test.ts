@@ -264,7 +264,7 @@ describe('EngineHelper', () => {
         });
 
         // Assert
-        expect(document.pirates[1].affiliation).toEqual('Straw Hat Pirates');
+        expect(document.pirates[1]?.affiliation).toEqual('Straw Hat Pirates');
     });
 
     it('updates documents using $updateItems with advanced filters and operations', () => {
@@ -408,7 +408,7 @@ describe('EngineHelper', () => {
         });
 
         // Assert
-        expect(document.strawHatCrew[0].bounty).toEqual(1500000000);
+        expect(document.strawHatCrew[0]?.bounty).toEqual(1500000000);
         expect(document.strawHatCrew[1]).toEqual({
             name: 'Jimbei',
             bounty: 438000000,
