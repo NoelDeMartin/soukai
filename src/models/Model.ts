@@ -527,6 +527,10 @@ export class Model {
         return setter?.call(this, value);
     }
 
+    public getOriginalAttribute<T = unknown>(field: string): T {
+        return this._originalAttributes[field];
+    }
+
     public setOriginalAttribute(field: string, value: unknown): void {
         value = this.castAttribute(value, this.static('fields')[field]);
 
