@@ -655,12 +655,7 @@ export class Model {
             return this;
         }
 
-        const models = await this.getCascadeModels();
-
-        await this.deleteModelsFromEngine(models);
-
-        models.forEach(model => model.reset());
-
+        await this.performDelete();
         await this.emit(ModelEvent.Deleted);
 
         return this;
@@ -872,6 +867,14 @@ export class Model {
         this.cleanDirty();
 
         await this.loadEmptyRelations();
+    }
+
+    protected async performDelete(): Promise<void> {
+        const models = await this.getCascadeModels();
+
+        await this.deleteModelsFromEngine(models);
+
+        models.forEach(model => model.reset());
     }
 
     protected async emit(event: ModelEventValue): Promise<void> {
