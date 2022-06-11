@@ -375,6 +375,21 @@ describe('EngineHelper', () => {
         });
     });
 
+
+    it('updates documents using $overwrite', () => {
+        assertDocumentUpdate({
+            original: { foo: ['bar'], lorem: 'ipsum' },
+            update: { $overwrite: { ipsum: 'bar' } },
+            expected: { ipsum: 'bar' },
+        });
+
+        assertDocumentUpdate({
+            original: { lorem: { ipsum: 'dolor', foo: 'bar' } },
+            update: { lorem: { ipsum: { $overwrite: 'foobar' } } },
+            expected: { lorem: { ipsum: 'foobar', foo: 'bar' } },
+        });
+    });
+
     it('combines update operations using $apply', () => {
         // Arrange
         const document = {

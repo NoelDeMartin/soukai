@@ -49,7 +49,9 @@ export interface EngineAttributeUpdateMap extends Record<string, EngineAttribute
 export type EngineDocument = Record<string, EngineAttributeValue>;
 export type EngineDocumentsCollection = Record<string, EngineDocument>;
 export type EngineFilters = EngineRootFilter & Record<string, EngineAttributeFilter>;
-export type EngineUpdates = Record<string, EngineAttributeUpdate> | { $unset: string | string[] };
+export type EngineUpdates = Record<string, EngineAttributeUpdate>
+    | { $unset: string | string[] }
+    | { $overwrite: EngineAttributeValue };
 
 export interface Engine {
 

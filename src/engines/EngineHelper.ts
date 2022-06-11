@@ -21,6 +21,9 @@ type AttributesMap = Record<string, EngineAttributeValue>;
 type RootFilterHandler = (id: string, document: EngineDocument, filterData: any) => boolean;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RootUpdateHandler = (document: EngineDocument, updateData: any) => void;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: any) => boolean;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,12 +32,24 @@ type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, upd
 export class EngineHelper {
 
     private rootFilters: Record<'$in', RootFilterHandler>;
+    private rootUpdates: Record<'$overwrite', RootUpdateHandler>;
     private attributeFilters: Record<'$eq' | '$contains' | '$or' | '$in', AttributeFilterHandler>;
-    private attributeUpdates: Record<'$update' |'$updateItems' |'$push' |'$unset' |'$apply', AttributeUpdateHandler>;
+    private attributeUpdates: Record<
+        '$update' |
+        '$updateItems' |
+        '$push' |
+        '$unset' |
+        '$apply' |
+        '$overwrite',
+        AttributeUpdateHandler
+    >;
 
     public constructor() {
         this.rootFilters = {
             $in: this.documentsIn,
+        };
+        this.rootUpdates = {
+            $overwrite: this.documentOverwrite,
         };
         this.attributeFilters = {
             $eq: this.attributeEq,
@@ -48,6 +63,7 @@ export class EngineHelper {
             $push: this.attributePush,
             $unset: this.attributeUnset,
             $apply: this.attributeApply,
+            $overwrite: this.attributeOverwrite,
         };
     }
 
@@ -66,12 +82,22 @@ export class EngineHelper {
 
     public updateAttributes(attributes: Record<string, EngineAttributeValue>, updates: EngineUpdates): void {
         if (this.isOperation(updates, { $unset: this.attributeUnset })) {
-            const unsetValue = (updates as { $unset: string | string[ ]}).$unset;
+            const unsetValue = (updates as { $unset: string | string[] }).$unset;
             const unsetProperties = Array.isArray(unsetValue) ? unsetValue : [unsetValue];
 
             for (const unsetProperty of unsetProperties) {
                 this.attributeUnset(attributes, unsetProperty, true);
             }
+
+            return;
+        }
+
+        if (this.isOperation(updates, this.rootUpdates)) {
+            const [[operation, value]] = Object.entries(updates) as unknown as [
+                [keyof typeof this.rootUpdates, RootUpdateHandler]
+            ];
+
+            this.rootUpdates[operation](attributes, value);
 
             return;
         }
@@ -127,6 +153,14 @@ export class EngineHelper {
 
     private documentsIn = (id: string, _: EngineDocument, ids: string[]): boolean => {
         return ids.includes(id);
+    };
+
+    private documentOverwrite = (document: EngineDocument, newValue: EngineDocument): void => {
+        for (const column of Object.getOwnPropertyNames(document)){
+            delete document[column];
+        }
+
+        Object.assign(document, newValue);
     };
 
     private attributeEq = (
@@ -278,6 +312,14 @@ export class EngineHelper {
                 property,
             );
         }
+    };
+
+    private attributeOverwrite = (
+        value: EngineAttributeValueMap,
+        property: string,
+        newValue: EngineAttributeValue,
+    ) => {
+        value[property] = newValue;
     };
 
     private isOperation<H extends Record<string, Handler>>(value: unknown, handlers: H): value is Operation<H> {
