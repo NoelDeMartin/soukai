@@ -1,5 +1,5 @@
 import { engineClosesConnections } from '@/engines/ClosesConnections';
-import { fail } from '@noeldemartin/utils';
+import { fail, tap } from '@noeldemartin/utils';
 import { SoukaiError } from '@/errors';
 import type { Engine } from '@/engines/Engine';
 
@@ -33,6 +33,21 @@ export function setEngine(engine: Engine | null): void {
     }
 
     _engine = engine;
+}
+
+
+export function withEngine<T>(engine: Engine, operation: () => T): T;
+export function withEngine<T>(engine: Engine, operation: () => Promise<T>): Promise<T>;
+export function withEngine<T>(engine: Engine, operation: () => T | Promise<T>): T | Promise<T> {
+    const originalEngine = _engine ?? null;
+
+    setEngine(engine);
+
+    const result = operation();
+
+    return result instanceof Promise
+        ? result.then(() => tap(result, () => setEngine(originalEngine)))
+        : tap(result, () => setEngine(originalEngine));
 }
 
 export async function closeEngineConnections(): Promise<void> {
