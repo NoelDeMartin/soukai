@@ -212,13 +212,23 @@ export class Model {
         return this.instance().createManyFromEngineDocuments(documents);
     }
 
-    public static find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
+    public static async findOrFail<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T> {
+        const instance = await this.find(id);
+
+        return instance ?? fail(`Failed getting required model ${id}`);
+    }
+
+    public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
         this.ensureBooted();
 
-        return (this.requireEngine())
-            .readOne(this.collection, this.instance().serializeKey(id))
-            .then(document => this.createFromEngineDocument(id, document))
-            .catch(() => null);
+        try {
+            const document = await this.requireEngine().readOne(this.collection, this.instance().serializeKey(id));
+            const instance = await this.createFromEngineDocument(id, document);
+
+            return instance;
+        } catch (error) {
+            return null;
+        }
     }
 
     public static async all<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T[]> {
