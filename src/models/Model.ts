@@ -447,8 +447,8 @@ export class Model {
     ): Promise<T> {
         const relationInstance = this.requireRelation(relation);
 
-        return this.withEngine(
-            relationInstance.relatedClass.requireEngine(),
+        return relationInstance.relatedClass.withEngine(
+            this.requireEngine(),
             () => relationInstance.resolve(),
         ) as Promise<T>;
     }
