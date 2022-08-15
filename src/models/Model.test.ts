@@ -7,7 +7,7 @@ import { SoukaiError } from '@/errors';
 import { InMemoryEngine, setEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import type { Engine } from '@/engines/Engine';
-import type { Key, TimestampFieldValue } from '@/models/index';
+import type { BootedFieldDefinition, Key , TimestampFieldValue } from '@/models/index';
 
 import City from '@/testing/stubs/City';
 import MockEngine from '@/testing/mocks/MockEngine';
@@ -754,6 +754,44 @@ describe('Model attributes', () => {
         const model = new User({ name });
 
         expect(model.alias).toBe(name);
+    });
+
+    it('original attributes are casted', () => {
+        // Arrange
+        const Schema = Model.schema({
+            date: FieldType.Date,
+            numbers: {
+                type: FieldType.Array,
+                items: FieldType.Number,
+            },
+        });
+
+        class StubModel extends Schema {
+
+            protected castAttribute(value: unknown, definition?: BootedFieldDefinition<unknown> | undefined): unknown {
+                switch (definition?.type) {
+                    case FieldType.Array:
+                        return 'casted array';
+                    case FieldType.Date:
+                        return 'casted date';
+                }
+
+                return super.castAttribute(value, definition);
+            }
+
+        }
+
+        // Act
+        const instance = new StubModel({
+            date: new Date(),
+            numbers: [],
+        }, true);
+
+        // Assert
+        expect(instance.getAttribute('date')).toEqual('casted date');
+        expect(instance.getOriginalAttribute('date')).toEqual('casted date');
+        expect(instance.getAttribute('numbers')).toEqual('casted array');
+        expect(instance.getOriginalAttribute('numbers')).toEqual('casted array');
     });
 
     it('testAttributeSetter', async () => {

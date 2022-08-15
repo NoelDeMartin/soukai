@@ -813,9 +813,9 @@ export class Model {
         const fields = this.static('fields');
 
         this._attributes = objectDeepClone(attributes);
-        this._originalAttributes = exists ? objectDeepClone(attributes) : {};
-        this._dirtyAttributes = exists ? {} : objectDeepClone(attributes);
         this._attributes = this.castAttributes(validateAttributes(this._attributes, fields), fields);
+        this._originalAttributes = exists ? objectDeepClone(this._attributes) : {};
+        this._dirtyAttributes = exists ? {} : objectDeepClone(this._attributes);
     }
 
     protected initializeRelations(): void {
