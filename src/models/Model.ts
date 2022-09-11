@@ -292,6 +292,14 @@ export class Model {
         return this.instances.get(this) as T;
     }
 
+    public static hasAutomaticTimestamp(timestamp: TimestampFieldValue): boolean {
+        return (this.timestamps as TimestampFieldValue[]).indexOf(timestamp) !== -1;
+    }
+
+    public static hasAutomaticTimestamps(): boolean {
+        return (this.timestamps as TimestampFieldValue[]).length > 0;
+    }
+
     public static getEngine(): Engine | undefined {
         return this.engines.get(this) ?? getEngine();
     }
@@ -380,7 +388,6 @@ export class Model {
 
     public static(): ModelConstructor<this>;
     public static(property: 'fields'): BootedFieldsDefinition;
-    public static(property: 'timestamps'): TimestampFieldValue[];
     public static<T extends keyof ModelConstructor<this>>(property: T): ModelConstructor<this>[T];
     public static<T extends keyof ModelConstructor<this>>(
         property?: T,
@@ -853,10 +860,10 @@ export class Model {
     protected async beforeSave(): Promise<void> {
         const now = new Date();
 
-        if (this.hasAutomaticTimestamp(TimestampField.CreatedAt))
+        if (this.static().hasAutomaticTimestamp(TimestampField.CreatedAt))
             this.setAttribute(TimestampField.CreatedAt, this.getAttribute(TimestampField.CreatedAt) ?? now);
 
-        if (this.hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
+        if (this.static().hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
             const updatedAt = this.isDirty(TimestampField.UpdatedAt)
                 ? this.getAttribute(TimestampField.UpdatedAt)
                 : now;
@@ -1106,14 +1113,6 @@ export class Model {
             default:
                 return value;
         }
-    }
-
-    protected hasAutomaticTimestamp(timestamp: TimestampFieldValue): boolean {
-        return this.static('timestamps').indexOf(timestamp) !== -1;
-    }
-
-    protected hasAutomaticTimestamps(): boolean {
-        return this.static('timestamps').length > 0;
     }
 
     protected toEngineDocument(): EngineDocument {
