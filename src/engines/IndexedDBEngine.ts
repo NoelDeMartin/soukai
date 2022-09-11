@@ -53,6 +53,15 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         this.helper = new EngineHelper();
     }
 
+    public async getCollections(): Promise<string[]> {
+        const keys = await this.withMetadataTransaction(
+            'readonly',
+            transaction => transaction.store.getAllKeys(),
+        );
+
+        return keys.map(key => key.toString());
+    }
+
     public async purgeDatabase(): Promise<void> {
         this.closeConnections();
 
@@ -280,15 +289,6 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
             return operation();
         }
-    }
-
-    private async getCollections(): Promise<string[]> {
-        const keys = await this.withMetadataTransaction(
-            'readonly',
-            transaction => transaction.store.getAllKeys(),
-        );
-
-        return keys.map(key => key.toString());
     }
 
     private async createCollection(collection: string): Promise<void> {
