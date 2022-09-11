@@ -304,8 +304,8 @@ export class Model {
         return this.engines.get(this) ?? getEngine();
     }
 
-    public static requireEngine(): Engine {
-        return this.engines.get(this) ?? requireEngine();
+    public static requireEngine<T extends Engine = Engine>(): T {
+        return this.engines.get(this) as T ?? requireEngine<T>();
     }
 
     public static setEngine(engine?: Engine): void {
@@ -445,8 +445,8 @@ export class Model {
         return this._engine ?? this.static().getEngine();
     }
 
-    public requireEngine(): Engine {
-        return this._engine ?? this.static().requireEngine();
+    public requireEngine<T extends Engine>(): T {
+        return this._engine as T ?? this.static().requireEngine<T>();
     }
 
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(

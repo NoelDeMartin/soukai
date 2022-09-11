@@ -1,4 +1,4 @@
-import type { Constructor } from '@noeldemartin/utils';
+import type { Constructor, Pretty } from '@noeldemartin/utils';
 
 import type { Key, Model } from './Model';
 
@@ -22,7 +22,7 @@ import type {
 
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof Model;
 
-export type MagicAttributes<T extends FieldsDefinition> =
+export type MagicAttributes<T extends FieldsDefinition> = Pretty<
     MagicAttributeProperties<{
         // TODO this should be optional
         id: typeof FieldType.String;
@@ -33,7 +33,8 @@ export type MagicAttributes<T extends FieldsDefinition> =
     }> &
     // TODO infer virtual attributes
     // TODO infer relationship attributes
-    NestedMagicAttributes<T>;
+    NestedMagicAttributes<T>
+>;
 
 export type NestedMagicAttributes<T extends FieldsDefinition> =
     MagicAttributeProperties<Pick<T, GetRequiredFields<T>>> &

@@ -17,8 +17,8 @@ export function getEngine(): Engine | undefined {
     return _engine;
 }
 
-export function requireEngine(): Engine {
-    return _engine || fail(
+export function requireEngine<T extends Engine = Engine>(): T {
+    return _engine as T || fail(
         SoukaiError,
         'Engine must be initialized before performing any operations. ' +
             'Learn more at https://soukai.js.org/guide/engines.html',
