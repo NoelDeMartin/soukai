@@ -811,7 +811,9 @@ describe('Model attributes', () => {
         const user = await User.find(id) as User;
         const malformedAttributes = user.getMalformedDocumentAttributes();
 
-        await user.fixMalformedAttributes();
+        user.fixMalformedAttributes();
+
+        await user.withoutTimestamps(() => user.save());
 
         // Assert
         expect(Object.keys(malformedAttributes)).toHaveLength(3);

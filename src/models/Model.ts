@@ -722,9 +722,8 @@ export class Model {
         return this;
     }
 
-    public async fixMalformedAttributes(): Promise<void> {
-        await this.performMalformedAttributeFixes();
-        await this.withoutTimestamps(() => this.save());
+    public fixMalformedAttributes(): void {
+        this.performMalformedAttributeFixes();
 
         this._malformedDocumentAttributes = {};
     }
@@ -939,7 +938,7 @@ export class Model {
         models.forEach(model => model.reset());
     }
 
-    protected async performMalformedAttributeFixes(): Promise<void> {
+    protected performMalformedAttributeFixes(): void {
         const malformedFields = Object.keys(this._malformedDocumentAttributes);
         const isFieldMalformed = (field: string, definition: BootedFieldDefinition) => {
             if (definition.type === FieldType.Array) {
