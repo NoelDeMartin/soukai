@@ -59,6 +59,12 @@ export const ModelEvent = {
     Deleted: 'deleted' as const,
 };
 
+export type ModelCastAttributeOptions = {
+    field?: string;
+    definition?: BootedFieldDefinition;
+    malformedAttributes?: Record<string, string[]>;
+};
+
 export type ModelEventValue = typeof ModelEvent[keyof typeof ModelEvent];
 
 export class Model {
@@ -79,6 +85,7 @@ export class Model {
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
     private static originalEngines: WeakMap<typeof Model, [Engine | undefined, number]> = new WeakMap;
     private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
+    private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
         this.bootedModels.set(this, true);
@@ -347,6 +354,12 @@ export class Model {
             : tap(result, () => restoreOriginalEngine());
     }
 
+    public static async withoutTimestamps<T>(operation: () => Promise<T>): Promise<T> {
+        this.ignoringTimestamps.set(this, true);
+
+        return tap(await operation(), () => this.ignoringTimestamps.delete(this));
+    }
+
     protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {
         if (!this.pureInstances.has(this)) {
             this.pureInstances.set(this, new this({ __pureInstance: true }));
@@ -368,6 +381,7 @@ export class Model {
     declare protected _attributes: Attributes;
     declare protected _originalAttributes: Attributes;
     declare protected _dirtyAttributes: Attributes;
+    declare protected _malformedDocumentAttributes: Record<string, string[]>;
     declare protected _relations: { [relation: string]: Relation };
 
     declare private _engine?: Engine;
@@ -527,7 +541,7 @@ export class Model {
     public setAttributeValue(field: string, value: unknown): void {
         // TODO implement deep setter
 
-        this._attributes[field] = value = this.castAttribute(value, this.static('fields')[field]);
+        this._attributes[field] = value = this.castAttribute(value, { definition: this.static('fields')[field] });
 
         this.attributeValueChanged(this._originalAttributes[field], value)
             ? this._dirtyAttributes[field] = value
@@ -549,7 +563,7 @@ export class Model {
     }
 
     public setOriginalAttribute(field: string, value: unknown): void {
-        value = this.castAttribute(value, this.static('fields')[field]);
+        value = this.castAttribute(value, { definition: this.static('fields')[field] });
 
         this._originalAttributes[field] = value;
         this._attributes[field] = value;
@@ -561,6 +575,14 @@ export class Model {
         for (const [field, value] of Object.entries(attributes)) {
             this.setAttribute(field, value);
         }
+    }
+
+    public getMalformedDocumentAttributes(): Record<string, string[]> {
+        return this._malformedDocumentAttributes;
+    }
+
+    public setMalformedDocumentAttributes(malformedAttributes: Record<string, string[]>): void {
+        this._malformedDocumentAttributes = malformedAttributes;
     }
 
     public setEngine(engine?: Engine): void {
@@ -585,6 +607,12 @@ export class Model {
         return result instanceof Promise
             ? result.then(() => tap(result, () => this.setEngine(originalEngine)))
             : tap(result, () => this.setEngine(originalEngine));
+    }
+
+    public async withoutTimestamps<T>(operation: () => Promise<T>): Promise<T> {
+        this.static().ignoringTimestamps.set(this, true);
+
+        return tap(await operation(), () => this.static().ignoringTimestamps.delete(this));
     }
 
     public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
@@ -692,6 +720,13 @@ export class Model {
         await this.emit(existed ? ModelEvent.Updated : ModelEvent.Created);
 
         return this;
+    }
+
+    public async fixMalformedAttributes(): Promise<void> {
+        await this.performMalformedAttributeFixes();
+        await this.withoutTimestamps(() => this.save());
+
+        this._malformedDocumentAttributes = {};
     }
 
     /**
@@ -819,10 +854,17 @@ export class Model {
     protected initializeAttributes(attributes: Attributes, exists: boolean): void {
         const fields = this.static('fields');
 
+        this._malformedDocumentAttributes = {};
         this._attributes = objectDeepClone(attributes);
-        this._attributes = this.castAttributes(validateAttributes(this._attributes, fields), fields);
+        this._attributes = this.castAttributes(
+            validateAttributes(this._attributes, fields),
+            fields,
+            this._malformedDocumentAttributes,
+        );
         this._originalAttributes = exists ? objectDeepClone(this._attributes) : {};
         this._dirtyAttributes = exists ? {} : objectDeepClone(this._attributes);
+
+        delete this._malformedDocumentAttributes[this.static('primaryKey')];
     }
 
     protected initializeRelations(): void {
@@ -859,16 +901,19 @@ export class Model {
 
     protected async beforeSave(): Promise<void> {
         const now = new Date();
+        const ignoringTimestamps = this.static().ignoringTimestamps;
 
-        if (this.static().hasAutomaticTimestamp(TimestampField.CreatedAt))
-            this.setAttribute(TimestampField.CreatedAt, this.getAttribute(TimestampField.CreatedAt) ?? now);
+        if (!ignoringTimestamps.has(this) && !ignoringTimestamps.has(this.static())) {
+            if (this.static().hasAutomaticTimestamp(TimestampField.CreatedAt))
+                this.setAttribute(TimestampField.CreatedAt, this.getAttribute(TimestampField.CreatedAt) ?? now);
 
-        if (this.static().hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
-            const updatedAt = this.isDirty(TimestampField.UpdatedAt)
-                ? this.getAttribute(TimestampField.UpdatedAt)
-                : now;
+            if (this.static().hasAutomaticTimestamp(TimestampField.UpdatedAt)) {
+                const updatedAt = this.isDirty(TimestampField.UpdatedAt)
+                    ? this.getAttribute(TimestampField.UpdatedAt)
+                    : now;
 
-            this.setAttribute(TimestampField.UpdatedAt, updatedAt ?? now);
+                this.setAttribute(TimestampField.UpdatedAt, updatedAt ?? now);
+            }
         }
     }
 
@@ -892,6 +937,25 @@ export class Model {
         await this.deleteModelsFromEngine(models);
 
         models.forEach(model => model.reset());
+    }
+
+    protected async performMalformedAttributeFixes(): Promise<void> {
+        const malformedFields = Object.keys(this._malformedDocumentAttributes);
+        const isFieldMalformed = (field: string, definition: BootedFieldDefinition) => {
+            if (definition.type === FieldType.Array) {
+                return malformedFields.some(malformedField => malformedField.startsWith(`${field}.`));
+            }
+
+            return field in this._malformedDocumentAttributes;
+        };
+
+        for (const [field, definition] of Object.entries(this.static('fields'))) {
+            if (!isFieldMalformed(field, definition)) {
+                continue;
+            }
+
+            this._dirtyAttributes[field] = this._attributes[field];
+        }
     }
 
     protected async emit(event: ModelEventValue): Promise<void> {
@@ -1037,20 +1101,28 @@ export class Model {
         return !deepEquals(originalValue, newValue);
     }
 
-    protected castAttributes(attributes: Attributes, definitions: BootedFieldsDefinition): Attributes {
+    protected castAttributes(
+        attributes: Attributes,
+        definitions: BootedFieldsDefinition,
+        malformedAttributes?: Record<string, string[]>,
+        fieldPrefix: string = '',
+    ): Attributes {
         const castedAttributes = {} as Record<string, unknown>;
 
         for (const field in attributes) {
             castedAttributes[field] = this.castAttribute(
                 attributes[field],
-                definitions[field],
+                { field: fieldPrefix + field, malformedAttributes, definition: definitions[field] },
             );
         }
 
         return castedAttributes;
     }
 
-    protected castAttribute(value: unknown, definition?: BootedFieldDefinition): unknown {
+    protected castAttribute(
+        value: unknown,
+        { field, definition, malformedAttributes }: ModelCastAttributeOptions = {},
+    ): unknown {
         if (isNullable(value))
             return value;
 
@@ -1058,7 +1130,10 @@ export class Model {
             switch (typeof value) {
                 case 'object':
                     if (Array.isArray(value))
-                        return value.map(attribute => this.castAttribute(attribute));
+                        return value.map((attributeValue, index) => this.castAttribute(attributeValue, {
+                            field: field && `${field}.${index}`,
+                            malformedAttributes,
+                        }));
 
                     if (value instanceof Date || value instanceof ModelKey)
                         return value;
@@ -1083,15 +1158,21 @@ export class Model {
                 if (!isObject(value))
                     throw new SoukaiError(`Invalid Object value: ${value}`);
 
-                return this.castAttributes(value, definition.fields as Record<string, BootedFieldDefinition>);
+                return this.castAttributes(
+                    value,
+                    definition.fields as Record<string, BootedFieldDefinition>,
+                    malformedAttributes,
+                    field && `${field}.`,
+                );
             case FieldType.Array:
                 if (!Array.isArray(value))
                     throw new SoukaiError(`Invalid Array value: ${value}`);
 
-                return value.map(attribute => this.castAttribute(
-                    attribute,
-                    definition.items as BootedFieldDefinition,
-                ));
+                return value.map((attributeValue, index) => this.castAttribute(attributeValue, {
+                    field: field && `${field}.${index}`,
+                    definition: definition.items as BootedFieldDefinition,
+                    malformedAttributes,
+                }));
             case FieldType.Boolean:
                 return !!value;
             case FieldType.Number: {
@@ -1104,12 +1185,18 @@ export class Model {
             }
             case FieldType.String:
                 return toString(value);
-            case FieldType.Key:
-                // TODO future versions of may not do this, for now this is here to minimize breaking changes
+            case FieldType.Key: {
                 if (value instanceof ModelKey)
                     return toString(value);
 
+                if (field && malformedAttributes) {
+                    const malformations = malformedAttributes[field] ?? [];
+
+                    malformedAttributes[field] = [...malformations, 'malformed-key'];
+                }
+
                 return value;
+            }
             default:
                 return value;
         }

@@ -5,6 +5,7 @@ export default Model.schema({
         type: FieldType.String,
         required: true,
     },
+    avatarUrl: FieldType.Key,
     surname: FieldType.String,
     age: FieldType.Number,
     birthDate: FieldType.Date,
@@ -21,6 +22,6 @@ export default Model.schema({
     },
     externalUrls: {
         type: FieldType.Array,
-        items: FieldType.String,
+        items: FieldType.Key,
     },
 });

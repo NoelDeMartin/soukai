@@ -7,7 +7,7 @@ import { SoukaiError } from '@/errors';
 import { InMemoryEngine, setEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import type { Engine } from '@/engines/Engine';
-import type { BootedFieldDefinition, Key , TimestampFieldValue } from '@/models/index';
+import type { Key, ModelCastAttributeOptions, TimestampFieldValue } from '@/models/index';
 
 import City from '@/testing/stubs/City';
 import MockEngine from '@/testing/mocks/MockEngine';
@@ -768,15 +768,15 @@ describe('Model attributes', () => {
 
         class StubModel extends Schema {
 
-            protected castAttribute(value: unknown, definition?: BootedFieldDefinition<unknown> | undefined): unknown {
-                switch (definition?.type) {
+            protected castAttribute(value: unknown, options: ModelCastAttributeOptions = {}): unknown {
+                switch (options.definition?.type) {
                     case FieldType.Array:
                         return 'casted array';
                     case FieldType.Date:
                         return 'casted date';
                 }
 
-                return super.castAttribute(value, definition);
+                return super.castAttribute(value, options);
             }
 
         }
@@ -792,6 +792,39 @@ describe('Model attributes', () => {
         expect(instance.getOriginalAttribute('date')).toEqual('casted date');
         expect(instance.getAttribute('numbers')).toEqual('casted array');
         expect(instance.getOriginalAttribute('numbers')).toEqual('casted array');
+    });
+
+    it('fixes malformed attributes', async () => {
+        // Arrange
+        const id = Faker.random.uuid();
+
+        mockEngine.readOne.mockReturnValue(Promise.resolve({
+            id,
+            name: 'Alice',
+            avatarUrl: 'https://example.org/avatar.png',
+            externalUrls: [`https://a.example.org/users/${id}`, `https://b.example.org/users/${id}`],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }));
+
+        // Act
+        const user = await User.find(id) as User;
+        const malformedAttributes = user.getMalformedDocumentAttributes();
+
+        await user.fixMalformedAttributes();
+
+        // Assert
+        expect(Object.keys(malformedAttributes)).toHaveLength(3);
+
+        expect(mockEngine.update).toHaveBeenCalledTimes(1);
+        expect(mockEngine.update).toHaveBeenCalledWith(
+            User.collection,
+            id,
+            {
+                avatarUrl: 'https://example.org/avatar.png',
+                externalUrls: [`https://a.example.org/users/${id}`, `https://b.example.org/users/${id}`],
+            },
+        );
     });
 
     it('testAttributeSetter', async () => {
@@ -951,7 +984,7 @@ describe('Model types', () => {
         Expect<Equals<Assert<User['contact']>['email'], string | undefined>> |
         Expect<Extends<User['social'], undefined>> |
         Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
-        Expect<Equals<User['externalUrls'], string[]>> |
+        Expect<Equals<User['externalUrls'], Key[]>> |
         Expect<Equals<Post['title'], string>> |
         Expect<Equals<Pick<Post, 'title'>, { title: string }>> |
         Expect<Equals<City['name'], string>> |
