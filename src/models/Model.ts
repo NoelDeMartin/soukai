@@ -488,12 +488,29 @@ export class Model {
         this.requireRelation(relation).unload();
     }
 
-    public getRelationModel<T extends Model | null = Model | null>(relation: string): T {
-        return (this.requireRelation(relation).related || null) as T;
+    public getRelationModel<T extends Model>(relation: string): T | null {
+        const related = this.requireRelation(relation).related;
+
+        if (Array.isArray(related)) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `Getting single model from multi-model '${relation}' relation in '${this.static('modelName')}' model.`,
+            );
+
+            return related[0] as T;
+        }
+
+        return related as T | null;
     }
 
-    public getRelationModels<T extends Model[] | null = Model[] | null>(relation: string): T {
-        return (this.requireRelation(relation).related || null) as T;
+    public getRelationModels<T extends Model>(relation: string): T[] | null {
+        const related = this.requireRelation(relation).related;
+
+        if (related instanceof Model) {
+            return [related] as T[];
+        }
+
+        return related as T[] | null;
     }
 
     public setRelationModel(relation: string, model: Model | null): void {
@@ -800,7 +817,7 @@ export class Model {
 
                 if (target.hasRelation(property))
                     return target._proxy.isRelationLoaded(property)
-                        ? target._proxy.getRelationModels(property)
+                        ? target._proxy.requireRelation(property).related
                         : undefined;
 
                 if (property.startsWith('related')) {
