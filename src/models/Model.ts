@@ -489,46 +489,66 @@ export class Model {
     }
 
     public getRelationModel<T extends Model>(relation: string): T | null {
-        const related = this.requireRelation(relation).related;
+        const relationInstance = this.requireRelation(relation);
 
-        if (Array.isArray(related)) {
+        if (relationInstance instanceof MultiModelRelation) {
             // eslint-disable-next-line no-console
             console.warn(
-                `Getting single model from multi-model '${relation}' relation in '${this.static('modelName')}' model.`,
+                `You're getting a single model from the multi-model '${relation}' relation ` +
+                `in the '${this.static('modelName')}' model.`,
             );
 
-            return related[0] as T;
+            return (relationInstance.related?.[0] ?? null) as T | null;
         }
 
-        return related as T | null;
+        return (relationInstance.related ?? null) as T | null;
     }
 
     public getRelationModels<T extends Model>(relation: string): T[] | null {
-        const related = this.requireRelation(relation).related;
+        const relationInstance = this.requireRelation(relation);
 
-        if (related instanceof Model) {
-            return [related] as T[];
+        if (relationInstance instanceof SingleModelRelation) {
+            return relationInstance.related ? [relationInstance.related] as T[] : null;
         }
 
-        return related as T[] | null;
+        return (relationInstance.related ?? null) as T[] | null;
     }
 
     public setRelationModel(relation: string, model: Model | null): void {
         const relationInstance = this.requireRelation(relation);
 
-        if (relationInstance instanceof MultiModelRelation)
-            throw new SoukaiError('Can\'t set a single model for MultiModelRelation, use setRelationModels instead');
+        if (relationInstance instanceof MultiModelRelation) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `You're setting a single model for the multi-model '${relation}' relation ` +
+                `in the '${this.static('modelName')}' model.`,
+            );
+
+            relationInstance.related = [model];
+
+            return;
+        }
 
         relationInstance.related = model;
     }
 
     public setRelationModels(relation: string, models: Model[] | null): void {
         const relationInstance = this.requireRelation(relation);
+        const getModels = () => {
+            if (models === null || relationInstance instanceof MultiModelRelation) {
+                return models;
+            }
 
-        if (relationInstance instanceof SingleModelRelation)
-            throw new SoukaiError('Can\'t set multiple models for SingleModelRelation, use setRelationModel instead');
+            if (models.length > 0) {
+                throw new SoukaiError(
+                    'Can\'t set multiple models for SingleModelRelation, use setRelationModel instead',
+                );
+            }
 
-        relationInstance.related = models;
+            return models[0] ?? null;
+        };
+
+        relationInstance.related = getModels();
     }
 
     public isRelationLoaded(relation: string): boolean {
