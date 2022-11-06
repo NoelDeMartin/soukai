@@ -26,6 +26,7 @@ export abstract class Relation<
     public relatedClass: RelatedClass;
     public foreignKeyName: string;
     public localKeyName: string;
+    public enabled: boolean = true;
     public deleteStrategy: RelationDeleteStrategy = null;
 
     public constructor(
@@ -46,6 +47,14 @@ export abstract class Relation<
 
     public static(): RelationConstructor<this> {
         return this.constructor as RelationConstructor<this>;
+    }
+
+    public enable(): void {
+        this.enabled = true;
+    }
+
+    public disable(): void {
+        this.enabled = false;
     }
 
     public abstract resolve(): Promise<Related[] | Related | null>;
@@ -88,6 +97,7 @@ export abstract class Relation<
         clone.foreignKeyName = this.foreignKeyName;
         clone.localKeyName = this.localKeyName;
         clone.deleteStrategy = this.deleteStrategy;
+        clone.enabled = this.enabled;
 
         // TODO get from parent clone relation instead
         clone.relatedClass = constructors.get(this.relatedClass) as RelatedClass ?? this.relatedClass;
@@ -106,8 +116,9 @@ export abstract class Relation<
         for (const relationName of this.relatedClass.relations) {
             const relationInstance = model.requireRelation(relationName);
 
-            if (!relationInstance.isInverseOf(this))
+            if (!relationInstance.enabled || !relationInstance.isInverseOf(this)) {
                 continue;
+            }
 
             relationInstance.setForeignAttributes(this.parent);
             relationInstance.addRelated(this.parent);

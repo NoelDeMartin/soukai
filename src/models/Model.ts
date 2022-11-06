@@ -858,7 +858,7 @@ export class Model {
                     return Reflect.set(target, property, value, receiver);
 
                 if (target._proxy.hasRelation(property)) {
-                    (target._relations[property] as Relation).related = value;
+                    target._proxy.requireRelation(property).related = value;
 
                     return true;
                 }
@@ -1022,8 +1022,8 @@ export class Model {
 
     protected async getCascadeModels(): Promise<Model[]> {
         const relationPromises = this.static('relations')
-            .map(relation => this._relations[relation] as Relation)
-            .filter(relation => relation.deleteStrategy === 'cascade')
+            .map(relation => this.requireRelation(relation))
+            .filter(relation => relation.enabled && relation.deleteStrategy === 'cascade')
             .map(async relation => {
                 const relationModels = await relation.getModels();
 
@@ -1125,7 +1125,7 @@ export class Model {
         await Promise.all(
             Object
                 .values(this._relations)
-                .filter(relation => !relation.loaded && relation.isEmpty())
+                .filter(relation => relation.enabled && !relation.loaded && relation.isEmpty())
                 .map(relation => relation.resolve()),
         );
     }
