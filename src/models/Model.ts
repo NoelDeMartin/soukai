@@ -395,6 +395,7 @@ export class Model {
         }
 
         this.static().ensureBooted();
+        this.initializeProxy();
         this.initialize(attributes, exists);
 
         return this._proxy;
@@ -820,7 +821,6 @@ export class Model {
         this._exists = exists;
         this._wasRecentlyCreated = false;
 
-        this.initializeProxy();
         this.initializeAttributes(attributes, exists);
         this.initializeRelations();
     }
