@@ -355,6 +355,22 @@ describe('Models definition', () => {
         expect(model.myArray).toEqual(['foobar']);
     });
 
+    it('model names are calculated properly for children', () => {
+        class Parent extends Model {}
+        class ChildA extends Parent {}
+        class ChildB extends Parent {}
+        class ChildAA extends ChildA {}
+        class ChildAB extends ChildA {}
+
+        bootModels({ ChildA, ChildAA, ChildAB, ChildB, Parent });
+
+        expect(Parent.modelName).toEqual('Parent');
+        expect(ChildA.modelName).toEqual('ChildA');
+        expect(ChildB.modelName).toEqual('ChildB');
+        expect(ChildAA.modelName).toEqual('ChildAA');
+        expect(ChildAB.modelName).toEqual('ChildAB');
+    });
+
     it('class properties don\'t modify parent models', () => {
         class Parent extends Model {
 
