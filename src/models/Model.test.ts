@@ -359,7 +359,11 @@ describe('Models definition', () => {
         class Parent extends Model {}
         class ChildA extends Parent {}
         class ChildB extends Parent {}
-        class ChildAA extends ChildA {}
+        class ChildAA extends ChildA {
+
+            public static modelName = 'CustomChildAA';
+
+        }
         class ChildAB extends ChildA {}
 
         bootModels({ ChildA, ChildAA, ChildAB, ChildB, Parent });
@@ -367,7 +371,7 @@ describe('Models definition', () => {
         expect(Parent.modelName).toEqual('Parent');
         expect(ChildA.modelName).toEqual('ChildA');
         expect(ChildB.modelName).toEqual('ChildB');
-        expect(ChildAA.modelName).toEqual('ChildAA');
+        expect(ChildAA.modelName).toEqual('CustomChildAA');
         expect(ChildAB.modelName).toEqual('ChildAB');
     });
 

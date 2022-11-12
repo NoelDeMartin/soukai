@@ -95,7 +95,9 @@ export class Model {
         const fieldDefinitions: BootedFieldsDefinition = {};
 
         // Set model name
-        modelClass.modelName = name ?? modelClass.name;
+        const modelNameDescriptor = Object.getOwnPropertyDescriptor(modelClass, 'modelName');
+
+        modelClass.modelName = modelNameDescriptor?.value ?? name ?? modelClass.name;
 
         // Validate collection
         modelClass.collection = modelClass.collection ?? instance.getDefaultCollection();
