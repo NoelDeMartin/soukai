@@ -473,7 +473,7 @@ export class Model {
 
         return relationInstance.relatedClass.withEngine(
             this.requireEngine(),
-            () => relationInstance.resolve(),
+            () => relationInstance.load(),
         ) as Promise<T>;
     }
 
@@ -1128,7 +1128,7 @@ export class Model {
             Object
                 .values(this._relations)
                 .filter(relation => relation.enabled && !relation.loaded && relation.isEmpty())
-                .map(relation => relation.resolve()),
+                .map(relation => relation.load()),
         );
     }
 

@@ -57,10 +57,17 @@ export abstract class Relation<
         this.enabled = false;
     }
 
-    public abstract resolve(): Promise<Related[] | Related | null>;
+    public abstract load(): Promise<Related[] | Related | null>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract addRelated(related: Related): void;
     public abstract isRelated(model: Related): boolean;
+
+    /**
+     * @deprecated This method has been renamed to `load`.
+     */
+    public resolve(): Promise<Related[] | Related | null> {
+        return this.load();
+    }
 
     public isEmpty(): boolean | null {
         return null;
@@ -68,7 +75,7 @@ export abstract class Relation<
 
     public async getModels(): Promise<Related[]> {
         if (!this.loaded) {
-            await this.resolve();
+            await this.load();
         }
 
         return this.getLoadedModels();

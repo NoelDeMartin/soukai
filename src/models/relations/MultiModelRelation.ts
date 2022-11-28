@@ -53,7 +53,7 @@ export default abstract class MultiModelRelation<
         ]);
     }
 
-    public abstract resolve(): Promise<Related[]>;
+    public abstract load(): Promise<Related[]>;
 
     public isRelated(model: Related): boolean {
         return !!this.related?.includes(model);

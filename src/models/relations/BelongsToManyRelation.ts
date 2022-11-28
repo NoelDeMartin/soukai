@@ -12,7 +12,7 @@ export default class BelongsToManyRelation<
         return this.parent.getAttribute<Key[]>(this.foreignKeyName).length === 0;
     }
 
-    public async resolve(): Promise<Related[]> {
+    public async load(): Promise<Related[]> {
         const foreignKeys = this.parent.getAttribute<Key[]>(this.foreignKeyName);
 
         this.related = this.isEmpty()

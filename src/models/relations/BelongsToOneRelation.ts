@@ -12,7 +12,7 @@ export default class BelongsToOneRelation<
         return !this.parent.getAttribute<Key>(this.foreignKeyName);
     }
 
-    public async resolve(): Promise<Related | null> {
+    public async load(): Promise<Related | null> {
         const foreignKey = this.parent.getAttribute<Key>(this.foreignKeyName);
 
         this.related = this.isEmpty()
