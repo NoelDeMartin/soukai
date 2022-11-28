@@ -1,6 +1,8 @@
-import { arrayUnique, stringToCamelCase } from '@noeldemartin/utils';
+import { arrayUnique, stringToCamelCase, tap } from '@noeldemartin/utils';
 
+import SoukaiError from '@/errors/SoukaiError';
 import { Relation } from '@/models/relations/Relation';
+import type { Attributes } from '@/models/attributes';
 import type { ModelConstructor } from '@/models/inference';
 import type { Model } from '@/models/Model';
 
@@ -26,6 +28,24 @@ export default abstract class MultiModelRelation<
         );
     }
 
+    public attach(model: Related): Related;
+    public attach(attributes: Attributes): Related;
+    public attach(modelOrAttributes: Related | Attributes): Related {
+        const model = modelOrAttributes instanceof this.relatedClass
+            ? modelOrAttributes as Related
+            : this.relatedClass.newInstance(modelOrAttributes);
+
+        return tap(model, () => {
+            if (!this.assertLoaded('attach') || this.isRelated(model)) {
+                return;
+            }
+
+            this.addRelated(model);
+            this.initializeInverseRelations(model);
+            this.setForeignAttributes(model);
+        });
+    }
+
     public addRelated(related: Related): void {
         this.related = arrayUnique([
             ...this.related ?? [],
@@ -34,5 +54,23 @@ export default abstract class MultiModelRelation<
     }
 
     public abstract resolve(): Promise<Related[]>;
+
+    public isRelated(model: Related): boolean {
+        return !!this.related?.includes(model);
+    }
+
+    protected assertLoaded(method: string): this is { related: Related[] } {
+        if (this.loaded) {
+            return true;
+        }
+
+        if (!this.parent.exists()) {
+            this.related = [];
+
+            return true;
+        }
+
+        throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);
+    }
 
 }

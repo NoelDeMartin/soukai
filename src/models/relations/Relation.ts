@@ -60,6 +60,7 @@ export abstract class Relation<
     public abstract resolve(): Promise<Related[] | Related | null>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract addRelated(related: Related): void;
+    public abstract isRelated(model: Related): boolean;
 
     public isEmpty(): boolean | null {
         return null;
@@ -125,7 +126,7 @@ export abstract class Relation<
         }
     }
 
-    protected isInverseOf(relation: Relation): boolean {
+    public isInverseOf(relation: Relation): boolean {
         const isInstanceOf = (inverseClass: Constructor<Relation>) => relation instanceof inverseClass;
 
         return this.static().inverseRelationClasses.some(isInstanceOf)

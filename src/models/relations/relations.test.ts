@@ -286,15 +286,9 @@ describe('Model Relations', () => {
 
         const parent = new Parent({ id: 'parent' });
 
-        parent.relatedChildren.related = [
-            new Child({ id: 'child-1', parentId: 'parent' }),
-            new Child({ id: 'child-2', parentId: 'parent' }),
-            new Child({ id: 'child-3', parentId: 'parent' }),
-        ];
-
-        for (const child of parent.children ?? []) {
-            child.relatedParent.related = parent;
-        }
+        parent.relatedChildren.attach({ id: 'child-1', parentId: 'parent' });
+        parent.relatedChildren.attach({ id: 'child-2', parentId: 'parent' });
+        parent.relatedChildren.attach({ id: 'child-3', parentId: 'parent' });
 
         bootModels({ Parent, Child });
 
