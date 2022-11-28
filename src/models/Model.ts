@@ -39,12 +39,12 @@ import type {
     TimestampFieldValue,
 } from './fields';
 import type { Attributes } from './attributes';
-import type { MagicAttributes, ModelConstructor } from './inference';
+import type { MagicAttributes, ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
-export type IModel<T extends typeof Model> = MagicAttributes<T['fields']>;
+export type IModel<T extends typeof Model> = MagicAttributes<{ fields: T['fields'] }>;
 export type ModelListener<T extends Model = Model> = (model: T) => unknown;
 
 export type ModelCloneOptions = Partial<{
@@ -280,17 +280,19 @@ export class Model {
         return () => arrayRemove(listeners, listener);
     }
 
-    public static schema<T extends Model, F extends FieldsDefinition>(
+    public static schema<T extends Model, Schema extends SchemaDefinition>(
         this: ModelConstructor<T>,
-        fields: F,
-    ): Constructor<MagicAttributes<F>> & ModelConstructor<T> {
+        definition: Schema,
+    ): Constructor<MagicAttributes<Schema>> & ModelConstructor<T> {
         const ModelClass = this as typeof Model;
 
-        return class extends ModelClass {
+        const modelClass = class extends ModelClass {
 
-            public static fields = fields;
+        };
 
-        } as unknown as Constructor<MagicAttributes<F>> & ModelConstructor<T>;
+        Object.assign(modelClass, definition);
+
+        return modelClass as unknown as Constructor<MagicAttributes<Schema>> & ModelConstructor<T>;
     }
 
     public static instance<T extends Model>(this: ModelConstructor<T>): T {

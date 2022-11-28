@@ -10,6 +10,7 @@ import type {
     FieldTypeValue,
     FieldsDefinition,
     ObjectFieldDefinition,
+    TimestampFieldValue,
 } from './fields';
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -22,7 +23,7 @@ import type {
 
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof Model;
 
-export type MagicAttributes<T extends FieldsDefinition> = Pretty<
+export type MagicAttributes<S extends SchemaDefinition> = Pretty<
     MagicAttributeProperties<{
         // TODO this should be optional
         id: typeof FieldType.String;
@@ -33,7 +34,7 @@ export type MagicAttributes<T extends FieldsDefinition> = Pretty<
     }> &
     // TODO infer virtual attributes
     // TODO infer relationship attributes
-    NestedMagicAttributes<T>
+    NestedMagicAttributes<GetFieldsDefinition<S>>
 >;
 
 export type NestedMagicAttributes<T extends FieldsDefinition> =
@@ -87,3 +88,11 @@ export type GetDefinedFields<F extends FieldsDefinition> = {
             ? K
             : never;
 }[keyof F];
+
+export type SchemaDefinition = Partial<{
+    primaryKey: string;
+    timestamps: TimestampFieldValue[] | boolean;
+    fields: FieldsDefinition;
+}>;
+
+export type GetFieldsDefinition<T extends SchemaDefinition> = T extends { fields: infer F } ? F : {};

@@ -779,10 +779,12 @@ describe('Model attributes', () => {
     it('original attributes are casted', () => {
         // Arrange
         const Schema = Model.schema({
-            date: FieldType.Date,
-            numbers: {
-                type: FieldType.Array,
-                items: FieldType.Number,
+            fields: {
+                date: FieldType.Date,
+                numbers: {
+                    type: FieldType.Array,
+                    items: FieldType.Number,
+                },
             },
         });
 
