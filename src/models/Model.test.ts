@@ -1012,7 +1012,7 @@ describe('Model types', () => {
         Expect<Equals<Post['title'], string>> |
         Expect<Equals<Pick<Post, 'title'>, { title: string }>> |
         Expect<Equals<City['name'], string>> |
-        Expect<Equals<City['birthRecords'], Key[]>> |
+        Expect<Equals<City['birthRecords'], Key[] | undefined>> |
         Expect<Not<Extends<keyof User, 'undefinedProperty'>>> |
         true
     >());

@@ -39,7 +39,6 @@ export type MagicAttributes<S extends SchemaDefinition> = Pretty<
 
 export type NestedMagicAttributes<T extends FieldsDefinition> =
     MagicAttributeProperties<Pick<T, GetRequiredFields<T>>> &
-    MagicAttributeProperties<Pick<T, GetArrayFields<T>>> &
     Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>>>;
 
 export type MagicAttributeProperties<T extends FieldsDefinition> = {

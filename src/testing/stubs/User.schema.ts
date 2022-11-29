@@ -24,6 +24,7 @@ export default defineModelSchema({
         externalUrls: {
             type: FieldType.Array,
             items: FieldType.Key,
+            required: true,
         },
     },
 });
