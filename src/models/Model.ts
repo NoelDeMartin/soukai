@@ -11,7 +11,6 @@ import {
     tap,
     toString,
 } from '@noeldemartin/utils';
-import type { Constructor } from '@noeldemartin/utils';
 
 import { getEngine, requireEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
@@ -39,7 +38,7 @@ import type {
     TimestampFieldValue,
 } from './fields';
 import type { Attributes } from './attributes';
-import type { MagicAttributes, ModelConstructor, SchemaDefinition } from './inference';
+import type { MagicAttributes, ModelConstructor } from './inference';
 import type { Relation } from './relations/Relation';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -278,21 +277,6 @@ export class Model {
         listeners.push(listener);
 
         return () => arrayRemove(listeners, listener);
-    }
-
-    public static schema<T extends Model, Schema extends SchemaDefinition>(
-        this: ModelConstructor<T>,
-        definition: Schema,
-    ): Constructor<MagicAttributes<Schema>> & ModelConstructor<T> {
-        const ModelClass = this as typeof Model;
-
-        const modelClass = class extends ModelClass {
-
-        };
-
-        Object.assign(modelClass, definition);
-
-        return modelClass as unknown as Constructor<MagicAttributes<Schema>> & ModelConstructor<T>;
     }
 
     public static instance<T extends Model>(this: ModelConstructor<T>): T {

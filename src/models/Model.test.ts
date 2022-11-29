@@ -1,11 +1,11 @@
-import { after, seconds, tt } from '@noeldemartin/utils';
 import Faker from 'faker';
+import { after, seconds, tt } from '@noeldemartin/utils';
 import type { Assert, Equals, Expect, Extends, Not } from '@noeldemartin/utils';
 
-import { FieldType, Model, TimestampField, bootModels } from '@/models/index';
+import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
+import { FieldType, Model, TimestampField, bootModels, defineModelSchema } from '@/models/index';
 import { SoukaiError } from '@/errors';
 import { InMemoryEngine, setEngine } from '@/engines';
-import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import type { Engine } from '@/engines/Engine';
 import type { Key, ModelCastAttributeOptions, TimestampFieldValue } from '@/models/index';
 
@@ -778,7 +778,7 @@ describe('Model attributes', () => {
 
     it('original attributes are casted', () => {
         // Arrange
-        const Schema = Model.schema({
+        const Schema = defineModelSchema({
             fields: {
                 date: FieldType.Date,
                 numbers: {

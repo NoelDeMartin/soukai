@@ -89,10 +89,10 @@ export type GetDefinedFields<F extends FieldsDefinition> = {
             : never;
 }[keyof F];
 
-export type SchemaDefinition = Partial<{
+export type SchemaDefinition<T = unknown> = Partial<{
     primaryKey: string;
     timestamps: TimestampFieldValue[] | boolean;
-    fields: FieldsDefinition;
+    fields: FieldsDefinition<T>;
 }>;
 
 export type GetFieldsDefinition<T extends SchemaDefinition> = T extends { fields: infer F } ? F : {};

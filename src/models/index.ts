@@ -8,6 +8,7 @@ export { default as ModelKey } from './ModelKey';
 export * from './inference';
 export * from './Model';
 export * from './relations/index';
+export * from './schema';
 
 export {
     ArrayFieldDefinition,

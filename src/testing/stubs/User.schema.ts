@@ -1,6 +1,6 @@
-import { FieldType, Model } from '@/models/index';
+import { FieldType, defineModelSchema } from '@/models/index';
 
-export default Model.schema({
+export default defineModelSchema({
     fields: {
         name: {
             type: FieldType.String,
