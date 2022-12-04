@@ -28,9 +28,9 @@ export default abstract class MultiModelRelation<
         );
     }
 
-    public attach(model: Related): Related;
+    public attach(model?: Related): Related;
     public attach(attributes: Attributes): Related;
-    public attach(modelOrAttributes: Related | Attributes): Related {
+    public attach(modelOrAttributes: Related | Attributes = {}): Related {
         const model = modelOrAttributes instanceof this.relatedClass
             ? modelOrAttributes as Related
             : this.relatedClass.newInstance(modelOrAttributes);
