@@ -1,5 +1,13 @@
 export default class ModelKey {
 
+    public static from(value: unknown): ModelKey {
+        if (value instanceof ModelKey) {
+            return value;
+        }
+
+        return new ModelKey(value);
+    }
+
     private value: string;
 
     constructor(rawValue: unknown) {
