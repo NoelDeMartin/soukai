@@ -354,6 +354,8 @@ export class Model {
         this.boot();
     }
 
+    // TODO this should be optional (but it's too annoying to use)
+    declare public id: string;
     declare protected _exists: boolean;
     declare protected _wasRecentlyCreated: boolean;
     declare protected _proxy: this;
