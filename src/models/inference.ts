@@ -10,8 +10,8 @@ import type {
     FieldTypeValue,
     FieldsDefinition,
     ObjectFieldDefinition,
-    TimestampFieldValue,
 } from './fields';
+import type { TimestampField, TimestampsDefinition } from './timestamps';
 
 // ---------------------------------------------------------------------------------------------------------------------
 // This file contains some helpers to provide type inference in TypeScript. For people using Soukai with Javascript,
@@ -25,17 +25,20 @@ export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof 
 
 export type MagicAttributes<S extends SchemaDefinition> = Pretty<
     MagicAttributeProperties<{
-        // TODO this should be optional
+        // TODO this should be optional (but it's too annoying to use)
         id: typeof FieldType.String;
-
-        // TODO this should depend on static timestamps attribute
-        createdAt: typeof FieldType.Date;
-        updatedAt: typeof FieldType.Date;
     }> &
     // TODO infer virtual attributes
     // TODO infer relationship attributes
-    NestedMagicAttributes<GetFieldsDefinition<S>>
+    NestedMagicAttributes<GetFieldsDefinition<S>> &
+    MagicTimestampAttributes<GetTimestampsDefinition<S>>
 >;
+
+export type MagicTimestampAttributes<T extends TimestampsDefinition> =
+    T extends false ? {} :
+    T extends typeof TimestampField.CreatedAt[] ? { createdAt: Date } :
+    T extends typeof TimestampField.UpdatedAt[] ? { updatedAt: Date } :
+    { createdAt: Date; updatedAt: Date };
 
 export type NestedMagicAttributes<T extends FieldsDefinition> =
     MagicAttributeProperties<Pick<T, GetRequiredFields<T>>> &
@@ -90,8 +93,9 @@ export type GetDefinedFields<F extends FieldsDefinition> = {
 
 export type SchemaDefinition<T = unknown> = Partial<{
     primaryKey: string;
-    timestamps: TimestampFieldValue[] | boolean;
+    timestamps: TimestampsDefinition;
     fields: FieldsDefinition<T>;
 }>;
 
-export type GetFieldsDefinition<T extends SchemaDefinition> = T extends { fields: infer F } ? F : {};
+export type GetFieldsDefinition<D extends SchemaDefinition> = D extends { fields: infer F } ? F : {};
+export type GetTimestampsDefinition<D extends SchemaDefinition> = D extends { timestamps: infer T } ? T : true;

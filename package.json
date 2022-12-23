@@ -38,7 +38,7 @@
   "homepage": "https://soukai.js.org",
   "dependencies": {
     "@babel/runtime": "^7.12.18",
-    "@noeldemartin/utils": "0.2.1-next.9dca1131badcdf7e51828a07ba72e4a428503066",
+    "@noeldemartin/utils": "0.2.1-next.132f4c70c65a23d4683b3c08024cba6374c41f7d",
     "@types/webpack-env": "^1.13.6",
     "core-js": "^3.9.0",
     "idb": "^5.0.2"

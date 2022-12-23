@@ -10,7 +10,10 @@ export * from './Model';
 export * from './relations/index';
 export * from './schema';
 
-export {
+export { TimestampField } from './timestamps';
+export { FieldRequired, FieldType, isArrayFieldDefinition, isObjectFieldDefinition } from './fields';
+
+export type {
     ArrayFieldDefinition,
     BasicFieldDefinition,
     BootedArrayFieldDefinition,
@@ -21,18 +24,12 @@ export {
     BootedObjectFieldDefinition,
     FieldDefinition,
     FieldDefinitionBase,
-    FieldRequired,
     FieldsDefinition,
-    FieldType,
     FieldTypeValue,
-    isArrayFieldDefinition,
-    isObjectFieldDefinition,
     ObjectFieldDefinition,
-    TimestampField,
-    TimestampFieldValue,
 } from './fields';
-
 export type { Attributes, AttributeValue } from './attributes';
+export type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
 const bootedModels: Map<string, typeof Model> = new Map;
 

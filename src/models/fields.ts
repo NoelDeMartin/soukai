@@ -26,15 +26,8 @@ export const FieldRequired = {
     Optional: false as const,
 };
 
-export const TimestampField = {
-    CreatedAt: 'createdAt' as const,
-    UpdatedAt: 'updatedAt' as const,
-};
-
 export type FieldTypeValue = typeof FieldType[keyof typeof FieldType];
-export type TimestampFieldValue = typeof TimestampField[keyof typeof TimestampField];
 
-export const TIMESTAMP_FIELDS = Object.values(TimestampField);
 export const FIELD_TYPES = Object.values(FieldType);
 
 export type FieldsDefinition<T = unknown> = Record<string, FieldDefinition<T>>;

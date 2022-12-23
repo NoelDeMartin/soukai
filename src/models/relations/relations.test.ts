@@ -10,10 +10,8 @@ import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
 import type { Relation } from '@/models/relations/Relation';
 
-import { bootModels } from '@/models';
+import { Model, bootModels, defineModelSchema } from '@/models';
 import { FieldType } from '@/models/fields';
-import { Model } from '@/models/Model';
-import type { IModel } from '@/models/Model';
 
 import MockEngine from '@/testing/mocks/MockEngine';
 
@@ -259,7 +257,9 @@ describe('Model Relations', () => {
 
     it('resolves circular relationships in clones', () => {
         // Arrange.
-        class Parent extends Model {
+        const ParentSchema = defineModelSchema({});
+
+        class Parent extends ParentSchema {
 
             declare public children?: Child[];
             declare public relatedChildren: HasManyRelation<this, Child, typeof Child>;
@@ -270,10 +270,9 @@ describe('Model Relations', () => {
 
         }
 
-        interface Child extends IModel<typeof Child> {}
-        class Child extends Model {
+        const ChildSchema = defineModelSchema({ fields: { parentId: FieldType.Key } });
 
-            public static fields = { parentId: FieldType.Key };
+        class Child extends ChildSchema {
 
             declare public parent?: Parent;
             declare public relatedParent: HasOneRelation<this, Parent, typeof Parent>;

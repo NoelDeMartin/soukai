@@ -1,20 +1,9 @@
-import { FieldRequired, FieldType, Model } from '@/models/index';
-import type { IModel, MultiModelRelation, Relation } from '@/models/index';
+import type { MultiModelRelation, Relation } from '@/models/index';
 
+import Model from './City.schema';
 import User from './User';
 
 export default class City extends Model {
-
-    public static fields = {
-        name: {
-            type: FieldType.String,
-            required: FieldRequired.Required,
-        },
-        birthRecords: {
-            type: FieldType.Array,
-            items: FieldType.Key,
-        },
-    };
 
     declare public natives: User[] | null;
     declare public relatedNatives: MultiModelRelation<City, User, typeof User>;
@@ -24,5 +13,3 @@ export default class City extends Model {
     }
 
 }
-
-export default interface City extends IModel<typeof City> {}

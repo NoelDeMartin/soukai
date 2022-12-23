@@ -17,13 +17,6 @@ import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
 import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
-import {
-    FieldType,
-    TIMESTAMP_FIELDS,
-    TimestampField,
-    expandFieldDefinition,
-} from './fields';
-import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
@@ -31,19 +24,17 @@ import HasOneRelation from './relations/HasOneRelation';
 import ModelKey from './ModelKey';
 import MultiModelRelation from './relations/MultiModelRelation';
 import SingleModelRelation from './relations/SingleModelRelation';
-import type {
-    BootedFieldDefinition,
-    BootedFieldsDefinition,
-    FieldsDefinition,
-    TimestampFieldValue,
-} from './fields';
+import { FieldType, expandFieldDefinition } from './fields';
+import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
+import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
 import type { Attributes } from './attributes';
-import type { MagicAttributes, ModelConstructor } from './inference';
+import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
+import type { ModelConstructor } from './inference';
 import type { Relation } from './relations/Relation';
+import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
-export type IModel<T extends typeof Model> = MagicAttributes<{ fields: T['fields'] }>;
 export type ModelListener<T extends Model = Model> = (model: T) => unknown;
 
 export type ModelCloneOptions = Partial<{
@@ -70,7 +61,7 @@ export class Model {
 
     public static collection: string;
     public static primaryKey: string = 'id';
-    public static timestamps: TimestampFieldValue[] | boolean;
+    public static timestamps: TimestampsDefinition;
     public static fields: FieldsDefinition;
     public static modelName: string;
     public static classFields: string[] = [];
@@ -1257,5 +1248,3 @@ export class Model {
     }
 
 }
-
-export interface Model extends IModel<typeof Model> {}

@@ -1,11 +1,11 @@
 import Faker from 'faker';
 import { after, seconds, tt } from '@noeldemartin/utils';
-import type { Assert, Equals, Expect, Extends, Not } from '@noeldemartin/utils';
+import type { Assert, Equals, Expect, Extends, HasKey , Not } from '@noeldemartin/utils';
 
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import { FieldType, Model, TimestampField, bootModels, defineModelSchema } from '@/models/index';
-import { SoukaiError } from '@/errors';
 import { InMemoryEngine, setEngine } from '@/engines';
+import { SoukaiError } from '@/errors';
 import type { Engine } from '@/engines/Engine';
 import type { Key, ModelCastAttributeOptions, TimestampFieldValue } from '@/models/index';
 
@@ -129,7 +129,9 @@ describe('Models definition', () => {
 
     it('Avoids clearing timestamps', async () => {
         // Arrange
-        class StubModel extends Model {}
+        const StubSchema = defineModelSchema({});
+
+        class StubModel extends StubSchema {}
 
         setEngine(new InMemoryEngine);
         bootModels({ StubModel });
@@ -1009,11 +1011,14 @@ describe('Model types', () => {
         Expect<Extends<User['social'], undefined>> |
         Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
         Expect<Equals<User['externalUrls'], Key[]>> |
+        Expect<Equals<User['createdAt'], Date>> |
         Expect<Equals<Post['title'], string>> |
         Expect<Equals<Pick<Post, 'title'>, { title: string }>> |
         Expect<Equals<City['name'], string>> |
         Expect<Equals<City['birthRecords'], Key[] | undefined>> |
-        Expect<Not<Extends<keyof User, 'undefinedProperty'>>> |
+        Expect<Equals<City['createdAt'], Date>> |
+        Expect<Not<HasKey<City, 'updatedAt'>>> |
+        Expect<Not<HasKey<User, 'undefinedProperty'>>> |
         true
     >());
 
