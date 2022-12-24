@@ -10,6 +10,7 @@ export * from './IndexedDBEngine';
 export * from './InMemoryEngine';
 export * from './LocalStorageEngine';
 export * from './LogEngine';
+export * from './ProxyEngine';
 
 let _engine: Engine | undefined = undefined;
 
