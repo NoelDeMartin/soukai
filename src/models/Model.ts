@@ -12,9 +12,9 @@ import {
     toString,
 } from '@noeldemartin/utils';
 
-import { getEngine, requireEngine } from '@/engines';
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 import SoukaiError from '@/errors/SoukaiError';
+import { extractFinalEngine, getEngine, requireEngine } from '@/engines';
 import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
 
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
@@ -290,8 +290,18 @@ export class Model {
         return this.engines.get(this) ?? getEngine();
     }
 
+    public static getFinalEngine(): Engine | undefined {
+        const engine = this.getEngine();
+
+        return engine && extractFinalEngine(engine);
+    }
+
     public static requireEngine<T extends Engine = Engine>(): T {
         return this.engines.get(this) as T ?? requireEngine<T>();
+    }
+
+    public static requireFinalEngine<T extends Engine = Engine>(): T {
+        return extractFinalEngine(this.requireEngine()) as T;
     }
 
     public static setEngine(engine?: Engine): void {
@@ -441,8 +451,18 @@ export class Model {
         return this._engine ?? this.static().getEngine();
     }
 
+    public getFinalEngine(): Engine | undefined {
+        const engine = this.getEngine();
+
+        return engine && extractFinalEngine(engine);
+    }
+
     public requireEngine<T extends Engine>(): T {
         return this._engine as T ?? this.static().requireEngine<T>();
+    }
+
+    public requireFinalEngine<T extends Engine>(): T {
+        return extractFinalEngine(this.requireEngine()) as T;
     }
 
     public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
