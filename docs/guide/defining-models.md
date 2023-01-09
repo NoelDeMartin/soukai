@@ -164,6 +164,29 @@ console.log(user.name === user.nickname);
 Keep in mind that doing this will only allow for such getters to be used, but the model will continue having the same attributes. This means that methods such as [getAttribute](https://soukai.js.org/api/classes/models.model.html#getattribute) or [getAttributes](https://soukai.js.org/api/classes/models.model.html#getattributes) will not take into account these virtual attributes. They will also be ignored in any interaction with engines.
 :::
 
+### Attribute setters
+
+In the same way that it's possible to define [getters](#attribute-getters), you can also define attribute setters:
+
+```javascript
+class User extends Model {
+    static fields = {
+        name: FieldType.String,
+    };
+
+    public setNicknameAttribute(value) {
+        return this.setAttribute('name', value);
+    }
+}
+
+const user = new User();
+
+name.nickname = 'John Doe';
+
+// This is true
+console.log(user.name === 'John Doe');
+```
+
 ### Reserved property names
 
 By default, any property that is used on a model instance that is not defined in the class declaration will be treated as an attribute. This is what allows code such as the following to work:
@@ -210,9 +233,9 @@ The interpretation of what this string means will depend on the engine being use
 If this property is omitted, the name of the collection will be inferred from the model name. This means this property will be available at runtime whether you defined it or not.
 
 ::: tip Model name definition
-Since modern build systems don't guarantee a reliable mechanism to obtain a class names in javascript, the model name is provided explicitly when loading models using [Soukai.loadModel](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodel) or [Soukai.loadModels](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodels).
+Since modern build systems don't guarantee a reliable mechanism to obtain class names in JavaScript, the model name is provided explicitly when loading models using [bootModels](https://soukai.js.org/api/modules#bootModels).
 
-If you are using webpack, the combination of [definitionsFromContext](https://soukai.js.org/api/modules/utils.html#definitionsfromcontext) and [Soukai.loadModels](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodels) can do the work for you using the file name.
+You can also automate this process by using some of the built-in helpers for popular bundlers, like [bootModelsFromViteGlob](https://soukai.js.org/api/modules#bootModelsFromViteGlob) or [bootModelsFromWebpackContext](https://soukai.js.org/api/modules#bootModelsFromWebpackContext).
 :::
 
 ::: warning ⚠️ Model name inflection
@@ -286,30 +309,33 @@ TODO
 
 ## A word about constructors
 
-Because of internal implementation details, it is not recommended to have a constructor when defining a model class. Instead, you can override the [initialize](https://soukai.js.org/api/classes/models.model.html#initialize) method.
+Because of internal implementation details, you should not define a constructor in your model classes. Instead, you should override the [initialize](https://soukai.js.org/api/classes/models.model.html#initialize) method.
 
-Something else to keep in mind is to not use magic attributes within this initializer. Magic attributes are the ones that are not defined as class methods nor properties, but are available at runtime from fields and relationships. All these attributes can be manipulated using their respective methods instead.
+You should think of this as your constructor, and avoid doing anything that you wouldn't do on a normal constructor (such as writing asynchronous code or causing side-effects).
+
+Something else to keep in mind is that you can't use [magic attributes](/guide/using-models.html#magic-attributes) within this initializer. Magic attributes are just syntactic sugar, so you should be able to do everything you want with the corresponding methods.
 
 ::: danger ❌ Wrong
 ```javascript
 class Post extends Model {
+
     static fields = {
         authorId: FieldType.Key,
     };
 
-    constructor(attributes, exists) {
+    constructor(attributes, exists, user) {
         super(attributes, exists);
 
-        console.log('this will not work', this.title);
-        console.log(
-            'this will even throw an error',
-            this.loadRelation('author'),
-        );
+        this.relatedAuthor.attach(user);
+
+        console.log(this.title);
+        console.log(this.author);
     }
 
     authorRelationship() {
         return this.belongsToOne(User, 'authorId');
     }
+
 }
 ```
 :::
@@ -317,23 +343,24 @@ class Post extends Model {
 ::: tip ✔️ Correct
 ```javascript
 class Post extends Model {
+
     static fields = {
         authorId: FieldType.Key,
     };
 
-    async initialize(attributes, exists) {
+    async initialize(attributes, exists, user) {
         super.initialize(attributes, exists);
 
-        console.log('this is fine', this.getAttribute('title'));
+        this.getRelation('author').attach(user);
 
-        await this.loadRelation('author');
-
-        console.log('this is also fine', this.getRelationModels('author'));
+        console.log(this.getAttribute('title'));
+        console.log(this.getRelationModel('author'));
     }
 
     authorRelationship() {
         return this.belongsToOne(User, 'authorId');
     }
+
 }
 ```
 :::

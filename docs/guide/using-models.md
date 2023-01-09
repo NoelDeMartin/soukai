@@ -127,6 +127,12 @@ await user.update({ name: 'Jane' });
 console.log('User updated', user);
 ```
 
+::: warning ⚠️ Concurrency
+Saving a model that was updated remotely after your last synchronization may not work as expected because the internal state may differ. Also, depending on the engine you're using, calling the `save` method multiple times on the same model may fail due to race conditions. Make sure to debounce the calls so that only one is going on at the same time.
+
+For more details, see [NoelDeMartin/soukai-solid#13](https://github.com/NoelDeMartin/soukai-solid/issues/13)
+:::
+
 ## Deleting
 
 Models can be deleted from the database using the [delete](https://soukai.js.org/api/classes/models.model.html#delete) method:
@@ -158,7 +164,7 @@ console.log(user.posts);
 The [Relation](https://soukai.js.org/api/classes/models_relations.relation.html) instance can also be obtained from the `related{relation-name}` property:
 
 ```javascript
-const posts = await user.relatedPosts.resolve();
+const posts = await user.relatedPosts.load();
 
 console.log(posts);
 ```
