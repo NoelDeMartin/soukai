@@ -1,19 +1,25 @@
 # Defining Models
 
-Database entities are called models, and their structure can be defined extending the [Model](https://soukai.js.org/api/classes/models.model.html) class. You'll need to load them using [Soukai.loadModel](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodel) or [Soukai.loadModels](https://soukai.js.org/api/classes/reflection-45.soukai.html#loadmodels).
+Database entities are called models, and their structure can be defined extending the [Model](https://soukai.js.org/api/classes/Model) class likes this:
 
-Simply by declaring models like this is enough to get started, but you may want to read the following sections to learn how to customize their behavior.
+```javascript
+import { Model } from 'soukai';
+
+class User extends Model {}
+```
+
+Simply declaring models like this is enough to get started, but you may want to read the following sections to learn how to customize their behavior.
 
 ## Fields
 
-The static attribute `fields` can be defined in the model class to declare the format and expectations of model attributes. This attribute should be an object where keys are field names and values are field definitions. Field definitions can either be a [FieldType](https://soukai.js.org/api/enums/models.fieldtype.html) or a [FieldDefinition](https://soukai.js.org/api/interfaces/models.fielddefinition.html) with the following attributes:
+The static attribute `fields` can be defined in the model class to declare the format and expectations of model attributes. This attribute should be an object where keys are field names and values are field definitions. Field definitions can either be a [FieldType](https://soukai.js.org/api/modules#FieldType) or a [FieldDefinition](https://soukai.js.org/api/modules#FieldDefinition) with the following attributes:
 
 | Attribute | Type | Default | Description |
 | --------- | ---- | ------- | ----------- |
-| type | [FieldType](https://soukai.js.org/api/enums/models.fieldtype.html) | `FieldType.Object` | The expected format of the field. If this attribute is missing, the field will be assumed to be an object and attributes will be treated as field definitions instead (see the `field` attribute on this table). |
+| type | [FieldType](https://soukai.js.org/api/modules#FieldType) | `FieldType.Object` | The expected format of the field. If this attribute is missing, the field will be assumed to be an object and attributes will be treated as field definitions instead (see the `field` attribute on this table). |
 | required | `boolean` | `false` | Whether the field is required or not. Declaring a field as required may cause runtime errors if a model instance is created without them. |
-| items | [FieldDefinition](https://soukai.js.org/api/interfaces/models.fielddefinition.html) | Required for array fields. | Only supported for array fields. Declares the expected format of array items. The `required` property in this definition is ignored. |
-| fields | [FieldsDefinition](https://soukai.js.org/api/interfaces/models.fieldsdefinition.html) | Required for object fields. | Only supported for object fields. Declares the expected format of attributes within the nested object. |
+| items | [FieldDefinition](https://soukai.js.org/api/modules#FieldDefinition) | Required for array fields. | Only supported for array fields. Declares the expected format of array items. The `required` property in this definition is ignored. |
+| fields | [FieldsDefinition](https://soukai.js.org/api/modules#FieldsDefinition) | Required for object fields. | Only supported for object fields. Declares the expected format of attributes within the nested object. |
 
 Here's an example combining different shapes:
 
@@ -161,7 +167,7 @@ console.log(user.name === user.nickname);
 ```
 
 ::: warning ⚠️ Defining a getter does not create new attributes
-Keep in mind that doing this will only allow for such getters to be used, but the model will continue having the same attributes. This means that methods such as [getAttribute](https://soukai.js.org/api/classes/models.model.html#getattribute) or [getAttributes](https://soukai.js.org/api/classes/models.model.html#getattributes) will not take into account these virtual attributes. They will also be ignored in any interaction with engines.
+Keep in mind that doing this will only allow for such getters to be used, but the model will continue having the same attributes. This means that methods such as [getAttribute](https://soukai.js.org/api/classes/Model#getAttribute) or [getAttributes](https://soukai.js.org/api/classes/Model#getAttributes) will not take into account these virtual attributes. They will also be ignored in any interaction with engines.
 :::
 
 ### Attribute setters
@@ -203,7 +209,7 @@ user.name = 'John Doe';
 console.log(user.getAttribute('name'));
 ```
 
-However, there are some reserved property names that won't be treated as attributes. All internal properties are prefixed with an underscore, for example [_attributes](https://soukai.js.org/api/classes/models.model.html#_attributes) which holds an object with attribute values. As well as method names like [save](https://soukai.js.org/api/classes/models.model.html#save) or [delete](https://soukai.js.org/api/classes/models.model.html#delete).
+However, there are some reserved property names that won't be treated as attributes. All internal properties are prefixed with an underscore, for example [_attributes](https://soukai.js.org/api/classes/Model#_attributes) which holds an object with attribute values. As well as method names like [save](https://soukai.js.org/api/classes/Model#save) or [delete](https://soukai.js.org/api/classes/Model#delete).
 
 If you have any property in your model that your don't want to be treated as an attribute, you can either give it an initial value in the class declaration or include it on the `classFields` static property:
 
@@ -228,14 +234,16 @@ class User extends Model {
 }
 ```
 
-The interpretation of what this string means will depend on the engine being used (it could be the name of a database collection or a url to a storage location).
+The interpretation of what this string means will depend on the engine being used (it could be the name of a database collection, or a url to a storage location).
 
 If this property is omitted, the name of the collection will be inferred from the model name. This means this property will be available at runtime whether you defined it or not.
 
 ::: tip Model name definition
-Since modern build systems don't guarantee a reliable mechanism to obtain class names in JavaScript, the model name is provided explicitly when loading models using [bootModels](https://soukai.js.org/api/modules#bootModels).
+If it isn't indicated elsewhere, the model name will be inferred from the class name.
 
-You can also automate this process by using some of the built-in helpers for popular bundlers, like [bootModelsFromViteGlob](https://soukai.js.org/api/modules#bootModelsFromViteGlob) or [bootModelsFromWebpackContext](https://soukai.js.org/api/modules#bootModelsFromWebpackContext).
+However, modern build systems often obfuscate names in production and that produces unintended results. In order to define the model names explicitly, you can call the [bootModels](https://soukai.js.org/api/modules#bootModels) method during your application bootstrapping.
+
+There are some built-in helpers for popular bundlers, like [bootModelsFromViteGlob](https://soukai.js.org/api/modules#bootModelsFromViteGlob) and [bootModelsFromWebpackContext](https://soukai.js.org/api/modules#bootModelsFromWebpackContext).
 :::
 
 ::: warning ⚠️ Model name inflection
@@ -258,8 +266,8 @@ For this reason, it's more useful to declare relationships in each model indicat
 
 | | A model references | A model is referenced by |
 |-|-----------------------|-------------------------|
-| **One model**  | [belongsToOne](https://soukai.js.org/api/classes/models.model.html#belongstoone) | [hasOne](https://soukai.js.org/api/classes/models.model.html#hasone) |
-| **Multiple models** | [belongsToMany](https://soukai.js.org/api/classes/models.model.html#belongstomany) | [hasMany](https://soukai.js.org/api/classes/models.model.html#hasmany) |
+| **One model**  | [belongsToOne](https://soukai.js.org/api/classes/Model#belongsToOne) | [hasOne](https://soukai.js.org/api/classes/Model#hasOne) |
+| **Multiple models** | [belongsToMany](https://soukai.js.org/api/classes/Model#belongsToMany) | [hasMany](https://soukai.js.org/api/classes/Model#hasMany) |
 
 The 3 scenarios we explored above would be declared as:
 
@@ -309,11 +317,11 @@ TODO
 
 ## A word about constructors
 
-Because of internal implementation details, you should not define a constructor in your model classes. Instead, you should override the [initialize](https://soukai.js.org/api/classes/models.model.html#initialize) method.
+Because of internal implementation details, you should not define a constructor in your model classes. Instead, you should override the [initialize](https://soukai.js.org/api/classes/Model#initialize) method.
 
 You should think of this as your constructor, and avoid doing anything that you wouldn't do on a normal constructor (such as writing asynchronous code or causing side-effects).
 
-Something else to keep in mind is that you can't use [magic attributes](/guide/using-models.html#magic-attributes) within this initializer. Magic attributes are just syntactic sugar, so you should be able to do everything you want with the corresponding methods.
+Something else to keep in mind is that you can't use attribute [getters](#attribute-getters) nor [setters](#attribute-setters) within this initializer. Magic attributes are just syntactic sugar, so you should be able to do everything you want with the corresponding methods.
 
 ::: danger ❌ Wrong
 ```javascript

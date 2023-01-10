@@ -27,7 +27,7 @@ One folder in particular that will be useful to learn how to define and use mode
 
 ## Extending the Library
 
-In order to extend the library for specific use cases, you probably only need to extend one or two contracts: the [Engine](https://soukai.js.org/api/interfaces/engines.engine.html) interface and the [Model](https://soukai.js.org/api/classes/models.model.html) class.
+In order to extend the library for specific use cases, you probably only need to extend one or two contracts: the [Engine](https://soukai.js.org/api/interfaces/Engine) interface and the [Model](https://soukai.js.org/api/classes/Model) class.
 
 If you want to find some existing extensions, search for the [#soukai](https://github.com/topics/soukai) and [#soukai-engine](https://github.com/topics/soukai-engine) topics in GitHub and elsewhere.
 
