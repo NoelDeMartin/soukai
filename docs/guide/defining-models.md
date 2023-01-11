@@ -27,6 +27,7 @@ Here's an example combining different shapes:
 import { Model, FieldType } from 'soukai';
 
 class User extends Model {
+
     static fields = {
         name: FieldType.String,
         surname: FieldType.String,
@@ -40,6 +41,7 @@ class User extends Model {
             email: FieldType.String,
         },
     };
+
 }
 ```
 
@@ -124,10 +126,12 @@ By default both timestamps are created and modified automatically, but the stati
 For example, if we only want the `createdAt` attribute to be managed automatically:
 
 ```javascript
-import { Model } from 'soukai';
+import { Model, TimestampField } from 'soukai';
 
 class User extends Model {
-    static timestamps = ['createdAt'];
+
+    static timestamps = [TimestampField.CreatedAt];
+
 }
 ```
 
@@ -147,13 +151,15 @@ For example, imagine that we have the following model:
 
 ```javascript
 class User extends Model {
+
     static fields = {
         name: FieldType.String,
     };
 
-    public getNicknameAttribute() {
+    getNicknameAttribute() {
         return this.getAttribute('name');
     }
+
 }
 ```
 
@@ -176,13 +182,15 @@ In the same way that it's possible to define [getters](#attribute-getters), you 
 
 ```javascript
 class User extends Model {
+
     static fields = {
         name: FieldType.String,
     };
 
-    public setNicknameAttribute(value) {
+    setNicknameAttribute(value) {
         return this.setAttribute('name', value);
     }
+
 }
 
 const user = new User();
@@ -216,9 +224,11 @@ If you have any property in your model that your don't want to be treated as an 
 ```javascript
 // Both "foo" and "bar" won't be treated as attributes
 class User extends Model {
+
     static classFields = ['foo'];
 
     bar = null;
+
 }
 ```
 
@@ -230,7 +240,9 @@ The static attribute `collection` can be defined in the model class to indicate 
 import { Model } from 'soukai';
 
 class User extends Model {
+
     static collection = 'users';
+
 }
 ```
 
@@ -239,9 +251,9 @@ The interpretation of what this string means will depend on the engine being use
 If this property is omitted, the name of the collection will be inferred from the model name. This means this property will be available at runtime whether you defined it or not.
 
 ::: tip Model name definition
-If it isn't indicated elsewhere, the model name will be inferred from the class name.
+If the [modelName](https://soukai.js.org/api/classes/Model#modelName) property is not defined, the model name will be inferred from the class name.
 
-However, modern build systems often obfuscate names in production and that produces unintended results. In order to define the model names explicitly, you can call the [bootModels](https://soukai.js.org/api/modules#bootModels) method during your application bootstrapping.
+However, modern build systems often obfuscate class names in production and that produces unintended results. In order to define the model names explicitly, you can call the [bootModels](https://soukai.js.org/api/modules#bootModels) method during your application bootstrapping.
 
 There are some built-in helpers for popular bundlers, like [bootModelsFromViteGlob](https://soukai.js.org/api/modules#bootModelsFromViteGlob) and [bootModelsFromWebpackContext](https://soukai.js.org/api/modules#bootModelsFromWebpackContext).
 :::
@@ -281,6 +293,7 @@ Here's how you'd implement the first scenario:
 
 ```javascript
 class Post extends Model {
+
     static fields = {
         authorId: FieldType.Key,
     };
@@ -288,12 +301,15 @@ class Post extends Model {
     authorRelationship() {
         return this.belongsToOne(User, 'authorId');
     }
+
 }
 
 class User extends Model {
+
     postsRelationship() {
         return this.hasMany(Post, 'authorId');
     }
+
 }
 ```
 
@@ -303,9 +319,11 @@ It's also possible to indicate what happens with related models upon deletion. F
 
 ```javascript
 class User extends Model {
+
     postsRelationship() {
         return this.hasMany(Post, 'authorId').onDelete('cascade');
     }
+
 }
 ```
 
@@ -313,7 +331,114 @@ Learn how to use the relationships we just defined in the [next section](/guide/
 
 ## TypeScript inference
 
-TODO
+So far in this guide, we've been using plain JavaScript. But the library is built using TypeScript, and it has some tricks up its sleeve to improve type inference.
+
+One key feature is model attributes. If you try to write some code we've seen thus far using TypeScript, you'll end up with something like this:
+
+```typescript
+class User extends Model {
+
+    static timestamps = [TimestampField.CreatedAt];
+    static fields = {
+        name: FieldType.String,
+        surname: FieldType.String,
+        birthDate: FieldType.Date,
+        interests: {
+            type: FieldType.Array,
+            items: FieldType.String,
+        },
+        contact: {
+            phone: FieldType.String,
+            email: FieldType.String,
+        },
+    };
+
+    declare public createdAt: Date;
+    declare public name?: string;
+    declare public surname?: string;
+    declare public birthDate?: Date;
+    declare public interests?: string[];
+    declare public contact?: {
+        phone?: string;
+        email?: string;
+    };
+    declare public readonly nickname?: string;
+    declare public author?: User;
+    declare public relatedAuthor: BelongsToOneRelation<
+        this,
+        User,
+        typeof User
+    >;
+
+    public getNicknameAttribute(): string {
+        return this.getAttribute('name');
+    }
+
+    public authorRelationship(): Relation {
+        return this.belongsToOne(User, 'authorId');
+    }
+
+}
+```
+
+Notice how many of the attribute declarations are redundant, given the definition of static schema properties. This can be improved taking advantage of TypeScript's inference.
+
+You can split this code in 2 files using the [defineModelSchema](https://soukai.js.org/api//modules#defineModelSchema) method like this:
+
+```typescript
+// file: User.schema.ts
+import { defineModelSchema, FieldType, TimestampField } from 'soukai';
+
+export default defineModelSchema({
+    timestamps: [TimestampField.CreatedAt],
+    fields: {
+        name: FieldType.String,
+        surname: FieldType.String,
+        birthDate: FieldType.Date,
+        interests: {
+            type: FieldType.Array,
+            items: FieldType.String,
+        },
+        contact: {
+            phone: FieldType.String,
+            email: FieldType.String,
+        },
+    },
+});
+
+// file: User.ts
+import { BelongsToOneRelation, Relation } from 'soukai';
+
+import Model from './User.schema.ts';
+
+class User extends Model {
+
+    declare public readonly nickname?: string;
+    declare public author?: User;
+    declare public relatedAuthor: BelongsToOneRelation<
+        this,
+        User,
+        typeof User
+    >;
+
+    public getNicknameAttribute(): string {
+        return this.getAttribute('name');
+    }
+
+    public authorRelationship(): Relation {
+        return this.belongsToOne(User, 'authorId');
+    }
+
+}
+```
+
+This is a much cleaner way of declaring models, because it separates schema declarations from functionality. So you may want to use it in plain JavaScript as well.
+
+::: warning ⚠️ Relations and aliases
+
+We're aware that relations and aliases could also be inferred using never TypeScript features, but this hasn't been implemented yet.
+
+:::
 
 ## A word about constructors
 

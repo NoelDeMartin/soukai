@@ -12,25 +12,25 @@ npm install soukai --save
 Initialize the library with the engine of your choice. One good option to start tinkering is an [InMemoryEngine](https://soukai.js.org/api/classes/InMemoryEngine), which will only store information in memory.
 
 ```javascript
-import Soukai, { InMemoryEngine } from 'soukai';
+import { setEngine, InMemoryEngine } from 'soukai';
 
-Soukai.useEngine(new InMemoryEngine());
+setEngine(new InMemoryEngine());
 ```
 
 Once everything is set up, you can start using models to interact with the database. Look at the following example on creating and retrieving users:
 
 ```javascript
-import Soukai, { Model, InMemoryEngine } from 'soukai';
+import { Model, InMemoryEngine } from 'soukai';
 
 class User extends Model {}
 
-Soukai.loadModel('User', User);
-Soukai.useEngine(new InMemoryEngine());
+setEngine(new InMemoryEngine());
 
-User.create({ name: 'John', surname: 'Doe' })
-  .then(() => User.all())
-  .then(models => models.map(model => model.getAttributes()))
-  .then(users => console.log('user models', users));
+await User.create({ name: 'John', surname: 'Doe' });
+
+const users = await User.all();
+
+console.log('user models', users.map(user => user.getAttributes()));
 ```
 <details>
   <summary>Try it yourself!</summary>
