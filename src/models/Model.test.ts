@@ -168,9 +168,9 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => bootModels({ StubModel });
-        expect(loadModel).toThrow(InvalidModelDefinition);
-        expect(loadModel).toThrow('Invalid timestamp field defined');
+        const bootModel = () => bootModels({ StubModel });
+        expect(bootModel).toThrow(InvalidModelDefinition);
+        expect(bootModel).toThrow('Invalid timestamp field defined');
     });
 
     it('testFields', () => {
@@ -287,9 +287,9 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => bootModels({ StubModel });
-        expect(loadModel).toThrow(InvalidModelDefinition);
-        expect(loadModel).toThrow('array requires items attribute');
+        const bootModel = () => bootModels({ StubModel });
+        expect(bootModel).toThrow(InvalidModelDefinition);
+        expect(bootModel).toThrow('array requires items attribute');
     });
 
     it('testInvalidObjectField', () => {
@@ -301,9 +301,9 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => bootModels({ StubModel });
-        expect(loadModel).toThrow(InvalidModelDefinition);
-        expect(loadModel).toThrow('object requires fields attribute');
+        const bootModel = () => bootModels({ StubModel });
+        expect(bootModel).toThrow(InvalidModelDefinition);
+        expect(bootModel).toThrow('object requires fields attribute');
     });
 
     it('testInvalidTimestampField', () => {
@@ -320,9 +320,9 @@ describe('Models definition', () => {
 
         }
 
-        const loadModel = () => bootModels({ StubModel });
-        expect(loadModel).toThrow(InvalidModelDefinition);
-        expect(loadModel).toThrow(
+        const bootModel = () => bootModels({ StubModel });
+        expect(bootModel).toThrow(InvalidModelDefinition);
+        expect(bootModel).toThrow(
             'Field createdAt definition must be type Date and not required because it is used an automatic timestamp',
         );
     });

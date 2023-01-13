@@ -4,7 +4,7 @@ import { deleteDB, openDB } from 'idb';
 import Faker from 'faker';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
-import Soukai from '@/Soukai';
+import { bootModels } from '@/models';
 
 import { IndexedDBEngine } from '@/engines/IndexedDBEngine';
 
@@ -22,7 +22,7 @@ describe('IndexedDBEngine', () => {
     let collectionsConnection: IDBPDatabase | null = null;
 
     beforeEach(async () => {
-        Soukai.loadModels({ User });
+        bootModels({ User });
 
         databaseName = Faker.random.word();
         databaseCollections = [User.collection];

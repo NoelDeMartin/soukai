@@ -17,18 +17,18 @@ This engine exposes the memory object where the data is stored and can be access
 One example of using this engine is what you already saw in the getting started section:
 
 ```javascript
-import Soukai, { Model, InMemoryEngine } from 'soukai';
+import { Model, InMemoryEngine, setEngine, bootModels } from 'soukai';
 
 class User extends Model {}
 
 const engine = new InMemoryEngine();
 
-Soukai.loadModel('User', User);
-Soukai.useEngine(engine);
+bootModels({ User });
+setEngine(engine);
 
-User.create({ name: 'John', surname: 'Doe' }).then(() => {
-    console.log(engine.database);
-});
+await User.create({ name: 'John', surname: 'Doe' });
+
+console.log(engine.database);
 ```
 
 This script would show an object with following structure in the console:
@@ -56,16 +56,16 @@ The [LogEngine](https://soukai.js.org/api/classes/LogEngine) can be used to wrap
 Using the same example as before:
 
 ```javascript
-import Soukai, { Model, LogEngine, InMemoryEngine } from 'soukai';
+import { Model, LogEngine, InMemoryEngine, setEngine, bootModels } from 'soukai';
 
 class User extends Model {}
 
 const engine = new InMemoryEngine();
 
-Soukai.loadModel('User', User);
-Soukai.useEngine(new LogEngine(engine));
+bootModels({ User });
+setEngine(new LogEngine(engine));
 
-User.create({ name: 'John', surname: 'Doe' });
+await User.create({ name: 'John', surname: 'Doe' });
 ```
 
 This script would log the following information to console:

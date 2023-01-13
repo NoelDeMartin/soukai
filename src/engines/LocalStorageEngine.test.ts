@@ -1,6 +1,7 @@
 import Faker from 'faker';
 
-import Soukai from '@/Soukai';
+
+import { bootModels } from '@/models';
 
 import { LocalStorageEngine } from '@/engines/LocalStorageEngine';
 
@@ -16,7 +17,7 @@ describe('LocalStorageEngine', () => {
     let prefix: string;
 
     beforeEach(() => {
-        Soukai.loadModels({ User });
+        bootModels({ User });
         MockLocalStorage.reset();
 
         (window as unknown as { _localStorage: unknown })._localStorage = MockLocalStorage;

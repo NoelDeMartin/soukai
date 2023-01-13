@@ -6,14 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Next
 
-- Renamed `master` branch to `main`, and `dev` to `next`.
-- Replaced `tslint` with `eslint`.
+This is the first release after 2 years under development, so it's a huge update and the changes listed here are not exhaustive. However, although many of the internals have changed, the public API and the core concepts are mostly the same. So upgrading should be mostly straightforward. In any case, you should test that everything is working as expected. And be sure to [ask for assistance](https://github.com/NoelDeMartin/soukai/issues) if you need it!
+
+## Added
+
+- [TypeScript inference](https://soukai.js.org/guide/defining-models.html#typescript-inference).
+- [Model events](https://soukai.js.org/guide/using-models.html#listening-to-model-events).
+- Vite helper `bootModelsFromViteGlob`.
+- `FieldType.Any` for polymorphic fields (keep in mind that casting won't be applied).
+- Engine overrides using `Model.setEngine` both at the model and instance level.
+- Relations can be disabled using calling `relation.disable()` (you'd call it inside `initializeRelationsEnabling` method).
+- `$overwrite` engine update operator.
+
+## Changed
+
 - Upgraded TypeScript version to 4.1.
-- Single model relations can now be loaded without a related model (when unloaded, it will be stored as undefined instead of null).
-- `setRelationModels` will no longer work for single model relations (hasOne or belongsToOne), use `setRelationModel` instead.
-- Automatic timestamps minting is now deferred until saving.
-- Model events.
-- Added ModelKey for FieldType.Any, casted to string elsewhere (future versions of may not cast it).
+- The `Relation.resolve` method has been renamed to `Relation.load`.
+- The `Soukai.useEngine` method has been renamed to `setEngine`.
+- The `Model.setRelationModels` method will no longer work for single model relations (hasOne or belongsToOne), use `setRelationModel` instead.
+- Automatic timestamps are now minted and updated before saving, not when model attributes are updated.
+- Single model relations can now be loaded without a related model. When unloaded, the related model will be undefined instead of null.
+
+## Deprecated
+
+- The default export (such as `Soukai.useEngine`, `Soukai.loadModel`, etc.) has been deprecated in favour of helper functions.
+- The `definitionsFromContexts` helper has been deprecated in favour of `bootModelsFromWebpackContext` and `bootModelsFromViteGlob`.
+- The `Soukai.loadModel` and `Soukai.loadModels` methods have been deprecated in favour of `bootModels`.
+
+## Fixed
+
+- Fixed default casting for Date and Array fields.
 
 ## [v0.4.1](https://github.com/NoelDeMartin/soukai/releases/tag/v0.4.1) - 2021-01-25
 

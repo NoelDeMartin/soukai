@@ -1,7 +1,6 @@
 import Faker from 'faker';
 
-import Soukai from '@/Soukai';
-
+import { bootModels } from '@/models';
 import { Model } from '@/models/Model';
 
 import { InMemoryEngine } from '@/engines/InMemoryEngine';
@@ -16,7 +15,7 @@ describe('InMemoryEngine', () => {
     let engine: InMemoryEngine;
 
     beforeEach(() => {
-        Soukai.loadModels({ User });
+        bootModels({ User });
 
         engine = new InMemoryEngine();
     });

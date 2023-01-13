@@ -1,8 +1,6 @@
 import Faker from 'faker';
 import type { Tuple } from '@noeldemartin/utils';
 
-import Soukai from '@/Soukai';
-
 import type { Engine } from '@/engines/Engine';
 
 import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
@@ -10,8 +8,9 @@ import HasManyRelation from '@/models/relations/HasManyRelation';
 import HasOneRelation from '@/models/relations/HasOneRelation';
 import type { Relation } from '@/models/relations/Relation';
 
-import { Model, bootModels, defineModelSchema } from '@/models';
+import { setEngine } from '@/engines';
 import { FieldType } from '@/models/fields';
+import { Model, bootModels, defineModelSchema } from '@/models';
 
 import MockEngine from '@/testing/mocks/MockEngine';
 
@@ -25,8 +24,8 @@ describe('Model Relations', () => {
 
     beforeEach(() => {
         MockEngine.mockClear();
-        Soukai.useEngine(mockEngine = new MockEngine());
-        Soukai.loadModels({ User, Post, City });
+        setEngine(mockEngine = new MockEngine());
+        bootModels({ User, Post, City });
     });
 
     it('loads hasOne relations', async () => {
@@ -225,7 +224,7 @@ describe('Model Relations', () => {
         }
 
         // Act
-        Soukai.loadModels({ Parent, Child });
+        bootModels({ Parent, Child });
 
         // Assert
         expect(Parent.relations).toHaveLength(1);

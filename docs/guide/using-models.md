@@ -143,6 +143,25 @@ await user.delete();
 console.log('User deleted');
 ```
 
+## Listening to model events
+
+You can register listeners related with the model lifecycle using the [on](https://soukai.js.org/api/classes/Model#on) method:
+
+```javascript
+User.on('created', user => console.log(`Created ${user.name} user.`));
+User.on('updated', user => console.log(`Updated ${user.name} user.`));
+User.on('deleted', user => console.log(`Deleted ${user.name} user.`));
+
+const user = await User.create({ name: 'John' });
+// console output: Created John user.
+
+await user.update({ name: 'Jane' });
+// console output: Updated Jane user.
+
+await user.delete();
+// console output: Deleted Jane user.
+```
+
 ## Working with relationships
 
 Related models can be accessed like a normal property, but they will be undefined until they are loaded explicitly using the [loadRelation](https://soukai.js.org/api/classes/Model#loadRelation) method. For example, if we continue with the same example explained on the [defining relationships](/guide/defining-models.html#relationships) section:
