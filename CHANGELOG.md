@@ -23,6 +23,7 @@ This is the first release after 2 years under development, so it's a huge update
 - Upgraded TypeScript version to 4.1.
 - The `Relation.resolve` method has been renamed to `Relation.load`.
 - The `Soukai.useEngine` method has been renamed to `setEngine`.
+- The `Model.modelClass` getter has been removed, you can use the `Model.static()` method instead.
 - The `Model.setRelationModels` method will no longer work for single model relations (hasOne or belongsToOne), use `setRelationModel` instead.
 - Automatic timestamps are now minted and updated before saving, not when model attributes are updated.
 - Single model relations can now be loaded without a related model. When unloaded, the related model will be undefined instead of null.
