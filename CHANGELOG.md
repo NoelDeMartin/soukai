@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Next
 
-This is the first release after 2 years under development, so it's a huge update and the changes listed here are not exhaustive. However, although many of the internals have changed, the public API and the core concepts are mostly the same. So upgrading should be mostly straightforward. In any case, you should test that everything is working as expected. And be sure to [ask for assistance](https://github.com/NoelDeMartin/soukai/issues) if you need it!
+This is the first release after 2 years under development, so it's a huge update and the changes listed here are not exhaustive. However, although many of the internals have changed, the public API and core concepts are mostly the same. So upgrading should be mostly straightforward. In any case, you should test that everything is working as expected. And be sure to [ask for assistance](https://github.com/NoelDeMartin/soukai/issues) if you need it!
 
 ## Added
 
