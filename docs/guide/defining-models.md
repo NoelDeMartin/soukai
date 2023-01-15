@@ -12,13 +12,15 @@ Simply declaring models like this is enough to get started, but you may want to 
 
 ## Fields
 
-The static attribute `fields` can be defined in the model class to declare the format and expectations of model attributes. This attribute should be an object where keys are field names and values are field definitions. Field definitions can either be a [FieldType](https://soukai.js.org/api/modules#FieldType) or a [FieldDefinition](https://soukai.js.org/api/modules#FieldDefinition) with the following attributes:
+The static property `fields` can be defined in the model class to declare the format and expectations of model attributes.
+
+This property should be an object where keys are field names, and values are field definitions. Field definitions can either be a [FieldType](https://soukai.js.org/api/modules#FieldType) or a [FieldDefinition](https://soukai.js.org/api/modules#FieldDefinition) with the following attributes:
 
 | Attribute | Type | Default | Description |
 | --------- | ---- | ------- | ----------- |
 | type | [FieldType](https://soukai.js.org/api/modules#FieldType) | `FieldType.Object` | The expected format of the field. If this attribute is missing, the field will be assumed to be an object and attributes will be treated as field definitions instead (see the `field` attribute on this table). |
 | required | `boolean` | `false` | Whether the field is required or not. Declaring a field as required may cause runtime errors if a model instance is created without them. |
-| items | [FieldDefinition](https://soukai.js.org/api/modules#FieldDefinition) | Required for array fields. | Only supported for array fields. Declares the expected format of array items. The `required` property in this definition is ignored. |
+| items | [FieldDefinition](https://soukai.js.org/api/modules#FieldDefinition) | Required for array fields. | Only supported for array fields. Declares the expected format of array items. The `required` property in this definition is ignored (if the field it's missing, it'll be treated as an empty array). |
 | fields | [FieldsDefinition](https://soukai.js.org/api/modules#FieldsDefinition) | Required for object fields. | Only supported for object fields. Declares the expected format of attributes within the nested object. |
 
 Here's an example combining different shapes:
@@ -48,7 +50,7 @@ class User extends Model {
 One example of creating a model that conforms with that definition is the following:
 
 ```javascript
-User.create({
+await User.create({
     name: 'John',
     surname: 'Doe',
     birthDate: new Date(),
@@ -117,11 +119,29 @@ The long form of our example above would be defined as such (`createdAt` and `up
 
 :::
 
+### Magic attributes
+
+Once fields are defined, you can access them like model properties like such:
+
+```javascript
+// These two are equivalent
+console.log(`Hello, ${user.name}!`);
+console.log(`Hello, ${user.getAttribute('name')}!`);
+```
+
+And of course, you can do the same to set attributes:
+
+```javascript
+// These two are equivalent
+user.name = 'John Doe';
+user.setAttribute('name', 'John Doe');
+```
+
 ### Automatic timestamps
 
 Some model timestamps can be managed automatically. `createdAt` will be set as the initial date when the model is created, and `updatedAt` will be updated every time the model is modified.
 
-By default both timestamps are created and modified automatically, but the static attribute `timestamps` can be declared to control this behavior. It can either be a boolean to enable or disable the mechanism as a whole, or an array of strings indicating which timestamps to enable.
+By default both timestamps are created and modified automatically, but the static property `timestamps` can be declared to control this behavior. It can either be a boolean to enable or disable the mechanism as a whole, or an array of strings indicating which timestamps to enable.
 
 For example, if we only want the `createdAt` attribute to be managed automatically:
 
@@ -163,7 +183,7 @@ class User extends Model {
 }
 ```
 
-Instances of this model will respond to accessing to the `nickname` property by invoking the attribute getter:
+Instances of this model will respond to accessing the `nickname` property by invoking the attribute getter:
 
 ```javascript
 const user = new User({ name: 'John Doe' });
@@ -217,7 +237,9 @@ user.name = 'John Doe';
 console.log(user.getAttribute('name'));
 ```
 
-However, there are some reserved property names that won't be treated as attributes. All internal properties are prefixed with an underscore, for example [_attributes](https://soukai.js.org/api/classes/Model#_attributes) which holds an object with attribute values. As well as method names like [save](https://soukai.js.org/api/classes/Model#save) or [delete](https://soukai.js.org/api/classes/Model#delete).
+However, there are some reserved property names that won't be treated as attributes. All internal properties are prefixed with an underscore, for example [_attributes](https://soukai.js.org/api/classes/Model#_attributes) which holds an object with attribute values.
+
+Method names like [save](https://soukai.js.org/api/classes/Model#save) or [delete](https://soukai.js.org/api/classes/Model#delete) won't be treated as attributes either.
 
 If you have any property in your model that your don't want to be treated as an attribute, you can either give it an initial value in the class declaration or include it on the `classFields` static property:
 
@@ -234,7 +256,7 @@ class User extends Model {
 
 ## Collections
 
-The static attribute `collection` can be defined in the model class to indicate where models will be persisted. For example, the following model will be stored in the `users` collection:
+The static property `collection` can be defined in the model class to indicate where models will be persisted. For example, the following model will be stored in the `users` collection:
 
 ```javascript
 import { Model } from 'soukai';
@@ -246,7 +268,7 @@ class User extends Model {
 }
 ```
 
-The interpretation of what this string means will depend on the engine being used (it could be the name of a database collection, or a url to a storage location).
+The interpretation of what this string means will depend on the engine you're using. It could be the name of a database collection, or a url to a storage location.
 
 If this property is omitted, the name of the collection will be inferred from the model name. This means this property will be available at runtime whether you defined it or not.
 
@@ -259,16 +281,16 @@ There are some built-in helpers for popular bundlers, like [bootModelsFromViteGl
 :::
 
 ::: warning ⚠️ Model name inflection
-The current implementation of the name inflection is naive and should be improved. At the moment, the model name is only converted to lower case and appended an 's' character, so it shouldn't be trusted to do proper pluralization.
+The current implementation of the name inflection is naive and should be improved. At the moment, the model name is only converted to lower case and appended an 's' character. So it shouldn't be trusted to do proper pluralization.
 :::
 
 ## Relationships
 
-Relationships are a great way to work with referenced models.
+Relationships are a the best way to work with related models.
 
 Conceptually, there are three types of relationships: One-to-one, One-to-many and Many-to-many. But this taxonomy can be limiting to declare relationships in non-relational databases. This is because documents can hold array fields, and the same relationship can be represented in multiple ways.
 
-For example, imagine that you have a `Post` model and a `User` model. Conceptually, a user can write many posts and a post can have a single author (a user). This is a One-to-many relationship, one user (the author) to many posts. However, there are different ways of representing this relationship in the database:
+For example, imagine that you have a `Post` model and a `User` model. Conceptually, a user can write many posts and a post can have a single author (a user). This is a One-to-many relationship, one user (the author) to many posts. However, there are different ways to model this relationship in the database:
 
 - The post model could have an `authorId` field.
 - The user model could have a `postIds` array field.
@@ -313,7 +335,9 @@ class User extends Model {
 }
 ```
 
-The arguments for these methods are the related model class, the foreign key name and the local key name. Key names can be inferred from model and primary key names. In the example above, the foreign key would have been inferred to be `userId`, but we had to declare it because it was `authorId` instead. The local key is correctly inferred to `id`, the primary key of the User model.
+The arguments for these methods are the related model class, the foreign key name, and the local key name.
+
+Key names can be inferred from model and primary key names. In the example above, the foreign key would have been inferred to be `userId`, but we had to declare it because it was `authorId` instead. The local key is correctly inferred to `id`, the primary key of the User model.
 
 It's also possible to indicate what happens with related models upon deletion. For example, if you want to delete all the posts belonging to a user when they are removed:
 
@@ -333,7 +357,7 @@ Learn how to use the relationships we just defined in the [next section](/guide/
 
 So far in this guide, we've been using plain JavaScript. But the library is built using TypeScript, and it has some tricks up its sleeve to improve type inference.
 
-One key feature is model attributes. If you try to write some code we've seen thus far using TypeScript, you'll end up with something like this:
+One key feature is attributes type inference. If you try to write some code we've seen thus far using TypeScript, you'll end up with something like this:
 
 ```typescript
 class User extends Model {
@@ -436,7 +460,7 @@ This is a much cleaner way of declaring models, because it separates schema decl
 
 ::: warning ⚠️ Relations and aliases
 
-We're aware that relations and aliases could also be inferred using never TypeScript features, but this hasn't been implemented yet.
+We're aware that relations and aliases could also be inferred using newer TypeScript features, but this hasn't been implemented yet.
 
 :::
 
@@ -446,7 +470,7 @@ Because of internal implementation details, you should not define a constructor 
 
 You should think of this as your constructor, and avoid doing anything that you wouldn't do on a normal constructor (such as writing asynchronous code or causing side-effects).
 
-Something else to keep in mind is that you can't use attribute [getters](#attribute-getters) nor [setters](#attribute-setters) within this initializer. Magic attributes are just syntactic sugar, so you should be able to do everything you want with the corresponding methods.
+Something else to keep in mind is that you can't use [magic attributes](#magic-attributes) within this initializer. They are just syntactic sugar, so you should be able to do everything you want with manual getters and setters.
 
 ::: danger ❌ Wrong
 ```javascript

@@ -75,6 +75,10 @@ CREATE 'users' { name: 'John', surname: 'Doe' } undefined
 CREATED '1'
 ```
 
+## Local applications
+
+If you're building an application that doesn't have a backend, you can use local engines such as the [IndexedDBEngine](https://soukai.js.org/api/classes/IndexedDBEngine).
+
 ## Other engines
 
 To learn more about other engines, be sure to check out the ones [included in the core library](https://github.com/NoelDeMartin/soukai/tree/main/src/engines) and the [#soukai](https://github.com/topics/soukai) and [#soukai-engine](https://github.com/topics/soukai-engine) topics in GitHub and elsewhere.

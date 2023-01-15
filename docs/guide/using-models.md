@@ -2,7 +2,9 @@
 
 ## Creating
 
-In order to create models, there are two approaches. The first one is to create a new instance using the constructor and calling the [save](https://soukai.js.org/api/classes/Model#save) method:
+In order to create models, there are two approaches.
+
+The first one is to create a new instance using the constructor and calling the [save](https://soukai.js.org/api/classes/Model#save) method:
 
 ```javascript
 const user = new User({
@@ -107,7 +109,9 @@ This library is still a work in progress, so the current implementation does not
 
 ## Updating
 
-Like creating, updating also provides two alternatives to update models. It is possible to update attributes of an existing model (using setters or the [setAttribute](https://soukai.js.org/api/classes/Model#setAttribute) method) and call [save](https://soukai.js.org/api/classes/Model#save) method:
+Like creating, updating also provides two alternatives to update models.
+
+It is possible to update attributes of an existing model (using [magic attributes](defining-models.md#magic-attributes) or the [setAttribute](https://soukai.js.org/api/classes/Model#setAttribute) method) and call the [save](https://soukai.js.org/api/classes/Model#save) method:
 
 ```javascript
 user.name = 'Jane';
@@ -145,7 +149,7 @@ console.log('User deleted');
 
 ## Listening to model events
 
-You can register listeners related with the model lifecycle using the [on](https://soukai.js.org/api/classes/Model#on) method:
+You can register listeners related with model lifecycle using the [on](https://soukai.js.org/api/classes/Model#on) method:
 
 ```javascript
 User.on('created', user => console.log(`Created ${user.name} user.`));
@@ -164,7 +168,9 @@ await user.delete();
 
 ## Working with relationships
 
-Related models can be accessed like a normal property, but they will be undefined until they are loaded explicitly using the [loadRelation](https://soukai.js.org/api/classes/Model#loadRelation) method. For example, if we continue with the same example explained on the [defining relationships](/guide/defining-models.html#relationships) section:
+Related models can be accessed like a normal property, but they will be undefined until they are loaded explicitly using the [loadRelation](https://soukai.js.org/api/classes/Model#loadRelation) method.
+
+For example, if we continue with the same example explained on the [defining relationships](/guide/defining-models.html#relationships) section:
 
 ```javascript
 const users = await User.all();
@@ -180,7 +186,7 @@ console.log(posts);
 console.log(user.posts);
 ```
 
-The [Relation](https://soukai.js.org/api/classes/Relation) instance can also be obtained from the `related{relation-name}` property:
+Similar to [magic attributes](./defining-models.md#magic-attributes), relationships also have magic properties to access [Relation](https://soukai.js.org/api/classes/Relation) instances. They have the `related{relation-name}` form:
 
 ```javascript
 const posts = await user.relatedPosts.load();
