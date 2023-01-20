@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Next
+## [v0.5.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.5.0) - 2023-01-20
 
 This is the first release after 2 years under development, so it's a huge update and the changes listed here are not exhaustive. However, although many of the internals have changed, the public API and core concepts are mostly the same. So upgrading should be mostly straightforward. In any case, you should test that everything is working as expected. And be sure to [ask for assistance](https://github.com/NoelDeMartin/soukai/issues) if you need it!
 
