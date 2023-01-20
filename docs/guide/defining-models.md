@@ -407,7 +407,7 @@ class User extends Model {
 
 Notice how many of the attribute declarations are redundant, given the definition of static schema properties. This can be improved taking advantage of TypeScript's inference.
 
-You can split this code in 2 files using the [defineModelSchema](https://soukai.js.org/api//modules#defineModelSchema) method like this:
+You can split this code in 2 files using the [defineModelSchema](https://soukai.js.org/api/modules#defineModelSchema) method like this:
 
 ```typescript
 // file: User.schema.ts

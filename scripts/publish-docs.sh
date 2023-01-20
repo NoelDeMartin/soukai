@@ -17,6 +17,7 @@ echo "soukai.js.org" > CNAME
 
 # create repository
 git init
+git checkout -b main
 git add -A
 git commit -m 'deploy'
 
