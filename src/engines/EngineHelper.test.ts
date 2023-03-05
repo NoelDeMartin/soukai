@@ -1,4 +1,4 @@
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 
 import type {
     EngineDocument,
@@ -18,10 +18,10 @@ describe('EngineHelper', () => {
 
     it('filters documents', () => {
         // Arrange
-        const name = Faker.random.word();
+        const name = faker.random.word();
         const documents: EngineDocumentsCollection = {
             first: { name },
-            second: { name: Faker.random.word() },
+            second: { name: faker.random.word() },
         };
 
         // Act
@@ -37,10 +37,10 @@ describe('EngineHelper', () => {
 
     it('filters documents using $eq', () => {
         // Arrange
-        const name = Faker.random.word();
+        const name = faker.random.word();
         const documents: EngineDocumentsCollection = {
             first: { name },
-            second: { name: Faker.random.word() },
+            second: { name: faker.random.word() },
         };
 
         // Act
@@ -56,10 +56,10 @@ describe('EngineHelper', () => {
 
     it('filters documents using $contains', () => {
         // Arrange
-        const name = Faker.random.word();
+        const name = faker.random.word();
         const documents: EngineDocumentsCollection = {
-            first: { names: [name, Faker.random.word()] },
-            second: { names: [Faker.random.word()] },
+            first: { names: [name, faker.random.word()] },
+            second: { names: [faker.random.word()] },
         };
 
         // Act
@@ -75,17 +75,17 @@ describe('EngineHelper', () => {
 
     it('filters documents using $contains with objects', () => {
         // Arrange
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
         const documents: EngineDocumentsCollection = {
             first: {
                 items: [
-                    { name: Faker.name.firstName(), surname: Faker.name.lastName() },
+                    { name: faker.name.firstName(), surname: faker.name.lastName() },
                 ],
             },
             second: {
                 items: [
-                    { name: Faker.name.firstName(), surname: Faker.name.lastName() },
-                    { name, surname: Faker.name.lastName() },
+                    { name: faker.name.firstName(), surname: faker.name.lastName() },
+                    { name, surname: faker.name.lastName() },
                 ],
             },
         };
@@ -104,8 +104,8 @@ describe('EngineHelper', () => {
     it('filters documents using $in', () => {
         // Arrange
         const documents: EngineDocumentsCollection = {
-            first: { name: Faker.random.word() },
-            second: { name: Faker.random.word() },
+            first: { name: faker.random.word() },
+            second: { name: faker.random.word() },
         };
 
         // Act
@@ -121,12 +121,12 @@ describe('EngineHelper', () => {
 
     it('filters documents using $or', () => {
         // Arrange
-        const name = Faker.random.word();
+        const name = faker.random.word();
         const documents: EngineDocumentsCollection = {
-            first: { names: [name, Faker.random.word()] },
+            first: { names: [name, faker.random.word()] },
             second: { names: name },
-            third: { names: [Faker.random.word()] },
-            fourth: { names: Faker.random.word() },
+            third: { names: [faker.random.word()] },
+            fourth: { names: faker.random.word() },
         };
 
         // Act
@@ -229,8 +229,8 @@ describe('EngineHelper', () => {
 
     it('updates documents using $push', () => {
         // Arrange
-        const existingWord = Faker.random.word();
-        const newWord = Faker.random.word();
+        const existingWord = faker.random.word();
+        const newWord = faker.random.word();
         const document = { words: [existingWord] };
 
         // Act

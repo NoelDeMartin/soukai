@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 
 import { deleteDB, openDB } from 'idb';
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
 import { bootModels } from '@/models';
@@ -24,7 +24,7 @@ describe('IndexedDBEngine', () => {
     beforeEach(async () => {
         bootModels({ User });
 
-        databaseName = Faker.random.word();
+        databaseName = faker.random.word();
         databaseCollections = [User.collection];
         engine = new IndexedDBEngine(databaseName);
 
@@ -41,9 +41,9 @@ describe('IndexedDBEngine', () => {
     it('testSchema', async () => {
         // Arrange
         const collections = [
-            Faker.company.companyName(),
-            Faker.company.companyName(),
-            Faker.company.companyName(),
+            faker.company.name(),
+            faker.company.name(),
+            faker.company.name(),
         ];
 
         closeConnections();
@@ -77,7 +77,7 @@ describe('IndexedDBEngine', () => {
 
     it('testCreate', async () => {
         // Arrange
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
 
         // Act
         const id = await engine.create(User.collection, { name });
@@ -92,8 +92,8 @@ describe('IndexedDBEngine', () => {
 
     it('testCreateExistent', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         setDatabaseDocument(User.collection, id, { name });
 
@@ -103,8 +103,8 @@ describe('IndexedDBEngine', () => {
 
     it('testReadOne', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         setDatabaseDocument(User.collection, id, { name });
 
@@ -116,15 +116,15 @@ describe('IndexedDBEngine', () => {
     });
 
     it('testReadOneNonExistent', async () => {
-        await expect(engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        await expect(engine.readOne(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
     it('testReadMany', async () => {
         // Arrange
-        const firstId = Faker.random.uuid();
-        const firstName = Faker.name.firstName();
-        const secondId = Faker.random.uuid();
-        const secondName = Faker.name.firstName();
+        const firstId = faker.datatype.uuid();
+        const firstName = faker.name.firstName();
+        const secondId = faker.datatype.uuid();
+        const secondName = faker.name.firstName();
 
         setDatabaseDocument(User.collection, firstId, { name: firstName });
         setDatabaseDocument(User.collection, secondId, { name: secondName });
@@ -140,11 +140,11 @@ describe('IndexedDBEngine', () => {
 
     it('testReadManyFilters', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         setDatabaseDocument(User.collection, id, { name });
-        setDatabaseDocument(User.collection, Faker.random.uuid(), { name: Faker.name.firstName() });
+        setDatabaseDocument(User.collection, faker.datatype.uuid(), { name: faker.name.firstName() });
 
         // Act
         const documents = await engine.readMany(User.collection, { name });
@@ -156,12 +156,12 @@ describe('IndexedDBEngine', () => {
 
     it('testUpdate', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const initialName = Faker.name.firstName();
-        const newName = Faker.name.firstName();
-        const age = Faker.random.number();
+        const id = faker.datatype.uuid();
+        const initialName = faker.name.firstName();
+        const newName = faker.name.firstName();
+        const age = faker.datatype.number();
 
-        setDatabaseDocument(User.collection, id, { name: initialName, surname: Faker.name.lastName(), age });
+        setDatabaseDocument(User.collection, id, { name: initialName, surname: faker.name.lastName(), age });
 
         // Act
         await engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
@@ -173,17 +173,17 @@ describe('IndexedDBEngine', () => {
     });
 
     it('testUpdateNonExistent', async () => {
-        await expect(engine.update(User.collection, Faker.random.uuid(), {}))
+        await expect(engine.update(User.collection, faker.datatype.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
     });
 
     it('testDelete', async () => {
         // Arrange
-        const firstId = Faker.random.uuid();
-        const secondId = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const firstId = faker.datatype.uuid();
+        const secondId = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
-        setDatabaseDocument(User.collection, firstId, { name: Faker.name.firstName() });
+        setDatabaseDocument(User.collection, firstId, { name: faker.name.firstName() });
         setDatabaseDocument(User.collection, secondId, { name });
 
         // Act
@@ -197,11 +197,11 @@ describe('IndexedDBEngine', () => {
     });
 
     it('testDeleteNonExistent', async () => {
-        await expect(engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        await expect(engine.delete(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
     it('testDeleteNonExistentCollection', async () => {
-        await expect(engine.delete(Faker.random.word(), Faker.random.uuid()))
+        await expect(engine.delete(faker.random.word(), faker.datatype.uuid()))
             .rejects.toThrow(DocumentNotFound);
     });
 

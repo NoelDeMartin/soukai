@@ -1,4 +1,4 @@
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 import { after, seconds, tt } from '@noeldemartin/utils';
 import type { Assert, Equals, Expect, Extends, HasKey , Not } from '@noeldemartin/utils';
 
@@ -27,8 +27,8 @@ describe('Model', () => {
 
     it('deletes related models with cascade delete mode', async () => {
         // Arrange
-        const userId = Faker.random.uuid();
-        const postId = Faker.random.uuid();
+        const userId = faker.datatype.uuid();
+        const postId = faker.datatype.uuid();
         const user = new User({ id: userId }, true);
         const post = new Post({ id: postId }, true);
 
@@ -59,13 +59,13 @@ describe('Model', () => {
         Post.on('deleted', () => deleteCount++);
 
         // Act
-        const post = await Post.create({ title: Faker.random.words() });
+        const post = await Post.create({ title: faker.random.words() });
 
-        post.update({ title: Faker.random.words() });
-        post.update({ title: Faker.random.words() });
-        post.update({ title: Faker.random.words() });
+        post.update({ title: faker.random.words() });
+        post.update({ title: faker.random.words() });
+        post.update({ title: faker.random.words() });
 
-        await Post.create({ title: Faker.random.words() });
+        await Post.create({ title: faker.random.words() });
         await post.delete();
 
         // Assert
@@ -421,8 +421,8 @@ describe('Models CRUD', () => {
     });
 
     it('testCreate', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
         const attributes = { name };
         const now = seconds();
 
@@ -452,8 +452,8 @@ describe('Models CRUD', () => {
     });
 
     it('testCreateInstance', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
         const attributes = { name };
         const now = seconds();
 
@@ -486,8 +486,8 @@ describe('Models CRUD', () => {
 
     it('creates instances with id', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
         const attributes = { id, name };
         const now = seconds();
 
@@ -527,9 +527,9 @@ describe('Models CRUD', () => {
     });
 
     it('testRemoveRequiredAttribute', async () => {
-        mockEngine.create.mockReturnValue(Promise.resolve(Faker.random.uuid()));
+        mockEngine.create.mockReturnValue(Promise.resolve(faker.datatype.uuid()));
 
-        return User.create({ name: Faker.name.firstName() })
+        return User.create({ name: faker.name.firstName() })
             .then(model => after().then(() => {
                 model.unsetAttribute('name');
 
@@ -540,8 +540,8 @@ describe('Models CRUD', () => {
     });
 
     it('testFind', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
         const birthDate = seconds(Date.now(), true);
 
         mockEngine.readOne.mockReturnValue(Promise.resolve({
@@ -565,11 +565,11 @@ describe('Models CRUD', () => {
     });
 
     it('testFindRespectsEmptyValues', async () => {
-        const id = Faker.random.uuid();
+        const id = faker.datatype.uuid();
 
         mockEngine.readOne.mockReturnValue(Promise.resolve({
             id,
-            name: Faker.name.firstName(),
+            name: faker.name.firstName(),
             birthDate: null,
         }));
 
@@ -582,7 +582,7 @@ describe('Models CRUD', () => {
     });
 
     it('testDontFind', async () => {
-        const id = Faker.random.uuid();
+        const id = faker.datatype.uuid();
 
         mockEngine.readOne.mockReturnValue(Promise.reject(null));
 
@@ -594,8 +594,8 @@ describe('Models CRUD', () => {
     });
 
     it('testAll', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         mockEngine.readMany.mockReturnValue(Promise.resolve({ [id]: { id, name } }));
 
@@ -612,10 +612,10 @@ describe('Models CRUD', () => {
     });
 
     it('testUpdate', async () => {
-        const id = Faker.random.uuid();
-        const surname = Faker.name.lastName();
-        const initialName = Faker.name.firstName();
-        const newName = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const surname = faker.name.lastName();
+        const initialName = faker.name.firstName();
+        const newName = faker.name.firstName();
         const now = seconds();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
@@ -643,22 +643,22 @@ describe('Models CRUD', () => {
     });
 
     it('testUpdateRespectsEmptyValues', async () => {
-        const id = Faker.random.uuid();
+        const id = faker.datatype.uuid();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        return User.create({ name: Faker.name.firstName(), birthDate: null })
-            .then(model => after().then(() => model.update({ name: Faker.name.firstName() })))
+        return User.create({ name: faker.name.firstName(), birthDate: null })
+            .then(model => after().then(() => model.update({ name: faker.name.firstName() })))
             .then(model => {
                 expect(model.birthDate).toBeNull();
             });
     });
 
     it('testSetAttribute', async () => {
-        const id = Faker.random.uuid();
-        const surname = Faker.name.lastName();
-        const initialName = Faker.name.firstName();
-        const newName = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const surname = faker.name.lastName();
+        const initialName = faker.name.firstName();
+        const newName = faker.name.firstName();
         const now = seconds();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
@@ -689,13 +689,13 @@ describe('Models CRUD', () => {
     });
 
     it('testUnsetAttribute', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
         const now = seconds();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        return User.create({ name, surname: Faker.name.lastName() })
+        return User.create({ name, surname: faker.name.lastName() })
             .then(model => after().then(() => {
                 model.unsetAttribute('surname');
                 return model.save();
@@ -718,8 +718,8 @@ describe('Models CRUD', () => {
     });
 
     it('testDelete', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
@@ -738,7 +738,7 @@ describe('Models CRUD', () => {
     it('testThrowEngineMissingError', () => {
         setEngine(null);
 
-        const createModel = () => User.create({ name: Faker.name.firstName() });
+        const createModel = () => User.create({ name: faker.name.firstName() });
         expect(createModel()).rejects.toThrow(SoukaiError);
         expect(createModel()).rejects.toThrow('Engine must be initialized before performing any operations');
     });
@@ -764,7 +764,7 @@ describe('Model attributes', () => {
     });
 
     it('magic getters work', () => {
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
         const model = new User({ name });
 
         expect(model.name).toBe(name);
@@ -772,7 +772,7 @@ describe('Model attributes', () => {
     });
 
     it('attribute getters work', () => {
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
         const model = new User({ name });
 
         expect(model.alias).toBe(name);
@@ -820,7 +820,7 @@ describe('Model attributes', () => {
 
     it('fixes malformed attributes', async () => {
         // Arrange
-        const id = Faker.random.uuid();
+        const id = faker.datatype.uuid();
 
         mockEngine.readOne.mockReturnValue(Promise.resolve({
             id,
@@ -854,10 +854,10 @@ describe('Model attributes', () => {
     });
 
     it('testAttributeSetter', async () => {
-        const id = Faker.random.uuid();
-        const surname = Faker.name.lastName();
-        const initialName = Faker.name.firstName();
-        const newName = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const surname = faker.name.lastName();
+        const initialName = faker.name.firstName();
+        const newName = faker.name.firstName();
         const now = seconds();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
@@ -889,13 +889,13 @@ describe('Model attributes', () => {
 
     it('testAttributeDeleter', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
         const now = seconds();
 
         mockEngine.create.mockReturnValue(Promise.resolve(id));
 
-        const user = await User.create({ name, surname: Faker.name.lastName() });
+        const user = await User.create({ name, surname: faker.name.lastName() });
 
         await after({ ms: 100 });
 
@@ -922,7 +922,7 @@ describe('Model attributes', () => {
     });
 
     it('testUndefinedAttributes', () => {
-        const model = new User({ contact: { phone: Faker.phone.phoneNumber() } });
+        const model = new User({ contact: { phone: faker.phone.number() } });
 
         expect(model.hasAttribute('name')).toBe(false);
         expect(model.getAttributes()).not.toHaveProperty('name');
@@ -944,17 +944,17 @@ describe('Model attributes', () => {
 
     it('testSmartDirtyAttributesOnSetter', () => {
         const model = new User({
-            name: Faker.name.firstName(),
-            surname: Faker.name.lastName(),
-            contact: { phone: Faker.phone.phoneNumber() },
+            name: faker.name.firstName(),
+            surname: faker.name.lastName(),
+            contact: { phone: faker.phone.number() },
         }, true);
 
         const originalSurname = model.surname;
 
-        model.name = Faker.name.firstName();
-        model.surname = Faker.name.lastName();
+        model.name = faker.name.firstName();
+        model.surname = faker.name.lastName();
         model.surname = originalSurname;
-        model.social = { mastodon: Faker.internet.userName() };
+        model.social = { mastodon: faker.internet.userName() };
         delete model.contact;
 
         expect(model.isDirty('name')).toBe(true);
@@ -966,19 +966,19 @@ describe('Model attributes', () => {
     it('testSmartDirtyAttributesOnUpdate', async () => {
         // Arrange
         const model = new User({
-            id: Faker.random.uuid(),
-            name: Faker.name.firstName(),
-            surname: Faker.name.lastName(),
-            contact: { phone: Faker.phone.phoneNumber() },
+            id: faker.datatype.uuid(),
+            name: faker.name.firstName(),
+            surname: faker.name.lastName(),
+            contact: { phone: faker.phone.number() },
         }, true);
 
         mockEngine.create.mockReturnValue(Promise.resolve(''));
 
         // Act
         await model.update({
-            name: Faker.name.firstName(),
+            name: faker.name.firstName(),
             surname: model.surname,
-            social: { twitter: Faker.internet.userName() },
+            social: { twitter: faker.internet.userName() },
             contact: undefined,
         });
 

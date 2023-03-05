@@ -1,4 +1,4 @@
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 
 import SoukaiError from './SoukaiError';
 
@@ -6,7 +6,7 @@ describe('SoukaiError', () => {
 
     it('behaves like an error', () => {
         // Arrange
-        const message = Faker.lorem.sentence();
+        const message = faker.lorem.sentence();
 
         let error: SoukaiError | null = null;
 
@@ -39,7 +39,7 @@ describe('SoukaiError', () => {
 
         }
 
-        const message = Faker.lorem.sentence();
+        const message = faker.lorem.sentence();
 
         let error: CustomSoukaiError | null = null;
 

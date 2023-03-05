@@ -1,4 +1,4 @@
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 
 
 import { bootModels } from '@/models';
@@ -22,11 +22,11 @@ describe('LocalStorageEngine', () => {
 
         (window as unknown as { _localStorage: unknown })._localStorage = MockLocalStorage;
 
-        engine = new LocalStorageEngine(prefix = Faker.random.word());
+        engine = new LocalStorageEngine(prefix = faker.random.word());
     });
 
     it('testCreate', async () => {
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
 
         return engine.create(User.collection, { name }).then(id => {
             expect(MockLocalStorage.setItem).toHaveBeenCalledTimes(1);
@@ -38,8 +38,8 @@ describe('LocalStorageEngine', () => {
     });
 
     it('testReadOne', async () => {
-        const name = Faker.name.firstName();
-        const id = Faker.random.uuid();
+        const name = faker.name.firstName();
+        const id = faker.datatype.uuid();
 
         MockLocalStorage.setData({
             [prefix + User.collection]: JSON.stringify({
@@ -53,20 +53,20 @@ describe('LocalStorageEngine', () => {
     });
 
     it('testReadOneNonExistent', async () => {
-        await expect(engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        await expect(engine.readOne(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
     it('testReadMany', async () => {
         let otherCollection;
 
         do {
-            otherCollection = Faker.lorem.word();
+            otherCollection = faker.lorem.word();
         } while (User.collection === otherCollection);
 
-        const firstId = Faker.random.uuid();
-        const firstName = Faker.name.firstName();
-        const secondId = Faker.random.uuid();
-        const secondName = Faker.name.firstName();
+        const firstId = faker.datatype.uuid();
+        const firstName = faker.name.firstName();
+        const secondId = faker.datatype.uuid();
+        const secondName = faker.name.firstName();
 
         MockLocalStorage.setData({
             [prefix + User.collection]: JSON.stringify({
@@ -74,7 +74,7 @@ describe('LocalStorageEngine', () => {
                 [secondId]: { name: secondName },
             }),
             [prefix + otherCollection]: JSON.stringify({
-                [Faker.random.uuid()]: { name: Faker.name.firstName() },
+                [faker.datatype.uuid()]: { name: faker.name.firstName() },
             }),
         });
 
@@ -86,12 +86,12 @@ describe('LocalStorageEngine', () => {
     });
 
     it('testReadManyFilters', async () => {
-        const id = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const id = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         MockLocalStorage.setData({
             [prefix + User.collection]: JSON.stringify({
-                [Faker.random.uuid()]: { name: Faker.name.firstName() },
+                [faker.datatype.uuid()]: { name: faker.name.firstName() },
                 [id]: { name },
             }),
         });
@@ -103,14 +103,14 @@ describe('LocalStorageEngine', () => {
     });
 
     it('testUpdate', async () => {
-        const id = Faker.random.uuid();
-        const initialName = Faker.name.firstName();
-        const newName = Faker.name.firstName();
-        const age = Faker.random.number();
+        const id = faker.datatype.uuid();
+        const initialName = faker.name.firstName();
+        const newName = faker.name.firstName();
+        const age = faker.datatype.number();
 
         MockLocalStorage.setData({
             [prefix + User.collection]: JSON.stringify({
-                [id]: { name: initialName, surname: Faker.name.lastName(), age },
+                [id]: { name: initialName, surname: faker.name.lastName(), age },
             }),
         });
 
@@ -126,19 +126,19 @@ describe('LocalStorageEngine', () => {
     });
 
     it('testUpdateNonExistent', async () => {
-        await expect(engine.update(User.collection, Faker.random.uuid(), {}))
+        await expect(engine.update(User.collection, faker.datatype.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
     });
 
     it('testDelete', async () => {
         // Arrange
-        const firstId = Faker.random.uuid();
-        const secondId = Faker.random.uuid();
-        const name = Faker.name.firstName();
+        const firstId = faker.datatype.uuid();
+        const secondId = faker.datatype.uuid();
+        const name = faker.name.firstName();
 
         MockLocalStorage.setData({
             [prefix + User.collection]: JSON.stringify({
-                [firstId]: { name: Faker.name.firstName() },
+                [firstId]: { name: faker.name.firstName() },
                 [secondId]: { name },
             }),
         });
@@ -156,7 +156,7 @@ describe('LocalStorageEngine', () => {
     });
 
     it('testDeleteNonExistent', async () => {
-        await expect(engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        await expect(engine.delete(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
 });

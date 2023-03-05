@@ -1,4 +1,4 @@
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 import type { Tuple } from '@noeldemartin/utils';
 
 import type { Engine } from '@/engines/Engine';
@@ -30,9 +30,9 @@ describe('Model Relations', () => {
 
     it('loads hasOne relations', async () => {
         // Arrange
-        const userId = Faker.random.uuid();
-        const cityId = Faker.random.uuid();
-        const name = Faker.random.word();
+        const userId = faker.datatype.uuid();
+        const cityId = faker.datatype.uuid();
+        const name = faker.random.word();
         const user = new User({ id: userId });
 
         mockEngine.readMany.mockReturnValue(Promise.resolve({
@@ -62,8 +62,8 @@ describe('Model Relations', () => {
 
     it('loads belongsToOne relations', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.random.word();
+        const id = faker.datatype.uuid();
+        const name = faker.random.word();
         const post = new Post({ authorId: id });
 
         mockEngine.readOne.mockReturnValue(Promise.resolve({ name }));
@@ -84,13 +84,13 @@ describe('Model Relations', () => {
 
     it('loads hasMany relations', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const firstPostId = Faker.random.uuid();
-        const secondPostId = Faker.random.uuid();
-        const firstPostTitle = Faker.lorem.sentence();
-        const secondPostTitle = Faker.lorem.sentence();
-        const firstPostBody = Faker.lorem.paragraph();
-        const secondPostBody = Faker.lorem.paragraph();
+        const id = faker.datatype.uuid();
+        const firstPostId = faker.datatype.uuid();
+        const secondPostId = faker.datatype.uuid();
+        const firstPostTitle = faker.lorem.sentence();
+        const secondPostTitle = faker.lorem.sentence();
+        const firstPostBody = faker.lorem.paragraph();
+        const secondPostBody = faker.lorem.paragraph();
         const user = new User({ id });
 
         mockEngine.readMany.mockReturnValue(Promise.resolve({
@@ -131,8 +131,8 @@ describe('Model Relations', () => {
 
     it('loads belongsToMany relations', async () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.random.word();
+        const id = faker.datatype.uuid();
+        const name = faker.random.word();
         const city = new City({ birthRecords: [id] });
 
         mockEngine.readMany.mockReturnValue(Promise.resolve({
@@ -159,8 +159,8 @@ describe('Model Relations', () => {
 
     it('loads relations using setter', () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.random.word();
+        const id = faker.datatype.uuid();
+        const name = faker.random.word();
         const post = new Post({ authorId: id });
 
         // Act
@@ -174,8 +174,8 @@ describe('Model Relations', () => {
 
     it('loads empty relations for new models', async () => {
         // Arrange & Act
-        const post = await Post.create({ title: Faker.lorem.sentence() });
-        const city = await City.create({ name: Faker.random.word() });
+        const post = await Post.create({ title: faker.lorem.sentence() });
+        const city = await City.create({ name: faker.random.word() });
 
         // Assert
         expect(post.isRelationLoaded('author')).toBe(true);
@@ -187,8 +187,8 @@ describe('Model Relations', () => {
 
     it('unloads relations using deletes', () => {
         // Arrange
-        const id = Faker.random.uuid();
-        const name = Faker.random.word();
+        const id = faker.datatype.uuid();
+        const name = faker.random.word();
         const post = new Post({ authorId: id });
 
         post.author = new User({ id, name });
@@ -237,10 +237,10 @@ describe('Model Relations', () => {
 
     it('exposes relation instances', () => {
         // Arrange
-        const postId = Faker.random.uuid();
-        const userId = Faker.random.uuid();
-        const postTitle = Faker.random.word();
-        const userName = Faker.random.word();
+        const postId = faker.datatype.uuid();
+        const userId = faker.datatype.uuid();
+        const postTitle = faker.random.word();
+        const userName = faker.random.word();
         const post = new Post({ id: postId, authorId: userId, title: postTitle });
         const user = new User({ id: userId, name: userName });
 

@@ -1,4 +1,4 @@
-import Faker from 'faker';
+import { faker } from '@noeldemartin/faker';
 
 import { bootModels } from '@/models';
 import { Model } from '@/models/Model';
@@ -21,7 +21,7 @@ describe('InMemoryEngine', () => {
     });
 
     it('testCreate', async () => {
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
 
         return engine.create(User.collection, { name }).then(id => {
             expect(engine.database).toHaveProperty(User.collection);
@@ -32,7 +32,7 @@ describe('InMemoryEngine', () => {
     });
 
     it('testReadOne', async () => {
-        const name = Faker.name.firstName();
+        const name = faker.name.firstName();
 
         let id;
 
@@ -47,14 +47,14 @@ describe('InMemoryEngine', () => {
     });
 
     it('testReadOneNonExistent', async () => {
-        await expect(engine.readOne(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        await expect(engine.readOne(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
     it('testReadMany', async () => {
         let otherCollection: string;
 
         do {
-            otherCollection = Faker.lorem.word();
+            otherCollection = faker.lorem.word();
         } while (User.collection === otherCollection);
 
         class StubModel extends Model {
@@ -63,15 +63,15 @@ describe('InMemoryEngine', () => {
 
         }
 
-        const firstName = Faker.name.firstName();
-        const secondName = Faker.name.firstName();
+        const firstName = faker.name.firstName();
+        const secondName = faker.name.firstName();
 
         const ids: string[] = [];
 
         return Promise.all([
             engine.create(User.collection, { name: firstName }).then(id => ids.push(id)),
             engine.create(User.collection, { name: secondName }).then(id => ids.push(id)),
-            engine.create(StubModel.collection, { name: Faker.name.firstName() }),
+            engine.create(StubModel.collection, { name: faker.name.firstName() }),
         ])
             .then(() => engine.readMany(User.collection))
             .then(documents => {
@@ -82,8 +82,8 @@ describe('InMemoryEngine', () => {
     });
 
     it('testReadManyFilters', async () => {
-        const firstName = Faker.name.firstName();
-        const secondName = Faker.name.firstName();
+        const firstName = faker.name.firstName();
+        const secondName = faker.name.firstName();
 
         await engine.create(User.collection, { name: firstName });
         const id = await engine.create(User.collection, { name: secondName });
@@ -95,13 +95,13 @@ describe('InMemoryEngine', () => {
     });
 
     it('testUpdate', async () => {
-        const initialName = Faker.name.firstName();
-        const newName = Faker.name.firstName();
-        const age = Faker.random.number();
+        const initialName = faker.name.firstName();
+        const newName = faker.name.firstName();
+        const age = faker.datatype.number();
 
         let id: string;
 
-        return engine.create(User.collection, { name: initialName, surname: Faker.name.lastName(), age })
+        return engine.create(User.collection, { name: initialName, surname: faker.name.lastName(), age })
             .then(documentId => {
                 id = documentId;
                 return engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
@@ -112,12 +112,12 @@ describe('InMemoryEngine', () => {
     });
 
     it('testUpdateNonExistent', async () => {
-        await expect(engine.update(User.collection, Faker.random.uuid(), {}))
+        await expect(engine.update(User.collection, faker.datatype.uuid(), {}))
             .rejects.toThrow(DocumentNotFound);
     });
 
     it('testDelete', async () => {
-        const id = await engine.create(User.collection, { name: Faker.name.firstName() });
+        const id = await engine.create(User.collection, { name: faker.name.firstName() });
 
         await engine.delete(User.collection, id);
 
@@ -125,7 +125,7 @@ describe('InMemoryEngine', () => {
     });
 
     it('testDeleteNonExistent', async () => {
-        await expect(engine.delete(User.collection, Faker.random.uuid())).rejects.toThrow(DocumentNotFound);
+        await expect(engine.delete(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
 });
