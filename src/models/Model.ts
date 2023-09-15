@@ -27,6 +27,7 @@ import SingleModelRelation from './relations/SingleModelRelation';
 import { FieldType, expandFieldDefinition } from './fields';
 import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
+import { withEngineImpl } from './utils';
 import type { Attributes } from './attributes';
 import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
 import type { ModelConstructor } from './inference';
@@ -73,7 +74,6 @@ export class Model {
     private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
     private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
-    private static originalEngines: WeakMap<typeof Model, [Engine | undefined, number]> = new WeakMap;
     private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
     private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap;
 
@@ -314,33 +314,20 @@ export class Model {
         this.engines.set(this, engine);
     }
 
+    public static withEngine<T>(this: T, engine: Engine): T;
     public static withEngine<T>(engine: Engine, operation: () => T): T;
     public static withEngine<T>(engine: Engine, operation: () => Promise<T>): Promise<T>;
-    public static withEngine<T>(engine: Engine, operation: () => T | Promise<T>): T | Promise<T> {
-        // It is necessary to keep the replacements count to avoid race conditions when multiple
-        // operations are running concurrently with Promise.all()
-        const [originalEngine, replacementsCount] = this.originalEngines.get(this) ?? [this.engines.get(this), 0];
-        const restoreOriginalEngine = () => {
-            const [originalEngine, replacementsCount] = this.originalEngines.get(this) as [Engine | undefined, number];
-
-            if (replacementsCount > 1) {
-                this.originalEngines.set(this, [originalEngine, replacementsCount - 1]);
-
-                return;
-            }
-
-            this.originalEngines.delete(this);
-            this.setEngine(originalEngine);
-        };
-
-        this.originalEngines.set(this, [originalEngine, replacementsCount + 1]);
-        this.setEngine(engine);
-
-        const result = operation();
-
-        return result instanceof Promise
-            ? result.then(() => tap(result, () => restoreOriginalEngine()))
-            : tap(result, () => restoreOriginalEngine());
+    public static withEngine<TThis extends ModelConstructor, TResult>(
+        this: TThis,
+        engine: Engine,
+        operation?: () => TResult | Promise<TResult>,
+    ): TResult | Promise<TResult> | TThis {
+        return withEngineImpl({
+            target: this,
+            getTargetEngine: () => this.engines.get(this),
+            engine,
+            operation,
+        });
     }
 
     public static async withoutTimestamps<T>(operation: () => Promise<T>): Promise<T> {
@@ -634,18 +621,16 @@ export class Model {
         this._engine = engine;
     }
 
+    public withEngine(engine: Engine): this;
     public withEngine<T>(engine: Engine, operation: (model: this) => T): T;
     public withEngine<T>(engine: Engine, operation: (model: this) => Promise<T>): Promise<T>;
-    public withEngine<T>(engine: Engine, operation: (model: this) => T | Promise<T>): T | Promise<T> {
-        const originalEngine = this._engine;
-
-        this.setEngine(engine);
-
-        const result = operation(this);
-
-        return result instanceof Promise
-            ? result.then(() => tap(result, () => this.setEngine(originalEngine)))
-            : tap(result, () => this.setEngine(originalEngine));
+    public withEngine<T>(engine: Engine, operation?: (model: this) => T | Promise<T>): T | Promise<T> | this {
+        return withEngineImpl({
+            target: this,
+            getTargetEngine: () => this._engine,
+            operation: operation && (() => operation(this)),
+            engine,
+        });
     }
 
     public async withoutTimestamps<T>(operation: () => Promise<T>): Promise<T> {

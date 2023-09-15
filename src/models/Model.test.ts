@@ -74,6 +74,31 @@ describe('Model', () => {
         expect(deleteCount).toBe(1);
     });
 
+    it('overrides engine', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+        const id = faker.datatype.uuid();
+        const originalName = faker.random.words();
+        const updatedName = faker.random.words();
+
+        engine.create(User.collection, { id, name: originalName }, id);
+        engine.create(User.collection, { name: faker.random.words() });
+
+        // Act
+        const user = await User.withEngine(engine).find(id);
+        const users = await User.withEngine(engine).all();
+
+        await user?.withEngine(engine).update({ name: updatedName });
+
+        // Assert
+        expect(users).toHaveLength(2);
+        expect(user).not.toBeNull();
+        expect(user?.id).toEqual(id);
+        expect(user?.name).toEqual(updatedName);
+
+        expect(User.getEngine()).not.toBe(engine);
+    });
+
 });
 
 describe('Models definition', () => {
