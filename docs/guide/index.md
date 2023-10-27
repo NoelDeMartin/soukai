@@ -1,7 +1,7 @@
 # Getting Started
 
 
-This library aims to provide an easy way to manage non-relational database objects in Javascript using an Object Oriented approach (hence ODM - Object Document Mapper). It provides a system to define database entities using [models](/guide/defining-models.html) and delegates the communication with the database to [engines](/guide/engines.html) in a customizable way.
+This library aims to provide an easy way to manage non-relational database objects in Javascript using an Object Oriented approach, implementing the [Active Record](https://en.wikipedia.org/wiki/Active_record_pattern) pattern. It provides a system to define database entities using [models](/guide/defining-models.html) and delegates the communication with the database to [engines](/guide/engines.html) in a customizable way.
 
 To get started, add the package as an npm dependency:
 
