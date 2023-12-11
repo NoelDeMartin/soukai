@@ -19,7 +19,7 @@ function isModelClass(module: unknown): module is typeof Model {
 
 export function getModelsFromViteGlob(
     glob: Record<string, Record<string, unknown>>,
-    ignoreSuffixes: string[] = ['.schema'],
+    ignoreSuffixes: string[] = ['.schema', '.test'],
 ): Record<string, typeof Model> {
     const models: Record<string, typeof Model> = {};
 

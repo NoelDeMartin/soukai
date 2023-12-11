@@ -11,7 +11,7 @@ export function definitionsFromContexts(context: __WebpackModuleApi.RequireConte
 
 export function getModelsFromWebpackContext(
     context: __WebpackModuleApi.RequireContext,
-    ignoreSuffixes: string[] = ['.schema'],
+    ignoreSuffixes: string[] = ['.schema', '.test'],
 ): Record<string, typeof Model> {
     const models = {} as Record<string, typeof Model>;
 
