@@ -1,6 +1,6 @@
 {
   "name": "soukai",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "A refreshing library to work with your non relational database",
   "main": "dist/soukai.cjs.js",
   "module": "dist/soukai.esm.js",
