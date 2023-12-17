@@ -1,4 +1,4 @@
-# Soukai [![Build Status](https://semaphoreci.com/api/v1/noeldemartin/soukai/branches/main/badge.svg)](https://semaphoreci.com/noeldemartin/soukai)
+# Soukai ![CI](https://github.com/NoelDeMartin/soukai/actions/workflows/ci.yml/badge.svg)
 
 A refreshing javascript library to work with your non relational database.
 
