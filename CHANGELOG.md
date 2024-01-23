@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Augmenting the `ModelEvents` interface it is now possible to extend model events with custom events.
 
+### Changed
+
+- Model collections are no longer inherited unless they were initialized explicitly.
+
 ### Deprecated
 
 - `ModelEvent` and `ModelEventValue` have been deprecated in favour of the `ModelEvents` interface.

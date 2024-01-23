@@ -34,6 +34,8 @@ import type { ModelConstructor } from './inference';
 import type { Relation } from './relations/Relation';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
+const modelsWithMintedCollections = new WeakSet();
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
 export type ModelListener<
@@ -102,7 +104,7 @@ export class Model {
         modelClass.modelName = modelNameDescriptor?.value ?? name ?? modelClass.name;
 
         // Validate collection
-        modelClass.collection = modelClass.collection ?? instance.getDefaultCollection();
+        modelClass.bootCollection();
 
         // Validate timestamps
         if (typeof modelClass.timestamps === 'boolean' || typeof modelClass.timestamps === 'undefined') {
@@ -361,6 +363,19 @@ export class Model {
             return;
 
         this.boot();
+    }
+
+    protected static bootCollection(): void {
+        let modelClass = this;
+        while (modelClass !== Model && (!modelClass.hasOwnProperty('collection') || modelsWithMintedCollections.has(modelClass))) {
+            modelClass = Object.getPrototypeOf(modelClass);
+        }
+
+        if (modelClass === Model) {
+            modelsWithMintedCollections.add(this);
+        }
+
+        this.collection = modelClass.collection ?? this.pureInstance().getDefaultCollection();
     }
 
     // TODO this should be optional (but it's too annoying to use)

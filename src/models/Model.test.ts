@@ -131,6 +131,32 @@ describe('Models definition', () => {
         expect(StubModel.collection).toBe('stubs');
     });
 
+    it('testInheritedCollection', () => {
+        class StubModel extends Model {
+            static collection = 'stubs';
+        }
+        class User extends StubModel {}
+        class Admin extends User {}
+
+        bootModels({ StubModel, User, Admin });
+
+        expect(StubModel.collection).toBe('stubs');
+        expect(User.collection).toBe('stubs');
+        expect(Admin.collection).toBe('stubs');
+    });
+
+    it('testEmptyInheritedCollection', () => {
+        class StubModel extends Model {}
+        class User extends StubModel {}
+        class Admin extends User {}
+
+        bootModels({ stub: StubModel, User, Admin });
+
+        expect(StubModel.collection).toBe('stubs');
+        expect(User.collection).toBe('users');
+        expect(Admin.collection).toBe('admins');
+    });
+
     it('testTimestamps', () => {
         class StubModel extends Model {
 
