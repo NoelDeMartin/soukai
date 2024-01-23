@@ -36,7 +36,10 @@ import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Key = any;
-export type ModelListener<T extends Model = Model> = (model: T) => unknown;
+export type ModelListener<
+    TModel extends Model = Model,
+    TEvent extends keyof ModelEvents = keyof ModelEvents
+> = (...args: ModelListenerArgs<TModel, TEvent>) => unknown;
 
 export type ModelCloneOptions = Partial<{
     clean: boolean;
@@ -44,19 +47,28 @@ export type ModelCloneOptions = Partial<{
     constructors: WeakMap<typeof Model, typeof Model> | [typeof Model, typeof Model][];
 }>;
 
-export const ModelEvent = {
-    Created: 'created' as const,
-    Updated: 'updated' as const,
-    Deleted: 'deleted' as const,
-};
-
 export type ModelCastAttributeOptions = {
     field?: string;
     definition?: BootedFieldDefinition;
     malformedAttributes?: Record<string, string[]>;
 };
 
-export type ModelEventValue = typeof ModelEvent[keyof typeof ModelEvent];
+export interface ModelEvents {
+    created: void;
+    deleted: void;
+    'relation-loaded': Relation;
+    updated: void;
+}
+
+export type ModelEmitArgs<T extends keyof ModelEvents> =
+    ModelEvents[T] extends void
+        ? [event: T]
+        : [event: T, payload: ModelEvents[T]];
+
+export type ModelListenerArgs<TModel extends Model, TEvent extends keyof ModelEvents> =
+    ModelEvents[TEvent] extends void
+        ? [model: TModel]
+        : [model: TModel, payload: ModelEvents[TEvent]];
 
 export class Model {
 
@@ -254,15 +266,15 @@ export class Model {
         return this.instance().newInstance(...params);
     }
 
-    public static on<T extends Model>(
-        this: ModelConstructor<T>,
-        event: ModelEventValue,
-        listener: ModelListener<T>,
+    public static on<TModel extends Model, TEvent extends keyof ModelEvents>(
+        this: ModelConstructor<TModel>,
+        event: TEvent,
+        listener: ModelListener<TModel, TEvent>,
     ): () => void {
         if (!this.listeners.has(this))
             this.listeners.set(this, {});
 
-        const modelListeners = this.listeners.get(this) as Record<string, ModelListener<T>[]>;
+        const modelListeners = this.listeners.get(this) as Record<string, ModelListener<TModel, TEvent>[]>;
         const listeners = modelListeners[event] ??= [];
 
         listeners.push(listener);
@@ -452,15 +464,18 @@ export class Model {
         return extractFinalEngine(this.requireEngine()) as T;
     }
 
-    public loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
+    public async loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
         relation: string,
     ): Promise<T> {
         const relationInstance = this.requireRelation(relation);
-
-        return relationInstance.relatedClass.withEngine(
+        const related = await relationInstance.relatedClass.withEngine(
             this.requireEngine(),
             () => relationInstance.load(),
-        ) as Promise<T>;
+        );
+
+        this.emit('relation-loaded', relationInstance);
+
+        return related as T;
     }
 
     public async loadRelationIfUnloaded<T extends Model | null | Model[] = Model | null | Model[]>(
@@ -725,7 +740,7 @@ export class Model {
         }
 
         await this.performDelete();
-        await this.emit(ModelEvent.Deleted);
+        await this.emit('deleted');
 
         return this;
     }
@@ -741,7 +756,7 @@ export class Model {
         await this.beforeSave();
         await this.performSave();
         await this.afterSave();
-        await this.emit(existed ? ModelEvent.Updated : ModelEvent.Created);
+        await this.emit(existed ? 'updated' : 'created');
 
         return this;
     }
@@ -980,13 +995,15 @@ export class Model {
         }
     }
 
-    protected async emit(event: ModelEventValue): Promise<void> {
+    protected async emit<T extends keyof ModelEvents>(...args: ModelEmitArgs<T>): Promise<void> {
+        const event = args[0];
+        const payload = args[1];
         const listeners = this.static().listeners.get(this.static())?.[event];
 
         if (!listeners)
             return;
 
-        await Promise.all(listeners.map(listener => listener(this)));
+        await Promise.all(listeners.map(listener => listener(this, payload)));
     }
 
     protected async syncDirty(): Promise<string> {

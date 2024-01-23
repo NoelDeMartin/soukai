@@ -5,6 +5,7 @@ import type { Model } from '@/models/Model';
 import type { ModelConstructor } from '@/models/inference';
 
 export { default as ModelKey } from './ModelKey';
+export * from './deprecated';
 export * from './inference';
 export * from './Model';
 export * from './relations/index';
