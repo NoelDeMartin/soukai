@@ -367,7 +367,12 @@ export class Model {
 
     protected static bootCollection(): void {
         let modelClass = this;
-        while (modelClass !== Model && (!modelClass.hasOwnProperty('collection') || modelsWithMintedCollections.has(modelClass))) {
+
+        while (
+            modelClass !== Model &&
+            // eslint-disable-next-line no-prototype-builtins
+            (!modelClass.hasOwnProperty('collection') || modelsWithMintedCollections.has(modelClass))
+        ) {
             modelClass = Object.getPrototypeOf(modelClass);
         }
 

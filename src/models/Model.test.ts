@@ -133,8 +133,11 @@ describe('Models definition', () => {
 
     it('testInheritedCollection', () => {
         class StubModel extends Model {
-            static collection = 'stubs';
+
+            public static collection = 'stubs';
+
         }
+
         class User extends StubModel {}
         class Admin extends User {}
 
