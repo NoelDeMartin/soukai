@@ -28,6 +28,12 @@ export default abstract class SingleModelRelation<
         );
     }
 
+    public create(model?: Related): Promise<Related>;
+    public create(attributes: Attributes): Promise<Related>;
+    public async create(modelOrAttributes: Related | Attributes = {}): Promise<Related> {
+        return tap(this.attach(modelOrAttributes), model => model.save());
+    }
+
     public attach(model?: Related): Related;
     public attach(attributes: Attributes): Related;
     public attach(modelOrAttributes: Related | Attributes = {}): Related {
