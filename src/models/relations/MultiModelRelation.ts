@@ -28,12 +28,6 @@ export default abstract class MultiModelRelation<
         );
     }
 
-    public create(model?: Related): Promise<Related>;
-    public create(attributes: Attributes): Promise<Related>;
-    public create(modelOrAttributes: Related | Attributes = {}): Promise<Related> {
-        return tap(this.attach(modelOrAttributes), model => model.save());
-    }
-
     public attach(model?: Related): Related;
     public attach(attributes: Attributes): Related;
     public attach(modelOrAttributes: Related | Attributes = {}): Related {
