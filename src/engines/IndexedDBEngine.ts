@@ -1,4 +1,5 @@
 import { deleteDB, openDB } from 'idb';
+import { Semaphore, memo } from '@noeldemartin/utils';
 import type { DBSchema, IDBPCursorWithValue, IDBPObjectStore, TypedDOMStringList } from 'idb';
 
 import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
@@ -84,16 +85,18 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         delete this._documentsConnection;
     }
 
-    public async create(collection: string, document: EngineDocument, id?: string): Promise<string> {
-        id = this.helper.obtainDocumentId(id);
+    public create(collection: string, document: EngineDocument, id?: string): Promise<string> {
+        return this.atomicOperation(collection, async () => {
+            const documentId = this.helper.obtainDocumentId(id);
 
-        if (await this.documentExists(collection, id)) {
-            throw new DocumentAlreadyExists(id);
-        }
+            if (await this.documentExists(collection, documentId)) {
+                throw new DocumentAlreadyExists(documentId);
+            }
 
-        await this.createDocument(collection, id, document);
+            await this.createDocument(collection, documentId, document);
 
-        return id;
+            return documentId;
+        });
     }
 
     public async readOne(collection: string, id: string): Promise<EngineDocument> {
@@ -135,23 +138,27 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
-        const document = await this.getDocument(collection, id);
+        await this.atomicOperation(collection, async () => {
+            const document = await this.getDocument(collection, id);
 
-        if (!document) {
-            throw new DocumentNotFound(id, collection);
-        }
+            if (!document) {
+                throw new DocumentNotFound(id, collection);
+            }
 
-        this.helper.updateAttributes(document, updates);
+            this.helper.updateAttributes(document, updates);
 
-        await this.updateDocument(collection, id, document);
+            await this.updateDocument(collection, id, document);
+        });
     }
 
     public async delete(collection: string, id: string): Promise<void> {
-        if (!(await this.documentExists(collection, id))) {
-            throw new DocumentNotFound(id, collection);
-        }
+        await this.atomicOperation(collection, async () => {
+            if (!(await this.documentExists(collection, id))) {
+                throw new DocumentNotFound(id, collection);
+            }
 
-        await this.deleteDocument(collection, id);
+            await this.deleteDocument(collection, id);
+        });
     }
 
     private async collectionExists(collection: string): Promise<boolean> {
@@ -311,6 +318,12 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             'remember to call IndexedDBEngine.closeConnections when necessary. ' +
             'Learn more at https://developer.mozilla.org/en-US/docs/Web/API/IDBOpenDBRequest/blocked_event',
         );
+    }
+
+    private atomicOperation<T>(collection: string, operation: () => Promise<T>): Promise<T> {
+        const lock = memo(`idb-${collection}`, () => new Semaphore());
+
+        return lock.run(operation);
     }
 
 }

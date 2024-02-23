@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 
 import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
+import { range, resetMemo } from '@noeldemartin/utils';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
 import { bootModels } from '@/models';
@@ -22,6 +23,7 @@ describe('IndexedDBEngine', () => {
     let collectionsConnection: IDBPDatabase | null = null;
 
     beforeEach(async () => {
+        resetMemo();
         bootModels({ User });
 
         databaseName = faker.random.word();
@@ -203,6 +205,19 @@ describe('IndexedDBEngine', () => {
     it('testDeleteNonExistentCollection', async () => {
         await expect(engine.delete(faker.random.word(), faker.datatype.uuid()))
             .rejects.toThrow(DocumentNotFound);
+    });
+
+    it('supports concurrent operations', async () => {
+        // Arrange
+        const concurrency = 100;
+
+        // Act
+        await Promise.all(range(concurrency).map(() => engine.create(User.collection, { name: faker.random.word() })));
+
+        // Assert
+        const documents = await getDatabaseDocuments(User.collection);
+
+        expect(documents).toHaveLength(concurrency);
     });
 
     async function resetDatabase(): Promise<void> {
