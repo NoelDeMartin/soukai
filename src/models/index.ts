@@ -34,8 +34,12 @@ export type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
 const bootedModels: Map<string, typeof Model> = new Map;
 
-export function requireBootedModel<T extends ModelConstructor<Model> = ModelConstructor<Model>>(name: string): T {
-    return bootedModels.get(name) as T
+export interface ModelsRegistry {}
+
+export function requireBootedModel<T extends keyof ModelsRegistry>(name: T): ModelsRegistry[T];
+export function requireBootedModel<T extends ModelConstructor<Model> = ModelConstructor<Model>>(name: string): T;
+export function requireBootedModel(name: string): typeof Model {
+    return bootedModels.get(name)
         ?? fail(SoukaiError, `Could not find Model with name '${name}', are you sure it's booted?`);
 }
 
