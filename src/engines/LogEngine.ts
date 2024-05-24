@@ -1,99 +1,83 @@
 /* eslint-disable no-console */
-import type {
-    Engine,
-    EngineDocument,
-    EngineDocumentsCollection,
-    EngineFilters,
-    EngineUpdates,
-} from '@/engines/Engine';
-import type { ProxyEngine } from '@/engines/ProxyEngine';
+import { ProxyEngine } from '@/engines/ProxyEngine';
+import type { Engine } from '@/engines/Engine';
 
-export class LogEngine<SubjectEngine extends Engine = Engine> implements Engine, ProxyEngine {
-
-    public readonly subject: SubjectEngine;
+export class LogEngine<SubjectEngine extends Engine = Engine> extends ProxyEngine<SubjectEngine> {
 
     constructor(subject: SubjectEngine) {
-        this.subject = subject;
-    }
+        super(subject, {
+            async create(...args) {
+                console.log('CREATE', ...args);
 
-    public getProxySubject(): Engine {
-        return this.subject;
-    }
+                try {
+                    const resultId = await subject.create(...args);
 
-    public async create(collection: string, document: EngineDocument, id?: string): Promise<string> {
-        console.log('CREATE', collection, document, id);
+                    console.log('CREATED', resultId);
 
-        try {
-            const resultId = await this.subject.create(collection, document, id);
+                    return resultId;
+                } catch (error) {
+                    console.error(error);
 
-            console.log('CREATED', resultId);
+                    throw error;
+                }
+            },
+            async readOne(...args) {
+                console.log('READ ONE', ...args);
 
-            return resultId;
-        } catch (error) {
-            console.error(error);
+                try {
+                    const document = await subject.readOne(...args);
 
-            throw error;
-        }
-    }
+                    console.log('FOUND', document);
 
-    public async readOne(collection: string, id: string): Promise<EngineDocument> {
-        console.log('READ ONE', collection, id);
+                    return document;
+                } catch (error) {
+                    console.error(error);
 
-        try {
-            const document = await this.subject.readOne(collection, id);
+                    throw error;
+                }
+            },
+            async readMany(...args) {
+                console.log('READ ALL', ...args);
 
-            console.log('FOUND', document);
+                try {
+                    const documents = await subject.readMany(...args);
 
-            return document;
-        } catch (error) {
-            console.error(error);
+                    console.log('FOUND', documents);
 
-            throw error;
-        }
-    }
+                    return documents;
+                } catch (error) {
+                    console.error(error);
 
-    public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
-        console.log('READ ALL', collection, filters);
+                    throw error;
+                }
+            },
+            async update(...args) {
+                console.log('UPDATE', ...args);
 
-        try {
-            const documents = await this.subject.readMany(collection, filters);
+                try {
+                    await subject.update(...args);
 
-            console.log('FOUND', documents);
+                    console.log('UPDATED');
+                } catch (error) {
+                    console.error(error);
 
-            return documents;
-        } catch (error) {
-            console.error(error);
+                    throw error;
+                }
+            },
+            async delete(...args) {
+                console.log('DELETE', ...args);
 
-            throw error;
-        }
-    }
+                try {
+                    await subject.delete(...args);
 
-    public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
-        console.log('UPDATE', collection, id, updates);
+                    console.log('DELETED');
+                } catch (error) {
+                    console.error(error);
 
-        try {
-            await this.subject.update(collection, id, updates);
-
-            console.log('UPDATED');
-        } catch (error) {
-            console.error(error);
-
-            throw error;
-        }
-    }
-
-    public async delete(collection: string, id: string): Promise<void> {
-        console.log('DELETE', collection, id);
-
-        try {
-            await this.subject.delete(collection, id);
-
-            console.log('DELETED');
-        } catch (error) {
-            console.error(error);
-
-            throw error;
-        }
+                    throw error;
+                }
+            },
+        });
     }
 
 }
