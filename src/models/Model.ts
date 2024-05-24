@@ -37,7 +37,7 @@ import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 const modelsWithMintedCollections = new WeakSet();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Key = any;
+export type Key = string | number | object;
 export type ModelListener<
     TModel extends Model = Model,
     TEvent extends keyof ModelEvents = keyof ModelEvents
@@ -432,7 +432,7 @@ export class Model {
 
     public async fresh(): Promise<this> {
         const primaryKey = this.getPrimaryKey();
-        const freshInstance = await this.static().find(primaryKey);
+        const freshInstance = primaryKey ? await this.static().find(primaryKey) : null;
 
         if (!freshInstance)
             throw new SoukaiError(
