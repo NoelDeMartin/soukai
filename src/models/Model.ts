@@ -36,8 +36,7 @@ import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
 const modelsWithMintedCollections = new WeakSet();
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Key = string | number | object;
+export type Key = string | number | Record<string, string | number>;
 export type ModelListener<
     TModel extends Model = Model,
     TEvent extends keyof ModelEvents = keyof ModelEvents

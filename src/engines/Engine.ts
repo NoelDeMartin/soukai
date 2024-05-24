@@ -23,7 +23,7 @@ export type EngineAttributeFilter =
     { $contains: EngineAttributeFilter | EngineAttributeFilter[] };
 
 export interface EngineRootFilter {
-    $in?: string[];
+    $in?: (string | number | Record<string, string | number>)[];
 }
 
 export type EngineAttributeUpdate =

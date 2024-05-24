@@ -1064,7 +1064,7 @@ describe('Model types', () => {
         Expect<Equals<Assert<User['contact']>['email'], string | undefined>> |
         Expect<Extends<User['social'], undefined>> |
         Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
-        Expect<Equals<User['externalUrls'], Key[]>> |
+        Expect<Equals<User['externalUrls'], string[]>> |
         Expect<Equals<User['createdAt'], Date>> |
         Expect<Equals<Post['title'], string>> |
         Expect<Equals<Pick<Post, 'title'>, { title: string }>> |

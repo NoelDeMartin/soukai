@@ -23,7 +23,7 @@ export default defineModelSchema({
         },
         externalUrls: {
             type: FieldType.Array,
-            items: FieldType.Key,
+            items: FieldType.String,
             required: true,
         },
     },
