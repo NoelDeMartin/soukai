@@ -894,16 +894,13 @@ describe('Model attributes', () => {
         await user.withoutTimestamps(() => user.save());
 
         // Assert
-        expect(Object.keys(malformedAttributes)).toHaveLength(3);
+        expect(Object.keys(malformedAttributes)).toHaveLength(1);
 
         expect(mockEngine.update).toHaveBeenCalledTimes(1);
         expect(mockEngine.update).toHaveBeenCalledWith(
             User.collection,
             id,
-            {
-                avatarUrl: 'https://example.org/avatar.png',
-                externalUrls: [`https://a.example.org/users/${id}`, `https://b.example.org/users/${id}`],
-            },
+            { avatarUrl: 'https://example.org/avatar.png' },
         );
     });
 
