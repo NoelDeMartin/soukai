@@ -23,14 +23,14 @@ import type { TimestampField, TimestampsDefinition } from './timestamps';
 
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof Model;
 
-export type MagicAttributes<S extends SchemaDefinition> = Pretty<
+export type MagicAttributes<S extends SchemaDefinition, TKey extends Key> = Pretty<
     MagicAttributeProperties<{
         // TODO this should be optional (but it's too annoying to use)
         id: typeof FieldType.String;
-    }> &
+    }, TKey> &
     // TODO infer virtual attributes
     // TODO infer relationship attributes
-    NestedMagicAttributes<GetFieldsDefinition<S>> &
+    NestedMagicAttributes<GetFieldsDefinition<S>, TKey> &
     MagicTimestampAttributes<GetTimestampsDefinition<S>>
 >;
 
@@ -40,29 +40,29 @@ export type MagicTimestampAttributes<T extends TimestampsDefinition> =
     T extends typeof TimestampField.UpdatedAt[] ? { updatedAt: Date } :
     { createdAt: Date; updatedAt: Date };
 
-export type NestedMagicAttributes<T extends FieldsDefinition> =
-    MagicAttributeProperties<Pick<T, GetRequiredFields<T>>> &
-    Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>>>;
+export type NestedMagicAttributes<T extends FieldsDefinition, TKey extends Key> =
+    MagicAttributeProperties<Pick<T, GetRequiredFields<T>>, TKey> &
+    Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>, TKey>>;
 
-export type MagicAttributeProperties<T extends FieldsDefinition> = {
-    -readonly [K in keyof T]: MagicAttributeValue<GetFieldType<T[K]>>;
+export type MagicAttributeProperties<T extends FieldsDefinition, TKey extends Key> = {
+    -readonly [K in keyof T]: MagicAttributeValue<GetFieldType<T[K]>, TKey>;
 };
 
-export type MagicAttributeValue<T> =
-    T extends FieldsDefinition ? NestedMagicAttributes<T> :
-    T extends FieldTypeValue ? ResolveFieldType<T> :
+export type MagicAttributeValue<T, TKey extends Key> =
+    T extends FieldsDefinition ? NestedMagicAttributes<T, TKey> :
+    T extends FieldTypeValue ? ResolveFieldType<T, TKey> :
     T extends Array<infer R>
         ? R extends FieldTypeValue
-            ? ResolveFieldType<R>[]
+            ? ResolveFieldType<R, TKey>[]
             : never
     : never;
 
-export type ResolveFieldType<T extends FieldTypeValue> =
+export type ResolveFieldType<T extends FieldTypeValue, TKey extends Key> =
     T extends typeof FieldType.Number ? number :
     T extends typeof FieldType.String ? string :
     T extends typeof FieldType.Boolean ? boolean :
     T extends typeof FieldType.Date ? Date :
-    T extends typeof FieldType.Key ? Key :
+    T extends typeof FieldType.Key ? TKey :
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     T extends typeof FieldType.Any ? any :
@@ -97,5 +97,9 @@ export type SchemaDefinition<T = unknown> = Partial<{
     fields: FieldsDefinition<T>;
 }>;
 
-export type GetFieldsDefinition<D extends SchemaDefinition> = D extends { fields: infer F } ? F : {};
-export type GetTimestampsDefinition<D extends SchemaDefinition> = D extends { timestamps: infer T } ? T : true;
+export type GetFieldsDefinition<D extends SchemaDefinition> = D extends { fields: infer F }
+    ? (F extends undefined ? {} : F)
+    : {};
+export type GetTimestampsDefinition<D extends SchemaDefinition> = D extends { timestamps: infer T }
+    ? (T extends undefined ? true : T)
+    : true;
