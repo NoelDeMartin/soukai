@@ -1,5 +1,5 @@
 import { faker } from '@noeldemartin/faker';
-import { after, afterAnimationFrame, seconds, tt } from '@noeldemartin/utils';
+import { after, seconds, tt } from '@noeldemartin/utils';
 import type { Assert, Equals, Expect, Extends, HasKey , Not } from '@noeldemartin/utils';
 
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
