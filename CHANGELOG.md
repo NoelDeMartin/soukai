@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - Augmenting the `ModelEvents` interface it is now possible to extend model events with custom events.
+- The following model events: `modified`, `relation-loaded`.
 
 ### Changed
 

@@ -57,8 +57,9 @@ export type ModelCastAttributeOptions = {
 export interface ModelEvents {
     created: void;
     deleted: void;
-    'relation-loaded': Relation;
     updated: void;
+    modified: string;
+    'relation-loaded': Relation;
 }
 
 export type ModelEmitArgs<T extends keyof ModelEvents> =
@@ -593,9 +594,10 @@ export class Model {
     }
 
     public setAttribute(field: string, value: unknown): void {
-        return this.hasAttributeSetter(field)
-            ? this.callAttributeSetter(field, value)
-            : this.setAttributeValue(field, value);
+        const previousValue = this.getAttribute(field);
+
+        this.hasAttributeSetter(field) ? this.callAttributeSetter(field, value) : this.setAttributeValue(field, value);
+        this.attributeValueChanged(previousValue, value) && this.emit('modified', field);
     }
 
     public setAttributeValue(field: string, value: unknown): void {

@@ -1,5 +1,5 @@
 import { faker } from '@noeldemartin/faker';
-import { after, seconds, tt } from '@noeldemartin/utils';
+import { after, afterAnimationFrame, seconds, tt } from '@noeldemartin/utils';
 import type { Assert, Equals, Expect, Extends, HasKey , Not } from '@noeldemartin/utils';
 
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
@@ -50,10 +50,12 @@ describe('Model', () => {
 
     it('emits events', async () => {
         // Arrange
+        const modifiedHistory: string[] = [];
         let createCount = 0;
         let updateCount = 0;
         let deleteCount = 0;
 
+        Post.on('modified', (_, field) => modifiedHistory.push(field));
         Post.on('created', () => createCount++);
         Post.on('updated', () => updateCount++);
         Post.on('deleted', () => deleteCount++);
@@ -61,14 +63,29 @@ describe('Model', () => {
         // Act
         const post = await Post.create({ title: faker.random.words() });
 
-        post.update({ title: faker.random.words() });
-        post.update({ title: faker.random.words() });
+        post.title = faker.random.words();
+        post.title = faker.random.words();
+        post.body = faker.lorem.paragraphs();
+
+        await after({ ms: 10 });
         post.update({ title: faker.random.words() });
 
+        await after({ ms: 10 });
+        post.update({ title: faker.random.words() });
+
+        await after({ ms: 10 });
+        post.update({ title: faker.random.words() });
+
+        await after({ ms: 10 });
         await Post.create({ title: faker.random.words() });
         await post.delete();
 
         // Assert
+        expect(modifiedHistory).toHaveLength(13);
+        expect(modifiedHistory.filter(field => field === 'title')).toHaveLength(5);
+        expect(modifiedHistory.filter(field => field === 'body')).toHaveLength(1);
+        expect(modifiedHistory.filter(field => field === 'createdAt')).toHaveLength(2);
+        expect(modifiedHistory.filter(field => field === 'updatedAt')).toHaveLength(5);
         expect(createCount).toBe(2);
         expect(updateCount).toBe(3);
         expect(deleteCount).toBe(1);
