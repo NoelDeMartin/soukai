@@ -46,12 +46,14 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     private database: string;
     private helper: EngineHelper;
+    private lock: Semaphore;
     private _metadataConnection?: DatabaseConnection<MetadataSchema>;
     private _documentsConnection?: DatabaseConnection<DocumentsSchema>;
 
     public constructor(database: null | string = null) {
         this.database = database ? 'soukai-' + database : 'soukai';
         this.helper = new EngineHelper();
+        this.lock = memo(`idb-${this.database}`, () => new Semaphore());
     }
 
     public async getCollections(): Promise<string[]> {
@@ -86,7 +88,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public create(collection: string, document: EngineDocument, id?: string): Promise<string> {
-        return this.atomicOperation(collection, async () => {
+        return this.lock.run(async () => {
             const documentId = this.helper.obtainDocumentId(id);
 
             if (await this.documentExists(collection, documentId)) {
@@ -138,7 +140,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
-        await this.atomicOperation(collection, async () => {
+        await this.lock.run(async () => {
             const document = await this.getDocument(collection, id);
 
             if (!document) {
@@ -152,7 +154,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async delete(collection: string, id: string): Promise<void> {
-        await this.atomicOperation(collection, async () => {
+        await this.lock.run(async () => {
             if (!(await this.documentExists(collection, id))) {
                 throw new DocumentNotFound(id, collection);
             }
@@ -318,12 +320,6 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             'remember to call IndexedDBEngine.closeConnections when necessary. ' +
             'Learn more at https://developer.mozilla.org/en-US/docs/Web/API/IDBOpenDBRequest/blocked_event',
         );
-    }
-
-    private atomicOperation<T>(collection: string, operation: () => Promise<T>): Promise<T> {
-        const lock = memo(`idb-${collection}`, () => new Semaphore());
-
-        return lock.run(operation);
     }
 
 }

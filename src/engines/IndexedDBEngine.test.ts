@@ -209,15 +209,23 @@ describe('IndexedDBEngine', () => {
 
     it('supports concurrent operations', async () => {
         // Arrange
+        const tables = 4;
         const concurrency = 100;
 
+        closeConnections();
+
         // Act
-        await Promise.all(range(concurrency).map(() => engine.create(User.collection, { name: faker.random.word() })));
+        await Promise.all(
+            range(concurrency)
+                .map(i => engine.create(`${User.collection}-${i % tables}`, { name: faker.random.word() })),
+        );
 
         // Assert
-        const documents = await getDatabaseDocuments(User.collection);
+        await reopenConnections();
 
-        expect(documents).toHaveLength(concurrency);
+        const documents = await Promise.all(range(tables).map(i => getDatabaseDocuments(`${User.collection}-${i}`)));
+
+        expect(documents.flat()).toHaveLength(concurrency);
     });
 
     async function resetDatabase(): Promise<void> {
@@ -255,6 +263,11 @@ describe('IndexedDBEngine', () => {
                 }
             },
         });
+    }
+
+    async function reopenConnections(): Promise<void> {
+        collectionsConnection = await openDB(`soukai-${databaseName}`);
+        metadataConnection = await openDB(`soukai-${databaseName}-meta`);
     }
 
     function closeConnections(): void {
