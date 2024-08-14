@@ -344,6 +344,34 @@ export class Model {
         });
     }
 
+    public static async withCollection<Result>(
+        collection: string | undefined | (() => Result | Promise<Result>) = '',
+        operation?: () => Result | Promise<Result>,
+    ): Promise<Result> {
+        const oldCollection = this.collection;
+
+        if (typeof collection !== 'string') {
+            operation = collection;
+            collection = '';
+        }
+
+        if (!operation) {
+            throw new SoukaiError(
+                'Invalid method given to withCollection (this is an internal error, please report this bug)',
+            );
+        }
+
+        this.collection = collection || oldCollection;
+
+        try {
+            const result = await operation();
+
+            return result;
+        } finally {
+            this.collection = oldCollection;
+        }
+    }
+
     public static async withoutTimestamps<T>(operation: () => Promise<T>): Promise<T> {
         this.ignoringTimestamps.set(this, true);
 
