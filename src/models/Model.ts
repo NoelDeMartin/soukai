@@ -1,5 +1,4 @@
 import {
-    arrayRemove,
     arrayUnique,
     deepEquals,
     fail,
@@ -28,19 +27,17 @@ import { FieldType, expandFieldDefinition } from './fields';
 import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
 import { withEngineImpl } from './utils';
+import { emitModelEvent, registerModelListener } from './listeners';
 import type { Attributes } from './attributes';
 import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
 import type { ModelConstructor } from './inference';
 import type { Relation } from './relations/Relation';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
+import type { ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
 
 const modelsWithMintedCollections = new WeakSet();
 
 export type Key = string | number | Record<string, string | number>;
-export type ModelListener<
-    TModel extends Model = Model,
-    TEvent extends keyof ModelEvents = keyof ModelEvents
-> = (...args: ModelListenerArgs<TModel, TEvent>) => unknown;
 
 export type ModelCloneOptions = Partial<{
     clean: boolean;
@@ -53,24 +50,6 @@ export type ModelCastAttributeOptions = {
     definition?: BootedFieldDefinition;
     malformedAttributes?: Record<string, string[]>;
 };
-
-export interface ModelEvents {
-    created: void;
-    deleted: void;
-    updated: void;
-    modified: string;
-    'relation-loaded': Relation;
-}
-
-export type ModelEmitArgs<T extends keyof ModelEvents> =
-    ModelEvents[T] extends void
-        ? [event: T]
-        : [event: T, payload: ModelEvents[T]];
-
-export type ModelListenerArgs<TModel extends Model, TEvent extends keyof ModelEvents> =
-    ModelEvents[TEvent] extends void
-        ? [model: TModel]
-        : [model: TModel, payload: ModelEvents[TEvent]];
 
 export class Model {
 
@@ -88,7 +67,6 @@ export class Model {
     private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
     private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
-    private static listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
     private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
@@ -273,15 +251,7 @@ export class Model {
         event: TEvent,
         listener: ModelListener<TModel, TEvent>,
     ): () => void {
-        if (!this.listeners.has(this))
-            this.listeners.set(this, {});
-
-        const modelListeners = this.listeners.get(this) as Record<string, ModelListener<TModel, TEvent>[]>;
-        const listeners = modelListeners[event] ??= [];
-
-        listeners.push(listener);
-
-        return () => arrayRemove(listeners, listener);
+        return registerModelListener(this, event, listener);
     }
 
     public static instance<T extends Model>(this: ModelConstructor<T>): T {
@@ -1045,14 +1015,7 @@ export class Model {
     }
 
     protected async emit<T extends keyof ModelEvents>(...args: ModelEmitArgs<T>): Promise<void> {
-        const event = args[0];
-        const payload = args[1];
-        const listeners = this.static().listeners.get(this.static())?.[event];
-
-        if (!listeners)
-            return;
-
-        await Promise.all(listeners.map(listener => listener(this, payload)));
+        return emitModelEvent<T>(this, ...args);
     }
 
     protected async syncDirty(): Promise<string> {

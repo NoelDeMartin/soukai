@@ -9,6 +9,7 @@ export * from './deprecated';
 export * from './inference';
 export * from './Model';
 export * from './relations/index';
+export * from './listeners';
 export * from './schema';
 
 export { TimestampField } from './timestamps';
