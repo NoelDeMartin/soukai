@@ -603,7 +603,7 @@ export class Model {
 
         this._attributes[field] = value = this.castAttribute(value, { definition: this.static('fields')[field] });
 
-        this.attributeValueChanged(this._originalAttributes[field], value)
+        this.markAttributeDirty(field, this._originalAttributes[field], value)
             ? this._dirtyAttributes[field] = value
             : delete this._dirtyAttributes[field];
     }
@@ -1150,6 +1150,10 @@ export class Model {
             return toString(originalValue) !== toString(newValue);
 
         return !deepEquals(originalValue, newValue);
+    }
+
+    protected markAttributeDirty(field: string, originalValue: unknown, newValue: unknown): boolean {
+        return this.attributeValueChanged(originalValue, newValue);
     }
 
     protected castAttributes(
