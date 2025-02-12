@@ -30,7 +30,7 @@ import { withEngineImpl } from './utils';
 import { emitModelEvent, registerModelListener } from './listeners';
 import type { Attributes } from './attributes';
 import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
-import type { ModelConstructor } from './inference';
+import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 import type { ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
@@ -70,116 +70,37 @@ export class Model {
     private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap;
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
-        this.bootedModels.set(this, true);
-
-        const modelClass = this;
-        const instance = modelClass.pureInstance();
         const fieldDefinitions: BootedFieldsDefinition = {};
 
-        // Set model name
-        const modelNameDescriptor = Object.getOwnPropertyDescriptor(modelClass, 'modelName');
+        this.bootedModels.set(this, true);
 
-        modelClass.modelName = modelNameDescriptor?.value ?? name ?? modelClass.name;
+        this.modelName = this.bootModelName(name);
+        this.collection = this.bootCollection();
+        this.timestamps = this.bootTimestamps(this.timestamps, fieldDefinitions);
+        this.fields = this.bootFields(
+            this.fields,
+            this.primaryKey,
+            this.timestamps,
+            fieldDefinitions,
+        );
 
-        // Validate collection
-        modelClass.bootCollection();
+        const { classFields, relations, attributeGetters, attributeSetters } = this.bootClassDefinitions();
 
-        // Validate timestamps
-        if (typeof modelClass.timestamps === 'boolean' || typeof modelClass.timestamps === 'undefined') {
-            if (typeof modelClass.timestamps === 'undefined' || modelClass.timestamps) {
-                for (const field of TIMESTAMP_FIELDS) {
-                    fieldDefinitions[field] = { type: FieldType.Date, required: false };
-                }
-                modelClass.timestamps = TIMESTAMP_FIELDS;
-            } else {
-                modelClass.timestamps = [];
-            }
-        } else if (Array.isArray(modelClass.timestamps)) {
-            for (const field of modelClass.timestamps) {
-                if (!TIMESTAMP_FIELDS.includes(field)) {
-                    throw new InvalidModelDefinition(
-                        modelClass.modelName,
-                        `Invalid timestamp field defined (${field})`,
-                    );
-                }
-
-                fieldDefinitions[field] = { type: FieldType.Date, required: false };
-            }
-        } else {
-            throw new InvalidModelDefinition(modelClass.modelName, 'Invalid timestamps definition');
-        }
-
-        // Validate fields
-        if (typeof this.fields !== 'undefined') {
-            for (const [field, definition] of Object.entries(this.fields)) {
-                if (objectHasOwnProperty(this.fields, field)) {
-                    fieldDefinitions[field] = expandFieldDefinition(modelClass.modelName, field, definition);
-
-                    if (
-                        modelClass.timestamps.includes(field as TimestampFieldValue) && (
-                            fieldDefinitions[field]?.type !== FieldType.Date ||
-                            fieldDefinitions[field]?.required
-                        )
-                    ) {
-                        throw new InvalidModelDefinition(
-                            modelClass.modelName,
-                            `Field ${field} definition must be type Date and not required ` +
-                            'because it is used an automatic timestamp. ' +
-                            'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
-                        );
-                    }
-                }
-            }
-        }
-
-        // Define primary key field
-        if (!(modelClass.primaryKey in fieldDefinitions)) {
-            fieldDefinitions[modelClass.primaryKey] = {
-                type: FieldType.Key,
-                required: false,
-            };
-        }
-
-        // Obtain class definition information
-        const builtInClassFields = ['_engine'];
-        const classFields: string[] = Object.getOwnPropertyNames(instance).concat(builtInClassFields);
-        const relations: string[] = [];
-        const attributeGetters: Map<string, () => unknown> = new Map<string, () => unknown>();
-        const attributeSetters: Map<string, (value: unknown) => void> = new Map<string, (value: unknown) => void>();
-
-        let prototype = Object.getPrototypeOf(instance);
-        while (prototype !== Model.prototype) {
-            if (prototype.constructor.classFields)
-                classFields.push(...prototype.constructor.classFields);
-
-            for (const [p, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(prototype))) {
-                const property = p as keyof typeof instance & string;
-
-                if (typeof descriptor.value !== 'function')
-                    continue;
-
-                if (property.endsWith('Relationship'))
-                    relations.push(property.slice(0, - 12));
-                else if (property.match(/get.+Attribute/))
-                    attributeGetters.set(
-                        stringToCamelCase(property.slice(3, -9)),
-                        instance[property] as unknown as () => unknown,
-                    );
-                else if (property.match(/set.+Attribute/))
-                    attributeSetters.set(
-                        stringToCamelCase(property.slice(3, -9)),
-                        instance[property] as unknown as () => unknown,
-                    );
-            }
-
-            prototype = Object.getPrototypeOf(prototype);
-        }
-
-        this.classFields = arrayUnique(classFields);
-        this.relations = arrayUnique(relations);
+        this.classFields = classFields;
+        this.relations = relations;
         this.__attributeGetters = attributeGetters;
         this.__attributeSetters = attributeSetters;
-        this.fields = fieldDefinitions;
+    }
+
+    public static setSchema(schema: SchemaDefinition): void {
+        const primaryKey = schema.primaryKey ?? 'id';
+        const fieldDefinitions: BootedFieldsDefinition = {};
+        const timestamps = this.bootTimestamps(schema.timestamps, fieldDefinitions);
+        const fields = this.bootFields(schema.fields, primaryKey, timestamps, fieldDefinitions);
+
+        this.primaryKey = primaryKey;
+        this.timestamps = timestamps;
+        this.fields = fields;
     }
 
     public static create<T extends Model>(this: ModelConstructor<T>, attributes: Attributes = {}): Promise<T> {
@@ -363,7 +284,13 @@ export class Model {
         this.boot();
     }
 
-    protected static bootCollection(): void {
+    protected static bootModelName(name?: string): string {
+        const modelNameDescriptor = Object.getOwnPropertyDescriptor(this, 'modelName');
+
+        return modelNameDescriptor?.value ?? name ?? this.name;
+    }
+
+    protected static bootCollection(): string {
         let modelClass = this;
 
         while (
@@ -378,7 +305,135 @@ export class Model {
             modelsWithMintedCollections.add(this);
         }
 
-        this.collection = modelClass.collection ?? this.pureInstance().getDefaultCollection();
+        return modelClass.collection ?? this.pureInstance().getDefaultCollection();
+    }
+
+    protected static bootTimestamps(
+        timestamps: TimestampFieldValue[] | boolean | undefined,
+        fieldDefinitions: BootedFieldsDefinition,
+    ): TimestampFieldValue[] {
+        if (typeof timestamps !== 'boolean' && typeof timestamps !== 'undefined' && !Array.isArray(timestamps)) {
+            throw new InvalidModelDefinition(this.modelName, 'Invalid timestamps definition');
+        }
+
+        if (timestamps === false) {
+            return [];
+        }
+
+        if (!Array.isArray(timestamps)) {
+            timestamps = TIMESTAMP_FIELDS;
+        }
+
+        const invalidField = timestamps.find(field => !TIMESTAMP_FIELDS.includes(field));
+
+        if (invalidField) {
+            throw new InvalidModelDefinition(
+                this.modelName,
+                `Invalid timestamp field defined (${invalidField})`,
+            );
+        }
+
+        for (const field of timestamps) {
+            fieldDefinitions[field] = { type: FieldType.Date, required: false };
+        }
+
+        return timestamps;
+    }
+
+    protected static bootFields(
+        fields: FieldsDefinition | undefined,
+        primaryKey: string,
+        timestamps: TimestampFieldValue[],
+        fieldDefinitions: BootedFieldsDefinition,
+    ): BootedFieldsDefinition {
+        if (typeof fields === 'undefined') {
+            fieldDefinitions[primaryKey] = {
+                type: FieldType.Key,
+                required: false,
+            };
+
+            return fieldDefinitions;
+        }
+
+        for (const [field, definition] of Object.entries(fields)) {
+            if (!objectHasOwnProperty(fields, field)) {
+                continue;
+            }
+
+            fieldDefinitions[field] = expandFieldDefinition(this.modelName, field, definition);
+
+            if (
+                timestamps.includes(field as TimestampFieldValue) && (
+                    fieldDefinitions[field]?.type !== FieldType.Date ||
+                    fieldDefinitions[field]?.required
+                )
+            ) {
+                throw new InvalidModelDefinition(
+                    this.modelName,
+                    `Field ${field} definition must be type Date and not required ` +
+                    'because it is used an automatic timestamp. ' +
+                    'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
+                );
+            }
+        }
+
+        if (!(primaryKey in fieldDefinitions)) {
+            fieldDefinitions[primaryKey] = {
+                type: FieldType.Key,
+                required: false,
+            };
+        }
+
+        return fieldDefinitions;
+    }
+
+    protected static bootClassDefinitions(): {
+        classFields: string[];
+        relations: string[];
+        attributeGetters: Map<string, () => unknown>;
+        attributeSetters: Map<string, (value: unknown) => void>;
+        } {
+        const instance = this.pureInstance();
+        const builtInClassFields = ['_engine'];
+        const classFields: string[] = Object.getOwnPropertyNames(instance).concat(builtInClassFields);
+        const relations: string[] = [];
+        const attributeGetters: Map<string, () => unknown> = new Map<string, () => unknown>();
+        const attributeSetters: Map<string, (value: unknown) => void> = new Map<string, (value: unknown) => void>();
+
+        let prototype = Object.getPrototypeOf(instance);
+        while (prototype !== Model.prototype) {
+            if (prototype.constructor.classFields)
+                classFields.push(...prototype.constructor.classFields);
+
+            for (const [p, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(prototype))) {
+                const property = p as keyof typeof instance & string;
+
+                if (typeof descriptor.value !== 'function')
+                    continue;
+
+                if (property.endsWith('Relationship'))
+                    relations.push(property.slice(0, - 12));
+                else if (property.match(/get.+Attribute/))
+                    attributeGetters.set(
+                        stringToCamelCase(property.slice(3, -9)),
+                        instance[property] as unknown as () => unknown,
+                    );
+                else if (property.match(/set.+Attribute/))
+                    attributeSetters.set(
+                        stringToCamelCase(property.slice(3, -9)),
+                        instance[property] as unknown as () => unknown,
+                    );
+            }
+
+            prototype = Object.getPrototypeOf(prototype);
+        }
+
+        return {
+            classFields: arrayUnique(classFields),
+            relations: arrayUnique(relations),
+            attributeGetters,
+            attributeSetters,
+        };
     }
 
     // TODO this should be optional (but it's too annoying to use)

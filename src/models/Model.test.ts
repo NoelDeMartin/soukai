@@ -13,6 +13,7 @@ import City from '@/testing/stubs/City';
 import MockEngine from '@/testing/mocks/MockEngine';
 import Post from '@/testing/stubs/Post';
 import User from '@/testing/stubs/User';
+import UserSchema from '@/testing/stubs/User.schema';
 
 describe('Model', () => {
 
@@ -887,6 +888,57 @@ describe('Model attributes', () => {
         expect(instance.getOriginalAttribute('date')).toEqual('casted date');
         expect(instance.getAttribute('numbers')).toEqual('casted array');
         expect(instance.getOriginalAttribute('numbers')).toEqual('casted array');
+    });
+
+    it('updates schema definitions', () => {
+        // Arrange
+        class StubUser extends UserSchema {}
+
+        bootModels({ StubUser });
+
+        expect(StubUser.primaryKey).toEqual('id');
+        expect(StubUser.timestamps).toEqual([TimestampField.CreatedAt, TimestampField.UpdatedAt]);
+        expect(StubUser.fields.name).toEqual({
+            type: FieldType.String,
+            required: true,
+        });
+
+        // Act
+        StubUser.setSchema({
+            primaryKey: 'uuid',
+            timestamps: [TimestampField.CreatedAt],
+            fields: {
+                firstName: FieldType.String,
+                lastName: FieldType.String,
+                social: FieldType.Boolean,
+            },
+        });
+
+        // Assert
+        expect(StubUser.primaryKey).toEqual('uuid');
+        expect(StubUser.timestamps).toEqual([TimestampField.CreatedAt]);
+        expect(StubUser.fields).toEqual({
+            uuid: {
+                type: FieldType.Key,
+                required: false,
+            },
+            createdAt: {
+                type: FieldType.Date,
+                required: false,
+            },
+            firstName: {
+                type: FieldType.String,
+                required: false,
+            },
+            lastName: {
+                type: FieldType.String,
+                required: false,
+            },
+            social: {
+                type: FieldType.Boolean,
+                required: false,
+            },
+        });
     });
 
     it('fixes malformed attributes', async () => {
