@@ -95,7 +95,7 @@ export class Model {
     public static async updateSchema(schema: SchemaDefinition | ModelConstructor): Promise<void> {
         await this.performSchemaUpdate(schema);
 
-        await emitModelEvent(this, 'schema-updated');
+        await emitModelEvent(this, 'schema-updated', schema);
     }
 
     public static create<T extends Model>(this: ModelConstructor<T>, attributes: Attributes = {}): Promise<T> {

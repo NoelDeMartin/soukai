@@ -905,7 +905,7 @@ describe('Model attributes', () => {
             required: true,
         });
 
-        StubUser.on('schema-updated', () => (listenerCalled = true));
+        StubUser.on('schema-updated', (schema) => (listenerCalled = schema.primaryKey === 'uuid'));
 
         // Act
         await StubUser.updateSchema({
@@ -962,7 +962,7 @@ describe('Model attributes', () => {
             required: true,
         });
 
-        StubUser.on('schema-updated', () => (listenerCalled = true));
+        StubUser.on('schema-updated', (schema) => (listenerCalled = schema.primaryKey === 'uuid'));
 
         // Act
         const schema = defineModelSchema({

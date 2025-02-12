@@ -2,7 +2,7 @@ import type { ClosureArgs } from '@noeldemartin/utils';
 import { arrayRemove } from '@noeldemartin/utils';
 
 import { Model } from './Model';
-import type { ModelConstructor } from './inference';
+import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 
 let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
@@ -13,7 +13,7 @@ export type ModelListener<
 > = (...args: ModelListenerArgs<TModel, TEvent>) => unknown;
 
 export interface ModelClassEvents {
-    'schema-updated': void;
+    'schema-updated': SchemaDefinition;
 }
 
 export interface ModelEvents {
