@@ -1,7 +1,7 @@
 import type { ClosureArgs } from '@noeldemartin/utils';
 import { arrayRemove } from '@noeldemartin/utils';
 
-import { Model } from './Model';
+import type { Model } from './Model';
 import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 
@@ -73,8 +73,8 @@ export async function emitModelEvent<T extends keyof ModelEvents>(model: Model, 
 /* eslint-enable max-len */
 
 export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
-    const modelClass = args[0] instanceof Model ? args[0].static() : args[0];
-    const model = args[0] instanceof Model ? args[0] : null;
+    const modelClass = '__attributeGetters' in args[0] ? args[0] : args[0].static();
+    const model = '__attributeGetters' in args[0] ? null : args[0];
     const event = args[1];
     const payload = args[2];
     const modelListeners = listeners.get(modelClass)?.[event];
