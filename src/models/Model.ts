@@ -93,14 +93,7 @@ export class Model {
     }
 
     public static async updateSchema(schema: SchemaDefinition | ModelConstructor): Promise<void> {
-        const primaryKey = schema.primaryKey ?? 'id';
-        const fieldDefinitions: BootedFieldsDefinition = {};
-        const timestamps = this.bootTimestamps(schema.timestamps, fieldDefinitions);
-        const fields = this.bootFields(schema.fields, primaryKey, timestamps, fieldDefinitions);
-
-        this.primaryKey = primaryKey;
-        this.timestamps = timestamps;
-        this.fields = fields;
+        await this.performSchemaUpdate(schema);
 
         await emitModelEvent(this, 'schema-updated');
     }
@@ -436,6 +429,17 @@ export class Model {
             attributeGetters,
             attributeSetters,
         };
+    }
+
+    protected static async performSchemaUpdate(schema: SchemaDefinition | ModelConstructor): Promise<void> {
+        const primaryKey = schema.primaryKey ?? 'id';
+        const fieldDefinitions: BootedFieldsDefinition = {};
+        const timestamps = this.bootTimestamps(schema.timestamps, fieldDefinitions);
+        const fields = this.bootFields(schema.fields, primaryKey, timestamps, fieldDefinitions);
+
+        this.primaryKey = primaryKey;
+        this.timestamps = timestamps;
+        this.fields = fields;
     }
 
     // TODO this should be optional (but it's too annoying to use)
