@@ -890,8 +890,10 @@ describe('Model attributes', () => {
         expect(instance.getOriginalAttribute('numbers')).toEqual('casted array');
     });
 
-    it('updates schema definitions', () => {
+    it('updates schema definitions', async () => {
         // Arrange
+        let listenerCalled = false;
+
         class StubUser extends UserSchema {}
 
         bootModels({ StubUser });
@@ -903,8 +905,10 @@ describe('Model attributes', () => {
             required: true,
         });
 
+        StubUser.on('schema-updated', () => (listenerCalled = true));
+
         // Act
-        StubUser.setSchema({
+        await StubUser.updateSchema({
             primaryKey: 'uuid',
             timestamps: [TimestampField.CreatedAt],
             fields: {
@@ -915,6 +919,67 @@ describe('Model attributes', () => {
         });
 
         // Assert
+        expect(listenerCalled).toBe(true);
+
+        expect(StubUser.primaryKey).toEqual('uuid');
+        expect(StubUser.timestamps).toEqual([TimestampField.CreatedAt]);
+        expect(StubUser.fields).toEqual({
+            uuid: {
+                type: FieldType.Key,
+                required: false,
+            },
+            createdAt: {
+                type: FieldType.Date,
+                required: false,
+            },
+            firstName: {
+                type: FieldType.String,
+                required: false,
+            },
+            lastName: {
+                type: FieldType.String,
+                required: false,
+            },
+            social: {
+                type: FieldType.Boolean,
+                required: false,
+            },
+        });
+    });
+
+    it('updates schema definitions using classes', async () => {
+        // Arrange
+        let listenerCalled = false;
+
+        class StubUser extends UserSchema {}
+
+        bootModels({ StubUser });
+
+        expect(StubUser.primaryKey).toEqual('id');
+        expect(StubUser.timestamps).toEqual([TimestampField.CreatedAt, TimestampField.UpdatedAt]);
+        expect(StubUser.fields.name).toEqual({
+            type: FieldType.String,
+            required: true,
+        });
+
+        StubUser.on('schema-updated', () => (listenerCalled = true));
+
+        // Act
+        const schema = defineModelSchema({
+            primaryKey: 'uuid',
+            timestamps: [TimestampField.CreatedAt],
+            fields: {
+                firstName: FieldType.String,
+                lastName: FieldType.String,
+                social: FieldType.Boolean,
+            },
+        });
+
+        await StubUser.updateSchema(schema);
+
+        // Assert
+        expect(listenerCalled).toBe(true);
+
         expect(StubUser.primaryKey).toEqual('uuid');
         expect(StubUser.timestamps).toEqual([TimestampField.CreatedAt]);
         expect(StubUser.fields).toEqual({

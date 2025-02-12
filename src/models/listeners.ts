@@ -1,6 +1,7 @@
+import type { ClosureArgs } from '@noeldemartin/utils';
 import { arrayRemove } from '@noeldemartin/utils';
 
-import type { Model } from './Model';
+import { Model } from './Model';
 import type { ModelConstructor } from './inference';
 import type { Relation } from './relations/Relation';
 
@@ -8,8 +9,12 @@ let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new Weak
 
 export type ModelListener<
     TModel extends Model = Model,
-    TEvent extends keyof ModelEvents = keyof ModelEvents
+    TEvent extends keyof ModelEvents | keyof ModelClassEvents = keyof ModelEvents | keyof ModelClassEvents
 > = (...args: ModelListenerArgs<TModel, TEvent>) => unknown;
+
+export interface ModelClassEvents {
+    'schema-updated': void;
+}
 
 export interface ModelEvents {
     created: void;
@@ -19,21 +24,33 @@ export interface ModelEvents {
     'relation-loaded': Relation;
 }
 
-export type ModelEmitArgs<T extends keyof ModelEvents> =
-    ModelEvents[T] extends void
-        ? [event: T]
-        : [event: T, payload: ModelEvents[T]];
+export type ModelEmitArgs<T extends keyof ModelEvents | keyof ModelClassEvents> =
+    T extends keyof ModelEvents
+        ? ModelEvents[T] extends void
+            ? [event: T]
+            : [event: T, payload: ModelEvents[T]]
+        : T extends keyof ModelClassEvents
+            ? ModelClassEvents[T] extends void
+                ? [event: T]
+                : [event: T, payload: ModelClassEvents[T]]
+            : never;
 
-export type ModelListenerArgs<TModel extends Model, TEvent extends keyof ModelEvents> =
-    ModelEvents[TEvent] extends void
-        ? [model: TModel]
-        : [model: TModel, payload: ModelEvents[TEvent]];
+export type ModelListenerArgs<TModel extends Model, TEvent extends keyof ModelEvents | keyof ModelClassEvents> =
+    TEvent extends keyof ModelEvents
+        ? ModelEvents[TEvent] extends void
+                ? [model: TModel]
+                : [model: TModel, payload: ModelEvents[TEvent]]
+        : TEvent extends keyof ModelClassEvents
+            ? ModelClassEvents[TEvent] extends void
+                ? []
+                : [payload: ModelClassEvents[TEvent]]
+            : never;
 
 export function resetModelListeners(): void {
     listeners = new WeakMap();
 }
 
-export function registerModelListener<TModel extends Model, TEvent extends keyof ModelEvents>(
+export function registerModelListener<TModel extends Model, TEvent extends keyof ModelEvents | keyof ModelClassEvents>(
     modelClass: ModelConstructor<TModel>,
     event: TEvent,
     listener: ModelListener<TModel, TEvent>,
@@ -50,17 +67,21 @@ export function registerModelListener<TModel extends Model, TEvent extends keyof
     return () => arrayRemove(eventListeners, listener);
 }
 
-export async function emitModelEvent<T extends keyof ModelEvents>(
-    model: Model,
-    ...args: ModelEmitArgs<T>
-): Promise<void> {
-    const event = args[0];
-    const payload = args[1];
-    const modelListeners = listeners.get(model.static())?.[event];
+/* eslint-disable max-len */
+export async function emitModelEvent<T extends keyof ModelClassEvents>(modelClass: ModelConstructor, ...args: ModelEmitArgs<T>): Promise<void>;
+export async function emitModelEvent<T extends keyof ModelEvents>(model: Model, ...args: ModelEmitArgs<T>): Promise<void>;
+/* eslint-enable max-len */
+
+export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
+    const modelClass = args[0] instanceof Model ? args[0].static() : args[0];
+    const model = args[0] instanceof Model ? args[0] : null;
+    const event = args[1];
+    const payload = args[2];
+    const modelListeners = listeners.get(modelClass)?.[event];
 
     if (!modelListeners) {
         return;
     }
 
-    await Promise.all(modelListeners.map(listener => listener(model, payload)));
+    await Promise.all(modelListeners.map(listener => model ? listener(model, payload) : listener(payload)));
 }

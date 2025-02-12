@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Augmenting the `ModelEvents` interface it is now possible to extend model events with custom events.
 - The following model events: `modified`, `relation-loaded`.
-- Added the ability to update model schemas with `setSchema`.
+- Added the ability to update model schemas with `updateSchema`.
 
 ### Changed
 

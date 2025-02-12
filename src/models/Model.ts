@@ -33,7 +33,7 @@ import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } 
 import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
-import type { ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
+import type { ModelClassEvents, ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
 
 const modelsWithMintedCollections = new WeakSet();
 
@@ -92,7 +92,7 @@ export class Model {
         this.__attributeSetters = attributeSetters;
     }
 
-    public static setSchema(schema: SchemaDefinition): void {
+    public static async updateSchema(schema: SchemaDefinition | ModelConstructor): Promise<void> {
         const primaryKey = schema.primaryKey ?? 'id';
         const fieldDefinitions: BootedFieldsDefinition = {};
         const timestamps = this.bootTimestamps(schema.timestamps, fieldDefinitions);
@@ -101,6 +101,8 @@ export class Model {
         this.primaryKey = primaryKey;
         this.timestamps = timestamps;
         this.fields = fields;
+
+        await emitModelEvent(this, 'schema-updated');
     }
 
     public static create<T extends Model>(this: ModelConstructor<T>, attributes: Attributes = {}): Promise<T> {
@@ -167,7 +169,7 @@ export class Model {
         return this.instance().newInstance(...params);
     }
 
-    public static on<TModel extends Model, TEvent extends keyof ModelEvents>(
+    public static on<TModel extends Model, TEvent extends keyof ModelEvents | keyof ModelClassEvents>(
         this: ModelConstructor<TModel>,
         event: TEvent,
         listener: ModelListener<TModel, TEvent>,
