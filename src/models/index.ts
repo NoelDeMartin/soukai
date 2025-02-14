@@ -6,10 +6,11 @@ import type { ModelConstructor } from '@/models/inference';
 
 export { default as ModelKey } from './ModelKey';
 export * from './deprecated';
+export * from './hooks';
 export * from './inference';
+export * from './listeners';
 export * from './Model';
 export * from './relations/index';
-export * from './listeners';
 export * from './schema';
 
 export { TimestampField } from './timestamps';

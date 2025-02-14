@@ -2,6 +2,8 @@ import { objectHasOwnProperty } from '@noeldemartin/utils';
 
 import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
 
+import type { Model } from './Model';
+
 // ---------------------------------------------------------------------------------------------------------------------
 // There are two types of field definitions: the ones used for defining a Model and the ones used at runtime (called
 // "booted" in this file). The ones used to define a Model are a subset of the ones used at runtime, but it isn't
@@ -40,6 +42,9 @@ export type FieldDefinition<T = unknown> =
 
 export type FieldDefinitionBase<T = unknown> = T & {
     required?: boolean;
+    cast?: (value: unknown) => unknown;
+    set?: (this: Model, value: unknown) => void;
+    get?: (this: Model) => unknown;
 };
 
 export type BasicFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
@@ -64,6 +69,9 @@ export type BootedFieldDefinition<T = unknown> =
 
 export type BootedFieldDefinitionBase<T = unknown> = T & {
     required: boolean;
+    cast?: (value: unknown) => unknown;
+    set?: (this: Model, value: unknown) => void;
+    get?: (this: Model) => unknown;
 };
 
 export type BootedBasicFieldDefinition<T = unknown> = BootedFieldDefinitionBase<T> & {

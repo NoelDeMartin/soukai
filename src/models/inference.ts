@@ -11,6 +11,7 @@ import type {
     FieldsDefinition,
     ObjectFieldDefinition,
 } from './fields';
+import type { ModelHooks } from './hooks';
 import type { TimestampField, TimestampsDefinition } from './timestamps';
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -95,6 +96,7 @@ export type SchemaDefinition<T = unknown> = Partial<{
     primaryKey: string;
     timestamps: TimestampsDefinition;
     fields: FieldsDefinition<T>;
+    hooks?: ModelHooks;
 }>;
 
 export type GetFieldsDefinition<D extends SchemaDefinition> = D extends { fields: infer F }

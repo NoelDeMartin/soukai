@@ -30,10 +30,11 @@ import { withEngineImpl } from './utils';
 import { emitModelEvent, registerModelListener } from './listeners';
 import type { Attributes } from './attributes';
 import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
+import type { ModelClassEvents, ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
 import type { ModelConstructor, SchemaDefinition } from './inference';
+import type { ModelHooks } from './hooks';
 import type { Relation } from './relations/Relation';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
-import type { ModelClassEvents, ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
 
 const modelsWithMintedCollections = new WeakSet();
 
@@ -60,6 +61,7 @@ export class Model {
     public static modelName: string;
     public static classFields: string[] = [];
     public static relations: string[] = [];
+    public static hooks: ModelHooks = {};
     public static __attributeGetters = new Map<string, () => unknown>();
     public static __attributeSetters = new Map<string, (value: unknown) => void>();
 
@@ -90,6 +92,10 @@ export class Model {
         this.relations = relations;
         this.__attributeGetters = attributeGetters;
         this.__attributeSetters = attributeSetters;
+
+        const hooks = this.bootHooks(this.hooks);
+
+        this.hooks = hooks;
     }
 
     public static async updateSchema(schema: SchemaDefinition | ModelConstructor): Promise<void> {
@@ -431,14 +437,20 @@ export class Model {
         };
     }
 
+    protected static bootHooks(hooks?: ModelHooks): ModelHooks {
+        return hooks ?? {};
+    }
+
     protected static async performSchemaUpdate(schema: SchemaDefinition | ModelConstructor): Promise<void> {
         const primaryKey = schema.primaryKey ?? 'id';
         const fieldDefinitions: BootedFieldsDefinition = {};
         const timestamps = this.bootTimestamps(schema.timestamps, fieldDefinitions);
+        const hooks = this.bootHooks(schema.hooks);
         const fields = this.bootFields(schema.fields, primaryKey, timestamps, fieldDefinitions);
 
         this.primaryKey = primaryKey;
         this.timestamps = timestamps;
+        this.hooks = hooks;
         this.fields = fields;
     }
 
@@ -670,11 +682,11 @@ export class Model {
     }
 
     public hasAttributeSetter(field: string): boolean {
-        return this.static('__attributeSetters').has(field);
+        return this.static('__attributeSetters').has(field) || !!this.static('fields')[field]?.set;
     }
 
     public callAttributeSetter(field: string, value: unknown): void {
-        const setter = this.static('__attributeSetters').get(field);
+        const setter = this.static('__attributeSetters').get(field) ?? this.static('fields')[field]?.set;
 
         return setter?.call(this, value);
     }
@@ -763,11 +775,11 @@ export class Model {
     }
 
     public hasAttributeGetter(field: string): boolean {
-        return this.static('__attributeGetters').has(field);
+        return this.static('__attributeGetters').has(field) || !!this.static('fields')[field]?.get;
     }
 
     public callAttributeGetter(field: string): unknown {
-        const getter = this.static('__attributeGetters').get(field);
+        const getter = this.static('__attributeGetters').get(field) ?? this.static('fields')[field]?.get;
 
         return getter?.call(this);
     }
@@ -833,8 +845,10 @@ export class Model {
         if (existed && !this.isDirty())
             return this;
 
+        await this.static('hooks').beforeSave?.call(this);
         await this.beforeSave();
         await this.performSave();
+        await this.static('hooks').afterSave?.call(this);
         await this.afterSave();
         await this.emit(existed ? 'updated' : 'created');
 
@@ -1239,8 +1253,13 @@ export class Model {
         value: unknown,
         { field, definition, malformedAttributes }: ModelCastAttributeOptions = {},
     ): unknown {
-        if (isNullable(value))
+        if (isNullable(value)) {
             return value;
+        }
+
+        if (definition?.cast) {
+            return definition.cast(value);
+        }
 
         if (typeof definition === 'undefined') {
             switch (typeof value) {
