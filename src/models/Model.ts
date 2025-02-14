@@ -811,17 +811,17 @@ export class Model {
     public unsetAttribute(field: string): void {
         // TODO implement deep unsetter
         // TODO validate protected fields (e.g. id)
-        if (objectHasOwnProperty(this._attributes, field)) {
-            if (field in this.static('fields')) {
-                this._attributes[field] = undefined;
-            } else {
-                delete this._attributes[field];
-            }
-
-            if (this._originalAttributes[field] !== undefined) {
-                this._dirtyAttributes[field] = undefined;
-            }
+        if (!objectHasOwnProperty(this._attributes, field)) {
+            return;
         }
+
+        field in this.static('fields')
+            ? this._attributes[field] = undefined
+            : delete this._attributes[field];
+
+        this.markAttributeDirty(field, this._originalAttributes[field], undefined)
+            ? this._dirtyAttributes[field] = undefined
+            : delete this._dirtyAttributes[field];
     }
 
     public is(another: this): boolean {

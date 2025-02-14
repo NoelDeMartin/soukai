@@ -1175,11 +1175,14 @@ describe('Model attributes', () => {
         model.surname = faker.name.lastName();
         model.surname = originalSurname;
         model.social = { mastodon: faker.internet.userName() };
+        model.age = 42;
+        delete model.age;
         delete model.contact;
 
         expect(model.isDirty('name')).toBe(true);
         expect(model.isDirty('surname')).toBe(false);
         expect(model.isDirty('social')).toBe(true);
+        expect(model.isDirty('age')).toBe(false);
         expect(model.isDirty('contact')).toBe(true);
     });
 
