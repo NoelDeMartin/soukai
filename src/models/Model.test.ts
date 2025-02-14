@@ -850,6 +850,41 @@ describe('Model attributes', () => {
         expect(model.alias).toBe(name);
     });
 
+    it('attribute aliases work', () => {
+        // Arrange
+        const Schema = defineModelSchema({
+            fields: {
+                name: FieldType.String,
+                surname: FieldType.String,
+                lastName: {
+                    type: FieldType.String,
+                    alias: 'surname',
+                },
+            },
+        });
+
+        class StubModel extends Schema {}
+
+        bootModels({ StubModel });
+
+        // Act & Assert
+        const instance = new StubModel({ name: 'John', surname: 'Doe' }, true);
+
+        expect(instance.name).toEqual('John');
+        expect(instance.surname).toEqual('Doe');
+        expect(instance.lastName).toEqual('Doe');
+
+        instance.surname = 'Snow';
+        expect(instance.name).toEqual('John');
+        expect(instance.surname).toEqual('Snow');
+        expect(instance.lastName).toEqual('Snow');
+
+        instance.lastName = '5';
+        expect(instance.name).toEqual('John');
+        expect(instance.surname).toEqual('5');
+        expect(instance.lastName).toEqual('5');
+    });
+
     it('original attributes are casted', () => {
         // Arrange
         const Schema = defineModelSchema({

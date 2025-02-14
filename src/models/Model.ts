@@ -23,7 +23,7 @@ import HasOneRelation from './relations/HasOneRelation';
 import ModelKey from './ModelKey';
 import MultiModelRelation from './relations/MultiModelRelation';
 import SingleModelRelation from './relations/SingleModelRelation';
-import { FieldType, expandFieldDefinition } from './fields';
+import { FieldType, bootFieldDefinition } from './fields';
 import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
 import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
 import { withEngineImpl } from './utils';
@@ -70,6 +70,7 @@ export class Model {
     private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
     private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
     private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap;
+    private static fieldAliases: Record<string, string> = {};
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
         const fieldDefinitions: BootedFieldsDefinition = {};
@@ -79,12 +80,16 @@ export class Model {
         this.modelName = this.bootModelName(name);
         this.collection = this.bootCollection();
         this.timestamps = this.bootTimestamps(this.timestamps, fieldDefinitions);
-        this.fields = this.bootFields(
+
+        const { fields, fieldAliases } = this.bootFields(
             this.fields,
             this.primaryKey,
             this.timestamps,
             fieldDefinitions,
         );
+
+        this.fields = fields;
+        this.fieldAliases = fieldAliases;
 
         const { classFields, relations, attributeGetters, attributeSetters } = this.bootClassDefinitions();
 
@@ -346,27 +351,37 @@ export class Model {
         primaryKey: string,
         timestamps: TimestampFieldValue[],
         fieldDefinitions: BootedFieldsDefinition,
-    ): BootedFieldsDefinition {
+    ): { fields: BootedFieldsDefinition; fieldAliases: Record<string, string> } {
         if (typeof fields === 'undefined') {
             fieldDefinitions[primaryKey] = {
                 type: FieldType.Key,
                 required: false,
             };
 
-            return fieldDefinitions;
+            return {
+                fields: fieldDefinitions,
+                fieldAliases: {},
+            };
         }
+
+        const fieldAliases: Record<string, string> = {};
 
         for (const [field, definition] of Object.entries(fields)) {
             if (!objectHasOwnProperty(fields, field)) {
                 continue;
             }
 
-            fieldDefinitions[field] = expandFieldDefinition(this.modelName, field, definition);
+            const bootedDefinition = fieldDefinitions[field] = bootFieldDefinition(this.modelName, field, definition);
+
+            if (bootedDefinition.alias) {
+                fieldAliases[field] = bootedDefinition.alias;
+                fieldAliases[bootedDefinition.alias] = field;
+            }
 
             if (
                 timestamps.includes(field as TimestampFieldValue) && (
-                    fieldDefinitions[field]?.type !== FieldType.Date ||
-                    fieldDefinitions[field]?.required
+                    bootedDefinition.type !== FieldType.Date ||
+                    bootedDefinition.required
                 )
             ) {
                 throw new InvalidModelDefinition(
@@ -385,7 +400,10 @@ export class Model {
             };
         }
 
-        return fieldDefinitions;
+        return {
+            fields: fieldDefinitions,
+            fieldAliases,
+        };
     }
 
     protected static bootClassDefinitions(): {
@@ -446,12 +464,13 @@ export class Model {
         const fieldDefinitions: BootedFieldsDefinition = {};
         const timestamps = this.bootTimestamps(schema.timestamps, fieldDefinitions);
         const hooks = this.bootHooks(schema.hooks);
-        const fields = this.bootFields(schema.fields, primaryKey, timestamps, fieldDefinitions);
+        const { fields, fieldAliases } = this.bootFields(schema.fields, primaryKey, timestamps, fieldDefinitions);
 
         this.primaryKey = primaryKey;
         this.timestamps = timestamps;
         this.hooks = hooks;
         this.fields = fields;
+        this.fieldAliases = fieldAliases;
     }
 
     // TODO this should be optional (but it's too annoying to use)
@@ -665,10 +684,15 @@ export class Model {
     }
 
     public setAttribute(field: string, value: unknown): void {
+        const alias = this.static().fieldAliases[field];
         const previousValue = this.getAttribute(field);
 
         this.hasAttributeSetter(field) ? this.callAttributeSetter(field, value) : this.setAttributeValue(field, value);
         this.attributeValueChanged(previousValue, value) && this.emit('modified', field);
+
+        if (alias && this.attributeValueChanged(this.getAttribute(alias), value)) {
+            this.setAttribute(alias, value);
+        }
     }
 
     public setAttributeValue(field: string, value: unknown): void {
@@ -992,6 +1016,14 @@ export class Model {
             fields,
             this._malformedDocumentAttributes,
         );
+
+        for (const [field, alias] of Object.entries(this.static().fieldAliases)) {
+            const value = this._attributes[field] ?? this._attributes[alias];
+
+            this._attributes[field] = value;
+            this._attributes[alias] = value;
+        }
+
         this._originalAttributes = exists ? objectDeepClone(this._attributes) : {};
         this._dirtyAttributes = exists ? {} : objectDeepClone(this._attributes);
 

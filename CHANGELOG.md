@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - The following model events: `modified`, `relation-loaded`.
 - Added the ability to update model schemas with `updateSchema`.
 - Setters, getters, casters, and hooks can be defined directly in schemas (using `defineModelSchema`).
+- Field aliases (these fields will be automatically mirrored when either changes).
 
 ### Changed
 

@@ -42,6 +42,7 @@ export type FieldDefinition<T = unknown> =
 
 export type FieldDefinitionBase<T = unknown> = T & {
     required?: boolean;
+    alias?: string;
     cast?: (value: unknown) => unknown;
     set?: (this: Model, value: unknown) => void;
     get?: (this: Model) => unknown;
@@ -69,6 +70,7 @@ export type BootedFieldDefinition<T = unknown> =
 
 export type BootedFieldDefinitionBase<T = unknown> = T & {
     required: boolean;
+    alias?: string;
     cast?: (value: unknown) => unknown;
     set?: (this: Model, value: unknown) => void;
     get?: (this: Model) => unknown;
@@ -88,7 +90,7 @@ export type BootedObjectFieldDefinition<T = unknown> = BootedFieldDefinitionBase
     fields: BootedFieldsDefinition<T>;
 };
 
-export function expandFieldDefinition(
+export function bootFieldDefinition(
     model: string,
     field: string,
     definition: FieldDefinition,
@@ -125,7 +127,7 @@ export function expandFieldDefinition(
 
             for (const f in fieldDefinition.fields) {
                 if (objectHasOwnProperty(fieldDefinition.fields, f)) {
-                    fieldDefinition.fields[f] = expandFieldDefinition(model, f, fieldDefinition.fields[f]);
+                    fieldDefinition.fields[f] = bootFieldDefinition(model, f, fieldDefinition.fields[f]);
                 }
             }
             break;
@@ -136,7 +138,7 @@ export function expandFieldDefinition(
                     `Field definition of type array requires items attribute. Field: '${field}'`,
                 );
 
-            fieldDefinition.items = expandFieldDefinition(
+            fieldDefinition.items = bootFieldDefinition(
                 model,
                 'items',
                 fieldDefinition.items,
