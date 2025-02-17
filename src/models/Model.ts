@@ -1317,13 +1317,19 @@ export class Model {
 
         switch (definition.type) {
             case FieldType.Date:
-                if (!['string', 'number'].includes(typeof value) && !(value instanceof Date))
-                    throw new SoukaiError(`Invalid Date value: ${value}`);
+                if (!['string', 'number'].includes(typeof value) && !(value instanceof Date)) {
+                    throw new SoukaiError(
+                        `Invalid Date value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
+                    );
+                }
 
                 return new Date(value as string | number | Date);
             case FieldType.Object:
-                if (!isObject(value))
-                    throw new SoukaiError(`Invalid Object value: ${value}`);
+                if (!isObject(value)) {
+                    throw new SoukaiError(
+                        `Invalid Object value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
+                    );
+                }
 
                 return this.castAttributes(
                     value,
@@ -1332,8 +1338,11 @@ export class Model {
                     field && `${field}.`,
                 );
             case FieldType.Array:
-                if (!Array.isArray(value))
-                    throw new SoukaiError(`Invalid Array value: ${value}`);
+                if (!Array.isArray(value)) {
+                    throw new SoukaiError(
+                        `Invalid Array value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
+                    );
+                }
 
                 return value.map((attributeValue, index) => this.castAttribute(attributeValue, {
                     field: field && `${field}.${index}`,
@@ -1345,8 +1354,11 @@ export class Model {
             case FieldType.Number: {
                 const number = parseFloat(value as string);
 
-                if (isNaN(number))
-                    throw new SoukaiError(`Invalid Number value: ${value}`);
+                if (isNaN(number)){
+                    throw new SoukaiError(
+                        `Invalid Number value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
+                    );
+                }
 
                 return number;
             }
