@@ -41,7 +41,7 @@ export type EngineAttributeUpdateOperation =
 export interface EngineUpdateItemsOperatorData {
     $where?: EngineFilters;
     $update?: EngineAttributeUpdate;
-    $override?: Record<string, EngineAttributeUpdate>;
+    $override?: EngineAttributeValueMap;
     $unset?: true;
 }
 
