@@ -239,7 +239,7 @@ export class EngineHelper {
             updateData = [updateData];
         }
 
-        for (const { $where, $update, $unset } of updateData) {
+        for (const { $where, $update, $override, $unset } of updateData) {
             if ($where && $where.$in) {
                 $where.$in = $where.$in.map(index => index.toString());
             }
@@ -261,6 +261,12 @@ export class EngineHelper {
                     this.updateAttributes(filteredDocuments, { [index]: $update });
 
                     array[parseInt(index)] = filteredDocuments[index] as EngineDocument;
+                });
+            }
+
+            if ($override) {
+                Object.keys(filteredDocuments).forEach(index => {
+                    array[parseInt(index)] = $override as EngineDocument;
                 });
             }
 
