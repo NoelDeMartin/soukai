@@ -366,6 +366,33 @@ describe('EngineHelper', () => {
         });
     });
 
+    it('$override takes precedence over $update using $updateItems', () => {
+        assertDocumentUpdate({
+            original: {
+                people: [
+                    { name: 'Alice', age: 23 },
+                    { name: 'Bob', age: 42 },
+                ],
+            },
+            update: {
+                people: {
+                    $updateItems: {
+                        $where: { name: 'Alice' },
+                        $update: { name: 'Not Alice' },
+                        $override: { name: 'Alice Cooper', genre: 'Rock' },
+                    },
+                },
+            },
+            expected: {
+                people: [
+                    { name: 'Alice Cooper', genre: 'Rock' },
+                    { name: 'Bob', age: 42 },
+                ],
+            },
+        });
+    });
+
+
     it('updates documents using $unset', () => {
         assertDocumentUpdate({
             original: { foo: ['bar'], lorem: 'ipsum' },
