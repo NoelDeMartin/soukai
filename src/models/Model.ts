@@ -841,6 +841,12 @@ export class Model {
         this._exists = true;
     }
 
+    public reset(): void {
+        delete this._attributes[this.static('primaryKey')];
+        this._exists = false;
+        this._dirtyAttributes = objectDeepClone(this._attributes);
+    }
+
     public getPrimaryKey(): Key | null {
         return this._attributes[this.static('primaryKey')] ?? null;
     }
@@ -1172,12 +1178,6 @@ export class Model {
      */
     protected resetEngineData(): void {
         this.reset();
-    }
-
-    protected reset(): void {
-        delete this._attributes[this.static('primaryKey')];
-        this._exists = false;
-        this._dirtyAttributes = objectDeepClone(this._attributes);
     }
 
     /**
