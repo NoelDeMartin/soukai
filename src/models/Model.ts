@@ -103,6 +103,14 @@ export class Model {
         this.hooks = hooks;
     }
 
+    public static ensureBooted<T extends Model>(this: ModelConstructor<T>): void {
+        if (this.bootedModels.has(this)) {
+            return;
+        }
+
+        this.boot();
+    }
+
     public static async updateSchema(schema: SchemaDefinition | ModelConstructor): Promise<void> {
         await this.performSchemaUpdate(schema);
 
@@ -281,13 +289,6 @@ export class Model {
         }
 
         return this.pureInstances.get(this) as T;
-    }
-
-    protected static ensureBooted<T extends Model>(this: ModelConstructor<T>): void {
-        if (this.bootedModels.has(this))
-            return;
-
-        this.boot();
     }
 
     protected static bootModelName(name?: string): string {
