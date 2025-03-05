@@ -466,13 +466,15 @@ describe('Models definition', () => {
 
         bootModels({ Parent, Child });
 
-        expect(Parent.classFields).toHaveLength(3);
+        expect(Parent.classFields).toHaveLength(4);
         expect(Parent.classFields).toContain('_engine');
+        expect(Parent.classFields).toContain('_recentlyDeletedPrimaryKey');
         expect(Parent.classFields).toContain('parentProp');
         expect(Parent.classFields).toContain('parentField');
 
-        expect(Child.classFields).toHaveLength(5);
+        expect(Child.classFields).toHaveLength(6);
         expect(Child.classFields).toContain('_engine');
+        expect(Child.classFields).toContain('_recentlyDeletedPrimaryKey');
         expect(Child.classFields).toContain('parentProp');
         expect(Child.classFields).toContain('parentField');
         expect(Child.classFields).toContain('childProp');
@@ -802,6 +804,8 @@ describe('Models CRUD', () => {
                 expect(model.id).toBeUndefined();
                 expect(model.name).toBe(name);
                 expect(model.exists()).toBe(false);
+                expect(model.wasRecentlyDeleted()).toBe(true);
+                expect(model.getDeletedPrimaryKey()).toBe(id);
                 expect(mockEngine.delete).toHaveBeenCalledTimes(1);
                 expect(mockEngine.delete).toHaveBeenCalledWith(User.collection, id);
             });

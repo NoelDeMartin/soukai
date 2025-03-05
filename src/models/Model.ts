@@ -414,7 +414,7 @@ export class Model {
         attributeSetters: Map<string, (value: unknown) => void>;
         } {
         const instance = this.pureInstance();
-        const builtInClassFields = ['_engine'];
+        const builtInClassFields = ['_engine', '_recentlyDeletedPrimaryKey'];
         const classFields: string[] = Object.getOwnPropertyNames(instance).concat(builtInClassFields);
         const relations: string[] = [];
         const attributeGetters: Map<string, () => unknown> = new Map<string, () => unknown>();
@@ -486,6 +486,7 @@ export class Model {
     declare protected _relations: { [relation: string]: Relation };
 
     declare private _engine?: Engine;
+    declare private _recentlyDeletedPrimaryKey?: Key | null;
 
     constructor(attributes: Attributes = {}, exists: boolean = false) {
         // We need to do this in order to get a pure instance during boot; that is an instance that is not a proxy.
@@ -720,6 +721,10 @@ export class Model {
         return this._originalAttributes[field];
     }
 
+    public getDeletedPrimaryKey(): Key | null {
+        return this._recentlyDeletedPrimaryKey ?? null;
+    }
+
     public setOriginalAttribute(field: string, value: unknown): void {
         value = this.castAttribute(value, { definition: this.static('fields')[field] });
 
@@ -909,6 +914,10 @@ export class Model {
 
     public wasRecentlyCreated(): boolean {
         return this._wasRecentlyCreated;
+    }
+
+    public wasRecentlyDeleted(): boolean {
+        return !!this._recentlyDeletedPrimaryKey;
     }
 
     public clone(options?: ModelCloneOptions): this;
@@ -1102,11 +1111,14 @@ export class Model {
     }
 
     protected async performDelete(): Promise<void> {
+        const primaryKey = this.getPrimaryKey();
         const models = await this.getCascadeModels();
 
         await this.deleteModelsFromEngine(models);
 
         models.forEach(model => model.reset());
+
+        this._recentlyDeletedPrimaryKey = primaryKey;
     }
 
     protected performMalformedAttributeFixes(): void {
