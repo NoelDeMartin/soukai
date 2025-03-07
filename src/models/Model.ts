@@ -830,6 +830,16 @@ export class Model {
             : delete this._dirtyAttributes[field];
     }
 
+    public hasIncompleteAttributes(): boolean {
+        try {
+            validateRequiredAttributes(this._attributes, this.static('fields'));
+
+            return false;
+        } catch (error) {
+            return true;
+        }
+    }
+
     public is(another: this): boolean {
         return this.getPrimaryKey() === another.getPrimaryKey();
     }
