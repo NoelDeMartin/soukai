@@ -1,7 +1,7 @@
-import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
-import DocumentNotFound from '@/errors/DocumentNotFound';
-import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
-import SoukaiError from '@/errors/SoukaiError';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
+import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
+import SoukaiError from 'soukai/errors/SoukaiError';
 
 export {
     DocumentAlreadyExists,

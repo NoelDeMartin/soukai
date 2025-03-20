@@ -11,10 +11,10 @@ import {
     toString,
 } from '@noeldemartin/utils';
 
-import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
-import SoukaiError from '@/errors/SoukaiError';
-import { extractFinalEngine, getEngine, requireEngine } from '@/engines';
-import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from '@/engines/Engine';
+import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
+import SoukaiError from 'soukai/errors/SoukaiError';
+import { extractFinalEngine, getEngine, requireEngine } from 'soukai/engines';
+import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from 'soukai/engines/Engine';
 
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';

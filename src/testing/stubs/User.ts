@@ -1,6 +1,6 @@
 import { arrayFilter, arrayUnique, urlParse } from '@noeldemartin/utils';
 
-import type { MultiModelRelation, Relation, SingleModelRelation } from '@/models/index';
+import type { MultiModelRelation, Relation, SingleModelRelation } from 'soukai/models/index';
 
 import Model from './User.schema';
 import Post from './Post';

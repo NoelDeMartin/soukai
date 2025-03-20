@@ -1,6 +1,6 @@
-import SingleModelRelation from '@/models/relations/SingleModelRelation';
-import type { ModelConstructor } from '@/models/inference';
-import type { Model } from '@/models/Model';
+import SingleModelRelation from 'soukai/models/relations/SingleModelRelation';
+import type { ModelConstructor } from 'soukai/models/inference';
+import type { Model } from 'soukai/models/Model';
 
 export default class HasOneRelation<
     Parent extends Model = Model,

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
 
 import SoukaiError from './SoukaiError';
@@ -36,7 +37,7 @@ describe('SoukaiError', () => {
             constructor(m: string) {
                 super(`Custom message: ${m}`);
             }
-
+        
         }
 
         const message = faker.lorem.sentence();

@@ -1,9 +1,9 @@
 import { tap } from '@noeldemartin/utils';
 import type { ClosureArgs } from '@noeldemartin/utils';
 
-import type { Engine } from '@/engines/Engine';
+import type { Engine } from 'soukai/engines/Engine';
 
-const originalEngines: WeakMap<object, [Engine | undefined, number]> = new WeakMap;
+const originalEngines: WeakMap<object, [Engine | undefined, number]> = new WeakMap();
 
 export interface EngineTarget {
     setEngine(engine?: Engine): void;
@@ -20,16 +20,16 @@ export function withEngineImpl<TResult, TTarget extends EngineTarget>(options: {
     const target = options.target;
     const [originalEngine, replacementsCount] = originalEngines.get(target) ?? [options.getTargetEngine(), 0];
     const restoreOriginalEngine = () => {
-        const [originalEngine, replacementsCount] = originalEngines.get(target) as [Engine | undefined, number];
+        const [_originalEngine, _replacementsCount] = originalEngines.get(target) as [Engine | undefined, number];
 
-        if (replacementsCount > 1) {
-            originalEngines.set(target, [originalEngine, replacementsCount - 1]);
+        if (_replacementsCount > 1) {
+            originalEngines.set(target, [_originalEngine, _replacementsCount - 1]);
 
             return;
         }
 
         originalEngines.delete(target);
-        target.setEngine(originalEngine);
+        target.setEngine(_originalEngine);
     };
     const executeOperation = (operation: () => TResult | Promise<TResult>): TResult | Promise<TResult> => {
         const result = operation();
@@ -44,8 +44,8 @@ export function withEngineImpl<TResult, TTarget extends EngineTarget>(options: {
 
     if (!options.operation) {
         return new Proxy(target, {
-            get(target, propertyKey, receiver) {
-                const originalProperty = Reflect.get(target, propertyKey, receiver);
+            get(_target, propertyKey, receiver) {
+                const originalProperty = Reflect.get(_target, propertyKey, receiver);
 
                 if (typeof originalProperty !== 'function') {
                     restoreOriginalEngine();
@@ -53,7 +53,7 @@ export function withEngineImpl<TResult, TTarget extends EngineTarget>(options: {
                     return originalProperty;
                 }
 
-                return (...args: ClosureArgs) => executeOperation(() => originalProperty.call(target, ...args));
+                return (...args: ClosureArgs) => executeOperation(() => originalProperty.call(_target, ...args));
             },
         });
     }

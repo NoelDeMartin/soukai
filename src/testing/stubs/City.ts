@@ -1,4 +1,4 @@
-import type { MultiModelRelation, Relation } from '@/models/index';
+import type { MultiModelRelation, Relation } from 'soukai/models/index';
 
 import Model from './City.schema';
 import User from './User';

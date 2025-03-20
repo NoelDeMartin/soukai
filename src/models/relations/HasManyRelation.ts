@@ -1,6 +1,6 @@
-import MultiModelRelation from '@/models/relations/MultiModelRelation';
-import type { ModelConstructor } from '@/models/inference';
-import type { Model } from '@/models/Model';
+import MultiModelRelation from 'soukai/models/relations/MultiModelRelation';
+import type { ModelConstructor } from 'soukai/models/inference';
+import type { Model } from 'soukai/models/Model';
 
 export default class HasManyRelation<
     Parent extends Model = Model,

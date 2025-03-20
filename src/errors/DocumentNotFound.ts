@@ -1,4 +1,4 @@
-import SoukaiError from '@/errors/SoukaiError';
+import SoukaiError from 'soukai/errors/SoukaiError';
 
 export default class DocumentNotFound extends SoukaiError {
 

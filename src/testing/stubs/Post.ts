@@ -1,4 +1,4 @@
-import type { Relation, SingleModelRelation } from '@/models/index';
+import type { Relation, SingleModelRelation } from 'soukai/models/index';
 
 import Model from './Post.schema';
 import User from './User';

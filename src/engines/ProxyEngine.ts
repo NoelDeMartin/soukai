@@ -1,4 +1,10 @@
-import type { Engine, EngineDocument, EngineDocumentsCollection, EngineFilters, EngineUpdates } from '@/engines/Engine';
+import type {
+    Engine,
+    EngineDocument,
+    EngineDocumentsCollection,
+    EngineFilters,
+    EngineUpdates,
+} from 'soukai/engines/Engine';
 
 export function isProxyEngine(engine: Engine): engine is Engine & IProxyEngine {
     return engine instanceof ProxyEngine || 'getProxySubject' in engine;
@@ -8,9 +14,7 @@ export function isProxyEngine(engine: Engine): engine is Engine & IProxyEngine {
  * @deprecated Use ProxyEngine class instead.
  */
 export interface IProxyEngine {
-
     getProxySubject(): Engine;
-
 }
 
 export class ProxyEngine<SubjectEngine extends Engine = Engine> implements Engine, IProxyEngine {

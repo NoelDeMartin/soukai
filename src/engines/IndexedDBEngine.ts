@@ -1,10 +1,10 @@
 import { deleteDB, openDB } from 'idb';
 import { Semaphore, memo } from '@noeldemartin/utils';
-import type { DBSchema, IDBPCursorWithValue, IDBPObjectStore, TypedDOMStringList } from 'idb';
+import type { DBSchema, IDBPCursorWithValue, IDBPDatabase, IDBPTransaction } from 'idb';
 
-import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
-import DocumentNotFound from '@/errors/DocumentNotFound';
-import SoukaiError from '@/errors/SoukaiError';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
+import SoukaiError from 'soukai/errors/SoukaiError';
 
 import type {
     Engine,
@@ -12,21 +12,10 @@ import type {
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
-} from '@/engines/Engine';
+} from 'soukai/engines/Engine';
 
-import { EngineHelper } from '@/engines/EngineHelper';
-import type { ClosesConnections } from '@/engines/ClosesConnections';
-
-interface DatabaseConnection<Schema extends DBSchema> {
-    readonly objectStoreNames: TypedDOMStringList<string>;
-    transaction(storeNames: string | string[], mode?: IDBTransactionMode): DatabaseTransaction<Schema>;
-    close(): void;
-}
-
-interface DatabaseTransaction<Schema> {
-    readonly done: Promise<void>;
-    readonly store: IDBPObjectStore<Schema>;
-}
+import { EngineHelper } from 'soukai/engines/EngineHelper';
+import type { ClosesConnections } from 'soukai/engines/ClosesConnections';
 
 interface MetadataSchema extends DBSchema {
     collections: {
@@ -36,7 +25,7 @@ interface MetadataSchema extends DBSchema {
 }
 
 interface DocumentsSchema extends DBSchema {
-    [collection: string]: {
+    __collection_name__: {
         key: string;
         value: EngineDocument;
     };
@@ -47,8 +36,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private database: string;
     private helper: EngineHelper;
     private lock: Semaphore;
-    private _metadataConnection?: DatabaseConnection<MetadataSchema>;
-    private _documentsConnection?: DatabaseConnection<DocumentsSchema>;
+    private _metadataConnection?: IDBPDatabase<MetadataSchema>;
+    private _documentsConnection?: IDBPDatabase<DocumentsSchema>;
 
     public constructor(database: null | string = null) {
         this.database = database ? 'soukai-' + database : 'soukai';
@@ -57,12 +46,9 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async getCollections(): Promise<string[]> {
-        const keys = await this.withMetadataTransaction(
-            'readonly',
-            transaction => transaction.store.getAllKeys(),
-        );
+        const keys = await this.withMetadataTransaction('readonly', (transaction) => transaction.store.getAllKeys());
 
-        return keys.map(key => key.toString());
+        return keys.map((key) => key.toString());
     }
 
     public async purgeDatabase(): Promise<void> {
@@ -122,7 +108,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             return documents;
         }
 
-        await this.withDocumentsTransaction(collections, collection, 'readonly', transaction => {
+        await this.withDocumentsTransaction(collections, collection, 'readonly', (transaction) => {
             const processCursor = async (cursor: IDBPCursorWithValue<DocumentsSchema> | null): Promise<void> => {
                 if (!cursor) {
                     return;
@@ -183,12 +169,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                 return null;
             }
 
-            const document = await this.withDocumentsTransaction(
-                collections,
-                collection,
-                'readonly',
-                transaction => transaction.store.get(id),
-            );
+            const document = await this.withDocumentsTransaction(collections, collection, 'readonly', (transaction) =>
+                transaction.store.get(id));
 
             return document || null;
         } catch (error) {
@@ -205,7 +187,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             collections.push(collection);
         }
 
-        return this.withDocumentsTransaction(collections, collection, 'readwrite', transaction => {
+        return this.withDocumentsTransaction(collections, collection, 'readwrite', (transaction) => {
             transaction.store.add(document, id);
 
             return transaction.done;
@@ -215,7 +197,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private async updateDocument(collection: string, id: string, document: EngineDocument): Promise<void> {
         const collections = await this.getCollections();
 
-        return this.withDocumentsTransaction(collections, collection, 'readwrite', transaction => {
+        return this.withDocumentsTransaction(collections, collection, 'readwrite', (transaction) => {
             transaction.store.put(document, id);
 
             return transaction.done;
@@ -225,19 +207,20 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private async deleteDocument(collection: string, id: string): Promise<void> {
         const collections = await this.getCollections();
 
-        return this.withDocumentsTransaction(collections, collection, 'readwrite', transaction => {
+        return this.withDocumentsTransaction(collections, collection, 'readwrite', (transaction) => {
             transaction.store.delete(id);
 
             return transaction.done;
         });
     }
 
-    private async withMetadataTransaction<R>(
-        mode: IDBTransactionMode,
-        operation: (transaction: DatabaseTransaction<MetadataSchema>) => R,
-    ): Promise<R> {
-        const connection = this._metadataConnection = this._metadataConnection
-            || await openDB(`${this.database}-meta`, 1, {
+    private async withMetadataTransaction<TResult, TMode extends IDBTransactionMode>(
+        mode: TMode,
+        operation: (transaction: IDBPTransaction<MetadataSchema, ['collections'], TMode>) => TResult,
+    ): Promise<TResult> {
+        const connection = (this._metadataConnection =
+            this._metadataConnection ||
+            ((await openDB(`${this.database}-meta`, 1, {
                 upgrade(db) {
                     if (db.objectStoreNames.contains('collections')) {
                         return;
@@ -246,7 +229,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                     db.createObjectStore('collections', { keyPath: 'name' });
                 },
                 blocked: () => this.throwDatabaseBlockedError(),
-            }) as unknown as DatabaseConnection<MetadataSchema>;
+            })) as unknown as IDBPDatabase<MetadataSchema>));
 
         return this.retryingOnTransactionInactive(() => {
             const transaction = connection.transaction('collections', mode);
@@ -255,14 +238,15 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         });
     }
 
-    private async withDocumentsTransaction<R>(
+    private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
         collections: string[],
         collection: string,
-        mode: IDBTransactionMode,
-        operation: (transaction: DatabaseTransaction<DocumentsSchema>) => R,
-    ): Promise<R> {
-        const connection = this._documentsConnection = this._documentsConnection
-            || await openDB(this.database, collections.length, {
+        mode: TMode,
+        operation: (transaction: IDBPTransaction<DocumentsSchema, ['__collection_name__'], TMode>) => TResult,
+    ): Promise<TResult> {
+        const connection = (this._documentsConnection =
+            this._documentsConnection ||
+            ((await openDB(this.database, collections.length, {
                 upgrade(db) {
                     for (const documentsCollection of collections) {
                         if (db.objectStoreNames.contains(documentsCollection)) {
@@ -273,10 +257,10 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                     }
                 },
                 blocked: () => this.throwDatabaseBlockedError(),
-            }) as unknown as DatabaseConnection<DocumentsSchema>;
+            })) as unknown as IDBPDatabase<DocumentsSchema>));
 
         return this.retryingOnTransactionInactive(() => {
-            const transaction = connection.transaction(collection, mode);
+            const transaction = connection.transaction(collection as '__collection_name__', mode);
 
             return operation(transaction);
         });
@@ -288,10 +272,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             return operation();
         } catch (error) {
             if (
-                !(error instanceof Error) || (
-                    !error.name.toLowerCase().includes('inactive') &&
-                    !error.message.toLowerCase().includes('inactive')
-                )
+                !(error instanceof Error) ||
+                (!error.name.toLowerCase().includes('inactive') && !error.message.toLowerCase().includes('inactive'))
             ) {
                 throw error;
             }
@@ -301,7 +283,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     private async createCollection(collection: string): Promise<void> {
-        await this.withMetadataTransaction('readwrite', transaction => {
+        await this.withMetadataTransaction('readwrite', (transaction) => {
             transaction.store.add({ name: collection });
 
             return transaction.done;
@@ -317,8 +299,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private throwDatabaseBlockedError(): void {
         throw new SoukaiError(
             'An attempt to open an IndexedDB connection has been blocked, ' +
-            'remember to call IndexedDBEngine.closeConnections when necessary. ' +
-            'Learn more at https://developer.mozilla.org/en-US/docs/Web/API/IDBOpenDBRequest/blocked_event',
+                'remember to call IndexedDBEngine.closeConnections when necessary. ' +
+                'Learn more at https://developer.mozilla.org/en-US/docs/Web/API/IDBOpenDBRequest/blocked_event',
         );
     }
 

@@ -1,8 +1,8 @@
 import { fail } from '@noeldemartin/utils';
 
-import { SoukaiError } from '@/errors';
-import type { Model } from '@/models/Model';
-import type { ModelConstructor } from '@/models/inference';
+import { SoukaiError } from 'soukai/errors';
+import type { Model } from 'soukai/models/Model';
+import type { ModelConstructor } from 'soukai/models/inference';
 
 export { default as ModelKey } from './ModelKey';
 export * from './deprecated';

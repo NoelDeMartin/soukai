@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-import { ProxyEngine } from '@/engines/ProxyEngine';
-import type { Engine } from '@/engines/Engine';
+import { ProxyEngine } from 'soukai/engines/ProxyEngine';
+import type { Engine } from 'soukai/engines/Engine';
 
 export class LogEngine<SubjectEngine extends Engine = Engine> extends ProxyEngine<SubjectEngine> {
 

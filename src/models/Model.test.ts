@@ -1,37 +1,41 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { after, seconds, uuid } from '@noeldemartin/utils';
 import { faker } from '@noeldemartin/faker';
-import { after, seconds, tt } from '@noeldemartin/utils';
-import type { Assert, Equals, Expect, Extends, HasKey , Not } from '@noeldemartin/utils';
+import { tt } from '@noeldemartin/testing';
+import type { Assert, Expect, Extends, HasKey, Not } from '@noeldemartin/testing';
+import type { Equals } from '@noeldemartin/utils';
 
-import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
-import { FieldType, Model, TimestampField, bootModels, defineModelSchema } from '@/models/index';
-import { InMemoryEngine, setEngine } from '@/engines';
-import { SoukaiError } from '@/errors';
-import type { Engine } from '@/engines/Engine';
-import type { Key, ModelCastAttributeOptions, TimestampFieldValue } from '@/models/index';
+import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
+import { FieldType, Model, TimestampField, bootModels, defineModelSchema } from 'soukai/models/index';
+import { InMemoryEngine, setEngine } from 'soukai/engines';
+import { SoukaiError } from 'soukai/errors';
+import type { Key, ModelCastAttributeOptions, TimestampFieldValue } from 'soukai/models/index';
 
-import City from '@/testing/stubs/City';
-import MockEngine from '@/testing/mocks/MockEngine';
-import Post from '@/testing/stubs/Post';
-import User from '@/testing/stubs/User';
-import UserSchema from '@/testing/stubs/User.schema';
+import City from 'soukai/testing/stubs/City';
+import Post from 'soukai/testing/stubs/Post';
+import User from 'soukai/testing/stubs/User';
+import UserSchema from 'soukai/testing/stubs/User.schema';
+import FakeEngine from 'soukai/testing/fakes/FakeEngine';
 
 describe('Model', () => {
 
-    let mockEngine: jest.Mocked<Engine>;
+    let engine: FakeEngine;
 
     beforeEach(() => {
-        MockEngine.mockClear();
-
-        setEngine(mockEngine = new MockEngine());
+        setEngine((engine = new FakeEngine()));
         bootModels({ User, Post, City });
     });
 
     it('deletes related models with cascade delete mode', async () => {
         // Arrange
-        const userId = faker.datatype.uuid();
-        const postId = faker.datatype.uuid();
+        const userId = uuid();
+        const postId = uuid();
         const user = new User({ id: userId }, true);
         const post = new Post({ id: postId }, true);
+
+        engine.database[User.collection] = { [userId]: user.getAttributes() };
+        engine.database[Post.collection] = { [postId]: post.getAttributes() };
 
         user.setRelationModels('posts', [post]);
 
@@ -39,9 +43,9 @@ describe('Model', () => {
         await user.delete();
 
         // Assert
-        expect(mockEngine.delete).toHaveBeenCalledTimes(2);
-        expect(mockEngine.delete).toHaveBeenCalledWith(User.collection, userId);
-        expect(mockEngine.delete).toHaveBeenCalledWith(Post.collection, postId);
+        expect(engine.delete).toHaveBeenCalledTimes(2);
+        expect(engine.delete).toHaveBeenCalledWith(User.collection, userId);
+        expect(engine.delete).toHaveBeenCalledWith(Post.collection, postId);
 
         expect(user.exists()).toBe(false);
         expect(user.id).toBeUndefined();
@@ -69,13 +73,13 @@ describe('Model', () => {
         post.body = faker.lorem.paragraphs();
 
         await after({ ms: 10 });
-        post.update({ title: faker.random.words() });
+        await post.update({ title: faker.random.words() });
 
         await after({ ms: 10 });
-        post.update({ title: faker.random.words() });
+        await post.update({ title: faker.random.words() });
 
         await after({ ms: 10 });
-        post.update({ title: faker.random.words() });
+        await post.update({ title: faker.random.words() });
 
         await after({ ms: 10 });
         await Post.create({ title: faker.random.words() });
@@ -83,10 +87,10 @@ describe('Model', () => {
 
         // Assert
         expect(modifiedHistory).toHaveLength(13);
-        expect(modifiedHistory.filter(field => field === 'title')).toHaveLength(5);
-        expect(modifiedHistory.filter(field => field === 'body')).toHaveLength(1);
-        expect(modifiedHistory.filter(field => field === 'createdAt')).toHaveLength(2);
-        expect(modifiedHistory.filter(field => field === 'updatedAt')).toHaveLength(5);
+        expect(modifiedHistory.filter((field) => field === 'title')).toHaveLength(5);
+        expect(modifiedHistory.filter((field) => field === 'body')).toHaveLength(1);
+        expect(modifiedHistory.filter((field) => field === 'createdAt')).toHaveLength(2);
+        expect(modifiedHistory.filter((field) => field === 'updatedAt')).toHaveLength(5);
         expect(createCount).toBe(2);
         expect(updateCount).toBe(3);
         expect(deleteCount).toBe(1);
@@ -94,19 +98,19 @@ describe('Model', () => {
 
     it('overrides engine', async () => {
         // Arrange
-        const engine = new InMemoryEngine();
-        const id = faker.datatype.uuid();
+        const inMemoryEngine = new InMemoryEngine();
+        const id = uuid();
         const originalName = faker.random.words();
         const updatedName = faker.random.words();
 
-        engine.create(User.collection, { id, name: originalName }, id);
-        engine.create(User.collection, { name: faker.random.words() });
+        await inMemoryEngine.create(User.collection, { id, name: originalName }, id);
+        await inMemoryEngine.create(User.collection, { name: faker.random.words() });
 
         // Act
-        const user = await User.withEngine(engine).find(id);
-        const users = await User.withEngine(engine).all();
+        const user = await User.withEngine(inMemoryEngine).find(id);
+        const users = await User.withEngine(inMemoryEngine).all();
 
-        await user?.withEngine(engine).update({ name: updatedName });
+        await user?.withEngine(inMemoryEngine).update({ name: updatedName });
 
         // Assert
         expect(users).toHaveLength(2);
@@ -114,14 +118,14 @@ describe('Model', () => {
         expect(user?.id).toEqual(id);
         expect(user?.name).toEqual(updatedName);
 
-        expect(User.getEngine()).not.toBe(engine);
+        expect(User.getEngine()).not.toBe(inMemoryEngine);
     });
 
 });
 
 describe('Models definition', () => {
 
-    it('testInstanceOf', () => {
+    it('instanceOf', () => {
         class StubModel extends Model {}
 
         bootModels({ StubModel });
@@ -129,11 +133,11 @@ describe('Models definition', () => {
         expect(new StubModel()).toBeInstanceOf(StubModel);
     });
 
-    it('testCollection', () => {
+    it('collection', () => {
         class StubModel extends Model {
 
             public static collection = 'collection';
-
+        
         }
 
         bootModels({ StubModel });
@@ -141,7 +145,7 @@ describe('Models definition', () => {
         expect(StubModel.collection).toBe('collection');
     });
 
-    it('testEmptyCollection', () => {
+    it('empty collection', () => {
         class StubModel extends Model {}
 
         bootModels({ stub: StubModel });
@@ -149,40 +153,40 @@ describe('Models definition', () => {
         expect(StubModel.collection).toBe('stubs');
     });
 
-    it('testInheritedCollection', () => {
+    it('inherited collection', () => {
         class StubModel extends Model {
 
             public static collection = 'stubs';
-
+        
         }
 
-        class User extends StubModel {}
-        class Admin extends User {}
+        class Person extends StubModel {}
+        class Admin extends Person {}
 
-        bootModels({ StubModel, User, Admin });
+        bootModels({ StubModel, Person, Admin });
 
         expect(StubModel.collection).toBe('stubs');
-        expect(User.collection).toBe('stubs');
+        expect(Person.collection).toBe('stubs');
         expect(Admin.collection).toBe('stubs');
     });
 
-    it('testEmptyInheritedCollection', () => {
+    it('empty inherited collection', () => {
         class StubModel extends Model {}
-        class User extends StubModel {}
-        class Admin extends User {}
+        class Person extends StubModel {}
+        class Admin extends Person {}
 
-        bootModels({ stub: StubModel, User, Admin });
+        bootModels({ stub: StubModel, Person, Admin });
 
         expect(StubModel.collection).toBe('stubs');
-        expect(User.collection).toBe('users');
+        expect(Person.collection).toBe('persons');
         expect(Admin.collection).toBe('admins');
     });
 
-    it('testTimestamps', () => {
+    it('timestamps', () => {
         class StubModel extends Model {
 
             public static timestamps = [TimestampField.CreatedAt];
-
+        
         }
 
         bootModels({ StubModel });
@@ -205,7 +209,7 @@ describe('Models definition', () => {
 
         class StubModel extends StubSchema {}
 
-        setEngine(new InMemoryEngine);
+        setEngine(new InMemoryEngine());
         bootModels({ StubModel });
 
         // Act
@@ -216,11 +220,11 @@ describe('Models definition', () => {
         expect(model.updatedAt).toBeInstanceOf(Date);
     });
 
-    it('testEmptyTimestamps', () => {
+    it('empty timestamps', () => {
         class StubModel extends Model {
 
             public static timestamps = false;
-
+        
         }
 
         bootModels({ StubModel });
@@ -233,11 +237,11 @@ describe('Models definition', () => {
         });
     });
 
-    it('testInvalidTimestamps', () => {
+    it('invalid timestamps', () => {
         class StubModel extends Model {
 
             public static timestamps = ['foobar'] as unknown as TimestampFieldValue[];
-
+        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -245,7 +249,7 @@ describe('Models definition', () => {
         expect(bootModel).toThrow('Invalid timestamp field defined');
     });
 
-    it('testFields', () => {
+    it('fields', () => {
         class StubModel extends Model {
 
             public static fields = {
@@ -269,7 +273,7 @@ describe('Models definition', () => {
                     totalFriends: FieldType.Number,
                 },
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -329,7 +333,7 @@ describe('Models definition', () => {
         });
     });
 
-    it('testEmptyFields', () => {
+    it('empty fields', () => {
         class StubModel extends Model {}
 
         bootModels({ StubModel });
@@ -350,13 +354,13 @@ describe('Models definition', () => {
         });
     });
 
-    it('testInvalidArrayField', () => {
+    it('invalid array field', () => {
         class StubModel extends Model {
 
             public static fields = {
                 tags: FieldType.Array,
             };
-
+        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -364,13 +368,13 @@ describe('Models definition', () => {
         expect(bootModel).toThrow('array requires items attribute');
     });
 
-    it('testInvalidObjectField', () => {
+    it('invalid object field', () => {
         class StubModel extends Model {
 
             public static fields = {
                 meta: FieldType.Object,
             };
-
+        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -378,7 +382,7 @@ describe('Models definition', () => {
         expect(bootModel).toThrow('object requires fields attribute');
     });
 
-    it('testInvalidTimestampField', () => {
+    it('invalid timestamp field', () => {
         class StubModel extends Model {
 
             public static timestamps = [TimestampField.CreatedAt];
@@ -389,7 +393,7 @@ describe('Models definition', () => {
                     required: true,
                 },
             };
-
+        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -399,11 +403,11 @@ describe('Models definition', () => {
         );
     });
 
-    it('testAccessingClassProperties', () => {
+    it('accessing class properties', () => {
         class StubModel extends Model {
 
             public myArray = [];
-
+        
         }
 
         bootModels({ StubModel });
@@ -413,11 +417,11 @@ describe('Models definition', () => {
         expect(model.myArray).toEqual([]);
     });
 
-    it('testSettingClassProperties', () => {
+    it('setting class properties', () => {
         class StubModel extends Model {
 
             public myArray: string[] = [];
-
+        
         }
 
         bootModels({ StubModel });
@@ -436,7 +440,7 @@ describe('Models definition', () => {
         class ChildAA extends ChildA {
 
             public static modelName = 'CustomChildAA';
-
+        
         }
         class ChildAB extends ChildA {}
 
@@ -454,14 +458,14 @@ describe('Models definition', () => {
 
             public static classFields = ['parentField'];
             public parentProp: string[] = [];
-
+        
         }
 
         class Child extends Parent {
 
             public static classFields = ['childField'];
             public childProp: string[] = [];
-
+        
         }
 
         bootModels({ Parent, Child });
@@ -485,87 +489,87 @@ describe('Models definition', () => {
 
 describe('Models CRUD', () => {
 
-    let mockEngine!: jest.Mocked<Engine>;
+    let engine: FakeEngine;
 
     beforeEach(() => {
-        MockEngine.mockClear();
-
-        setEngine(mockEngine = new MockEngine());
+        setEngine((engine = new FakeEngine()));
         bootModels({ User, Post });
     });
 
-    it('testCreate', async () => {
-        const id = faker.datatype.uuid();
+    it('create', async () => {
+        // Arrange
         const name = faker.name.firstName();
         const attributes = { name };
         const now = seconds();
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
+        // Act
+        const model = await User.create(attributes);
 
-        return User.create(attributes).then(model => {
-            expect(model).toBeInstanceOf(User);
-            expect(model.exists()).toBe(true);
-            expect(model.id).toBe(id);
-            expect(model.name).toBe(name);
-            expect(model.createdAt).toBeInstanceOf(Date);
-            expect(now - seconds(model.createdAt)).toBeLessThan(1);
-            expect(model.updatedAt).toBeInstanceOf(Date);
-            expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-            expect(mockEngine.create).toHaveBeenCalledTimes(1);
-            expect(mockEngine.create).toHaveBeenCalledWith(
-                User.collection,
-                {
-                    ...attributes,
-                    externalUrls: [],
-                    createdAt: model.createdAt,
-                    updatedAt: model.updatedAt,
-                },
-                undefined,
-            );
-        });
+        // Assert
+        const id = Object.keys(engine.database[User.collection])[0];
+
+        expect(model).toBeInstanceOf(User);
+        expect(model.exists()).toBe(true);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(name);
+        expect(model.createdAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.createdAt)).toBeLessThan(1);
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(engine.create).toHaveBeenCalledTimes(1);
+        expect(engine.create).toHaveBeenCalledWith(
+            User.collection,
+            {
+                ...attributes,
+                externalUrls: [],
+                createdAt: model.createdAt,
+                updatedAt: model.updatedAt,
+            },
+            undefined,
+        );
     });
 
     it('testCreateInstance', async () => {
-        const id = faker.datatype.uuid();
+        // Arrange
         const name = faker.name.firstName();
         const attributes = { name };
         const now = seconds();
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
-
+        // Act
         const model = new User(attributes);
 
-        return model.save().then(() => {
-            expect(model).toBeInstanceOf(User);
-            expect(model.exists()).toBe(true);
-            expect(model.id).toBe(id);
-            expect(model.name).toBe(name);
-            expect(model.createdAt).toBeInstanceOf(Date);
-            expect(now - seconds(model.createdAt)).toBeLessThan(1);
-            expect(model.updatedAt).toBeInstanceOf(Date);
-            expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-            expect(mockEngine.create).toHaveBeenCalledTimes(1);
-            expect(mockEngine.create).toHaveBeenCalledWith(
-                User.collection,
-                {
-                    ...attributes,
-                    externalUrls: [],
-                    createdAt: model.createdAt,
-                    updatedAt: model.updatedAt,
-                },
-                undefined,
-            );
-        });
+        await model.save();
+
+        // Assert
+        const id = Object.keys(engine.database[User.collection])[0];
+
+        expect(model).toBeInstanceOf(User);
+        expect(model.exists()).toBe(true);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(name);
+        expect(model.createdAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.createdAt)).toBeLessThan(1);
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(engine.create).toHaveBeenCalledTimes(1);
+        expect(engine.create).toHaveBeenCalledWith(
+            User.collection,
+            {
+                ...attributes,
+                externalUrls: [],
+                createdAt: model.createdAt,
+                updatedAt: model.updatedAt,
+            },
+            undefined,
+        );
     });
 
     it('creates instances with id', async () => {
         // Arrange
-        const id = faker.datatype.uuid();
+        const id = uuid();
         const name = faker.name.firstName();
         const attributes = { id, name };
         const now = seconds();
-
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
 
         // Act
         const model = new User(attributes);
@@ -581,8 +585,8 @@ describe('Models CRUD', () => {
         expect(now - seconds(model.createdAt)).toBeLessThan(1);
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-        expect(mockEngine.create).toHaveBeenCalledTimes(1);
-        expect(mockEngine.create).toHaveBeenCalledWith(
+        expect(engine.create).toHaveBeenCalledTimes(1);
+        expect(engine.create).toHaveBeenCalledWith(
             User.collection,
             {
                 ...attributes,
@@ -594,241 +598,241 @@ describe('Models CRUD', () => {
         );
     });
 
-    it('testSaveWithoutRequiredAttribute', () => {
+    it('save without required attribute', async () => {
         const createModel = () => User.create();
-        expect(createModel()).rejects.toThrow(SoukaiError);
-        expect(createModel()).rejects.toThrow('The name attribute is required');
+        await expect(createModel()).rejects.toThrow(SoukaiError);
+        await expect(createModel()).rejects.toThrow('The name attribute is required');
     });
 
-    it('testRemoveRequiredAttribute', async () => {
-        mockEngine.create.mockReturnValue(Promise.resolve(faker.datatype.uuid()));
+    it('remove required attribute', async () => {
+        // Arrange
+        const model = await User.create({ name: faker.name.firstName() });
 
-        return User.create({ name: faker.name.firstName() })
-            .then(model => after().then(() => {
-                model.unsetAttribute('name');
+        // Act
+        model.unsetAttribute('name');
 
-                const saveModel = () => model.save();
-                expect(saveModel()).rejects.toThrow(SoukaiError);
-                expect(saveModel()).rejects.toThrow('The name attribute is required');
-            }));
+        // Assert
+        const saveModel = () => model.save();
+        await expect(saveModel()).rejects.toThrow(SoukaiError);
+        await expect(saveModel()).rejects.toThrow('The name attribute is required');
     });
 
     it('testFind', async () => {
-        const id = faker.datatype.uuid();
+        // Arrange
+        const id = uuid();
         const name = faker.name.firstName();
         const birthDate = seconds(Date.now(), true);
 
-        mockEngine.readOne.mockReturnValue(Promise.resolve({
-            id,
-            name,
-            birthDate: birthDate * 1000,
-        }));
+        engine.database[User.collection] = {
+            [id]: {
+                id,
+                name,
+                birthDate: birthDate * 1000,
+            },
+        };
 
-        return User.find(id).then(model => {
-            expect(model).not.toBeNull();
-            expect(model).toBeInstanceOf(User);
-            if (model !== null) {
-                expect(model.id).toBe(id);
-                expect(model.name).toBe(name);
-                expect(model.birthDate).toBeInstanceOf(Date);
-                expect(seconds(model.birthDate, true)).toEqual(birthDate);
-                expect(mockEngine.readOne).toHaveBeenCalledTimes(1);
-                expect(mockEngine.readOne).toHaveBeenCalledWith(User.collection, id);
-            }
-        });
+        // Act
+        const model = (await User.find(id)) as User;
+
+        // Assert
+        expect(model).not.toBeNull();
+        expect(model).toBeInstanceOf(User);
+
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(name);
+        expect(model.birthDate).toBeInstanceOf(Date);
+        expect(seconds(model.birthDate, true)).toEqual(birthDate);
+        expect(engine.readOne).toHaveBeenCalledTimes(1);
+        expect(engine.readOne).toHaveBeenCalledWith(User.collection, id);
     });
 
-    it('testFindRespectsEmptyValues', async () => {
-        const id = faker.datatype.uuid();
+    it('find respects empty values', async () => {
+        // Arrange
+        const id = uuid();
 
-        mockEngine.readOne.mockReturnValue(Promise.resolve({
-            id,
-            name: faker.name.firstName(),
-            birthDate: null,
-        }));
+        engine.database[User.collection] = {
+            [id]: {
+                id,
+                name: faker.name.firstName(),
+                birthDate: null,
+            },
+        };
 
-        return User.find(id).then(model => {
-            expect(model).not.toBeNull();
-            if (model !== null) {
-                expect(model.birthDate).toBeNull();
-            }
-        });
+        // Act
+        const model = (await User.find(id)) as User;
+
+        // Assert
+        expect(model).not.toBeNull();
+        expect(model.birthDate).toBeNull();
     });
 
-    it('testDontFind', async () => {
-        const id = faker.datatype.uuid();
+    it('dont find', async () => {
+        // Arrange
+        const id = uuid();
 
-        mockEngine.readOne.mockReturnValue(Promise.reject(null));
+        // Act
+        const model = await User.find(id);
 
-        return User.find(id).then(model => {
-            expect(model).toBe(null);
-            expect(mockEngine.readOne).toHaveBeenCalledTimes(1);
-            expect(mockEngine.readOne).toHaveBeenCalledWith(User.collection, id);
-        });
+        // Assert
+        expect(model).toBeNull();
+        expect(engine.readOne).toHaveBeenCalledTimes(1);
+        expect(engine.readOne).toHaveBeenCalledWith(User.collection, id);
     });
 
-    it('testAll', async () => {
-        const id = faker.datatype.uuid();
+    it('all', async () => {
+        const id = uuid();
         const name = faker.name.firstName();
 
-        mockEngine.readMany.mockReturnValue(Promise.resolve({ [id]: { id, name } }));
+        engine.database[User.collection] = { [id]: { id, name } };
 
-        return User.all().then(models => {
-            expect(models).toHaveLength(1);
+        const models = await User.all();
+        expect(models).toHaveLength(1);
 
-            const user = models[0] as User;
-            expect(user).toBeInstanceOf(User);
-            expect(user.id).toBe(id);
-            expect(user.name).toBe(name);
-            expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
-            expect(mockEngine.readMany).toHaveBeenCalledWith(User.collection, undefined);
-        });
+        const user = models[0] as User;
+        expect(user).toBeInstanceOf(User);
+        expect(user.id).toBe(id);
+        expect(user.name).toBe(name);
+        expect(engine.readMany).toHaveBeenCalledTimes(1);
+        expect(engine.readMany).toHaveBeenCalledWith(User.collection, undefined);
     });
 
-    it('testUpdate', async () => {
-        const id = faker.datatype.uuid();
+    it('update', async () => {
+        // Arrange
         const surname = faker.name.lastName();
         const initialName = faker.name.firstName();
         const newName = faker.name.firstName();
         const now = seconds();
+        const model = await User.create({ name: initialName, surname });
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
+        // Act
+        await after({ ms: 100 });
 
-        return User.create({ name: initialName, surname })
-            .then(model => after().then(() => model.update({ name: newName })))
-            .then(model => {
-                expect(model).toBeInstanceOf(User);
-                expect(model.id).toBe(id);
-                expect(model.name).toBe(newName);
-                expect(model.surname).toBe(surname);
-                expect(model.updatedAt).toBeInstanceOf(Date);
-                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-                expect(mockEngine.update).toHaveBeenCalledTimes(1);
-                expect(mockEngine.update).toHaveBeenCalledWith(
-                    User.collection,
-                    id,
-                    {
-                        name: newName,
-                        updatedAt: model.updatedAt,
-                    },
-                );
-            });
+        await model.update({ name: newName });
+
+        // Assert
+        const id = Object.keys(engine.database[User.collection])[0];
+
+        expect(model).toBeInstanceOf(User);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(newName);
+        expect(model.surname).toBe(surname);
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+            name: newName,
+            updatedAt: model.updatedAt,
+        });
     });
 
-    it('testUpdateRespectsEmptyValues', async () => {
-        const id = faker.datatype.uuid();
+    it('update respects empty values', async () => {
+        // Arrange
+        const model = await User.create({ name: faker.name.firstName(), birthDate: null });
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
+        // Act
+        await model.update({ name: faker.name.firstName() });
 
-        return User.create({ name: faker.name.firstName(), birthDate: null })
-            .then(model => after().then(() => model.update({ name: faker.name.firstName() })))
-            .then(model => {
-                expect(model.birthDate).toBeNull();
-            });
+        // Assert
+        expect(model.birthDate).toBeNull();
     });
 
-    it('testSetAttribute', async () => {
-        const id = faker.datatype.uuid();
+    it('set attribute', async () => {
+        // Arrange
         const surname = faker.name.lastName();
         const initialName = faker.name.firstName();
         const newName = faker.name.firstName();
         const now = seconds();
+        const model = await User.create({ name: initialName, surname });
+        const id = Object.keys(engine.database[User.collection])[0];
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
+        // Act
+        await after({ ms: 100 });
 
-        return User.create({ name: initialName, surname })
-            .then(model => after().then(() => {
-                model.setAttribute('name', newName);
-                return model.save();
-            }))
-            .then(model => {
-                expect(model).toBeInstanceOf(User);
-                expect(model.id).toBe(id);
-                expect(model.name).toBe(newName);
-                expect(model.surname).toBe(surname);
-                expect(model.updatedAt).toBeInstanceOf(Date);
-                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-                expect(mockEngine.update).toHaveBeenCalledTimes(1);
-                expect(mockEngine.update).toHaveBeenCalledWith(
-                    User.collection,
-                    id,
-                    {
-                        name: newName,
-                        updatedAt: model.updatedAt,
-                    },
-                );
-            });
+        model.setAttribute('name', newName);
+
+        await model.save();
+
+        // Assert
+        expect(model).toBeInstanceOf(User);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(newName);
+        expect(model.surname).toBe(surname);
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+            name: newName,
+            updatedAt: model.updatedAt,
+        });
     });
 
-    it('testUnsetAttribute', async () => {
-        const id = faker.datatype.uuid();
+    it('unset attribute', async () => {
+        // Arrange
         const name = faker.name.firstName();
         const now = seconds();
+        const model = await User.create({ name, surname: faker.name.lastName() });
+        const id = Object.keys(engine.database[User.collection])[0];
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
+        // Act
+        await after({ ms: 100 });
 
-        return User.create({ name, surname: faker.name.lastName() })
-            .then(model => after().then(() => {
-                model.unsetAttribute('surname');
-                return model.save();
-            }))
-            .then(model => {
-                expect(model).toBeInstanceOf(User);
-                expect(model.id).toBe(id);
-                expect(model.name).toBe(name);
-                expect(model.surname).toBeUndefined();
-                expect(model.updatedAt).toBeInstanceOf(Date);
-                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-                expect(mockEngine.update).toHaveBeenCalledTimes(1);
-                expect(mockEngine.update).toHaveBeenCalledWith(
-                    User.collection,
-                    id,
-                    { updatedAt: model.updatedAt, surname: { $unset: true } },
-                );
-            });
+        model.unsetAttribute('surname');
+
+        await model.save();
+
+        // Assert
+        expect(model).toBeInstanceOf(User);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(name);
+        expect(model.surname).toBeUndefined();
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+            updatedAt: model.updatedAt,
+            surname: { $unset: true },
+        });
     });
 
-    it('testDelete', async () => {
-        const id = faker.datatype.uuid();
+    it('delete', async () => {
+        // Arrange
         const name = faker.name.firstName();
+        const model = await User.create({ name });
+        const id = Object.keys(engine.database[User.collection])[0];
 
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
+        // Act
+        await model.delete();
 
-        return User.create({ name })
-            .then(model => model.delete())
-            .then(model => {
-                expect(model).toBeInstanceOf(User);
-                expect(model.id).toBeUndefined();
-                expect(model.name).toBe(name);
-                expect(model.exists()).toBe(false);
-                expect(model.wasRecentlyDeleted()).toBe(true);
-                expect(model.getDeletedPrimaryKey()).toBe(id);
-                expect(mockEngine.delete).toHaveBeenCalledTimes(1);
-                expect(mockEngine.delete).toHaveBeenCalledWith(User.collection, id);
-            });
+        // Assert
+        expect(model).toBeInstanceOf(User);
+        expect(model.id).toBeUndefined();
+        expect(model.name).toBe(name);
+        expect(model.exists()).toBe(false);
+        expect(model.wasRecentlyDeleted()).toBe(true);
+        expect(model.getDeletedPrimaryKey()).toBe(id);
+        expect(engine.delete).toHaveBeenCalledTimes(1);
+        expect(engine.delete).toHaveBeenCalledWith(User.collection, id);
     });
 
-    it('testThrowEngineMissingError', () => {
+    it('throw engine missing error', async () => {
         setEngine(null);
 
         const createModel = () => User.create({ name: faker.name.firstName() });
-        expect(createModel()).rejects.toThrow(SoukaiError);
-        expect(createModel()).rejects.toThrow('Engine must be initialized before performing any operations');
+        await expect(createModel()).rejects.toThrow(SoukaiError);
+        await expect(createModel()).rejects.toThrow('Engine must be initialized before performing any operations');
     });
 
 });
 
 describe('Model attributes', () => {
 
-    let mockEngine!: jest.Mocked<Engine>;
+    let engine: FakeEngine;
 
     beforeEach(() => {
-        MockEngine.mockClear();
-
-        setEngine(mockEngine = new MockEngine());
+        setEngine((engine = new FakeEngine()));
         bootModels({ User });
     });
 
@@ -913,14 +917,17 @@ describe('Model attributes', () => {
 
                 return super.castAttribute(value, options);
             }
-
+        
         }
 
         // Act
-        const instance = new StubModel({
-            date: new Date(),
-            numbers: [],
-        }, true);
+        const instance = new StubModel(
+            {
+                date: new Date(),
+                numbers: [],
+            },
+            true,
+        );
 
         // Assert
         expect(instance.getAttribute('date')).toEqual('casted date');
@@ -1047,19 +1054,21 @@ describe('Model attributes', () => {
 
     it('fixes malformed attributes', async () => {
         // Arrange
-        const id = faker.datatype.uuid();
+        const id = uuid();
 
-        mockEngine.readOne.mockReturnValue(Promise.resolve({
-            id,
-            name: 'Alice',
-            avatarUrl: 'https://example.org/avatar.png',
-            externalUrls: [`https://a.example.org/users/${id}`, `https://b.example.org/users/${id}`],
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        }));
+        engine.database[User.collection] = {
+            [id]: {
+                id,
+                name: 'Alice',
+                avatarUrl: 'https://example.org/avatar.png',
+                externalUrls: [`https://a.example.org/users/${id}`, `https://b.example.org/users/${id}`],
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        };
 
         // Act
-        const user = await User.find(id) as User;
+        const user = (await User.find(id)) as User;
         const malformedAttributes = user.getMalformedDocumentAttributes();
 
         user.fixMalformedAttributes();
@@ -1069,83 +1078,74 @@ describe('Model attributes', () => {
         // Assert
         expect(Object.keys(malformedAttributes)).toHaveLength(1);
 
-        expect(mockEngine.update).toHaveBeenCalledTimes(1);
-        expect(mockEngine.update).toHaveBeenCalledWith(
-            User.collection,
-            id,
-            { avatarUrl: 'https://example.org/avatar.png' },
-        );
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+            avatarUrl: 'https://example.org/avatar.png',
+        });
     });
 
-    it('testAttributeSetter', async () => {
-        const id = faker.datatype.uuid();
+    it('attribute setter', async () => {
+        // Arrange
         const surname = faker.name.lastName();
         const initialName = faker.name.firstName();
         const newName = faker.name.firstName();
         const now = seconds();
-
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
-
-        return User.create({ name: initialName, surname })
-            .then(model => after().then(() => {
-                model.name = newName;
-                return model.save();
-            }))
-            .then(model => {
-                expect(model).toBeInstanceOf(User);
-                expect(model.id).toBe(id);
-                expect(model.name).toBe(newName);
-                expect(model.surname).toBe(surname);
-                expect(model.updatedAt).toBeInstanceOf(Date);
-                expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-                expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-                expect(mockEngine.update).toHaveBeenCalledTimes(1);
-                expect(mockEngine.update).toHaveBeenCalledWith(
-                    User.collection,
-                    id,
-                    {
-                        name: newName,
-                        updatedAt: model.updatedAt,
-                    },
-                );
-            });
-    });
-
-    it('testAttributeDeleter', async () => {
-        // Arrange
-        const id = faker.datatype.uuid();
-        const name = faker.name.firstName();
-        const now = seconds();
-
-        mockEngine.create.mockReturnValue(Promise.resolve(id));
-
-        const user = await User.create({ name, surname: faker.name.lastName() });
-
-        await after({ ms: 100 });
+        const model = await User.create({ name: initialName, surname });
+        const id = Object.keys(engine.database[User.collection])[0];
 
         // Act
-        delete user.surname;
+        await after({ ms: 100 });
 
-        await user.save();
+        model.name = newName;
+
+        await model.save();
 
         // Assert
-        expect(user).toBeInstanceOf(User);
-        expect(user.id).toBe(id);
-        expect(user.name).toBe(name);
-        expect(user.surname).toBeUndefined();
-        expect(user.getAttributes(true)).toHaveProperty('surname');
-        expect(user.updatedAt).toBeInstanceOf(Date);
-        expect(now - seconds(user.updatedAt)).toBeLessThan(1);
-        expect(user.updatedAt.getTime()).toBeGreaterThan(user.createdAt.getTime() + 10);
-        expect(mockEngine.update).toHaveBeenCalledTimes(1);
-        expect(mockEngine.update).toHaveBeenCalledWith(
-            User.collection,
-            id,
-            { updatedAt: user.updatedAt, surname: { $unset: true } },
-        );
+        expect(model).toBeInstanceOf(User);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(newName);
+        expect(model.surname).toBe(surname);
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+            name: newName,
+            updatedAt: model.updatedAt,
+        });
     });
 
-    it('testUndefinedAttributes', () => {
+    it('attribute deleter', async () => {
+        // Arrange
+        const name = faker.name.firstName();
+        const now = seconds();
+        const model = await User.create({ name, surname: faker.name.lastName() });
+        const id = Object.keys(engine.database[User.collection])[0];
+
+        // Act
+        await after({ ms: 100 });
+
+        delete model.surname;
+
+        await model.save();
+
+        // Assert
+        expect(model).toBeInstanceOf(User);
+        expect(model.id).toBe(id);
+        expect(model.name).toBe(name);
+        expect(model.surname).toBeUndefined();
+        expect(model.getAttributes(true)).toHaveProperty('surname');
+        expect(model.updatedAt).toBeInstanceOf(Date);
+        expect(now - seconds(model.updatedAt)).toBeLessThan(1);
+        expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime() + 10);
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+            updatedAt: model.updatedAt,
+            surname: { $unset: true },
+        });
+    });
+
+    it('undefined attributes', () => {
         const model = new User({ contact: { phone: faker.phone.number() } });
 
         expect(model.hasAttribute('name')).toBe(false);
@@ -1166,12 +1166,15 @@ describe('Model attributes', () => {
         expect(model.getAttributes(true)).toHaveProperty('birthDate');
     });
 
-    it('testSmartDirtyAttributesOnSetter', () => {
-        const model = new User({
-            name: faker.name.firstName(),
-            surname: faker.name.lastName(),
-            contact: { phone: faker.phone.number() },
-        }, true);
+    it('smart dirty attributes on setter', () => {
+        const model = new User(
+            {
+                name: faker.name.firstName(),
+                surname: faker.name.lastName(),
+                contact: { phone: faker.phone.number() },
+            },
+            true,
+        );
 
         const originalSurname = model.surname;
 
@@ -1190,16 +1193,21 @@ describe('Model attributes', () => {
         expect(model.isDirty('contact')).toBe(true);
     });
 
-    it('testSmartDirtyAttributesOnUpdate', async () => {
+    it('smart dirty attributes on update', async () => {
         // Arrange
-        const model = new User({
-            id: faker.datatype.uuid(),
-            name: faker.name.firstName(),
-            surname: faker.name.lastName(),
-            contact: { phone: faker.phone.number() },
-        }, true);
+        const model = new User(
+            {
+                id: uuid(),
+                name: faker.name.firstName(),
+                surname: faker.name.lastName(),
+                contact: { phone: faker.phone.number() },
+            },
+            true,
+        );
 
-        mockEngine.create.mockReturnValue(Promise.resolve(''));
+        engine.database[User.collection] = {
+            [model.id]: model.getAttributes(),
+        };
 
         // Act
         await model.update({
@@ -1210,43 +1218,42 @@ describe('Model attributes', () => {
         });
 
         // Assert
-        expect(mockEngine.update).toHaveBeenCalledTimes(1);
-        expect(mockEngine.update).toHaveBeenCalledWith(
-            User.collection,
-            model.id,
-            {
-                name: model.name,
-                social: model.social,
-                createdAt: model.createdAt,
-                updatedAt: model.updatedAt,
-                contact: { $unset: true },
-            },
-        );
+        expect(engine.update).toHaveBeenCalledTimes(1);
+        expect(engine.update).toHaveBeenCalledWith(User.collection, model.id, {
+            name: model.name,
+            social: model.social,
+            createdAt: model.createdAt,
+            updatedAt: model.updatedAt,
+            contact: { $unset: true },
+        });
     });
 
 });
 
 describe('Model types', () => {
 
-    it('infers magic attributes', tt<
-        Expect<Equals<User['name'], string>> |
-        Expect<Equals<User['surname'], string | undefined>> |
-        Expect<Equals<User['age'], number | undefined>> |
-        Expect<Equals<User['birthDate'], Date | undefined>> |
-        Expect<Extends<User['contact'], undefined>> |
-        Expect<Equals<Assert<User['contact']>['email'], string | undefined>> |
-        Expect<Extends<User['social'], undefined>> |
-        Expect<Equals<Assert<User['social']>['website'], string | undefined>> |
-        Expect<Equals<User['externalUrls'], string[]>> |
-        Expect<Equals<User['createdAt'], Date>> |
-        Expect<Equals<Post['title'], string>> |
-        Expect<Equals<Pick<Post, 'title'>, { title: string }>> |
-        Expect<Equals<City['name'], string>> |
-        Expect<Equals<City['birthRecords'], Key[] | undefined>> |
-        Expect<Equals<City['createdAt'], Date>> |
-        Expect<Not<HasKey<City, 'updatedAt'>>> |
-        Expect<Not<HasKey<User, 'undefinedProperty'>>> |
-        true
-    >());
+    it(
+        'infers magic attributes',
+        tt<
+            | Expect<Equals<User['name'], string>>
+            | Expect<Equals<User['surname'], string | undefined>>
+            | Expect<Equals<User['age'], number | undefined>>
+            | Expect<Equals<User['birthDate'], Date | undefined>>
+            | Expect<Extends<User['contact'], undefined>>
+            | Expect<Equals<Assert<User['contact']>['email'], string | undefined>>
+            | Expect<Extends<User['social'], undefined>>
+            | Expect<Equals<Assert<User['social']>['website'], string | undefined>>
+            | Expect<Equals<User['externalUrls'], string[]>>
+            | Expect<Equals<User['createdAt'], Date>>
+            | Expect<Equals<Post['title'], string>>
+            | Expect<Equals<Pick<Post, 'title'>, { title: string }>>
+            | Expect<Equals<City['name'], string>>
+            | Expect<Equals<City['birthRecords'], Key[] | undefined>>
+            | Expect<Equals<City['createdAt'], Date>>
+            | Expect<Not<HasKey<City, 'updatedAt'>>>
+            | Expect<Not<HasKey<User, 'undefinedProperty'>>>
+            | true
+        >(),
+    );
 
 });

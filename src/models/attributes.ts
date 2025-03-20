@@ -1,6 +1,6 @@
 import { isEmpty, isNullable, isObject, objectDeepClone } from '@noeldemartin/utils';
 
-import SoukaiError from '@/errors/SoukaiError';
+import SoukaiError from 'soukai/errors/SoukaiError';
 
 import { FieldType } from './fields';
 import type { BootedFieldDefinition, BootedFieldsDefinition } from './fields';

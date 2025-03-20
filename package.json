@@ -1,61 +1,50 @@
 {
-  "name": "soukai",
-  "version": "0.5.2",
-  "description": "A refreshing library to work with your non relational database",
-  "main": "dist/soukai.cjs.js",
-  "module": "dist/soukai.esm.js",
-  "browser": "dist/soukai.umd.js",
-  "types": "dist/soukai.d.ts",
-  "sideEffects": false,
-  "scripts": {
-    "build": "rm dist -rf && npm run build:js && npm run build:types",
-    "build:js": "noeldemartin-build-javascript",
-    "build:types": "noeldemartin-build-types",
-    "docs:build-typedoc": "typedoc --options docs/.typedoc/config.js ./src/main.ts",
-    "docs:build-vuepress": "vuepress build docs",
-    "docs:dev": "vuepress dev docs",
-    "docs:publish": "scripts/publish-docs.sh",
-    "lint": "noeldemartin-lint src",
-    "publish-next": "noeldemartin-publish-next",
-    "test:summary": "jest --reporters jest-summary-reporter || exit 0",
-    "test:coverage": "jest --coverage",
-    "test": "jest --verbose"
-  },
-  "engines": {
-    "node": ">=14.x"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/NoelDeMartin/soukai.git"
-  },
-  "keywords": [
-    "active-record"
-  ],
-  "author": "Noel De Martin",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/NoelDeMartin/soukai/issues"
-  },
-  "homepage": "https://soukai.js.org",
-  "dependencies": {
-    "@babel/runtime": "^7.12.18",
-    "@noeldemartin/utils": "0.5.1-next.8877300615e6d56d7b5dfe508524589287835f23",
-    "@types/webpack-env": "^1.13.6",
-    "core-js": "^3.9.0",
-    "idb": "^5.0.2"
-  },
-  "devDependencies": {
-    "@noeldemartin/eslint-config-typescript": "^0.1.1",
-    "@noeldemartin/faker": "^7.6.0",
-    "@noeldemartin/scripts": "^0.1.2",
-    "@types/jest": "^26.0.20",
-    "eslint": "^7.19.0",
-    "fake-indexeddb": "^3.0.0",
-    "jest": "^26.6.3",
-    "jest-summary-reporter": "^0.0.2",
-    "ts-jest": "^26.5.1",
-    "typedoc": "^0.22.18",
-    "typescript": "^4.1.5",
-    "vuepress": "^1.9.8"
-  }
+    "name": "soukai",
+    "version": "0.6.0",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        "types": "./dist/soukai.d.ts",
+        "default": "./dist/soukai.js"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "license": "MIT",
+    "author": "Noel De Martin",
+    "repository": "github:NoelDeMartin/soukai",
+    "scripts": {
+        "build": "vite build",
+        "lint": "noeldemartin-lint src",
+        "test": "vitest --run",
+        "test:ci": "vitest --run --reporter verbose"
+    },
+    "dependencies": {
+        "@noeldemartin/utils": "0.7.0-next.d98a97003e3b0af1b9fc05dbfd6e57fab3c2f181",
+        "idb": "^8.0.2"
+    },
+    "devDependencies": {
+        "@noeldemartin/eslint-config-typescript": "^0.1.2",
+        "@noeldemartin/scripts": "0.3.0-next.f891bcbf278e01c7429bb641d0df38556b4ac151",
+        "@noeldemartin/testing": "0.0.0-next.42d90af773d6a44a73970bdf71d96b181231dd9b",
+        "@tsconfig/node22": "^22.0.0",
+        "@types/node": "^22.13.10",
+        "eslint": "^8.57.1",
+        "fake-indexeddb": "^6.0.0",
+        "prettier": "^3.5.3",
+        "prettier-eslint-cli": "^8.0.1",
+        "typescript": "^5.8.2",
+        "vite": "^6.2.2",
+        "vite-plugin-dts": "^4.5.3",
+        "vitest": "^3.0.9"
+    },
+    "eslintConfig": {
+        "extends": [
+            "@noeldemartin/eslint-config-typescript"
+        ]
+    },
+    "prettier": {
+        "printWidth": 120
+    }
 }

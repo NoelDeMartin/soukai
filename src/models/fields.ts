@@ -1,6 +1,6 @@
 import { objectHasOwnProperty } from '@noeldemartin/utils';
 
-import InvalidModelDefinition from '@/errors/InvalidModelDefinition';
+import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
 
 import type { Model } from './Model';
 

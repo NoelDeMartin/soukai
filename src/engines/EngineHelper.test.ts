@@ -1,10 +1,8 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { faker } from '@noeldemartin/faker';
 
-import type {
-    EngineDocument,
-    EngineDocumentsCollection,
-    EngineUpdates,
-} from '@/engines/Engine';
+import type { EngineDocument, EngineDocumentsCollection, EngineUpdates } from 'soukai/engines/Engine';
 
 import { EngineHelper } from './EngineHelper';
 
@@ -78,9 +76,7 @@ describe('EngineHelper', () => {
         const name = faker.name.firstName();
         const documents: EngineDocumentsCollection = {
             first: {
-                items: [
-                    { name: faker.name.firstName(), surname: faker.name.lastName() },
-                ],
+                items: [{ name: faker.name.firstName(), surname: faker.name.lastName() }],
             },
             second: {
                 items: [
@@ -132,10 +128,7 @@ describe('EngineHelper', () => {
         // Act
         const filteredDocuments = helper.filterDocuments(documents, {
             names: {
-                $or: [
-                    { $contains: [{ $eq: name }] },
-                    { $eq: name },
-                ],
+                $or: [{ $contains: [{ $eq: name }] }, { $eq: name }],
             },
         });
 
@@ -159,10 +152,7 @@ describe('EngineHelper', () => {
             releases: {
                 $contains: {
                     stars: {
-                        $or: [
-                            { $contains: ['Jim Carrey'] },
-                            { $eq: 'Jim Carrey' },
-                        ],
+                        $or: [{ $contains: ['Jim Carrey'] }, { $eq: 'Jim Carrey' }],
                     },
                 },
             },
@@ -321,10 +311,7 @@ describe('EngineHelper', () => {
                     $updateItems: {
                         $where: { name: 'mugiwara' },
                         $update: {
-                            members: [
-                                { name: 'luffy' },
-                                { name: 'zoro' },
-                            ],
+                            members: [{ name: 'luffy' }, { name: 'zoro' }],
                         },
                     },
                 },
@@ -333,10 +320,7 @@ describe('EngineHelper', () => {
                 bands: [
                     {
                         name: 'mugiwara',
-                        members: [
-                            { name: 'luffy' },
-                            { name: 'zoro' },
-                        ],
+                        members: [{ name: 'luffy' }, { name: 'zoro' }],
                     },
                 ],
             },
@@ -392,7 +376,6 @@ describe('EngineHelper', () => {
         });
     });
 
-
     it('updates documents using $unset', () => {
         assertDocumentUpdate({
             original: { foo: ['bar'], lorem: 'ipsum' },
@@ -425,7 +408,6 @@ describe('EngineHelper', () => {
         });
     });
 
-
     it('updates documents using $overwrite', () => {
         assertDocumentUpdate({
             original: { foo: ['bar'], lorem: 'ipsum' },
@@ -443,9 +425,7 @@ describe('EngineHelper', () => {
     it('combines update operations using $apply', () => {
         // Arrange
         const document = {
-            strawHatCrew: [
-                { name: 'Monkey D. Luffy', bounty: 500000000 },
-            ],
+            strawHatCrew: [{ name: 'Monkey D. Luffy', bounty: 500000000 }],
         };
 
         // Act
@@ -482,13 +462,15 @@ describe('EngineHelper', () => {
 
 });
 
-function assertDocumentUpdate(
-    { original: document, update, expected }: {
-        original: EngineDocument;
-        update: EngineUpdates;
-        expected: EngineDocument;
-    },
-) {
+function assertDocumentUpdate({
+    original: document,
+    update,
+    expected,
+}: {
+    original: EngineDocument;
+    update: EngineUpdates;
+    expected: EngineDocument;
+}) {
     helper.updateAttributes(document, update);
 
     expect(document).toEqual(expected);

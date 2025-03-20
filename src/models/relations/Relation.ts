@@ -1,8 +1,8 @@
 import { arrayFrom } from '@noeldemartin/utils';
 import type { Constructor } from '@noeldemartin/utils';
 
-import type { ModelConstructor } from '@/models/inference';
-import type { Model } from '@/models/Model';
+import type { ModelConstructor } from 'soukai/models/inference';
+import type { Model } from 'soukai/models/Model';
 
 export type RelationDeleteStrategy = null | 'cascade';
 export type RelationConstructor<T extends Relation = Relation> = Constructor<T> & typeof Relation;

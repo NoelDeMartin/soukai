@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Modernized tooling.
 - Model collections are no longer inherited unless they were initialized explicitly.
 - `Key` type is now typed as `string | number | Record<string, string | number>` instead of `any`. This was necessary to avoid values such as `null` or `undefined` accepted as valid keys.
 - `ProxyEngine` is no longer an interface but a class that can be extended, you can still use `IProxyEngine` for backwards compatibility but it'll be removed in future versions.
@@ -23,6 +24,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Deprecated
 
 - `ModelEvent` and `ModelEventValue` have been deprecated in favour of the `ModelEvents` interface.
+
+### Removed
+
+- Webpack helpers.
+- Default export.
 
 ## [v0.5.2](https://github.com/NoelDeMartin/soukai/releases/tag/v0.5.2) - 2023-12-17
 

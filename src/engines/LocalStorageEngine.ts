@@ -1,6 +1,6 @@
 import { isObject } from '@noeldemartin/utils';
 
-import { EngineHelper } from '@/engines/EngineHelper';
+import { EngineHelper } from 'soukai/engines/EngineHelper';
 import type {
     Engine,
     EngineAttributeValue,
@@ -8,10 +8,10 @@ import type {
     EngineDocumentsCollection,
     EngineFilters,
     EngineUpdates,
-} from '@/engines/Engine';
+} from 'soukai/engines/Engine';
 
-import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
-import DocumentNotFound from '@/errors/DocumentNotFound';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 
 export class LocalStorageEngine implements Engine {
 

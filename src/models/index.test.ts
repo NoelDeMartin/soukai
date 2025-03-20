@@ -1,10 +1,13 @@
-import { tt } from '@noeldemartin/utils';
-import type { Equals, Expect } from '@noeldemartin/utils';
+import { describe, expect, it } from 'vitest';
 
-import User from '@/testing/stubs/User';
-import Post from '@/testing/stubs/Post';
-import City from '@/testing/stubs/City';
-import type { ModelConstructor } from '@/models/inference';
+import { tt } from '@noeldemartin/testing';
+import type { Equals } from '@noeldemartin/utils';
+import type { Expect } from '@noeldemartin/testing';
+
+import User from 'soukai/testing/stubs/User';
+import Post from 'soukai/testing/stubs/Post';
+import City from 'soukai/testing/stubs/City';
+import type { ModelConstructor } from 'soukai/models/inference';
 
 import { bootModels, requireBootedModel } from './index';
 
@@ -28,10 +31,10 @@ describe('Models helpers', () => {
         expect(city).toBe(City);
 
         tt<
-            Expect<Equals<typeof user, typeof User>> |
-            Expect<Equals<typeof post, ModelConstructor>> |
-            Expect<Equals<typeof city, typeof City>> |
-            true
+            | Expect<Equals<typeof user, typeof User>>
+            | Expect<Equals<typeof post, ModelConstructor>>
+            | Expect<Equals<typeof city, typeof City>>
+            | true
         >();
     });
 

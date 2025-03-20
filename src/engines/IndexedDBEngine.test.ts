@@ -1,18 +1,17 @@
 import 'fake-indexeddb/auto';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
 import { range, resetMemo } from '@noeldemartin/utils';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
-import { bootModels } from '@/models';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
+import { bootModels } from 'soukai/models';
+import { IndexedDBEngine } from 'soukai/engines/IndexedDBEngine';
 
-import { IndexedDBEngine } from '@/engines/IndexedDBEngine';
-
-import DocumentAlreadyExists from '@/errors/DocumentAlreadyExists';
-import DocumentNotFound from '@/errors/DocumentNotFound';
-
-import User from '@/testing/stubs/User';
+import User from 'soukai/testing/stubs/User';
 
 describe('IndexedDBEngine', () => {
 
@@ -40,13 +39,9 @@ describe('IndexedDBEngine', () => {
         await dropDatabases();
     });
 
-    it('testSchema', async () => {
+    it('schema', async () => {
         // Arrange
-        const collections = [
-            faker.company.name(),
-            faker.company.name(),
-            faker.company.name(),
-        ];
+        const collections = [faker.company.name(), faker.company.name(), faker.company.name()];
 
         closeConnections();
         await dropDatabases();
@@ -59,25 +54,27 @@ describe('IndexedDBEngine', () => {
         engine.closeConnections();
 
         // Assert
-        const metadataConnection = await openDB(`soukai-${databaseName}-meta`, 1);
+        const _metadataConnection = await openDB(`soukai-${databaseName}-meta`, 1);
         const documentsConnection = await openDB(`soukai-${databaseName}`, 1000);
-        const metadataCollections = await metadataConnection.transaction('collections', 'readonly').store.getAll();
+        const metadataCollections = await _metadataConnection.transaction('collections', 'readonly').store.getAll();
 
         const documentStores: string[] = [];
         for (let i = 0; i < documentsConnection.objectStoreNames.length; i++) {
             documentStores.push(documentsConnection.objectStoreNames.item(i) as string);
         }
 
-        metadataConnection.close();
+        _metadataConnection.close();
         documentsConnection.close();
 
         for (const collection of collections) {
-            expect(metadataCollections.find(metadataCollection => metadataCollection.name === collection)).toBeTruthy();
+            expect(
+                metadataCollections.find((metadataCollection) => metadataCollection.name === collection),
+            ).toBeTruthy();
             expect(documentStores.indexOf(collection)).not.toEqual(-1);
         }
     });
 
-    it('testCreate', async () => {
+    it('create', async () => {
         // Arrange
         const name = faker.name.firstName();
 
@@ -92,7 +89,7 @@ describe('IndexedDBEngine', () => {
         expect(user.name).toEqual(name);
     });
 
-    it('testCreateExistent', async () => {
+    it('create existent', async () => {
         // Arrange
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
@@ -103,7 +100,7 @@ describe('IndexedDBEngine', () => {
         await expect(engine.create(User.collection, { name }, id)).rejects.toThrow(DocumentAlreadyExists);
     });
 
-    it('testReadOne', async () => {
+    it('read one', async () => {
         // Arrange
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
@@ -117,11 +114,11 @@ describe('IndexedDBEngine', () => {
         expect(document).toEqual({ name });
     });
 
-    it('testReadOneNonExistent', async () => {
+    it('read one non existent', async () => {
         await expect(engine.readOne(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
-    it('testReadMany', async () => {
+    it('read many', async () => {
         // Arrange
         const firstId = faker.datatype.uuid();
         const firstName = faker.name.firstName();
@@ -140,7 +137,7 @@ describe('IndexedDBEngine', () => {
         expect(documents[secondId]).toEqual({ name: secondName });
     });
 
-    it('testReadManyFilters', async () => {
+    it('read many filters', async () => {
         // Arrange
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
@@ -156,7 +153,7 @@ describe('IndexedDBEngine', () => {
         expect(documents[id]).toEqual({ name });
     });
 
-    it('testUpdate', async () => {
+    it('update', async () => {
         // Arrange
         const id = faker.datatype.uuid();
         const initialName = faker.name.firstName();
@@ -174,12 +171,11 @@ describe('IndexedDBEngine', () => {
         expect(user).toEqual({ name: newName, age });
     });
 
-    it('testUpdateNonExistent', async () => {
-        await expect(engine.update(User.collection, faker.datatype.uuid(), {}))
-            .rejects.toThrow(DocumentNotFound);
+    it('update non existent', async () => {
+        await expect(engine.update(User.collection, faker.datatype.uuid(), {})).rejects.toThrow(DocumentNotFound);
     });
 
-    it('testDelete', async () => {
+    it('delete', async () => {
         // Arrange
         const firstId = faker.datatype.uuid();
         const secondId = faker.datatype.uuid();
@@ -198,13 +194,12 @@ describe('IndexedDBEngine', () => {
         expect(users[0]).toEqual({ name });
     });
 
-    it('testDeleteNonExistent', async () => {
+    it('delete non existent', async () => {
         await expect(engine.delete(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
-    it('testDeleteNonExistentCollection', async () => {
-        await expect(engine.delete(faker.random.word(), faker.datatype.uuid()))
-            .rejects.toThrow(DocumentNotFound);
+    it('delete non existent collection', async () => {
+        await expect(engine.delete(faker.random.word(), faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
 
     it('supports concurrent operations', async () => {
@@ -216,14 +211,14 @@ describe('IndexedDBEngine', () => {
 
         // Act
         await Promise.all(
-            range(concurrency)
-                .map(i => engine.create(`${User.collection}-${i % tables}`, { name: faker.random.word() })),
+            range(concurrency).map((i) =>
+                engine.create(`${User.collection}-${i % tables}`, { name: faker.random.word() })),
         );
 
         // Assert
         await reopenConnections();
 
-        const documents = await Promise.all(range(tables).map(i => getDatabaseDocuments(`${User.collection}-${i}`)));
+        const documents = await Promise.all(range(tables).map((i) => getDatabaseDocuments(`${User.collection}-${i}`)));
 
         expect(documents.flat()).toHaveLength(concurrency);
     });
@@ -239,7 +234,7 @@ describe('IndexedDBEngine', () => {
         }
 
         metadataConnection = await openDB(`soukai-${databaseName}-meta`, 1, {
-            upgrade: database => database.createObjectStore('collections', { keyPath: 'name' }),
+            upgrade: (database) => database.createObjectStore('collections', { keyPath: 'name' }),
         });
 
         const transaction = metadataConnection.transaction('collections', 'readwrite');
@@ -257,7 +252,7 @@ describe('IndexedDBEngine', () => {
         }
 
         collectionsConnection = await openDB(`soukai-${databaseName}`, databaseCollections.length, {
-            upgrade: database => {
+            upgrade: (database) => {
                 for (const collection of databaseCollections) {
                     database.createObjectStore(collection);
                 }
@@ -312,10 +307,10 @@ describe('IndexedDBEngine', () => {
         await transaction.done;
     }
 
-    function getCollectionTransaction(
+    function getCollectionTransaction<T extends IDBTransactionMode>(
         collection: string,
-        mode: IDBTransactionMode,
-    ): IDBPTransaction<unknown, [string]> {
+        mode: T,
+    ): IDBPTransaction<unknown, [string], T> {
         return (collectionsConnection as IDBPDatabase).transaction(collection, mode);
     }
 

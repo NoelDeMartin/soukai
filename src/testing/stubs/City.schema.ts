@@ -1,4 +1,4 @@
-import { FieldRequired, FieldType, TimestampField, defineModelSchema } from '@/models';
+import { FieldRequired, FieldType, TimestampField, defineModelSchema } from 'soukai/models';
 
 export default defineModelSchema({
     timestamps: [TimestampField.CreatedAt],

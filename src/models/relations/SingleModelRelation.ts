@@ -1,10 +1,10 @@
 import { stringToCamelCase, tap } from '@noeldemartin/utils';
 
-import SoukaiError from '@/errors/SoukaiError';
-import { Relation } from '@/models/relations/Relation';
-import type { Attributes } from '@/models/attributes';
-import type { ModelConstructor } from '@/models/inference';
-import type { Model } from '@/models/Model';
+import SoukaiError from 'soukai/errors/SoukaiError';
+import { Relation } from 'soukai/models/relations/Relation';
+import type { Attributes } from 'soukai/models/attributes';
+import type { ModelConstructor } from 'soukai/models/inference';
+import type { Model } from 'soukai/models/Model';
 
 export default abstract class SingleModelRelation<
     Parent extends Model = Model,

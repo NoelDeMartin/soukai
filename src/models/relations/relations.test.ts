@@ -1,43 +1,39 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { faker } from '@noeldemartin/faker';
-import type { Tuple } from '@noeldemartin/utils';
+import { type Tuple, uuid } from '@noeldemartin/utils';
 
-import type { Engine } from '@/engines/Engine';
+import BelongsToOneRelation from 'soukai/models/relations/BelongsToOneRelation';
+import HasManyRelation from 'soukai/models/relations/HasManyRelation';
+import HasOneRelation from 'soukai/models/relations/HasOneRelation';
+import type { Relation } from 'soukai/models/relations/Relation';
 
-import BelongsToOneRelation from '@/models/relations/BelongsToOneRelation';
-import HasManyRelation from '@/models/relations/HasManyRelation';
-import HasOneRelation from '@/models/relations/HasOneRelation';
-import type { Relation } from '@/models/relations/Relation';
+import { setEngine } from 'soukai/engines';
+import { FieldType } from 'soukai/models/fields';
+import { Model, bootModels, defineModelSchema } from 'soukai/models';
 
-import { setEngine } from '@/engines';
-import { FieldType } from '@/models/fields';
-import { Model, bootModels, defineModelSchema } from '@/models';
-
-import MockEngine from '@/testing/mocks/MockEngine';
-
-import City from '@/testing/stubs/City';
-import Post from '@/testing/stubs/Post';
-import User from '@/testing/stubs/User';
+import City from 'soukai/testing/stubs/City';
+import Post from 'soukai/testing/stubs/Post';
+import User from 'soukai/testing/stubs/User';
+import FakeEngine from 'soukai/testing/fakes/FakeEngine';
 
 describe('Model Relations', () => {
 
-    let mockEngine: jest.Mocked<Engine>;
+    let engine: FakeEngine;
 
     beforeEach(() => {
-        MockEngine.mockClear();
-        setEngine(mockEngine = new MockEngine());
+        setEngine((engine = new FakeEngine()));
         bootModels({ User, Post, City });
     });
 
     it('loads hasOne relations', async () => {
         // Arrange
-        const userId = faker.datatype.uuid();
-        const cityId = faker.datatype.uuid();
+        const userId = uuid();
+        const cityId = uuid();
         const name = faker.random.word();
         const user = new User({ id: userId });
 
-        mockEngine.readMany.mockReturnValue(Promise.resolve({
-            [cityId]: { name },
-        }));
+        engine.database[City.collection] = { [cityId]: { name, birthRecords: [userId] } };
 
         // Act
         await user.loadRelation('birthPlace');
@@ -49,24 +45,21 @@ describe('Model Relations', () => {
         expect(birthPlace.id).toBe(cityId);
         expect(birthPlace.name).toBe(name);
 
-        expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
-        expect(mockEngine.readMany).toHaveBeenCalledWith(City.collection, {
+        expect(engine.readMany).toHaveBeenCalledTimes(1);
+        expect(engine.readMany).toHaveBeenCalledWith(City.collection, {
             birthRecords: {
-                $or: [
-                    { $eq: userId },
-                    { $contains: userId },
-                ],
+                $or: [{ $eq: userId }, { $contains: userId }],
             },
         });
     });
 
     it('loads belongsToOne relations', async () => {
         // Arrange
-        const id = faker.datatype.uuid();
+        const id = uuid();
         const name = faker.random.word();
         const post = new Post({ authorId: id });
 
-        mockEngine.readOne.mockReturnValue(Promise.resolve({ name }));
+        engine.database[User.collection] = { [id]: { name } };
 
         // Act
         await post.loadRelation('author');
@@ -78,25 +71,26 @@ describe('Model Relations', () => {
         expect(author.id).toBe(id);
         expect(author.name).toBe(name);
 
-        expect(mockEngine.readOne).toHaveBeenCalledTimes(1);
-        expect(mockEngine.readOne).toHaveBeenCalledWith(User.collection, id);
+        expect(engine.readOne).toHaveBeenCalledTimes(1);
+        expect(engine.readOne).toHaveBeenCalledWith(User.collection, id);
     });
 
     it('loads hasMany relations', async () => {
         // Arrange
-        const id = faker.datatype.uuid();
-        const firstPostId = faker.datatype.uuid();
-        const secondPostId = faker.datatype.uuid();
+        const id = uuid();
+        const firstPostId = uuid();
+        const secondPostId = uuid();
         const firstPostTitle = faker.lorem.sentence();
         const secondPostTitle = faker.lorem.sentence();
         const firstPostBody = faker.lorem.paragraph();
         const secondPostBody = faker.lorem.paragraph();
         const user = new User({ id });
 
-        mockEngine.readMany.mockReturnValue(Promise.resolve({
-            [firstPostId]: { title: firstPostTitle, body: firstPostBody },
-            [secondPostId]: { title: secondPostTitle, body: secondPostBody },
-        }));
+        engine.database[Post.collection] = {
+            [firstPostId]: { title: firstPostTitle, body: firstPostBody, authorId: id },
+            [secondPostId]: { title: secondPostTitle, body: secondPostBody, authorId: id },
+            [uuid()]: { title: faker.lorem.sentence(), body: faker.lorem.paragraph(), authorId: uuid() },
+        };
 
         // Act
         await user.loadRelation('posts');
@@ -115,29 +109,21 @@ describe('Model Relations', () => {
         expect(posts[1].title).toBe(secondPostTitle);
         expect(posts[1].body).toBe(secondPostBody);
 
-        expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
-        expect(mockEngine.readMany).toHaveBeenCalledWith(
-            Post.collection,
-            {
-                authorId: {
-                    $or: [
-                        { $eq: id },
-                        { $contains: id },
-                    ],
-                },
+        expect(engine.readMany).toHaveBeenCalledTimes(1);
+        expect(engine.readMany).toHaveBeenCalledWith(Post.collection, {
+            authorId: {
+                $or: [{ $eq: id }, { $contains: id }],
             },
-        );
+        });
     });
 
     it('loads belongsToMany relations', async () => {
         // Arrange
-        const id = faker.datatype.uuid();
+        const id = uuid();
         const name = faker.random.word();
         const city = new City({ birthRecords: [id] });
 
-        mockEngine.readMany.mockReturnValue(Promise.resolve({
-            [id]: { name },
-        }));
+        engine.database[User.collection] = { [id]: { name } };
 
         // Act
         await city.loadRelation('natives');
@@ -151,15 +137,15 @@ describe('Model Relations', () => {
         expect(natives[0].id).toBe(id);
         expect(natives[0].name).toBe(name);
 
-        expect(mockEngine.readMany).toHaveBeenCalledTimes(1);
-        expect(mockEngine.readMany).toHaveBeenCalledWith(User.collection, {
+        expect(engine.readMany).toHaveBeenCalledTimes(1);
+        expect(engine.readMany).toHaveBeenCalledWith(User.collection, {
             $in: [id],
         });
     });
 
     it('loads relations using setter', () => {
         // Arrange
-        const id = faker.datatype.uuid();
+        const id = uuid();
         const name = faker.random.word();
         const post = new Post({ authorId: id });
 
@@ -187,7 +173,7 @@ describe('Model Relations', () => {
 
     it('unloads relations using deletes', () => {
         // Arrange
-        const id = faker.datatype.uuid();
+        const id = uuid();
         const name = faker.random.word();
         const post = new Post({ authorId: id });
 
@@ -212,7 +198,7 @@ describe('Model Relations', () => {
             public fooRelationship(): Relation {
                 return this.belongsToOne(Model, 'id');
             }
-
+        
         }
 
         class Child extends Parent {
@@ -220,7 +206,7 @@ describe('Model Relations', () => {
             public barRelationship(): Relation {
                 return this.belongsToOne(Model, 'id');
             }
-
+        
         }
 
         // Act
@@ -237,8 +223,8 @@ describe('Model Relations', () => {
 
     it('exposes relation instances', () => {
         // Arrange
-        const postId = faker.datatype.uuid();
-        const userId = faker.datatype.uuid();
+        const postId = uuid();
+        const userId = uuid();
         const postTitle = faker.random.word();
         const userName = faker.random.word();
         const post = new Post({ id: postId, authorId: userId, title: postTitle });
@@ -266,7 +252,7 @@ describe('Model Relations', () => {
             public childrenRelationship(): Relation {
                 return this.hasMany(Child, 'parentId');
             }
-
+        
         }
 
         const ChildSchema = defineModelSchema({ fields: { parentId: FieldType.Key } });
@@ -279,7 +265,7 @@ describe('Model Relations', () => {
             public parentRelationship(): Relation {
                 return this.belongsToOne(Parent, 'parentId');
             }
-
+        
         }
 
         const parent = new Parent({ id: 'parent' });
@@ -304,7 +290,7 @@ describe('Model Relations', () => {
 
         expect(clone.relatedChildren.parent).toBe(clone);
 
-        children.forEach(child => {
+        children.forEach((child) => {
             expect(child.parentId).toEqual('parent');
             expect(child.parent).toBe(clone);
         });

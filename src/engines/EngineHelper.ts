@@ -11,7 +11,7 @@ import type {
     EngineFilters,
     EngineUpdateItemsOperatorData,
     EngineUpdates,
-} from '@/engines/Engine';
+} from 'soukai/engines/Engine';
 
 type Handler<T = unknown> = (...params: any[]) => T;
 type Operation<T extends Record<string, unknown> = Record<string, unknown>> = Record<keyof T, unknown>;

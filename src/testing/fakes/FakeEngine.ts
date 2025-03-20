@@ -1,6 +1,8 @@
 import { fail } from '@noeldemartin/utils';
 
-import { EngineHelper } from 'soukai/engines/EngineHelper';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
+import { EngineHelper } from 'soukai/engines';
 import type {
     Engine,
     EngineDocument,
@@ -8,33 +10,30 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai/engines/Engine';
+import { vi } from 'vitest';
 
-import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
-import DocumentNotFound from 'soukai/errors/DocumentNotFound';
-
-export interface InMemoryEngineCollection {
+export interface FakeEngineCollection {
     [id: string]: EngineDocument;
 }
 
-export interface InMemoryEngineDatabase {
-    [collection: string]: InMemoryEngineCollection;
+export interface FakeEngineDatabase {
+    [collection: string]: FakeEngineCollection;
 }
 
-/**
- * Engine that stores data in memory. Data can be accessed with the [[database]] property to
- * get an [[InMemoryEngineDatabase]].
- */
-export class InMemoryEngine implements Engine {
+export default class FakeEngine implements Engine {
+
+    public database: FakeEngineDatabase = {};
 
     private helper: EngineHelper;
-    private _database: InMemoryEngineDatabase = {};
 
     public constructor() {
         this.helper = new EngineHelper();
-    }
 
-    public get database(): InMemoryEngineDatabase {
-        return this._database;
+        vi.spyOn(this as FakeEngine, 'create');
+        vi.spyOn(this as FakeEngine, 'readOne');
+        vi.spyOn(this as FakeEngine, 'readMany');
+        vi.spyOn(this as FakeEngine, 'update');
+        vi.spyOn(this as FakeEngine, 'delete');
     }
 
     public create(collectionName: string, document: EngineDocument, id?: string): Promise<string> {
@@ -88,11 +87,11 @@ export class InMemoryEngine implements Engine {
     }
 
     private hasCollection(name: string): boolean {
-        return name in this._database;
+        return name in this.database;
     }
 
-    private collection(name: string): InMemoryEngineCollection {
-        return (this._database[name] ??= {});
+    private collection(name: string): FakeEngineCollection {
+        return (this.database[name] ??= {});
     }
 
 }

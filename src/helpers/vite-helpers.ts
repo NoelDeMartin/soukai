@@ -1,5 +1,5 @@
-import { bootModels } from '@/models';
-import { Model } from '@/models/Model';
+import { bootModels } from 'soukai/models';
+import { Model } from 'soukai/models/Model';
 
 function isModelClass(module: unknown): module is typeof Model {
     let prototype = Object.getPrototypeOf(module);

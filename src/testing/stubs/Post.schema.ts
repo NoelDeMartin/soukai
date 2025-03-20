@@ -1,4 +1,4 @@
-import { FieldType, defineModelSchema } from '@/models';
+import { FieldType, defineModelSchema } from 'soukai/models';
 
 export default defineModelSchema({
     fields: {
