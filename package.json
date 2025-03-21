@@ -4,8 +4,14 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
-        "types": "./dist/soukai.d.ts",
-        "default": "./dist/soukai.js"
+        ".": {
+            "types": "./dist/soukai.d.ts",
+            "default": "./dist/soukai.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "default": "./dist/testing.js"
+        }
     },
     "files": [
         "src",
@@ -27,7 +33,7 @@
     "devDependencies": {
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
         "@noeldemartin/scripts": "0.3.0-next.f891bcbf278e01c7429bb641d0df38556b4ac151",
-        "@noeldemartin/testing": "0.0.0-next.42d90af773d6a44a73970bdf71d96b181231dd9b",
+        "@noeldemartin/testing": "0.0.0-next.c3f5a7ab2d50f31a89ce51e1df4ef55bf51d66b8",
         "@tsconfig/node22": "^22.0.0",
         "@types/node": "^22.13.10",
         "eslint": "^8.57.1",

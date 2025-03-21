@@ -1,8 +1,10 @@
-import { fail } from '@noeldemartin/utils';
+import type { MockInstance } from 'vitest';
+import { vi } from 'vitest';
+import { facade, fail } from '@noeldemartin/utils';
 
 import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
-import { EngineHelper } from 'soukai/engines';
+import { EngineHelper, setEngine } from 'soukai/engines';
 import type {
     Engine,
     EngineDocument,
@@ -10,7 +12,6 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai/engines/Engine';
-import { vi } from 'vitest';
 
 export interface FakeEngineCollection {
     [id: string]: EngineDocument;
@@ -20,20 +21,28 @@ export interface FakeEngineDatabase {
     [collection: string]: FakeEngineCollection;
 }
 
-export default class FakeEngine implements Engine {
+export class FakeEngineInstance implements Engine {
 
     public database: FakeEngineDatabase = {};
+    public readonly createSpy: MockInstance;
+    public readonly readOneSpy: MockInstance;
+    public readonly readManySpy: MockInstance;
+    public readonly updateSpy: MockInstance;
+    public readonly deleteSpy: MockInstance;
 
     private helper: EngineHelper;
 
     public constructor() {
         this.helper = new EngineHelper();
+        this.createSpy = vi.spyOn(this as FakeEngineInstance, 'create');
+        this.readOneSpy = vi.spyOn(this as FakeEngineInstance, 'readOne');
+        this.readManySpy = vi.spyOn(this as FakeEngineInstance, 'readMany');
+        this.updateSpy = vi.spyOn(this as FakeEngineInstance, 'update');
+        this.deleteSpy = vi.spyOn(this as FakeEngineInstance, 'delete');
+    }
 
-        vi.spyOn(this as FakeEngine, 'create');
-        vi.spyOn(this as FakeEngine, 'readOne');
-        vi.spyOn(this as FakeEngine, 'readMany');
-        vi.spyOn(this as FakeEngine, 'update');
-        vi.spyOn(this as FakeEngine, 'delete');
+    public use(): void {
+        setEngine(this);
     }
 
     public create(collectionName: string, document: EngineDocument, id?: string): Promise<string> {
@@ -95,3 +104,5 @@ export default class FakeEngine implements Engine {
     }
 
 }
+
+export default facade(FakeEngineInstance);

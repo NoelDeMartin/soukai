@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-
+import { FakeLocalStorage } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
 
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
@@ -7,18 +7,18 @@ import { bootModels } from 'soukai/models';
 import { LocalStorageEngine } from 'soukai/engines/LocalStorageEngine';
 
 import User from 'soukai/testing/stubs/User';
-import FakeLocalStorage from 'soukai/testing/fakes/FakeLocalStorage';
 
 describe('LocalStorageEngine', () => {
 
     let engine: LocalStorageEngine;
-    let storage: FakeLocalStorage;
     let prefix: string;
 
     beforeEach(() => {
         bootModels({ User });
 
-        globalThis.localStorage = storage = new FakeLocalStorage();
+        FakeLocalStorage.reset();
+        FakeLocalStorage.patchGlobal();
+
         engine = new LocalStorageEngine((prefix = faker.random.word()));
     });
 
@@ -27,15 +27,18 @@ describe('LocalStorageEngine', () => {
 
         const id = await engine.create(User.collection, { name });
 
-        expect(storage.setItem).toHaveBeenCalledTimes(1);
-        expect(storage.setItem).toHaveBeenCalledWith(prefix + User.collection, JSON.stringify({ [id]: { name } }));
+        expect(FakeLocalStorage.setItem).toHaveBeenCalledTimes(1);
+        expect(FakeLocalStorage.setItem).toHaveBeenCalledWith(
+            prefix + User.collection,
+            JSON.stringify({ [id]: { name } }),
+        );
     });
 
     it('read one', async () => {
         const name = faker.name.firstName();
         const id = faker.datatype.uuid();
 
-        storage.data[prefix + User.collection] = JSON.stringify({ [id]: { name } });
+        FakeLocalStorage.data[prefix + User.collection] = JSON.stringify({ [id]: { name } });
 
         const document = await engine.readOne(User.collection, id);
 
@@ -58,12 +61,12 @@ describe('LocalStorageEngine', () => {
         const secondId = faker.datatype.uuid();
         const secondName = faker.name.firstName();
 
-        storage.data[prefix + User.collection] = JSON.stringify({
+        FakeLocalStorage.data[prefix + User.collection] = JSON.stringify({
             [firstId]: { name: firstName },
             [secondId]: { name: secondName },
         });
 
-        storage.data[prefix + otherCollection] = JSON.stringify({
+        FakeLocalStorage.data[prefix + otherCollection] = JSON.stringify({
             [faker.datatype.uuid()]: { name: faker.name.firstName() },
         });
 
@@ -78,7 +81,7 @@ describe('LocalStorageEngine', () => {
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
 
-        storage.data[prefix + User.collection] = JSON.stringify({
+        FakeLocalStorage.data[prefix + User.collection] = JSON.stringify({
             [faker.datatype.uuid()]: { name: faker.name.firstName() },
             [id]: { name },
         });
@@ -95,14 +98,14 @@ describe('LocalStorageEngine', () => {
         const newName = faker.name.firstName();
         const age = faker.datatype.number();
 
-        storage.data[prefix + User.collection] = JSON.stringify({
+        FakeLocalStorage.data[prefix + User.collection] = JSON.stringify({
             [id]: { name: initialName, surname: faker.name.lastName(), age },
         });
 
         await engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
 
-        expect(storage.setItem).toHaveBeenCalledTimes(1);
-        expect(storage.setItem).toHaveBeenCalledWith(
+        expect(FakeLocalStorage.setItem).toHaveBeenCalledTimes(1);
+        expect(FakeLocalStorage.setItem).toHaveBeenCalledWith(
             prefix + User.collection,
             JSON.stringify({
                 [id]: { name: newName, age },
@@ -120,7 +123,7 @@ describe('LocalStorageEngine', () => {
         const secondId = faker.datatype.uuid();
         const name = faker.name.firstName();
 
-        storage.data[prefix + User.collection] = JSON.stringify({
+        FakeLocalStorage.data[prefix + User.collection] = JSON.stringify({
             [firstId]: { name: faker.name.firstName() },
             [secondId]: { name },
         });
@@ -129,7 +132,7 @@ describe('LocalStorageEngine', () => {
         await engine.delete(User.collection, firstId);
 
         // Assert
-        expect(storage.setItem).toHaveBeenCalledWith(
+        expect(FakeLocalStorage.setItem).toHaveBeenCalledWith(
             prefix + User.collection,
             JSON.stringify({
                 [secondId]: { name },

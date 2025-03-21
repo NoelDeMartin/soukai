@@ -20,10 +20,10 @@ import FakeEngine from 'soukai/testing/fakes/FakeEngine';
 
 describe('Model', () => {
 
-    let engine: FakeEngine;
-
     beforeEach(() => {
-        setEngine((engine = new FakeEngine()));
+        FakeEngine.reset();
+        FakeEngine.use();
+
         bootModels({ User, Post, City });
     });
 
@@ -34,8 +34,8 @@ describe('Model', () => {
         const user = new User({ id: userId }, true);
         const post = new Post({ id: postId }, true);
 
-        engine.database[User.collection] = { [userId]: user.getAttributes() };
-        engine.database[Post.collection] = { [postId]: post.getAttributes() };
+        FakeEngine.database[User.collection] = { [userId]: user.getAttributes() };
+        FakeEngine.database[Post.collection] = { [postId]: post.getAttributes() };
 
         user.setRelationModels('posts', [post]);
 
@@ -43,9 +43,9 @@ describe('Model', () => {
         await user.delete();
 
         // Assert
-        expect(engine.delete).toHaveBeenCalledTimes(2);
-        expect(engine.delete).toHaveBeenCalledWith(User.collection, userId);
-        expect(engine.delete).toHaveBeenCalledWith(Post.collection, postId);
+        expect(FakeEngine.delete).toHaveBeenCalledTimes(2);
+        expect(FakeEngine.delete).toHaveBeenCalledWith(User.collection, userId);
+        expect(FakeEngine.delete).toHaveBeenCalledWith(Post.collection, postId);
 
         expect(user.exists()).toBe(false);
         expect(user.id).toBeUndefined();
@@ -489,10 +489,10 @@ describe('Models definition', () => {
 
 describe('Models CRUD', () => {
 
-    let engine: FakeEngine;
-
     beforeEach(() => {
-        setEngine((engine = new FakeEngine()));
+        FakeEngine.reset();
+        FakeEngine.use();
+
         bootModels({ User, Post });
     });
 
@@ -506,7 +506,7 @@ describe('Models CRUD', () => {
         const model = await User.create(attributes);
 
         // Assert
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         expect(model).toBeInstanceOf(User);
         expect(model.exists()).toBe(true);
@@ -516,8 +516,8 @@ describe('Models CRUD', () => {
         expect(now - seconds(model.createdAt)).toBeLessThan(1);
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-        expect(engine.create).toHaveBeenCalledTimes(1);
-        expect(engine.create).toHaveBeenCalledWith(
+        expect(FakeEngine.create).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.create).toHaveBeenCalledWith(
             User.collection,
             {
                 ...attributes,
@@ -541,7 +541,7 @@ describe('Models CRUD', () => {
         await model.save();
 
         // Assert
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         expect(model).toBeInstanceOf(User);
         expect(model.exists()).toBe(true);
@@ -551,8 +551,8 @@ describe('Models CRUD', () => {
         expect(now - seconds(model.createdAt)).toBeLessThan(1);
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-        expect(engine.create).toHaveBeenCalledTimes(1);
-        expect(engine.create).toHaveBeenCalledWith(
+        expect(FakeEngine.create).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.create).toHaveBeenCalledWith(
             User.collection,
             {
                 ...attributes,
@@ -585,8 +585,8 @@ describe('Models CRUD', () => {
         expect(now - seconds(model.createdAt)).toBeLessThan(1);
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
-        expect(engine.create).toHaveBeenCalledTimes(1);
-        expect(engine.create).toHaveBeenCalledWith(
+        expect(FakeEngine.create).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.create).toHaveBeenCalledWith(
             User.collection,
             {
                 ...attributes,
@@ -623,7 +623,7 @@ describe('Models CRUD', () => {
         const name = faker.name.firstName();
         const birthDate = seconds(Date.now(), true);
 
-        engine.database[User.collection] = {
+        FakeEngine.database[User.collection] = {
             [id]: {
                 id,
                 name,
@@ -642,15 +642,15 @@ describe('Models CRUD', () => {
         expect(model.name).toBe(name);
         expect(model.birthDate).toBeInstanceOf(Date);
         expect(seconds(model.birthDate, true)).toEqual(birthDate);
-        expect(engine.readOne).toHaveBeenCalledTimes(1);
-        expect(engine.readOne).toHaveBeenCalledWith(User.collection, id);
+        expect(FakeEngine.readOne).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readOne).toHaveBeenCalledWith(User.collection, id);
     });
 
     it('find respects empty values', async () => {
         // Arrange
         const id = uuid();
 
-        engine.database[User.collection] = {
+        FakeEngine.database[User.collection] = {
             [id]: {
                 id,
                 name: faker.name.firstName(),
@@ -675,15 +675,15 @@ describe('Models CRUD', () => {
 
         // Assert
         expect(model).toBeNull();
-        expect(engine.readOne).toHaveBeenCalledTimes(1);
-        expect(engine.readOne).toHaveBeenCalledWith(User.collection, id);
+        expect(FakeEngine.readOne).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readOne).toHaveBeenCalledWith(User.collection, id);
     });
 
     it('all', async () => {
         const id = uuid();
         const name = faker.name.firstName();
 
-        engine.database[User.collection] = { [id]: { id, name } };
+        FakeEngine.database[User.collection] = { [id]: { id, name } };
 
         const models = await User.all();
         expect(models).toHaveLength(1);
@@ -692,8 +692,8 @@ describe('Models CRUD', () => {
         expect(user).toBeInstanceOf(User);
         expect(user.id).toBe(id);
         expect(user.name).toBe(name);
-        expect(engine.readMany).toHaveBeenCalledTimes(1);
-        expect(engine.readMany).toHaveBeenCalledWith(User.collection, undefined);
+        expect(FakeEngine.readMany).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readMany).toHaveBeenCalledWith(User.collection, undefined);
     });
 
     it('update', async () => {
@@ -710,7 +710,7 @@ describe('Models CRUD', () => {
         await model.update({ name: newName });
 
         // Assert
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         expect(model).toBeInstanceOf(User);
         expect(model.id).toBe(id);
@@ -719,8 +719,8 @@ describe('Models CRUD', () => {
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
         expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, id, {
             name: newName,
             updatedAt: model.updatedAt,
         });
@@ -744,7 +744,7 @@ describe('Models CRUD', () => {
         const newName = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         // Act
         await after({ ms: 100 });
@@ -761,8 +761,8 @@ describe('Models CRUD', () => {
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
         expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, id, {
             name: newName,
             updatedAt: model.updatedAt,
         });
@@ -773,7 +773,7 @@ describe('Models CRUD', () => {
         const name = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name, surname: faker.name.lastName() });
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         // Act
         await after({ ms: 100 });
@@ -790,8 +790,8 @@ describe('Models CRUD', () => {
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
         expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, id, {
             updatedAt: model.updatedAt,
             surname: { $unset: true },
         });
@@ -801,7 +801,7 @@ describe('Models CRUD', () => {
         // Arrange
         const name = faker.name.firstName();
         const model = await User.create({ name });
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         // Act
         await model.delete();
@@ -813,8 +813,8 @@ describe('Models CRUD', () => {
         expect(model.exists()).toBe(false);
         expect(model.wasRecentlyDeleted()).toBe(true);
         expect(model.getDeletedPrimaryKey()).toBe(id);
-        expect(engine.delete).toHaveBeenCalledTimes(1);
-        expect(engine.delete).toHaveBeenCalledWith(User.collection, id);
+        expect(FakeEngine.delete).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.delete).toHaveBeenCalledWith(User.collection, id);
     });
 
     it('throw engine missing error', async () => {
@@ -829,10 +829,10 @@ describe('Models CRUD', () => {
 
 describe('Model attributes', () => {
 
-    let engine: FakeEngine;
-
     beforeEach(() => {
-        setEngine((engine = new FakeEngine()));
+        FakeEngine.reset();
+        FakeEngine.use();
+
         bootModels({ User });
     });
 
@@ -1056,7 +1056,7 @@ describe('Model attributes', () => {
         // Arrange
         const id = uuid();
 
-        engine.database[User.collection] = {
+        FakeEngine.database[User.collection] = {
             [id]: {
                 id,
                 name: 'Alice',
@@ -1078,8 +1078,8 @@ describe('Model attributes', () => {
         // Assert
         expect(Object.keys(malformedAttributes)).toHaveLength(1);
 
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, id, {
             avatarUrl: 'https://example.org/avatar.png',
         });
     });
@@ -1091,7 +1091,7 @@ describe('Model attributes', () => {
         const newName = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         // Act
         await after({ ms: 100 });
@@ -1108,8 +1108,8 @@ describe('Model attributes', () => {
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
         expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime());
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, id, {
             name: newName,
             updatedAt: model.updatedAt,
         });
@@ -1120,7 +1120,7 @@ describe('Model attributes', () => {
         const name = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name, surname: faker.name.lastName() });
-        const id = Object.keys(engine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection])[0];
 
         // Act
         await after({ ms: 100 });
@@ -1138,8 +1138,8 @@ describe('Model attributes', () => {
         expect(model.updatedAt).toBeInstanceOf(Date);
         expect(now - seconds(model.updatedAt)).toBeLessThan(1);
         expect(model.updatedAt.getTime()).toBeGreaterThan(model.createdAt.getTime() + 10);
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, id, {
             updatedAt: model.updatedAt,
             surname: { $unset: true },
         });
@@ -1205,7 +1205,7 @@ describe('Model attributes', () => {
             true,
         );
 
-        engine.database[User.collection] = {
+        FakeEngine.database[User.collection] = {
             [model.id]: model.getAttributes(),
         };
 
@@ -1218,8 +1218,8 @@ describe('Model attributes', () => {
         });
 
         // Assert
-        expect(engine.update).toHaveBeenCalledTimes(1);
-        expect(engine.update).toHaveBeenCalledWith(User.collection, model.id, {
+        expect(FakeEngine.update).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.update).toHaveBeenCalledWith(User.collection, model.id, {
             name: model.name,
             social: model.social,
             createdAt: model.createdAt,

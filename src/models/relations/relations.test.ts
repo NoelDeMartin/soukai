@@ -8,7 +8,6 @@ import HasManyRelation from 'soukai/models/relations/HasManyRelation';
 import HasOneRelation from 'soukai/models/relations/HasOneRelation';
 import type { Relation } from 'soukai/models/relations/Relation';
 
-import { setEngine } from 'soukai/engines';
 import { FieldType } from 'soukai/models/fields';
 import { Model, bootModels, defineModelSchema } from 'soukai/models';
 
@@ -19,10 +18,10 @@ import FakeEngine from 'soukai/testing/fakes/FakeEngine';
 
 describe('Model Relations', () => {
 
-    let engine: FakeEngine;
-
     beforeEach(() => {
-        setEngine((engine = new FakeEngine()));
+        FakeEngine.reset();
+        FakeEngine.use();
+
         bootModels({ User, Post, City });
     });
 
@@ -33,7 +32,7 @@ describe('Model Relations', () => {
         const name = faker.random.word();
         const user = new User({ id: userId });
 
-        engine.database[City.collection] = { [cityId]: { name, birthRecords: [userId] } };
+        FakeEngine.database[City.collection] = { [cityId]: { name, birthRecords: [userId] } };
 
         // Act
         await user.loadRelation('birthPlace');
@@ -45,8 +44,8 @@ describe('Model Relations', () => {
         expect(birthPlace.id).toBe(cityId);
         expect(birthPlace.name).toBe(name);
 
-        expect(engine.readMany).toHaveBeenCalledTimes(1);
-        expect(engine.readMany).toHaveBeenCalledWith(City.collection, {
+        expect(FakeEngine.readMany).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readMany).toHaveBeenCalledWith(City.collection, {
             birthRecords: {
                 $or: [{ $eq: userId }, { $contains: userId }],
             },
@@ -59,7 +58,7 @@ describe('Model Relations', () => {
         const name = faker.random.word();
         const post = new Post({ authorId: id });
 
-        engine.database[User.collection] = { [id]: { name } };
+        FakeEngine.database[User.collection] = { [id]: { name } };
 
         // Act
         await post.loadRelation('author');
@@ -71,8 +70,8 @@ describe('Model Relations', () => {
         expect(author.id).toBe(id);
         expect(author.name).toBe(name);
 
-        expect(engine.readOne).toHaveBeenCalledTimes(1);
-        expect(engine.readOne).toHaveBeenCalledWith(User.collection, id);
+        expect(FakeEngine.readOne).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readOne).toHaveBeenCalledWith(User.collection, id);
     });
 
     it('loads hasMany relations', async () => {
@@ -86,7 +85,7 @@ describe('Model Relations', () => {
         const secondPostBody = faker.lorem.paragraph();
         const user = new User({ id });
 
-        engine.database[Post.collection] = {
+        FakeEngine.database[Post.collection] = {
             [firstPostId]: { title: firstPostTitle, body: firstPostBody, authorId: id },
             [secondPostId]: { title: secondPostTitle, body: secondPostBody, authorId: id },
             [uuid()]: { title: faker.lorem.sentence(), body: faker.lorem.paragraph(), authorId: uuid() },
@@ -109,8 +108,8 @@ describe('Model Relations', () => {
         expect(posts[1].title).toBe(secondPostTitle);
         expect(posts[1].body).toBe(secondPostBody);
 
-        expect(engine.readMany).toHaveBeenCalledTimes(1);
-        expect(engine.readMany).toHaveBeenCalledWith(Post.collection, {
+        expect(FakeEngine.readMany).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readMany).toHaveBeenCalledWith(Post.collection, {
             authorId: {
                 $or: [{ $eq: id }, { $contains: id }],
             },
@@ -123,7 +122,7 @@ describe('Model Relations', () => {
         const name = faker.random.word();
         const city = new City({ birthRecords: [id] });
 
-        engine.database[User.collection] = { [id]: { name } };
+        FakeEngine.database[User.collection] = { [id]: { name } };
 
         // Act
         await city.loadRelation('natives');
@@ -137,8 +136,8 @@ describe('Model Relations', () => {
         expect(natives[0].id).toBe(id);
         expect(natives[0].name).toBe(name);
 
-        expect(engine.readMany).toHaveBeenCalledTimes(1);
-        expect(engine.readMany).toHaveBeenCalledWith(User.collection, {
+        expect(FakeEngine.readMany).toHaveBeenCalledTimes(1);
+        expect(FakeEngine.readMany).toHaveBeenCalledWith(User.collection, {
             $in: [id],
         });
     });

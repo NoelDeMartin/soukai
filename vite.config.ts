@@ -7,12 +7,15 @@ export default defineConfig({
     build: {
         sourcemap: true,
         lib: {
-            entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+            entry: {
+                soukai: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+                testing: fileURLToPath(new URL('./src/testing/index.ts', import.meta.url)),
+            },
             formats: ['es'],
-            fileName: 'soukai',
+            fileName: (_, entry) => (entry.includes('testing') ? 'testing.js' : 'soukai.js'),
         },
         rollupOptions: {
-            external: ['@noeldemartin/utils', 'idb'],
+            external: ['@noeldemartin/utils', 'idb', 'vitest'],
         },
     },
     plugins: [
