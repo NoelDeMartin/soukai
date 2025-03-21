@@ -27,7 +27,7 @@
         "test:ci": "vitest --run --reporter verbose"
     },
     "dependencies": {
-        "@noeldemartin/utils": "0.7.0-next.d98a97003e3b0af1b9fc05dbfd6e57fab3c2f181",
+        "@noeldemartin/utils": "0.7.0-next.5c206fa7d2c7aa3aa156d38935403ee1e4866f59",
         "idb": "^8.0.2"
     },
     "devDependencies": {
