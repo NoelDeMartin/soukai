@@ -65,11 +65,11 @@ export class Model {
     public static __attributeGetters = new Map<string, () => unknown>();
     public static __attributeSetters = new Map<string, (value: unknown) => void>();
 
-    private static instances: WeakMap<typeof Model, Model> = new WeakMap;
-    private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap;
-    private static bootedModels: WeakMap<typeof Model, true> = new WeakMap;
-    private static engines: WeakMap<typeof Model, Engine> = new WeakMap;
-    private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap;
+    private static instances: WeakMap<typeof Model, Model> = new WeakMap();
+    private static pureInstances: WeakMap<typeof Model, Model> = new WeakMap();
+    private static bootedModels: WeakMap<typeof Model, true> = new WeakMap();
+    private static engines: WeakMap<typeof Model, Engine> = new WeakMap();
+    private static ignoringTimestamps: WeakMap<Model | typeof Model, true> = new WeakMap();
     private static fieldAliases: Record<string, string> = {};
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
@@ -177,7 +177,7 @@ export class Model {
     public static newInstance<T extends Model>(
         this: ModelConstructor<T>,
         ...params: ConstructorParameters<ModelConstructor<T>>
-    ): T{
+    ): T {
         return this.instance().newInstance(...params);
     }
 
@@ -216,7 +216,7 @@ export class Model {
     }
 
     public static requireEngine<T extends Engine = Engine>(): T {
-        return this.engines.get(this) as T ?? requireEngine<T>();
+        return (this.engines.get(this) as T) ?? requireEngine<T>();
     }
 
     public static requireFinalEngine<T extends Engine = Engine>(): T {
@@ -331,13 +331,10 @@ export class Model {
             timestamps = TIMESTAMP_FIELDS;
         }
 
-        const invalidField = timestamps.find(field => !TIMESTAMP_FIELDS.includes(field));
+        const invalidField = timestamps.find((field) => !TIMESTAMP_FIELDS.includes(field));
 
         if (invalidField) {
-            throw new InvalidModelDefinition(
-                this.modelName,
-                `Invalid timestamp field defined (${invalidField})`,
-            );
+            throw new InvalidModelDefinition(this.modelName, `Invalid timestamp field defined (${invalidField})`);
         }
 
         for (const field of timestamps) {
@@ -372,7 +369,7 @@ export class Model {
                 continue;
             }
 
-            const bootedDefinition = fieldDefinitions[field] = bootFieldDefinition(this.modelName, field, definition);
+            const bootedDefinition = (fieldDefinitions[field] = bootFieldDefinition(this.modelName, field, definition));
 
             if (bootedDefinition.alias) {
                 fieldAliases[field] = bootedDefinition.alias;
@@ -380,16 +377,14 @@ export class Model {
             }
 
             if (
-                timestamps.includes(field as TimestampFieldValue) && (
-                    bootedDefinition.type !== FieldType.Date ||
-                    bootedDefinition.required
-                )
+                timestamps.includes(field as TimestampFieldValue) &&
+                (bootedDefinition.type !== FieldType.Date || bootedDefinition.required)
             ) {
                 throw new InvalidModelDefinition(
                     this.modelName,
                     `Field ${field} definition must be type Date and not required ` +
-                    'because it is used an automatic timestamp. ' +
-                    'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
+                        'because it is used an automatic timestamp. ' +
+                        'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
                 );
             }
         }
@@ -422,17 +417,14 @@ export class Model {
 
         let prototype = Object.getPrototypeOf(instance);
         while (prototype !== Model.prototype) {
-            if (prototype.constructor.classFields)
-                classFields.push(...prototype.constructor.classFields);
+            if (prototype.constructor.classFields) classFields.push(...prototype.constructor.classFields);
 
             for (const [p, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(prototype))) {
                 const property = p as keyof typeof instance & string;
 
-                if (typeof descriptor.value !== 'function')
-                    continue;
+                if (typeof descriptor.value !== 'function') continue;
 
-                if (property.endsWith('Relationship'))
-                    relations.push(property.slice(0, - 12));
+                if (property.endsWith('Relationship')) relations.push(property.slice(0, -12));
                 else if (property.match(/get.+Attribute/))
                     attributeGetters.set(
                         stringToCamelCase(property.slice(3, -9)),
@@ -503,17 +495,18 @@ export class Model {
         return this._proxy;
     }
 
-    public static(): ModelConstructor<this>;
     public static(property: 'fields'): BootedFieldsDefinition;
-    public static<T extends keyof ModelConstructor<this>>(property: T): ModelConstructor<this>[T];
-    public static<T extends keyof ModelConstructor<this>>(
-        property?: T,
-    ): ModelConstructor<this> | ModelConstructor<this>[T] {
-        const constructor = this.constructor as ModelConstructor<this>;
+    public static(property: 'timestamps'): TimestampFieldValue[];
+    public static<T extends typeof Model>(): T;
+    public static<T extends typeof Model, K extends keyof T>(property: K): T[K];
+    public static<T extends typeof Model, K extends keyof T>(property?: K): T | T[K] {
+        const constructor = this.constructor as T;
 
-        return property
-            ? constructor[property] as ModelConstructor<this>[T]
-            : constructor;
+        if (!property) {
+            return constructor;
+        }
+
+        return constructor[property];
     }
 
     public newInstance<T extends Model>(this: T, ...params: ConstructorParameters<ModelConstructor<T>>): T {
@@ -524,7 +517,7 @@ export class Model {
 
     public async fresh(): Promise<this> {
         const primaryKey = this.getPrimaryKey();
-        const freshInstance = primaryKey ? await this.static().find(primaryKey) : null;
+        const freshInstance = primaryKey ? await this.static<ModelConstructor<this>>().find(primaryKey) : null;
 
         if (!freshInstance)
             throw new SoukaiError(
@@ -551,11 +544,13 @@ export class Model {
     }
 
     public getRelation<T extends Relation = Relation>(relation: string): T | null {
-        return this._relations[relation] as T || null;
+        return (this._relations[relation] as T) || null;
     }
 
     public requireRelation<T extends Relation = Relation>(relation: string): T {
-        return this._relations[relation] as T ?? fail(SoukaiError, `Attempting to use undefined ${relation} relation.`);
+        return (
+            (this._relations[relation] as T) ?? fail(SoukaiError, `Attempting to use undefined ${relation} relation.`)
+        );
     }
 
     public getEngine(): Engine | undefined {
@@ -569,21 +564,17 @@ export class Model {
     }
 
     public requireEngine<T extends Engine>(): T {
-        return this._engine as T ?? this.static().requireEngine<T>();
+        return (this._engine as T) ?? this.static().requireEngine<T>();
     }
 
     public requireFinalEngine<T extends Engine>(): T {
         return extractFinalEngine(this.requireEngine()) as T;
     }
 
-    public async loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(
-        relation: string,
-    ): Promise<T> {
+    public async loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(relation: string): Promise<T> {
         const relationInstance = this.requireRelation(relation);
-        const related = await relationInstance.relatedClass.withEngine(
-            this.requireEngine(),
-            () => relationInstance.load(),
-        );
+        const related = await relationInstance.relatedClass.withEngine(this.requireEngine(), () =>
+            relationInstance.load());
 
         this.emit('relation-loaded', relationInstance);
 
@@ -595,9 +586,7 @@ export class Model {
     ): Promise<T> {
         const relationInstance = this.requireRelation(relation);
 
-        return relationInstance.loaded
-            ? relationInstance.getLoadedModels() as T
-            : this.loadRelation(relation);
+        return relationInstance.loaded ? (relationInstance.getLoadedModels() as T) : this.loadRelation(relation);
     }
 
     public unloadRelation(relation: string): void {
@@ -611,7 +600,7 @@ export class Model {
             // eslint-disable-next-line no-console
             console.warn(
                 `You're getting a single model from the multi-model '${relation}' relation ` +
-                `in the '${this.static('modelName')}' model.`,
+                    `in the '${this.static('modelName')}' model.`,
             );
 
             return (relationInstance.related?.[0] ?? null) as T | null;
@@ -624,7 +613,7 @@ export class Model {
         const relationInstance = this.requireRelation(relation);
 
         if (relationInstance instanceof SingleModelRelation) {
-            return relationInstance.related ? [relationInstance.related] as T[] : null;
+            return relationInstance.related ? ([relationInstance.related] as T[]) : null;
         }
 
         return (relationInstance.related ?? null) as T[] | null;
@@ -637,7 +626,7 @@ export class Model {
             // eslint-disable-next-line no-console
             console.warn(
                 `You're setting a single model for the multi-model '${relation}' relation ` +
-                `in the '${this.static('modelName')}' model.`,
+                    `in the '${this.static('modelName')}' model.`,
             );
 
             relationInstance.related = [model];
@@ -676,8 +665,7 @@ export class Model {
         let value = removeUndefinedAttributes(this._attributes, this.static('fields'));
 
         for (const part of parts) {
-            if (!isObject(value) || !(part in value))
-                return false;
+            if (!isObject(value) || !(part in value)) return false;
 
             value = value[part] as Attributes;
         }
@@ -703,7 +691,7 @@ export class Model {
         this._attributes[field] = value = this.castAttribute(value, { definition: this.static('fields')[field] });
 
         this.markAttributeDirty(field, this._originalAttributes[field], value)
-            ? this._dirtyAttributes[field] = value
+            ? (this._dirtyAttributes[field] = value)
             : delete this._dirtyAttributes[field];
     }
 
@@ -778,7 +766,7 @@ export class Model {
 
     public getAttribute<T = unknown>(field: string, includeUndefined: boolean = false): T {
         return this.hasAttributeGetter(field)
-            ? this.callAttributeGetter(field) as T
+            ? (this.callAttributeGetter(field) as T)
             : this.getAttributeValue(field, includeUndefined);
     }
 
@@ -789,8 +777,7 @@ export class Model {
         while (fields.length > 0) {
             const fieldValue = value[fields.shift() as string];
 
-            if (!isObject(fieldValue))
-                return fieldValue as T;
+            if (!isObject(fieldValue)) return fieldValue as T;
 
             value = fieldValue;
         }
@@ -801,7 +788,7 @@ export class Model {
     public getAttributes(includeUndefined: boolean = false): Attributes {
         return includeUndefined
             ? objectDeepClone(this._attributes)
-            : removeUndefinedAttributes(this._attributes, this.static('fields')) as Attributes;
+            : (removeUndefinedAttributes(this._attributes, this.static('fields')) as Attributes);
     }
 
     public hasAttributeGetter(field: string): boolean {
@@ -821,12 +808,10 @@ export class Model {
             return;
         }
 
-        field in this.static('fields')
-            ? this._attributes[field] = undefined
-            : delete this._attributes[field];
+        field in this.static('fields') ? (this._attributes[field] = undefined) : delete this._attributes[field];
 
         this.markAttributeDirty(field, this._originalAttributes[field], undefined)
-            ? this._dirtyAttributes[field] = undefined
+            ? (this._dirtyAttributes[field] = undefined)
             : delete this._dirtyAttributes[field];
     }
 
@@ -845,9 +830,7 @@ export class Model {
     }
 
     public isDirty(field?: string): boolean {
-        return field
-            ? field in this._dirtyAttributes
-            : Object.values(this._dirtyAttributes).length > 0;
+        return field ? field in this._dirtyAttributes : Object.values(this._dirtyAttributes).length > 0;
     }
 
     public cleanDirty(): void {
@@ -888,8 +871,7 @@ export class Model {
 
         const existed = this.exists();
 
-        if (existed && !this.isDirty())
-            return this;
+        if (existed && !this.isDirty()) return this;
 
         await this.static('hooks').beforeSave?.call(this);
         await this.beforeSave();
@@ -933,18 +915,16 @@ export class Model {
     public clone(options?: ModelCloneOptions): this;
     public clone<T extends Model>(options?: ModelCloneOptions): T;
     public clone(options: ModelCloneOptions = {}): this {
-        const clones = options.clones ?? new WeakMap;
+        const clones = options.clones ?? new WeakMap();
 
-        if (clones.has(this))
-            return clones.get(this) as this;
+        if (clones.has(this)) return clones.get(this) as this;
 
         const constructorsOption = options.constructors;
-        const constructors =
-            Array.isArray(constructorsOption)
-                ? tap(new WeakMap, map => {
-                    constructorsOption.forEach(([original, substitute]) => map.set(original, substitute));
-                })
-                : constructorsOption ?? new WeakMap<typeof Model, typeof Model>();
+        const constructors = Array.isArray(constructorsOption)
+            ? tap(new WeakMap(), (map) => {
+                constructorsOption.forEach(([original, substitute]) => map.set(original, substitute));
+            })
+            : (constructorsOption ?? new WeakMap<typeof Model, typeof Model>());
         const classConstructor = constructors.get(this.static()) ?? this.static();
         const clone = new classConstructor(this.getAttributes());
 
@@ -953,7 +933,7 @@ export class Model {
         for (const [relationName, relationInstance] of Object.entries(this._relations)) {
             clone._relations[relationName] = tap(
                 relationInstance.clone({ clones, constructors }),
-                relationClone => relationClone.parent = clone,
+                (relationClone) => (relationClone.parent = clone),
             );
         }
 
@@ -988,8 +968,7 @@ export class Model {
                 if (property.startsWith('related')) {
                     const relation = stringToCamelCase(property.substr(7));
 
-                    if (target._proxy.hasRelation(relation))
-                        return target._relations[relation];
+                    if (target._proxy.hasRelation(relation)) return target._relations[relation];
                 }
 
                 return target._proxy.getAttribute(property);
@@ -1013,8 +992,7 @@ export class Model {
                 return true;
             },
             deleteProperty(target, property) {
-                if (typeof property !== 'string' || property in target)
-                    return Reflect.deleteProperty(target, property);
+                if (typeof property !== 'string' || property in target) return Reflect.deleteProperty(target, property);
 
                 if (target._proxy.hasRelation(property)) {
                     target._proxy.unloadRelation(property);
@@ -1057,15 +1035,18 @@ export class Model {
     }
 
     protected initializeRelations(): void {
-        this._relations = this.static('relations').reduce((relations, name) => {
-            const proxy = this._proxy as unknown as Record<string, () => Relation>;
-            const relation = proxy[stringToCamelCase(name) + 'Relationship']?.() as Relation;
+        this._relations = this.static('relations').reduce(
+            (relations, name) => {
+                const proxy = this._proxy as unknown as Record<string, () => Relation>;
+                const relation = proxy[stringToCamelCase(name) + 'Relationship']?.() as Relation;
 
-            relation.name = name;
-            relations[name] = relation;
+                relation.name = name;
+                relations[name] = relation;
 
-            return relations;
-        }, {} as Record<string, Relation>);
+                return relations;
+            },
+            {} as Record<string, Relation>,
+        );
     }
 
     protected getDefaultCollection(): string {
@@ -1082,9 +1063,8 @@ export class Model {
 
     protected async createManyFromEngineDocuments(documents: Record<string, EngineDocument>): Promise<this[]> {
         return Promise.all(
-            Object
-                .entries(documents)
-                .map(([id, document]) => this.createFromEngineDocument(this.parseKey(id), document)),
+            Object.entries(documents).map(([id, document]) =>
+                this.createFromEngineDocument(this.parseKey(id), document)),
         );
     }
 
@@ -1126,7 +1106,7 @@ export class Model {
 
         await this.deleteModelsFromEngine(models);
 
-        models.forEach(model => model.reset());
+        models.forEach((model) => model.reset());
 
         this._recentlyDeletedPrimaryKey = primaryKey;
     }
@@ -1135,7 +1115,7 @@ export class Model {
         const malformedFields = Object.keys(this._malformedDocumentAttributes);
         const isFieldMalformed = (field: string, definition: BootedFieldDefinition) => {
             if (definition.type === FieldType.Array) {
-                return malformedFields.some(malformedField => malformedField.startsWith(`${field}.`));
+                return malformedFields.some((malformedField) => malformedField.startsWith(`${field}.`));
             }
 
             return field in this._malformedDocumentAttributes;
@@ -1173,23 +1153,23 @@ export class Model {
 
     protected async getCascadeModels(): Promise<Model[]> {
         const relationPromises = this.static('relations')
-            .map(relation => this.requireRelation(relation))
-            .filter(relation => relation.enabled && relation.deleteStrategy === 'cascade')
-            .map(async relation => {
+            .map((relation) => this.requireRelation(relation))
+            .filter((relation) => relation.enabled && relation.deleteStrategy === 'cascade')
+            .map(async (relation) => {
                 const relationModels = await relation.getModels();
 
-                return relationModels.map(model => model.getCascadeModels());
+                return relationModels.map((model) => model.getCascadeModels());
             });
         const modelPromises = await Promise.all(relationPromises);
         const models = await Promise.all(modelPromises.flat());
 
-        return [...models.flat(), this].filter(model => model.exists());
+        return [...models.flat(), this].filter((model) => model.exists());
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
         // TODO cluster by collection and implement deleteMany
         const modelsData = models.map(
-            model => [model.static('collection'), model.getSerializedPrimaryKey()] as [string, string],
+            (model) => [model.static('collection'), model.getSerializedPrimaryKey()] as [string, string],
         );
 
         await Promise.all(modelsData.map(([collection, id]) => this.requireEngine().delete(collection, id)));
@@ -1268,16 +1248,14 @@ export class Model {
 
     protected async loadEmptyRelations(): Promise<void> {
         await Promise.all(
-            Object
-                .values(this._relations)
-                .filter(relation => relation.enabled && !relation.loaded && relation.isEmpty())
-                .map(relation => relation.load()),
+            Object.values(this._relations)
+                .filter((relation) => relation.enabled && !relation.loaded && relation.isEmpty())
+                .map((relation) => relation.load()),
         );
     }
 
     protected attributeValueChanged(originalValue: unknown, newValue: unknown): boolean {
-        if (originalValue instanceof ModelKey)
-            return toString(originalValue) !== toString(newValue);
+        if (originalValue instanceof ModelKey) return toString(originalValue) !== toString(newValue);
 
         return !deepEquals(originalValue, newValue);
     }
@@ -1295,10 +1273,11 @@ export class Model {
         const castedAttributes = {} as Record<string, unknown>;
 
         for (const field in attributes) {
-            castedAttributes[field] = this.castAttribute(
-                attributes[field],
-                { field: fieldPrefix + field, malformedAttributes, definition: definitions[field] },
-            );
+            castedAttributes[field] = this.castAttribute(attributes[field], {
+                field: fieldPrefix + field,
+                malformedAttributes,
+                definition: definitions[field],
+            });
         }
 
         return castedAttributes;
@@ -1320,13 +1299,13 @@ export class Model {
             switch (typeof value) {
                 case 'object':
                     if (Array.isArray(value))
-                        return value.map((attributeValue, index) => this.castAttribute(attributeValue, {
-                            field: field && `${field}.${index}`,
-                            malformedAttributes,
-                        }));
+                        return value.map((attributeValue, index) =>
+                            this.castAttribute(attributeValue, {
+                                field: field && `${field}.${index}`,
+                                malformedAttributes,
+                            }));
 
-                    if (value instanceof Date || value instanceof ModelKey)
-                        return value;
+                    if (value instanceof Date || value instanceof ModelKey) return value;
 
                     return toString(value);
                 case 'symbol':
@@ -1367,17 +1346,18 @@ export class Model {
                     );
                 }
 
-                return value.map((attributeValue, index) => this.castAttribute(attributeValue, {
-                    field: field && `${field}.${index}`,
-                    definition: definition.items as BootedFieldDefinition,
-                    malformedAttributes,
-                }));
+                return value.map((attributeValue, index) =>
+                    this.castAttribute(attributeValue, {
+                        field: field && `${field}.${index}`,
+                        definition: definition.items as BootedFieldDefinition,
+                        malformedAttributes,
+                    }));
             case FieldType.Boolean:
                 return !!value;
             case FieldType.Number: {
                 const number = parseFloat(value as string);
 
-                if (isNaN(number)){
+                if (isNaN(number)) {
                     throw new SoukaiError(
                         `Invalid Number value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
                     );
@@ -1388,8 +1368,7 @@ export class Model {
             case FieldType.String:
                 return toString(value);
             case FieldType.Key: {
-                if (value instanceof ModelKey)
-                    return toString(value);
+                if (value instanceof ModelKey) return toString(value);
 
                 if (field && malformedAttributes) {
                     const malformations = malformedAttributes[field] ?? [];

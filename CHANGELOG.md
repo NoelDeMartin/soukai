@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 
 - Modernized tooling.
+- static() typings.
 - Model collections are no longer inherited unless they were initialized explicitly.
 - `Key` type is now typed as `string | number | Record<string, string | number>` instead of `any`. This was necessary to avoid values such as `null` or `undefined` accepted as valid keys.
 - `ProxyEngine` is no longer an interface but a class that can be extended, you can still use `IProxyEngine` for backwards compatibility but it'll be removed in future versions.

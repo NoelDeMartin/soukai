@@ -34,7 +34,6 @@ describe('Models helpers', () => {
             | Expect<Equals<typeof user, typeof User>>
             | Expect<Equals<typeof post, ModelConstructor>>
             | Expect<Equals<typeof city, typeof City>>
-            | true
         >();
     });
 

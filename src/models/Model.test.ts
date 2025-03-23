@@ -1252,7 +1252,6 @@ describe('Model types', () => {
             | Expect<Equals<City['createdAt'], Date>>
             | Expect<Not<HasKey<City, 'updatedAt'>>>
             | Expect<Not<HasKey<User, 'undefinedProperty'>>>
-            | true
         >(),
     );
 
