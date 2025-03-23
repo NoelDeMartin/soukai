@@ -10,4 +10,4 @@ export const ModelEvent = {
 /**
  * @deprecated Use ModelEvents keys instead.
  */
-export type ModelEventValue = typeof ModelEvent[keyof typeof ModelEvent];
+export type ModelEventValue = (typeof ModelEvent)[keyof typeof ModelEvent];

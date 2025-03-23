@@ -17,20 +17,18 @@ export default class BelongsToManyRelation<
 
         this.related = this.isEmpty()
             ? []
-            : (
-                this.localKeyName === this.relatedClass.primaryKey
-                    ? await this.relatedClass.all({
-                        $in: foreignKeys,
-                    })
-                    : await this.relatedClass.all({
-                        [this.localKeyName]: {
-                            $or: [
-                                ...foreignKeys.map(key => ({ $eq: key })),
-                                ...foreignKeys.map(key => ({ $contains: key })),
-                            ],
-                        },
-                    })
-            );
+            : this.localKeyName === this.relatedClass.primaryKey
+                ? await this.relatedClass.all({
+                    $in: foreignKeys,
+                })
+                : await this.relatedClass.all({
+                    [this.localKeyName]: {
+                        $or: [
+                            ...foreignKeys.map((key) => ({ $eq: key })),
+                            ...foreignKeys.map((key) => ({ $contains: key })),
+                        ],
+                    },
+                });
 
         return this.related;
     }
@@ -38,8 +36,7 @@ export default class BelongsToManyRelation<
     public setForeignAttributes(related: Related): void {
         const foreignKey = related.getAttribute<string>(this.localKeyName);
 
-        if (!foreignKey)
-            return;
+        if (!foreignKey) return;
 
         const foreignValues = this.parent.getAttribute<string[]>(this.foreignKeyName);
 

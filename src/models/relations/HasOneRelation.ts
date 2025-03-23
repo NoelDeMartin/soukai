@@ -13,10 +13,7 @@ export default class HasOneRelation<
 
         this.related = await this.relatedClass.first({
             [this.foreignKeyName]: {
-                $or: [
-                    { $eq: localKey },
-                    { $contains: localKey },
-                ],
+                $or: [{ $eq: localKey }, { $contains: localKey }],
             },
         });
 
@@ -26,8 +23,7 @@ export default class HasOneRelation<
     public setForeignAttributes(related: Related): void {
         const foreignKey = this.parent.getAttribute(this.localKeyName);
 
-        if (!foreignKey)
-            return;
+        if (!foreignKey) return;
 
         const foreignValue = related.getAttribute(this.foreignKeyName);
 
@@ -37,8 +33,7 @@ export default class HasOneRelation<
             return;
         }
 
-        if (foreignValue.includes(foreignKey))
-            return;
+        if (foreignValue.includes(foreignKey)) return;
 
         related.setAttribute(this.foreignKeyName, [...foreignValue, foreignKey]);
     }

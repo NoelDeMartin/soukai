@@ -33,18 +33,24 @@ export function getFinalEngine(): Engine | undefined {
 }
 
 export function requireEngine<T extends Engine = Engine>(): T {
-    return _engine as T || fail(
-        SoukaiError,
-        'Engine must be initialized before performing any operations. ' +
-            'Learn more at https://soukai.js.org/guide/engines.html',
+    return (
+        (_engine as T) ||
+        fail(
+            SoukaiError,
+            'Engine must be initialized before performing any operations. ' +
+                'Learn more at https://soukai.js.org/guide/engines.html',
+        )
     );
 }
 
 export function requireFinalEngine<T extends Engine = Engine>(): T {
-    return getFinalEngine() as T || fail(
-        SoukaiError,
-        'Engine must be initialized before performing any operations. ' +
-            'Learn more at https://soukai.js.org/guide/engines.html',
+    return (
+        (getFinalEngine() as T) ||
+        fail(
+            SoukaiError,
+            'Engine must be initialized before performing any operations. ' +
+                'Learn more at https://soukai.js.org/guide/engines.html',
+        )
     );
 }
 
@@ -57,7 +63,6 @@ export function setEngine(engine: Engine | null): void {
 
     _engine = engine;
 }
-
 
 export function withEngine<T>(engine: Engine, operation: () => T): T;
 export function withEngine<T>(engine: Engine, operation: () => Promise<T>): Promise<T>;
@@ -74,8 +79,7 @@ export function withEngine<T>(engine: Engine, operation: () => T | Promise<T>): 
 }
 
 export async function closeEngineConnections(): Promise<void> {
-    if (!_engine || !engineClosesConnections(_engine))
-        return;
+    if (!_engine || !engineClosesConnections(_engine)) return;
 
     await _engine.closeConnections();
 }

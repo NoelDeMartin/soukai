@@ -29,12 +29,7 @@ export abstract class Relation<
     public enabled: boolean = true;
     public deleteStrategy: RelationDeleteStrategy = null;
 
-    public constructor(
-        parent: Parent,
-        relatedClass: RelatedClass,
-        foreignKeyName: string,
-        localKeyName?: string,
-    ) {
+    public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName: string, localKeyName?: string) {
         this.parent = parent;
         this.relatedClass = relatedClass;
         this.foreignKeyName = foreignKeyName;
@@ -82,7 +77,7 @@ export abstract class Relation<
     }
 
     public getLoadedModels(): Related[] {
-        return this.related ? arrayFrom(this.related) as Related[] : [];
+        return this.related ? (arrayFrom(this.related) as Related[]) : [];
     }
 
     public unload(): void {
@@ -96,8 +91,8 @@ export abstract class Relation<
     }
 
     public clone(options: RelationCloneOptions = {}): this {
-        const clones = options.clones ?? new WeakMap;
-        const constructors = options.constructors ?? new WeakMap;
+        const clones = options.clones ?? new WeakMap();
+        const constructors = options.constructors ?? new WeakMap();
         const clone = Object.create(Object.getPrototypeOf(this)) as this;
 
         clone.name = this.name;
@@ -108,14 +103,12 @@ export abstract class Relation<
         clone.enabled = this.enabled;
 
         // TODO get from parent clone relation instead
-        clone.relatedClass = constructors.get(this.relatedClass) as RelatedClass ?? this.relatedClass;
+        clone.relatedClass = (constructors.get(this.relatedClass) as RelatedClass) ?? this.relatedClass;
 
-        if (this.related === null)
-            clone.related = null;
+        if (this.related === null) clone.related = null;
         else if (Array.isArray(this.related))
-            clone.related = this.related.map(model => model.clone({ clones, constructors }));
-        else if (this.related)
-            clone.related = this.related.clone({ clones, constructors });
+            clone.related = this.related.map((model) => model.clone({ clones, constructors }));
+        else if (this.related) clone.related = this.related.clone({ clones, constructors });
 
         return clone;
     }
@@ -136,10 +129,12 @@ export abstract class Relation<
     public isInverseOf(relation: Relation): boolean {
         const isInstanceOf = (inverseClass: Constructor<Relation>) => relation instanceof inverseClass;
 
-        return this.static().inverseRelationClasses.some(isInstanceOf)
-            && relation.relatedClass === this.parent.constructor
-            && relation.foreignKeyName === this.foreignKeyName
-            && relation.localKeyName === this.localKeyName;
+        return (
+            this.static().inverseRelationClasses.some(isInstanceOf) &&
+            relation.relatedClass === this.parent.constructor &&
+            relation.foreignKeyName === this.foreignKeyName &&
+            relation.localKeyName === this.localKeyName
+        );
     }
 
 }

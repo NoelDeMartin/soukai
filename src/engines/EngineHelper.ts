@@ -35,12 +35,7 @@ export class EngineHelper {
     private rootUpdates: Record<'$overwrite', RootUpdateHandler>;
     private attributeFilters: Record<'$eq' | '$contains' | '$or' | '$in', AttributeFilterHandler>;
     private attributeUpdates: Record<
-        '$update' |
-        '$updateItems' |
-        '$push' |
-        '$unset' |
-        '$apply' |
-        '$overwrite',
+        '$update' | '$updateItems' | '$push' | '$unset' | '$apply' | '$overwrite',
         AttributeUpdateHandler
     >;
 
@@ -71,13 +66,16 @@ export class EngineHelper {
         documents: EngineDocumentsCollection,
         filters: EngineFilters = {},
     ): EngineDocumentsCollection {
-        return Object.entries(documents).reduce((filteredDocuments, [id, document]) => {
-            if (this.filterDocument(id, document, filters)) {
-                filteredDocuments[id] = document;
-            }
+        return Object.entries(documents).reduce(
+            (filteredDocuments, [id, document]) => {
+                if (this.filterDocument(id, document, filters)) {
+                    filteredDocuments[id] = document;
+                }
 
-            return filteredDocuments;
-        }, {} as Record<string, EngineDocument>);
+                return filteredDocuments;
+            },
+            {} as Record<string, EngineDocument>,
+        );
     }
 
     public updateAttributes(attributes: Record<string, EngineAttributeValue>, updates: EngineUpdates): void {
@@ -94,7 +92,7 @@ export class EngineHelper {
 
         if (this.isOperation(updates, this.rootUpdates)) {
             const [[operation, value]] = Object.entries(updates) as unknown as [
-                [keyof typeof this.rootUpdates, RootUpdateHandler]
+                [keyof typeof this.rootUpdates, RootUpdateHandler],
             ];
 
             this.rootUpdates[operation](attributes, value);
@@ -115,11 +113,9 @@ export class EngineHelper {
         filters = { ...filters };
 
         for (const [filter, handler] of Object.entries(this.rootFilters)) {
-            if (!(filter in filters))
-                continue;
+            if (!(filter in filters)) continue;
 
-            if (!handler(id, document, filters[filter]))
-                return false;
+            if (!handler(id, document, filters[filter])) return false;
 
             delete filters[filter];
         }
@@ -140,15 +136,13 @@ export class EngineHelper {
             return false;
         }
 
-        return !Object.entries(filters)
-            .find(([filterAttribute, filterValue]) => {
-                const matchesFilter =
-                    this.isOperation(filterValue, this.attributeFilters)
-                        ? this.runOperation(filterValue, this.attributeFilters, value, filterAttribute)
-                        : this.attributeEq(value as Record<string, EngineAttributeValue>, filterAttribute, filterValue);
+        return !Object.entries(filters).find(([filterAttribute, filterValue]) => {
+            const matchesFilter = this.isOperation(filterValue, this.attributeFilters)
+                ? this.runOperation(filterValue, this.attributeFilters, value, filterAttribute)
+                : this.attributeEq(value as Record<string, EngineAttributeValue>, filterAttribute, filterValue);
 
-                return !matchesFilter;
-            });
+            return !matchesFilter;
+        });
     }
 
     private documentsIn = (id: string, _: EngineDocument, ids: string[]): boolean => {
@@ -156,7 +150,7 @@ export class EngineHelper {
     };
 
     private documentOverwrite = (document: EngineDocument, newValue: EngineDocument): void => {
-        for (const column of Object.getOwnPropertyNames(document)){
+        for (const column of Object.getOwnPropertyNames(document)) {
             delete document[column];
         }
 
@@ -180,20 +174,18 @@ export class EngineHelper {
             filters = [filters];
         }
 
-        const attributeItems = attributes && attributes[attribute] as EngineAttributeValue[];
+        const attributeItems = attributes && (attributes[attribute] as EngineAttributeValue[]);
         if (!Array.isArray(attributeItems)) {
             return false;
         }
 
         return !(filters as EngineAttributeFilter[]).find(
-            filter => !attributeItems.find(item => this.filterValue(item, filter)),
+            (filter) => !attributeItems.find((item) => this.filterValue(item, filter)),
         );
     };
 
     private attributeOr = (attributes: AttributesMap, attribute: string, filters: EngineAttributeFilter[]): boolean => {
-        return !!filters.find(
-            filter => !!this.filterValue(attributes, { [attribute]: filter }),
-        );
+        return !!filters.find((filter) => !!this.filterValue(attributes, { [attribute]: filter }));
     };
 
     private attributeIn = (attributes: AttributesMap, attribute: string, values: unknown[]): boolean => {
@@ -241,7 +233,7 @@ export class EngineHelper {
 
         for (const { $where, $update, $override, $unset } of updateData) {
             if ($where && $where.$in) {
-                $where.$in = $where.$in.map(index => index.toString());
+                $where.$in = $where.$in.map((index) => index.toString());
             }
 
             const array = this.requireArrayProperty('$updateItems', value, property);
@@ -257,7 +249,7 @@ export class EngineHelper {
             );
 
             if ($update) {
-                Object.keys(filteredDocuments).forEach(index => {
+                Object.keys(filteredDocuments).forEach((index) => {
                     this.updateAttributes(filteredDocuments, { [index]: $update });
 
                     array[parseInt(index)] = filteredDocuments[index] as EngineDocument;
@@ -265,7 +257,7 @@ export class EngineHelper {
             }
 
             if ($override) {
-                Object.keys(filteredDocuments).forEach(index => {
+                Object.keys(filteredDocuments).forEach((index) => {
                     array[parseInt(index)] = $override as EngineDocument;
                 });
             }
@@ -295,8 +287,7 @@ export class EngineHelper {
 
         const propertyValue = value[property];
 
-        if (!isObject(propertyValue))
-            return;
+        if (!isObject(propertyValue)) return;
 
         unsetProperties = Array.isArray(unsetProperties) ? unsetProperties : [unsetProperties];
 
@@ -320,17 +311,12 @@ export class EngineHelper {
         }
     };
 
-    private attributeOverwrite = (
-        value: EngineAttributeValueMap,
-        property: string,
-        newValue: EngineAttributeValue,
-    ) => {
+    private attributeOverwrite = (value: EngineAttributeValueMap, property: string, newValue: EngineAttributeValue) => {
         value[property] = newValue;
     };
 
     private isOperation<H extends Record<string, Handler>>(value: unknown, handlers: H): value is Operation<H> {
-        if (!isObject(value))
-            return false;
+        if (!isObject(value)) return false;
 
         const [firstKey, ...otherKeys] = Object.keys(value);
 

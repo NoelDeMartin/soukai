@@ -54,8 +54,7 @@ export class LocalStorageEngine implements Engine {
         const documents = this.readItem(collection, {} as EngineDocumentsCollection);
         const document = documents[id];
 
-        if (!document)
-            throw new DocumentNotFound(id, collection);
+        if (!document) throw new DocumentNotFound(id, collection);
 
         return this.deserializeAttributes(document);
     }
@@ -74,8 +73,7 @@ export class LocalStorageEngine implements Engine {
         const documentsCollection = this.readItem(collection, {} as EngineDocumentsCollection);
         const serializedDocument = documentsCollection[id];
 
-        if (!serializedDocument)
-            throw new DocumentNotFound(id, collection);
+        if (!serializedDocument) throw new DocumentNotFound(id, collection);
 
         const document = this.deserializeAttributes(serializedDocument);
 
@@ -121,14 +119,11 @@ export class LocalStorageEngine implements Engine {
     }
 
     private serializeAttributeValue(value: unknown): EngineAttributeValue {
-        if (Array.isArray(value))
-            return value.map(arrayValue => this.serializeAttributeValue(arrayValue));
+        if (Array.isArray(value)) return value.map((arrayValue) => this.serializeAttributeValue(arrayValue));
 
-        if (value instanceof Date)
-            return { __dateTime: value.getTime() };
+        if (value instanceof Date) return { __dateTime: value.getTime() };
 
-        if (typeof value === 'object')
-            return this.serializeAttributes(value as EngineDocument);
+        if (typeof value === 'object') return this.serializeAttributes(value as EngineDocument);
 
         return value as EngineAttributeValue;
     }
@@ -144,11 +139,9 @@ export class LocalStorageEngine implements Engine {
     }
 
     private deserializeAttributeValue(value: unknown): EngineAttributeValue {
-        if (Array.isArray(value))
-            return value.map(arrayValue => this.deserializeAttributeValue(arrayValue));
+        if (Array.isArray(value)) return value.map((arrayValue) => this.deserializeAttributeValue(arrayValue));
 
-        if (isObject(value) && '__dateTime' in value)
-            return new Date(value.__dateTime as number);
+        if (isObject(value) && '__dateTime' in value) return new Date(value.__dateTime as number);
 
         return value as EngineAttributeValue;
     }

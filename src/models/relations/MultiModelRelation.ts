@@ -14,12 +14,7 @@ export default abstract class MultiModelRelation<
 
     declare public related?: Related[];
 
-    public constructor(
-        parent: Parent,
-        relatedClass: RelatedClass,
-        foreignKeyName?: string,
-        localKeyName?: string,
-    ) {
+    public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName?: string, localKeyName?: string) {
         super(
             parent,
             relatedClass,
@@ -31,9 +26,10 @@ export default abstract class MultiModelRelation<
     public attach(model?: Related): Related;
     public attach(attributes: Attributes): Related;
     public attach(modelOrAttributes: Related | Attributes = {}): Related {
-        const model = modelOrAttributes instanceof this.relatedClass
-            ? modelOrAttributes as Related
-            : this.relatedClass.newInstance(modelOrAttributes);
+        const model =
+            modelOrAttributes instanceof this.relatedClass
+                ? (modelOrAttributes as Related)
+                : this.relatedClass.newInstance(modelOrAttributes);
 
         return tap(model, () => {
             if (!this.assertLoaded('attach') || this.isRelated(model)) {
@@ -47,10 +43,7 @@ export default abstract class MultiModelRelation<
     }
 
     public addRelated(related: Related): void {
-        this.related = arrayUnique([
-            ...this.related ?? [],
-            related,
-        ]);
+        this.related = arrayUnique([...(this.related ?? []), related]);
     }
 
     public abstract load(): Promise<Related[]>;

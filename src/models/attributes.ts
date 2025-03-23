@@ -27,8 +27,7 @@ export function validateAttributes(attributes: Attributes, fields: BootedFieldsD
         if (definition.type === FieldType.Object) {
             const value = attributes[field];
 
-            if (!isObject(value))
-                throw new SoukaiError(`Invalid value for field ${field}`);
+            if (!isObject(value)) throw new SoukaiError(`Invalid value for field ${field}`);
 
             attributes[field] = validateAttributes(value, definition.fields);
         }
@@ -42,11 +41,10 @@ export function validateRequiredAttributes(attributes: Attributes, fields: Boote
         if (definition.required && (!(field in attributes) || isNullable(attributes[field])))
             throw new SoukaiError(`The ${field} attribute is required.`);
 
-        if ((field in attributes) && !isNullable(attributes[field]) && definition.type === FieldType.Object) {
+        if (field in attributes && !isNullable(attributes[field]) && definition.type === FieldType.Object) {
             const value = attributes[field];
 
-            if (!isObject(value))
-                throw new SoukaiError(`Invalid value for field ${field}`);
+            if (!isObject(value)) throw new SoukaiError(`Invalid value for field ${field}`);
 
             validateRequiredAttributes(value, definition.fields);
         }

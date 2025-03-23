@@ -5,5 +5,5 @@ export const TimestampField = {
 
 export const TIMESTAMP_FIELDS = Object.values(TimestampField);
 
-export type TimestampFieldValue = typeof TimestampField[keyof typeof TimestampField];
+export type TimestampFieldValue = (typeof TimestampField)[keyof typeof TimestampField];
 export type TimestampsDefinition = TimestampFieldValue[] | boolean;

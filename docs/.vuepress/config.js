@@ -17,13 +17,7 @@ module.exports = {
         ],
         sidebarDepth: 3,
         sidebar: {
-            '/guide/': [
-                '',
-                'defining-models',
-                'using-models',
-                'engines',
-                'going-further',
-            ],
+            '/guide/': ['', 'defining-models', 'using-models', 'engines', 'going-further'],
         },
     },
 };

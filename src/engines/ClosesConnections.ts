@@ -5,7 +5,5 @@ export function engineClosesConnections(engine: Engine): engine is Engine & Clos
 }
 
 export interface ClosesConnections {
-
     closeConnections(): Promise<void>;
-
 }

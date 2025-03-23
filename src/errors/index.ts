@@ -3,9 +3,4 @@ import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
 import SoukaiError from 'soukai/errors/SoukaiError';
 
-export {
-    DocumentAlreadyExists,
-    DocumentNotFound,
-    InvalidModelDefinition,
-    SoukaiError,
-};
+export { DocumentAlreadyExists, DocumentNotFound, InvalidModelDefinition, SoukaiError };

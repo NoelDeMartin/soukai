@@ -5,11 +5,11 @@ import type { Model } from './Model';
 import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 
-let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap;
+let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap();
 
 export type ModelListener<
     TModel extends Model = Model,
-    TEvent extends keyof ModelEvents | keyof ModelClassEvents = keyof ModelEvents | keyof ModelClassEvents
+    TEvent extends keyof ModelEvents | keyof ModelClassEvents = keyof ModelEvents | keyof ModelClassEvents,
 > = (...args: ModelListenerArgs<TModel, TEvent>) => unknown;
 
 export interface ModelClassEvents {
@@ -24,27 +24,28 @@ export interface ModelEvents {
     'relation-loaded': Relation;
 }
 
-export type ModelEmitArgs<T extends keyof ModelEvents | keyof ModelClassEvents> =
-    T extends keyof ModelEvents
-        ? ModelEvents[T] extends void
-            ? [event: T]
-            : [event: T, payload: ModelEvents[T]]
-        : T extends keyof ModelClassEvents
-            ? ModelClassEvents[T] extends void
-                ? [event: T]
-                : [event: T, payload: ModelClassEvents[T]]
-            : never;
+export type ModelEmitArgs<T extends keyof ModelEvents | keyof ModelClassEvents> = T extends keyof ModelEvents
+    ? ModelEvents[T] extends void
+        ? [event: T]
+        : [event: T, payload: ModelEvents[T]]
+    : T extends keyof ModelClassEvents
+      ? ModelClassEvents[T] extends void
+          ? [event: T]
+          : [event: T, payload: ModelClassEvents[T]]
+      : never;
 
-export type ModelListenerArgs<TModel extends Model, TEvent extends keyof ModelEvents | keyof ModelClassEvents> =
-    TEvent extends keyof ModelEvents
-        ? ModelEvents[TEvent] extends void
-                ? [model: TModel]
-                : [model: TModel, payload: ModelEvents[TEvent]]
-        : TEvent extends keyof ModelClassEvents
-            ? ModelClassEvents[TEvent] extends void
-                ? []
-                : [payload: ModelClassEvents[TEvent]]
-            : never;
+export type ModelListenerArgs<
+    TModel extends Model,
+    TEvent extends keyof ModelEvents | keyof ModelClassEvents,
+> = TEvent extends keyof ModelEvents
+    ? ModelEvents[TEvent] extends void
+        ? [model: TModel]
+        : [model: TModel, payload: ModelEvents[TEvent]]
+    : TEvent extends keyof ModelClassEvents
+      ? ModelClassEvents[TEvent] extends void
+          ? []
+          : [payload: ModelClassEvents[TEvent]]
+      : never;
 
 export function resetModelListeners(): void {
     listeners = new WeakMap();
@@ -60,7 +61,7 @@ export function registerModelListener<TModel extends Model, TEvent extends keyof
     }
 
     const modelListeners = listeners.get(modelClass) as Record<string, ModelListener<TModel, TEvent>[]>;
-    const eventListeners = modelListeners[event] ??= [];
+    const eventListeners = (modelListeners[event] ??= []);
 
     eventListeners.push(listener);
 
@@ -68,8 +69,14 @@ export function registerModelListener<TModel extends Model, TEvent extends keyof
 }
 
 /* eslint-disable max-len */
-export async function emitModelEvent<T extends keyof ModelClassEvents>(modelClass: ModelConstructor, ...args: ModelEmitArgs<T>): Promise<void>;
-export async function emitModelEvent<T extends keyof ModelEvents>(model: Model, ...args: ModelEmitArgs<T>): Promise<void>;
+export async function emitModelEvent<T extends keyof ModelClassEvents>(
+    modelClass: ModelConstructor,
+    ...args: ModelEmitArgs<T>
+): Promise<void>;
+export async function emitModelEvent<T extends keyof ModelEvents>(
+    model: Model,
+    ...args: ModelEmitArgs<T>
+): Promise<void>;
 /* eslint-enable max-len */
 
 export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
@@ -83,5 +90,5 @@ export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
         return;
     }
 
-    await Promise.all(modelListeners.map(listener => model ? listener(model, payload) : listener(payload)));
+    await Promise.all(modelListeners.map((listener) => (model ? listener(model, payload) : listener(payload))));
 }

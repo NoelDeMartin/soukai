@@ -5,10 +5,7 @@ export default class InvalidModelDefinition extends SoukaiError {
     public readonly modelName: string;
 
     constructor(modelName: string, message: string) {
-        super(
-            `Model ${modelName}: ${message}. ` +
-            'Learn more at https://soukai.js.org/guide/defining-models.html',
-        );
+        super(`Model ${modelName}: ${message}. ` + 'Learn more at https://soukai.js.org/guide/defining-models.html');
 
         this.modelName = modelName;
     }

@@ -28,17 +28,17 @@ export const FieldRequired = {
     Optional: false as const,
 };
 
-export type FieldTypeValue = typeof FieldType[keyof typeof FieldType];
+export type FieldTypeValue = (typeof FieldType)[keyof typeof FieldType];
 
 export const FIELD_TYPES = Object.values(FieldType);
 
 export type FieldsDefinition<T = unknown> = Record<string, FieldDefinition<T>>;
 export type FieldDefinition<T = unknown> =
-    BasicFieldDefinition<T> |
-    ArrayFieldDefinition<T> |
-    ObjectFieldDefinition<T> |
-    FieldTypeValue |
-    Record<string, FieldTypeValue>;
+    | BasicFieldDefinition<T>
+    | ArrayFieldDefinition<T>
+    | ObjectFieldDefinition<T>
+    | FieldTypeValue
+    | Record<string, FieldTypeValue>;
 
 export type FieldDefinitionBase<T = unknown> = T & {
     required?: boolean;
@@ -64,9 +64,9 @@ export type ObjectFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
 
 export type BootedFieldsDefinition<T = unknown> = Record<string, BootedFieldDefinition<T>>;
 export type BootedFieldDefinition<T = unknown> =
-    BootedBasicFieldDefinition<T> |
-    BootedArrayFieldDefinition<T> |
-    BootedObjectFieldDefinition<T>;
+    | BootedBasicFieldDefinition<T>
+    | BootedArrayFieldDefinition<T>
+    | BootedObjectFieldDefinition<T>;
 
 export type BootedFieldDefinitionBase<T = unknown> = T & {
     required: boolean;
@@ -99,12 +99,9 @@ export function bootFieldDefinition(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let fieldDefinition = {} as any;
 
-    if (typeof definition === 'string' && FIELD_TYPES.indexOf(definition) !== -1)
-        fieldDefinition.type = definition;
-    else if (typeof definition === 'object')
-        fieldDefinition = definition;
-    else
-        throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
+    if (typeof definition === 'string' && FIELD_TYPES.indexOf(definition) !== -1) fieldDefinition.type = definition;
+    else if (typeof definition === 'object') fieldDefinition = definition;
+    else throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
 
     if (typeof fieldDefinition.type === 'undefined')
         fieldDefinition = {
@@ -114,8 +111,7 @@ export function bootFieldDefinition(
     else if (FIELD_TYPES.indexOf(fieldDefinition.type) === -1)
         throw new InvalidModelDefinition(model, `Invalid field definition ${field}`);
 
-    if (!isArrayItem)
-        fieldDefinition.required = !!fieldDefinition.required;
+    if (!isArrayItem) fieldDefinition.required = !!fieldDefinition.required;
 
     switch (fieldDefinition.type) {
         case FieldType.Object:
@@ -138,12 +134,7 @@ export function bootFieldDefinition(
                     `Field definition of type array requires items attribute. Field: '${field}'`,
                 );
 
-            fieldDefinition.items = bootFieldDefinition(
-                model,
-                'items',
-                fieldDefinition.items,
-                true,
-            );
+            fieldDefinition.items = bootFieldDefinition(model, 'items', fieldDefinition.items, true);
             break;
     }
 
@@ -151,8 +142,12 @@ export function bootFieldDefinition(
 }
 
 /* eslint-disable max-len */
-export function isArrayFieldDefinition(fieldDefinition: BootedFieldDefinition): fieldDefinition is BootedArrayFieldDefinition;
-export function isArrayFieldDefinition(fieldDefinition: Omit<BootedFieldDefinition, 'required'>): fieldDefinition is Omit<BootedArrayFieldDefinition, 'required'>;
+export function isArrayFieldDefinition(
+    fieldDefinition: BootedFieldDefinition
+): fieldDefinition is BootedArrayFieldDefinition;
+export function isArrayFieldDefinition(
+    fieldDefinition: Omit<BootedFieldDefinition, 'required'>
+): fieldDefinition is Omit<BootedArrayFieldDefinition, 'required'>;
 /* eslint-enable max-len */
 
 export function isArrayFieldDefinition(fieldDefinition: { type: FieldTypeValue }): boolean {
@@ -160,8 +155,12 @@ export function isArrayFieldDefinition(fieldDefinition: { type: FieldTypeValue }
 }
 
 /* eslint-disable max-len */
-export function isObjectFieldDefinition(fieldDefinition: BootedFieldDefinition): fieldDefinition is BootedObjectFieldDefinition;
-export function isObjectFieldDefinition(fieldDefinition: Omit<BootedFieldDefinition, 'required'>): fieldDefinition is Omit<BootedObjectFieldDefinition, 'required'>;
+export function isObjectFieldDefinition(
+    fieldDefinition: BootedFieldDefinition
+): fieldDefinition is BootedObjectFieldDefinition;
+export function isObjectFieldDefinition(
+    fieldDefinition: Omit<BootedFieldDefinition, 'required'>
+): fieldDefinition is Omit<BootedObjectFieldDefinition, 'required'>;
 /* eslint-enable max-len */
 
 export function isObjectFieldDefinition(fieldDefinition: { type: FieldTypeValue }): boolean {

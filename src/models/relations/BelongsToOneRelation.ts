@@ -17,11 +17,9 @@ export default class BelongsToOneRelation<
 
         this.related = this.isEmpty()
             ? null
-            : (
-                this.localKeyName === this.relatedClass.primaryKey
-                    ? await this.relatedClass.find(foreignKey)
-                    : await this.relatedClass.first({ [this.localKeyName]: foreignKey })
-            );
+            : this.localKeyName === this.relatedClass.primaryKey
+                ? await this.relatedClass.find(foreignKey)
+                : await this.relatedClass.first({ [this.localKeyName]: foreignKey });
 
         return this.related;
     }
@@ -29,8 +27,7 @@ export default class BelongsToOneRelation<
     public setForeignAttributes(related: Related): void {
         const foreignKey = related.getAttribute(this.localKeyName);
 
-        if (!foreignKey)
-            return;
+        if (!foreignKey) return;
 
         this.parent.setAttribute(this.foreignKeyName, foreignKey);
     }

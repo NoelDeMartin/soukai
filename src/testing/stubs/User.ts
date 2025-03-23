@@ -15,7 +15,7 @@ export default class User extends Model {
     declare public relatedBirthPlace: SingleModelRelation<User, City, typeof City>;
 
     public get externalDomains(): string[] {
-        return arrayUnique(arrayFilter(this.externalUrls.map(url => urlParse(url)?.domain)));
+        return arrayUnique(arrayFilter(this.externalUrls.map((url) => urlParse(url)?.domain)));
     }
 
     public getAliasAttribute(): string {
@@ -23,9 +23,7 @@ export default class User extends Model {
     }
 
     public postsRelationship(): Relation {
-        return this
-            .hasMany(Post, 'authorId')
-            .onDelete('cascade');
+        return this.hasMany(Post, 'authorId').onDelete('cascade');
     }
 
     public birthPlaceRelationship(): Relation {

@@ -14,12 +14,7 @@ export default abstract class SingleModelRelation<
 
     declare public related?: Related | null;
 
-    public constructor(
-        parent: Parent,
-        relatedClass: RelatedClass,
-        foreignKeyName?: string,
-        localKeyName?: string,
-    ) {
+    public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName?: string, localKeyName?: string) {
         super(
             parent,
             relatedClass,
@@ -31,15 +26,16 @@ export default abstract class SingleModelRelation<
     public attach(model?: Related): Related;
     public attach(attributes: Attributes): Related;
     public attach(modelOrAttributes: Related | Attributes = {}): Related {
-        const model = modelOrAttributes instanceof this.relatedClass
-            ? modelOrAttributes as Related
-            : this.relatedClass.newInstance(modelOrAttributes);
+        const model =
+            modelOrAttributes instanceof this.relatedClass
+                ? (modelOrAttributes as Related)
+                : this.relatedClass.newInstance(modelOrAttributes);
 
         return tap(model, () => {
             if (this.loaded && !this.isRelated(model)) {
                 throw new SoukaiError(
                     'The "attach" method can\'t be called because a related model already exists, ' +
-                    'use a hasMany relationship if you want to support multiple related models.',
+                        'use a hasMany relationship if you want to support multiple related models.',
                 );
             }
 
