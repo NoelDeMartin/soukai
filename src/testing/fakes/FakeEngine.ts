@@ -45,6 +45,14 @@ export class FakeEngineInstance implements Engine {
         setEngine(this);
     }
 
+    public resetSpies(): void {
+        this.createSpy.mockClear();
+        this.readOneSpy.mockClear();
+        this.readManySpy.mockClear();
+        this.updateSpy.mockClear();
+        this.deleteSpy.mockClear();
+    }
+
     public create(collectionName: string, document: EngineDocument, id?: string): Promise<string> {
         const collection = this.collection(collectionName);
 
@@ -77,7 +85,7 @@ export class FakeEngineInstance implements Engine {
 
     public async update(collectionName: string, id: string, updates: EngineUpdates): Promise<void> {
         const collection = this.collection(collectionName);
-        const document = (collection[id] as EngineDocument) ?? fail(DocumentNotFound, id, 3, collectionName);
+        const document = (collection[id] as EngineDocument) ?? fail(DocumentNotFound, id, collectionName);
         const newDocument = { ...document };
 
         this.helper.updateAttributes(newDocument, updates);
