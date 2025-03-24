@@ -28,12 +28,12 @@
         "verify": "noeldemartin-verify"
     },
     "dependencies": {
-        "@noeldemartin/scripts": "0.3.0-next.07d9b709894cf99f2804349fb22249ae0647578b",
         "@noeldemartin/utils": "0.7.0-next.5c206fa7d2c7aa3aa156d38935403ee1e4866f59",
         "idb": "^8.0.2"
     },
     "devDependencies": {
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
+        "@noeldemartin/scripts": "0.3.0-next.07d9b709894cf99f2804349fb22249ae0647578b",
         "@noeldemartin/testing": "0.0.0-next.c3f5a7ab2d50f31a89ce51e1df4ef55bf51d66b8",
         "@tsconfig/node22": "^22.0.0",
         "@types/node": "^22.13.10",
