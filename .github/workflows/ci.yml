@@ -14,7 +14,7 @@ jobs:
             - run: npm run build
             - run: npm run lint
             - run: npm run test:ci
-            - run: npm pack && npx publint *.tgz
+            - run: npm run verify
     publish:
         if: github.ref == 'refs/heads/main'
         needs: tests
