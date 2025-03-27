@@ -13,7 +13,7 @@
     ],
     "license": "MIT",
     "author": "Noel De Martin",
-    "repository": "github:NoelDeMartin/soukai-solid",
+    "repository": "github:NoelDeMartin/soukai",
     "scripts": {
         "build": "vite build && ./scripts/fix-types.sh",
         "lint": "noeldemartin-lint src",
@@ -29,24 +29,12 @@
         "@noeldemartin/utils": "0.7.0-next.2f9c60ae176fbfb7f6e8f2ec1015fdfa0ad16461"
     },
     "devDependencies": {
-        "@noeldemartin/eslint-config-typescript": "^0.1.2",
-        "@noeldemartin/scripts": "0.3.0-next.2dfd366e59e45ecf5ead1a617e4d0e870dbea507",
-        "@noeldemartin/testing": "0.0.0-next.929cc81d4446dd50513c71e52ee13c3ef3b18b07",
-        "@tsconfig/node22": "^22.0.0",
-        "@types/node": "^22.13.10",
         "dayjs": "^1.11.13",
-        "soukai": "0.6.0-next.99b8d2509c34fc253150d47a9deed61332bc3065",
-        "typescript": "^5.8.2",
-        "vite": "^6.2.2",
-        "vite-plugin-dts": "^4.5.3",
-        "vitest": "^3.0.9"
+        "soukai": "*"
     },
     "eslintConfig": {
         "extends": [
             "@noeldemartin/eslint-config-typescript"
         ]
-    },
-    "prettier": {
-        "printWidth": 120
     }
 }

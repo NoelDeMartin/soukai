@@ -1,0 +1,10 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "soukai-solid/*": ["./src/*"]
+        }
+    },
+    "include": ["src/**/*.ts"]
+}
