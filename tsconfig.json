@@ -8,7 +8,8 @@
         "lib": ["DOM"],
         "types": ["node"],
         "paths": {
-            "soukai/*": ["./packages/soukai/src/*"]
+            "soukai/*": ["./packages/soukai/src/*"],
+            "soukai-solid/*": ["./packages/soukai-solid/src/*"]
         }
     }
 }

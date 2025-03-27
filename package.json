@@ -1,7 +1,8 @@
 {
     "private": true,
     "workspaces": [
-        "packages/soukai"
+        "packages/soukai",
+        "packages/soukai-solid"
     ],
     "scripts": {
         "build": "npm run build -ws --if-present",
@@ -13,7 +14,7 @@
     "devDependencies": {
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
         "@noeldemartin/scripts": "0.3.0-next.2dfd366e59e45ecf5ead1a617e4d0e870dbea507",
-        "@noeldemartin/testing": "0.0.0-next.c3f5a7ab2d50f31a89ce51e1df4ef55bf51d66b8",
+        "@noeldemartin/testing": "0.0.0-next.3aa03a51f580a9508bbc982c55eda4fd2b302f35",
         "@tsconfig/node22": "^22.0.0",
         "@types/node": "^22.13.10",
         "typescript": "^5.8.2",
