@@ -15,6 +15,15 @@ jobs:
             - run: npm run lint
             - run: npm run test:ci
             - run: npm run verify
+            - uses: actions/cache/save@v4
+              with:
+                  key: build-${{ github.sha }}
+                  path: |
+                      ~/.npm/**/*
+                      ~/.cache/**/*
+                      packages/*/dist/**
+                      node_modules/**/*
+                      packages/*/node_modules/**/*
     publish:
         if: github.ref == 'refs/heads/main'
         needs: tests
@@ -26,7 +35,22 @@ jobs:
                   node-version-file: '.nvmrc'
                   registry-url: 'https://registry.npmjs.org'
                   cache: 'npm'
-            - run: npm ci
-            - run: npx noeldemartin-publish-next
+            - uses: actions/cache/restore@v4
+              with:
+                  key: build-${{ github.sha }}
+                  path: |
+                      ~/.npm/**/*
+                      ~/.cache/**/*
+                      packages/*/dist/**
+                      node_modules/**/*
+                      packages/*/node_modules/**/*
+            - name: Publish updated packages
+              run: |
+                  for package in $(git diff-tree --no-commit-id --name-only -r HEAD | grep "^packages/" | cut -d/ -f2 | sort -u); do
+                    echo "Publishing $package..."
+                    cd "packages/$package"
+                    npx noeldemartin-publish-next
+                    cd ../..
+                  done
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

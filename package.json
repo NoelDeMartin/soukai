@@ -1,35 +1,14 @@
 {
-    "name": "soukai",
-    "version": "0.6.0",
-    "type": "module",
-    "sideEffects": false,
-    "exports": {
-        ".": {
-            "types": "./dist/soukai.d.ts",
-            "default": "./dist/soukai.js"
-        },
-        "./testing": {
-            "types": "./dist/testing.d.ts",
-            "default": "./dist/testing.js"
-        }
-    },
-    "files": [
-        "src",
-        "dist"
+    "private": true,
+    "workspaces": [
+        "packages/soukai"
     ],
-    "license": "MIT",
-    "author": "Noel De Martin",
-    "repository": "github:NoelDeMartin/soukai",
     "scripts": {
-        "build": "vite build",
-        "lint": "noeldemartin-lint src",
-        "test": "vitest --run",
-        "test:ci": "vitest --run --reporter verbose",
-        "verify": "noeldemartin-verify"
-    },
-    "dependencies": {
-        "@noeldemartin/utils": "0.7.0-next.5c206fa7d2c7aa3aa156d38935403ee1e4866f59",
-        "idb": "^8.0.2"
+        "build": "npm run build -ws --if-present",
+        "lint": "npm run lint -ws --if-present",
+        "test": "npm run test -ws --if-present",
+        "test:ci": "npm run test:ci -ws --if-present",
+        "verify": "npm run verify -ws --if-present"
     },
     "devDependencies": {
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
@@ -37,7 +16,6 @@
         "@noeldemartin/testing": "0.0.0-next.c3f5a7ab2d50f31a89ce51e1df4ef55bf51d66b8",
         "@tsconfig/node22": "^22.0.0",
         "@types/node": "^22.13.10",
-        "fake-indexeddb": "^6.0.0",
         "typescript": "^5.8.2",
         "vite": "^6.2.2",
         "vite-plugin-dts": "^4.5.3",
@@ -49,6 +27,9 @@
         ]
     },
     "prettier": {
-        "printWidth": 120
+        "printWidth": 120,
+        "plugins": [
+            "prettier-plugin-tailwindcss"
+        ]
     }
 }

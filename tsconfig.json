@@ -1,6 +1,6 @@
 {
     "extends": "@tsconfig/node22/tsconfig.json",
-    "include": ["src/**/*.ts"],
+    "include": ["packages/*/src/**/*.ts"],
     "compilerOptions": {
         "baseUrl": ".",
         "module": "ESNext",
@@ -8,7 +8,7 @@
         "lib": ["DOM"],
         "types": ["node"],
         "paths": {
-            "soukai/*": ["./src/*"]
+            "soukai/*": ["./packages/soukai/src/*"]
         }
     }
 }

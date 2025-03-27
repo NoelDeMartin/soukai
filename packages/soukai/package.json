@@ -1,0 +1,42 @@
+{
+    "name": "soukai",
+    "version": "0.6.0",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "types": "./dist/soukai.d.ts",
+            "default": "./dist/soukai.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "default": "./dist/testing.js"
+        }
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "license": "MIT",
+    "author": "Noel De Martin",
+    "repository": "github:NoelDeMartin/soukai",
+    "scripts": {
+        "build": "vite build",
+        "lint": "noeldemartin-lint src",
+        "test": "vitest --run",
+        "test:ci": "vitest --run --reporter verbose",
+        "verify": "noeldemartin-verify"
+    },
+    "dependencies": {
+        "@noeldemartin/utils": "0.7.0-next.5c206fa7d2c7aa3aa156d38935403ee1e4866f59",
+        "idb": "^8.0.2"
+    },
+    "devDependencies": {
+        "fake-indexeddb": "^6.0.0"
+    },
+    "eslintConfig": {
+        "extends": [
+            "@noeldemartin/eslint-config-typescript"
+        ]
+    }
+}
