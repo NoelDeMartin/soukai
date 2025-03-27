@@ -1,0 +1,10 @@
+@prefix : <#>.
+@prefix schema: <https://schema.org/>.
+@prefix terms: <http://purl.org/dc/terms/>.
+@prefix XML: <http://www.w3.org/2001/XMLSchema#>.
+
+:it
+    a schema:Recipe;
+    terms:created "2021-01-30T11:47:00Z"^^XML:dateTime;
+    terms:modified "2021-01-30T11:47:00Z"^^XML:dateTime;
+    schema:name "Ramen".

@@ -1,0 +1,59 @@
+DELETE DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#luffy> foaf:givenName "Straw Hat Luffy" .
+    <#luffy-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#roronoa-zoro> foaf:givenName "Pirate Hunter" .
+    <#roronoa-zoro-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+} ;
+
+INSERT DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#luffy> foaf:givenName "The King of Pirates" .
+    <#luffy-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#roronoa-zoro> foaf:givenName "The Greatest Swordsman" .
+    <#roronoa-zoro-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#luffy-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#luffy> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:givenName ;
+        crdt:value "The King of Pirates" .
+
+    <#roronoa-zoro-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#roronoa-zoro> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Roronoa Zoro" .
+
+    <#roronoa-zoro-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#roronoa-zoro> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:givenName ;
+        crdt:value "Pirate Hunter" .
+
+    <#roronoa-zoro-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#roronoa-zoro> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:age ;
+        crdt:value 19 .
+
+    <#roronoa-zoro-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#roronoa-zoro> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:givenName ;
+        crdt:value "The Greatest Swordsman" .
+
+}

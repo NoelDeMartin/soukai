@@ -1,0 +1,49 @@
+DELETE DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#it-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#it-operation-[[operation-1][.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#it> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Straw Hat Pirates" .
+
+} ;
+
+INSERT DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#it> foaf:member <#nami> .
+    <#it-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#nami>
+        a foaf:Person ;
+        foaf:name "Nami" .
+
+    <#nami-metadata>
+        a crdt:Metadata ;
+        crdt:resource <#nami> ;
+        crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+        crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#it-operation-[[operation-2][.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#it> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Straw Hat Pirates" .
+
+    <#it-operation-[[operation-3][.*]]>
+        a crdt:AddPropertyOperation ;
+        crdt:resource <#it> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:member ;
+        crdt:value <#nami> .
+
+}

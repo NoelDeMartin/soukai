@@ -1,0 +1,24 @@
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<#it>
+    a foaf:Group ;
+    foaf:name "Straw Hat Pirates" ;
+    foaf:member <#luffy> .
+
+<#it-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#it> ;
+    crdt:createdAt "1996-08-04T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1996-08-04T00:00:00.000Z"^^xsd:dateTime .
+
+<#luffy>
+    a foaf:Person ;
+    foaf:name "Monkey D. Luffy" .
+
+<#luffy-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#luffy> ;
+    crdt:createdAt "1996-08-04T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1996-08-04T00:00:00.000Z"^^xsd:dateTime .

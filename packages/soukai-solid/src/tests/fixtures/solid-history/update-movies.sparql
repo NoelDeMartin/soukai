@@ -1,0 +1,34 @@
+DELETE DATA {
+    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <> rdfs:label "Movies" .
+
+    <#metadata> crdt:updatedAt "[[createdAt][.*]]"^^xsd:dateTime .
+} ;
+
+INSERT DATA {
+    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <> rdfs:label "Great Movies" .
+
+    <#metadata> crdt:updatedAt "[[updatedAt][.*]]"^^xsd:dateTime .
+
+    <#operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <> ;
+        crdt:date "[[createdAt][.*]]"^^xsd:dateTime ;
+        crdt:property rdfs:label ;
+        crdt:value "Movies" .
+
+    <#operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <> ;
+        crdt:date "[[updatedAt][.*]]"^^xsd:dateTime ;
+        crdt:property rdfs:label ;
+        crdt:value "Great Movies" .
+
+}

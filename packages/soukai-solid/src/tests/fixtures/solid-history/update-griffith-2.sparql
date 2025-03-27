@@ -1,0 +1,38 @@
+DELETE DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+	<#it>
+        foaf:name "Femto" ;
+	    foaf:givenName "Wings of Darkness" .
+
+    <#it-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+} ;
+
+INSERT DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#it>
+        foaf:name "Griffith" ;
+        foaf:givenName "Falcon of Light" .
+
+    <#it-metadata>
+        crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#it-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#it> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Griffith" .
+
+    <#it-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#it> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:givenName ;
+        crdt:value "Falcon of Light" .
+}

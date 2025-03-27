@@ -1,0 +1,27 @@
+@prefix : <#>.
+@prefix schema: <https://schema.org/>.
+@prefix terms: <http://purl.org/dc/terms/>.
+@prefix XML: <http://www.w3.org/2001/XMLSchema#>.
+
+:spirited-away
+    a schema:Movie;
+    terms:created "2021-01-30T11:47:00Z"^^XML:dateTime;
+    terms:modified "2021-01-30T11:47:00Z"^^XML:dateTime;
+    schema:datePublished "2001-07-20T00:00:00Z"^^XML:dateTime;
+    schema:name "Spirited Away";
+    schema:contentRating "PG".
+
+:spirited-away-watched
+    a schema:WatchAction;
+    terms:created "2020-12-10T19:20:57Z"^^XML:dateTime;
+    schema:endTime "2020-12-10T19:20:57Z"^^XML:dateTime;
+    schema:object :spirited-away;
+    schema:startTime "2020-12-10T19:20:57Z"^^XML:dateTime.
+
+:the-lord-of-the-rings
+    a schema:Movie;
+    terms:created "2021-01-30T11:47:24Z"^^XML:dateTime;
+    terms:modified "2021-01-30T11:47:24Z"^^XML:dateTime;
+    schema:datePublished "2001-12-18T00:00:00Z"^^XML:dateTime;
+    schema:name "The Lord of the Rings: The Fellowship of the Ring";
+    schema:contentRating "PG-13".

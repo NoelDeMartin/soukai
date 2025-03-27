@@ -1,0 +1,51 @@
+DELETE DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#it>
+        foaf:member
+            <https://berserk.fandom.com/wiki/Judeau>,
+            <https://berserk.fandom.com/wiki/Pippin>,
+            <https://berserk.fandom.com/wiki/Corkus> .
+
+    <#it-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#griffith> foaf:name "Griffith" .
+    <#griffith-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+} ;
+
+INSERT DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#it-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#it-operation-[[.*]]>
+        a crdt:RemovePropertyOperation ;
+        crdt:resource <#it> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:member ;
+        crdt:value
+            <https://berserk.fandom.com/wiki/Judeau>,
+            <https://berserk.fandom.com/wiki/Pippin>,
+            <https://berserk.fandom.com/wiki/Corkus> .
+
+    <#griffith> foaf:name "Femto" .
+    <#griffith-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#griffith-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#griffith> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Griffith" .
+
+    <#griffith-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#griffith> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Femto" .
+}

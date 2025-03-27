@@ -1,0 +1,31 @@
+DELETE DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#nami-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+} ;
+
+INSERT DATA {
+    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#nami> foaf:givenName "Cat Burglar" .
+    <#nami-metadata> crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+    <#nami-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#nami> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:name ;
+        crdt:value "Nami" .
+
+    <#nami-operation-[[.*]]>
+        a crdt:SetPropertyOperation ;
+        crdt:resource <#nami> ;
+        crdt:date "[[.*]]"^^xsd:dateTime ;
+        crdt:property foaf:givenName ;
+        crdt:value "Cat Burglar" .
+
+}

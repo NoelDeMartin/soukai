@@ -1,0 +1,85 @@
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<#it>
+    a foaf:Group ;
+    foaf:name "Band of the Falcon" ;
+    foaf:member
+        <https://berserk.fandom.com/wiki/Griffith>,
+        <https://berserk.fandom.com/wiki/Casca>,
+        <https://berserk.fandom.com/wiki/Guts> ;
+    foaf:maker <#griffith> .
+
+<#it-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#it> ;
+    crdt:createdAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1996-05-24T00:00:00.000Z"^^xsd:dateTime .
+
+<#it-operation-1>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:name ;
+    crdt:value "Band of the Falcon" .
+
+<#it-operation-2>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:member ;
+    crdt:value
+        <https://berserk.fandom.com/wiki/Griffith>,
+        <https://berserk.fandom.com/wiki/Casca>,
+        <https://berserk.fandom.com/wiki/Judeau>,
+        <https://berserk.fandom.com/wiki/Pippin>,
+        <https://berserk.fandom.com/wiki/Corkus> .
+
+<#it-operation-3>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:maker ;
+    crdt:value <#griffith> .
+
+<#it-operation-4>
+    a crdt:AddPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1992-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:member ;
+    crdt:value <https://berserk.fandom.com/wiki/Guts> .
+
+<#it-operation-5>
+    a crdt:RemovePropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1996-05-24T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:member ;
+    crdt:value
+        <https://berserk.fandom.com/wiki/Judeau>,
+        <https://berserk.fandom.com/wiki/Pippin>,
+        <https://berserk.fandom.com/wiki/Corkus> .
+
+<#griffith>
+    a foaf:Person ;
+    foaf:name "Femto" .
+
+<#griffith-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#griffith> ;
+    crdt:createdAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1996-05-24T00:00:00.000Z"^^xsd:dateTime .
+
+<#griffith-operation-1>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#griffith> ;
+    crdt:date "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:name ;
+    crdt:value "Griffith" .
+
+<#griffith-operation-2>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#griffith> ;
+    crdt:date "1996-05-24T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:name ;
+    crdt:value "Femto" .

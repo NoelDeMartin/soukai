@@ -1,0 +1,22 @@
+@prefix solid: <http://www.w3.org/ns/solid/terms#> .
+@prefix schema: <https://schema.org/> .
+
+<>
+    a solid:TypeIndex ;
+    a solid:ListedDocument.
+
+<#movies> a solid:TypeRegistration;
+    solid:forClass schema:Movie;
+    solid:instanceContainer </movies>.
+
+<#recipes> a solid:TypeRegistration;
+    solid:forClass schema:Recipe;
+    solid:instanceContainer </recipes>.
+
+<#spirited-away> a solid:TypeRegistration;
+    solid:forClass schema:Movie;
+    solid:instance </movies/spirited-away>.
+
+<#ramen> a solid:TypeRegistration;
+    solid:forClass schema:Recipe;
+    solid:instance </recipes/ramen>.

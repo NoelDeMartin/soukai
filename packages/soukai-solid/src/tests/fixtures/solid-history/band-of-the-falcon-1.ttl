@@ -1,0 +1,30 @@
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<#it>
+    a foaf:Group ;
+    foaf:name "Band of the Falcon" ;
+    foaf:member
+        <https://berserk.fandom.com/wiki/Griffith>,
+        <https://berserk.fandom.com/wiki/Casca>,
+        <https://berserk.fandom.com/wiki/Judeau>,
+        <https://berserk.fandom.com/wiki/Pippin>,
+        <https://berserk.fandom.com/wiki/Corkus> ;
+    foaf:maker <#griffith> .
+
+<#it-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#it> ;
+    crdt:createdAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime .
+
+<#griffith>
+    a foaf:Person ;
+    foaf:name "Griffith" .
+
+<#griffith-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#griffith> ;
+    crdt:createdAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime .

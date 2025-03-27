@@ -1,0 +1,40 @@
+{
+    "name": "soukai-solid",
+    "version": "0.6.0",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        "types": "./dist/soukai-solid.d.ts",
+        "default": "./dist/soukai-solid.js"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "license": "MIT",
+    "author": "Noel De Martin",
+    "repository": "github:NoelDeMartin/soukai",
+    "scripts": {
+        "build": "vite build && ./scripts/fix-types.sh",
+        "lint": "noeldemartin-lint src",
+        "test": "vitest --run",
+        "test:ci": "vitest --run --reporter verbose",
+        "verify": "noeldemartin-verify"
+    },
+    "peerDependencies": {
+        "soukai": "*"
+    },
+    "dependencies": {
+        "@noeldemartin/solid-utils": "0.6.0-next.508449b33de64b0bcade86b642c9793381434231",
+        "@noeldemartin/utils": "0.7.0-next.2f9c60ae176fbfb7f6e8f2ec1015fdfa0ad16461"
+    },
+    "devDependencies": {
+        "dayjs": "^1.11.13",
+        "soukai": "*"
+    },
+    "eslintConfig": {
+        "extends": [
+            "@noeldemartin/eslint-config-typescript"
+        ]
+    }
+}

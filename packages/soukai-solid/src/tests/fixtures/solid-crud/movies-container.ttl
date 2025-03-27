@@ -1,0 +1,33 @@
+@prefix : </movies/>.
+@prefix dc: <http://purl.org/dc/terms/>.
+@prefix ldp: <http://www.w3.org/ns/ldp#>.
+@prefix posix: <http://www.w3.org/ns/posix/stat#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+
+: a ldp:Container, ldp:BasicContainer, ldp:Resource;
+    rdfs:label "Movies";
+    dc:created "2021-01-16T12:10:55Z"^^xsd:dateTime;
+    dc:modified "2021-04-15T18:50:25.677Z"^^xsd:dateTime;
+    posix:mtime 1618512625;
+    ldp:contains :the-lord-of-the-rings, :spirited-away, :the-tale-of-princess-kaguya, :ramen.
+
+:the-lord-of-the-rings a ldp:Resource;
+    dc:modified "2021-01-16T12:12:51.731Z"^^xsd:dateTime;
+    posix:mtime 1610799171;
+    posix:size 3398.
+
+:spirited-away a ldp:Resource;
+    dc:modified "2021-04-15T18:47:46.807Z"^^xsd:dateTime;
+    posix:mtime 1618512466;
+    posix:size 1982.
+
+:the-tale-of-princess-kaguya a ldp:Resource;
+    dc:modified "2021-04-15T18:47:46.807Z"^^xsd:dateTime;
+    posix:mtime 1618512466;
+    posix:size 1982.
+
+:ramen a ldp:Resource;
+    dc:modified "2021-04-15T18:57:11.746Z"^^xsd:dateTime;
+    posix:mtime 1618513031;
+    posix:size 2941.
