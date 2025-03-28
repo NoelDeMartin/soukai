@@ -1,0 +1,18 @@
+{
+    "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter"],
+    "entryPointStrategy": "packages",
+    "entryPoints": ["../packages/*"],
+    "packageOptions": {
+        "entryPoints": ["src/index.ts"]
+    },
+    "out": "./api",
+    "entryFileName": "index",
+    "hidePageHeader": true,
+    "hideBreadcrumbs": true,
+    "frontmatterGlobals": {
+        "editLink": false,
+        "search": false,
+        "next": false,
+        "prev": false
+    }
+}

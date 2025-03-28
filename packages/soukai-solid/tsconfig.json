@@ -3,6 +3,8 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
+            "soukai": ["../soukai/src"],
+            "soukai/*": ["../soukai/src/*"],
             "soukai-solid/*": ["./src/*"]
         }
     },
