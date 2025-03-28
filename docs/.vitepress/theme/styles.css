@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@100..900&display=swap');
+
+:root {
+    --vp-font-family-base: 'Ubuntu', sans-serif;
+    --vp-c-brand-1: rgb(3, 155, 229);
+    --vp-c-brand-2: rgb(5, 123, 180);
+    --vp-c-brand-3: rgb(3, 155, 229);
+    --vp-home-hero-image-background-image: linear-gradient(
+        -45deg,
+        rgba(3, 155, 229, 0.5) 50%,
+        rgba(79, 195, 247, 0.5) 50%
+    );
+    --vp-home-hero-image-filter: blur(44px);
+}
+
+.VPHome {
+    margin-bottom: 24px !important;
+
+    .VPHero .VPImage {
+        filter: drop-shadow(-2px 4px 6px rgba(3, 155, 229, 0.2));
+        padding: 18px;
+    }
+
+    .VPFeatures {
+        .icon {
+            background-color: transparent;
+            align-self: center;
+            width: 60px;
+            height: 60px;
+            font-size: 30px;
+        }
+
+        .details a {
+            text-decoration: underline;
+
+            &:hover {
+                color: var(--vp-c-text-1);
+            }
+        }
+    }
+}
+
+.vp-doc h2 {
+    border-top: 0;
+    margin-top: 0;
+}
+
+.VPFooter {
+    padding: 16px !important;
+}
+
+@media (min-width: 640px) {
+    :root {
+        --vp-home-hero-image-filter: blur(56px);
+    }
+
+    .VPHome .VPFeatures .icon {
+        width: 80px;
+        height: 80px;
+        font-size: 40px;
+    }
+}
+
+@media (min-width: 960px) {
+    :root {
+        --vp-home-hero-image-filter: blur(68px);
+    }
+
+    .VPHome {
+        .VPHero {
+            &.has-image .main {
+                margin-left: 100px;
+                max-width: 550px;
+            }
+
+            .container {
+                padding-top: 40px;
+                padding-bottom: 60px;
+            }
+        }
+
+        .VPFeatures .icon {
+            width: 100px;
+            height: 100px;
+            font-size: 60px;
+        }
+    }
+}

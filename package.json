@@ -6,6 +6,9 @@
     ],
     "scripts": {
         "build": "npm run build -ws --if-present",
+        "docs:build": "vitepress build docs",
+        "docs:dev": "vitepress dev docs",
+        "docs:preview": "vitepress preview docs",
         "lint": "npm run lint -ws --if-present",
         "test": "npm run test -ws --if-present",
         "test:ci": "npm run test:ci -ws --if-present",
@@ -20,6 +23,7 @@
         "typescript": "^5.8.2",
         "vite": "^6.2.2",
         "vite-plugin-dts": "^4.5.3",
+        "vitepress": "^1.6.3",
         "vitest": "^3.0.9"
     },
     "eslintConfig": {
@@ -28,9 +32,6 @@
         ]
     },
     "prettier": {
-        "printWidth": 120,
-        "plugins": [
-            "prettier-plugin-tailwindcss"
-        ]
+        "printWidth": 120
     }
 }
