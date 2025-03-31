@@ -22,11 +22,11 @@
         "verify": "noeldemartin-verify"
     },
     "peerDependencies": {
-        "soukai": "*"
+        "soukai": "^0.6.0"
     },
     "dependencies": {
-        "@noeldemartin/solid-utils": "0.6.0-next.508449b33de64b0bcade86b642c9793381434231",
-        "@noeldemartin/utils": "0.7.0-next.2f9c60ae176fbfb7f6e8f2ec1015fdfa0ad16461"
+        "@noeldemartin/solid-utils": "^0.6.0",
+        "@noeldemartin/utils": "^0.7.0"
     },
     "devDependencies": {
         "dayjs": "^1.11.13",
