@@ -1,4 +1,4 @@
-import { arrayUnique, tap } from '@noeldemartin/utils';
+import { arrayUnique, arrayWithout, tap } from '@noeldemartin/utils';
 import { BelongsToManyRelation, SoukaiError } from 'soukai';
 import type { Attributes } from 'soukai';
 
@@ -65,6 +65,23 @@ export default class SolidContainsRelation<
 
             await this.parent.save();
         });
+    }
+
+    public async delete(modelOrUrl: Related | string): Promise<void> {
+        const model =
+            modelOrUrl instanceof this.relatedClass
+                ? modelOrUrl
+                : this.related?.find((instance) => instance.url === modelOrUrl);
+
+        if (!model) {
+            return;
+        }
+
+        await model.delete();
+
+        if (this.related) {
+            this.related = arrayWithout(this.related, model);
+        }
     }
 
     protected assertParentExists(): void {
