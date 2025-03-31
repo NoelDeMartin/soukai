@@ -1,0 +1,31 @@
+name: Deploy docs
+
+on:
+    workflow_dispatch:
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: '.nvmrc'
+            - run: npm ci
+            - run: npm run docs:build
+            - name: Push to gh-pages branch
+              run: |
+                  cd docs/.vitepress/dist
+                  touch .nojekyll
+                  echo "soukai.js.org" > CNAME
+                  git init
+                  git config user.name 'github-actions[bot]'
+                  git config user.email 'github-actions[bot]@users.noreply.github.com'
+                  git checkout -b gh-pages
+                  git add -A
+                  git commit -m 'deploy'
+                  git push -f https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git gh-pages

@@ -1,4 +1,4 @@
-name: Publish
+name: Publish packages
 
 on:
     workflow_dispatch:
@@ -7,6 +7,11 @@ on:
                 description: 'Space-separated list of packages to publish'
                 required: true
                 type: string
+            latest:
+                description: 'Publish packages as latest on npm'
+                required: false
+                type: boolean
+                default: false
 
 jobs:
     publish:
@@ -24,7 +29,11 @@ jobs:
                   for package in ${{ github.event.inputs.packages }}; do
                     echo "Publishing $package..."
                     cd "packages/$package"
-                    npx noeldemartin-publish-next
+                    if [ "${{ github.event.inputs.latest }}" = "true" ]; then
+                      npx noeldemartin-publish-package --latest
+                    else
+                      npx noeldemartin-publish-package
+                    fi
                     cd ../..
                   done
               env:

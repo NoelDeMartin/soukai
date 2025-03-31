@@ -17,7 +17,7 @@
     },
     "devDependencies": {
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
-        "@noeldemartin/scripts": "0.3.0-next.2dfd366e59e45ecf5ead1a617e4d0e870dbea507",
+        "@noeldemartin/scripts": "0.3.0-next.88fb0ff21ba1f9015dab043ded20be9518e51248",
         "@noeldemartin/testing": "0.0.0-next.3aa03a51f580a9508bbc982c55eda4fd2b302f35",
         "@noeldemartin/utils": "0.7.0-next.febf11f10be81ab8b5562e4fe2cddbd1929ac9ca",
         "@tsconfig/node22": "^22.0.0",
