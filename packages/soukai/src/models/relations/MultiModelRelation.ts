@@ -42,6 +42,14 @@ export default abstract class MultiModelRelation<
         });
     }
 
+    public async create(attributes: Attributes = {}): Promise<Related> {
+        const model = this.attach(attributes);
+
+        await model.save();
+
+        return model;
+    }
+
     public addRelated(related: Related): void {
         this.related = arrayUnique([...(this.related ?? []), related]);
     }
