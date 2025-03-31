@@ -9,7 +9,7 @@ import type { Model } from './Model';
 // "booted" in this file). The ones used to define a Model are a subset of the ones used at runtime, but it isn't
 // straightforward to merge both declarations, so it was easier to just duplicate some code.
 //
-// See https://soukai.js.org/guide/defining-models.html#fields
+// See https://soukai.js.org/guide/core-concepts/models.html#attributes
 // ---------------------------------------------------------------------------------------------------------------------
 
 export const FieldType = {

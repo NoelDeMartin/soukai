@@ -38,7 +38,7 @@ export function requireEngine<T extends Engine = Engine>(): T {
         fail(
             SoukaiError,
             'Engine must be initialized before performing any operations. ' +
-                'Learn more at https://soukai.js.org/guide/engines.html',
+                'Learn more at https://soukai.js.org/guide/core-concepts/engines.html',
         )
     );
 }
@@ -49,7 +49,7 @@ export function requireFinalEngine<T extends Engine = Engine>(): T {
         fail(
             SoukaiError,
             'Engine must be initialized before performing any operations. ' +
-                'Learn more at https://soukai.js.org/guide/engines.html',
+                'Learn more at https://soukai.js.org/guide/core-concepts/engines.html',
         )
     );
 }

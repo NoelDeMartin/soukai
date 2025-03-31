@@ -49,8 +49,8 @@ This is the first release after 2 years under development, so it's a huge update
 
 ### Added
 
-- [TypeScript inference](https://soukai.js.org/guide/defining-models.html#typescript-inference).
-- [Model events](https://soukai.js.org/guide/using-models.html#listening-to-model-events).
+- [TypeScript inference](https://soukai.js.org/guide/advanced/typescript.html).
+- [Model events](https://soukai.js.org/guide/advanced/observability.html).
 - Vite helper `bootModelsFromViteGlob`.
 - `FieldType.Any` for polymorphic fields (keep in mind that casting won't be applied).
 - Engine overrides using `Model.setEngine` both at the model and instance level.
@@ -102,13 +102,13 @@ This is the first release after 2 years under development, so it's a huge update
 ### Added
 
 - `IndexedDBEngine` engine.
-- A bunch of new operators for filtering and updating. [Read the docs](https://soukai.js.org/guide/using-models.html#using-filters) and see [EngineHelper.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/engines/EngineHelper.test.ts) for examples.
+- A bunch of new operators for filtering and updating. [Read the docs](https://soukai.js.org/guide/core-concepts/engines.html#using-filters) and see [EngineHelper.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/engines/EngineHelper.test.ts) for examples.
 
 ### Changed
 
 - `Soukai.withEngine` has been removed in favor of `Soukai.requireEngine`.
 - Some method signatures in the `Engine` interface. Check out those changes [here](https://github.com/NoelDeMartin/soukai/compare/v0.2.0...v0.3.0#diff-a1932e76d8e479b1bf3926275e2700b0R54-R66).
-- Model relations have been refactored to better reflect the nature of non-relational databases. Related model instances are now stored in the `Relation` instance, which is exposed in `{relation-name}Relation` model properties. Relation definitions have also been renamed to use local/foreign nomenclature. [Read the docs](https://soukai.js.org/guide/defining-models.html#relationships) and see [relations.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/models/relations/relations.test.ts) for examples.
+- Model relations have been refactored to better reflect the nature of non-relational databases. Related model instances are now stored in the `Relation` instance, which is exposed in `{relation-name}Relation` model properties. Relation definitions have also been renamed to use local/foreign nomenclature. [Read the docs](https://soukai.js.org/guide/core-concepts/relationships.html) and see [relations.test.ts](https://github.com/NoelDeMartin/soukai/blob/v0.3.0/src/models/relations/relations.test.ts) for examples.
 - Models hydration has been extracted and refactored into multiple protected methods: `createFromEngineDocument`, `toEngineDocument`, `getDirtyEngineDocumentUpdates`, `syncDirty`, `cleanDirty`, etc.
 
 ## [v0.2.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.2.0) - 2019-08-05

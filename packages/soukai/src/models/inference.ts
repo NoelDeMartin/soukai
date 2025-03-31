@@ -19,7 +19,7 @@ import type { TimestampField, TimestampsDefinition } from './timestamps';
 // the code within this file is irrelevant. Some helpers are used to infer the Model class in static methods. Others,
 // which make the bulk of this file, are used to infer the types of magic attributes.
 //
-// See https://soukai.js.org/guide/defining-models.html#typescript-inference
+// See https://soukai.js.org/guide/advanced/typescript.html
 // ---------------------------------------------------------------------------------------------------------------------
 
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof Model;

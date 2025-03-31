@@ -58,7 +58,7 @@ const movies = await Movie.all({
 });
 ```
 
-This is a special behaviour in `SolidEngine`. Using [the `$in` filter](https://soukai.js.org/guide/using-models.html#using-filters) with any other engine will still retrieve one single model per id, given that all the models will always be stored in the same collection. But this was implemented in order to handle the fact that models can be spread throughout containers and documents in Solid.
+This is a special behaviour in `SolidEngine`. Using the `$in` filter with any other engine will still retrieve one single model per id, given that all the models will always be stored in the same collection. But this was implemented in order to handle the fact that models can be spread throughout containers and documents in Solid.
 
 ## Primary keys
 

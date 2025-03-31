@@ -387,7 +387,7 @@ export class Model {
                     this.modelName,
                     `Field ${field} definition must be type Date and not required ` +
                         'because it is used an automatic timestamp. ' +
-                        'Learn more at https://soukai.js.org/guide/defining-models.html#automatic-timestamps',
+                        'Learn more at https://soukai.js.org/guide/core-concepts/models.html#automatic-timestamps',
                 );
             }
         }
