@@ -3,7 +3,15 @@
     "entryPointStrategy": "packages",
     "entryPoints": ["../packages/*"],
     "packageOptions": {
-        "entryPoints": ["src/index.ts"]
+        "entryPoints": ["src/index.ts"],
+        "compilerOptions": {
+            "paths": {
+                "soukai-solid": ["../soukai-solid/src"],
+                "soukai-solid/*": ["../soukai-solid/src/*"],
+                "soukai": ["../soukai/src"],
+                "soukai/*": ["../soukai/src/*"]
+            }
+        }
     },
     "out": "./api",
     "entryFileName": "index",
