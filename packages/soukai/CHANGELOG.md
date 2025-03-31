@@ -4,32 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v0.6.0+
 
-### Added
-
-- Augmenting the `ModelEvents` interface it is now possible to extend model events with custom events.
-- The following model events: `modified`, `relation-loaded`.
-- Added the ability to update model schemas with `updateSchema`.
-- Setters, getters, casters, and hooks can be defined directly in schemas (using `defineModelSchema`).
-- Field aliases (these fields will be automatically mirrored when either changes).
-
-### Changed
-
-- Modernized tooling.
-- static() typings.
-- Model collections are no longer inherited unless they were initialized explicitly.
-- `Key` type is now typed as `string | number | Record<string, string | number>` instead of `any`. This was necessary to avoid values such as `null` or `undefined` accepted as valid keys.
-- `ProxyEngine` is no longer an interface but a class that can be extended, you can still use `IProxyEngine` for backwards compatibility but it'll be removed in future versions.
-
-### Deprecated
-
-- `ModelEvent` and `ModelEventValue` have been deprecated in favour of the `ModelEvents` interface.
-
-### Removed
-
-- Webpack helpers.
-- Default export.
+The changelogs for new releases of `soukai` and `soukai-solid` have been consolidated: [CHANGELOG](../../CHANGELOG.md).
 
 ## [v0.5.2](https://github.com/NoelDeMartin/soukai/releases/tag/v0.5.2) - 2023-12-17
 

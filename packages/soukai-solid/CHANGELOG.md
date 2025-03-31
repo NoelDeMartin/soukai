@@ -4,33 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v0.6.0+
 
-### Added
-
-- You can now specify `slugField` in model definitions to configure which field will be used to create slugs when [minting urls](./README.md#url-minting).
-- Added the ability to update model schemas with `updateSchema`.
-- Added the ability to migrate model schemas with `migrateSchema`.
-
-### Changed
-
-- Modernized tooling.
-- Creating models from documents with missing required attributes now throws an `IncompleteDocument` error.
-- `SolidTypeRegistration.forClass` is now declared as an array.
-- Default `rdfContext` resolution changed to prioritize the vocab used in `rdfsClass` if present.
-- Matching `rdfsClasses` is not exhaustive anymore. In previous versions, models with multiple classes defined would only be found when all classes were present.
-- `SolidEngine` listeners have been refactored, mostly changed naming and refactored the ergonomics.
-- `SolidClient` returned values have changed in some methods to include response metadata.
-
-### Deprecated
-
-- Globbing.
-
-### Removed
-
-- Default export.
-
-Also, check [soukai's release notes](https://github.com/NoelDeMartin/soukai/blob/main/CHANGELOG.md) for further changes.
+The changelogs for new releases of `soukai` and `soukai-solid` have been consolidated: [CHANGELOG](../../CHANGELOG.md).
 
 ## [v0.5.2](https://github.com/NoelDeMartin/soukai-solid/releases/tag/v0.5.2) - 2023-11-03
 
