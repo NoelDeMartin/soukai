@@ -5,6 +5,7 @@
     "packageOptions": {
         "entryPoints": ["src/index.ts"],
         "compilerOptions": {
+            "types": ["webpack-env"],
             "paths": {
                 "soukai-solid": ["../soukai-solid/src"],
                 "soukai-solid/*": ["../soukai-solid/src/*"],

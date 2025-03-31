@@ -7,7 +7,7 @@
     "scripts": {
         "build": "npm run build -ws --if-present",
         "docs:build": "npm run docs:build:typedoc && npm run docs:build:vitepress",
-        "docs:build:typedoc": "cp ./docs/api/index.md ./docs/api/index.md.backup && typedoc --options ./docs/typedoc.json && mv ./docs/api/index.md.backup ./docs/api/index.md",
+        "docs:build:typedoc": "cp ./docs/api/index.md ./docs/api-index.md.backup && typedoc --options ./docs/typedoc.json && mv ./docs/api-index.md.backup ./docs/api/index.md",
         "docs:build:vitepress": "vitepress build docs",
         "docs:dev": "vitepress dev docs",
         "lint": "npm run lint -ws --if-present",
