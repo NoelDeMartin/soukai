@@ -681,11 +681,12 @@ export class Model {
         const previousValue = this.getAttribute(field);
 
         this.hasAttributeSetter(field) ? this.callAttributeSetter(field, value) : this.setAttributeValue(field, value);
-        this.attributeValueChanged(previousValue, value) && this.emit('modified', field);
 
         if (alias && this.attributeValueChanged(this.getAttribute(alias), value)) {
             this.setAttribute(alias, value);
         }
+
+        this.attributeValueChanged(previousValue, value) && this.emit('modified', field);
     }
 
     public setAttributeValue(field: string, value: unknown): void {
@@ -1250,11 +1251,31 @@ export class Model {
     }
 
     protected async loadEmptyRelations(): Promise<void> {
-        await Promise.all(
-            Object.values(this._relations)
-                .filter((relation) => relation.enabled && !relation.loaded && relation.isEmpty())
-                .map((relation) => relation.load()),
-        );
+        const wasRecentlyCreated = this.wasRecentlyCreated();
+
+        for (const relation of Object.values(this._relations)) {
+            if (!relation.enabled || relation.loaded) {
+                continue;
+            }
+
+            if (wasRecentlyCreated && relation instanceof HasManyRelation) {
+                relation.related = [];
+
+                continue;
+            }
+
+            if (wasRecentlyCreated && relation instanceof HasOneRelation) {
+                relation.related = null;
+
+                continue;
+            }
+
+            if (!relation.isEmpty()) {
+                continue;
+            }
+
+            await relation.load();
+        }
     }
 
     protected attributeValueChanged(originalValue: unknown, newValue: unknown): boolean {
