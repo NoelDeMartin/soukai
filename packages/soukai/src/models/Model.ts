@@ -28,6 +28,7 @@ import { removeUndefinedAttributes, validateAttributes, validateRequiredAttribut
 import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
 import { withEngineImpl } from './utils';
 import { emitModelEvent, registerModelListener } from './listeners';
+import { ensureInverseRelationsBooted } from './relations';
 import type { Attributes } from './attributes';
 import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
 import type { ModelClassEvents, ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
@@ -73,6 +74,8 @@ export class Model {
     private static fieldAliases: Record<string, string> = {};
 
     public static boot<T extends Model>(this: ModelConstructor<T>, name?: string): void {
+        ensureInverseRelationsBooted();
+
         const fieldDefinitions: BootedFieldsDefinition = {};
 
         this.bootedModels.set(this, true);
