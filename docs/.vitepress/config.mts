@@ -68,6 +68,18 @@ export default defineConfig({
                             { text: 'Observability', link: 'observability' },
                         ],
                     },
+                    {
+                        text: 'Examples',
+                        base: '/guide/examples/',
+                        collapsed: true,
+                        items: [
+                            { text: 'Hello World', link: 'hello-world' },
+                            { text: 'Hello World (using Solid)', link: 'hello-world-using-solid' },
+                            { text: 'Blog', link: 'blog' },
+                            { text: 'Tasks Manager (using Solid)', link: 'tasks-manager' },
+                            { text: 'Apps', link: 'apps' },
+                        ],
+                    },
                 ],
             },
             '/api/': apiSidebar(),

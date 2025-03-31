@@ -18,7 +18,7 @@ features:
       details: Using the Active Record pattern, you'll be able to write code that is independent from storage. Use engines to configure how the data is persisted.
     - icon: <img src="/img/icons/handshake.svg" alt="">
       title: Framework agnostic
-      details: Soukai is written in pure JavaScript, use it in your favorite frameworks.
+      details: Soukai is written in pure JavaScript, use it with your favorite framework.
     - icon: <img src="/img/icons/solid.svg" alt="">
       title: Built on standards
       details: Using the <a href="https://solidproject.org" target="_blank">Solid Protocol</a>, you can make decentralized applications with RDF and Linked Data.

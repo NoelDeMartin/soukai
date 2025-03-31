@@ -3,7 +3,9 @@
 > [!Note]
 > This is functionality is limited to applications using the [Solid Protocol](../solid-protocol/what-is-solid.md).
 
-In some situations, it is desirable to keep track of changes made to a model over time. History tracking is disabled by default, but you can enable it in the model declaration:
+In some situations, it is desirable to keep track of changes made to a model over time. That is the cornerstone of making [local-first applications](http://inkandswitch.com/local-first/).
+
+History tracking is disabled by default, but you can enable it in the model declaration:
 
 ```js
 class Person extends SolidModel {
