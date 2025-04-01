@@ -6,13 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [v0.6.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.6.0) - 2025-03-31
 
-<img src="http://soukai.js.org/img/nlnet.svg" alt="" style="width:300px;max-width:60vw">
+<img src="http://soukai.js.org/img/nlnet.svg" alt="" width="300">
 
 _This release was partially funded by NLNet in the [Solid Data Modules](https://nlnet.nl/project/SolidDataModules/) project._
 
 ### Added
 
-- Added the ability to use multiple schemas per Model, and migrate existing data. Read the [docs on Interoperability](http://localhost:5173/guide/advanced/interoperability.html#model-schemas) to learn more.
+- Added the ability to use multiple schemas per Model, and migrate existing data. Read the [docs on Interoperability](https://soukai.js.org/guide/advanced/interoperability.html#model-schemas) to learn more.
 - It is now possible to augment the `ModelEvents` interface in order to declare custom emitted events.
 - The following model events have been added: `modified`, `relation-loaded`, and `schema-updated`.
 - You can now specify `slugField` in model definitions to configure which field will be used to create slugs when [minting urls](./README.md#url-minting).
