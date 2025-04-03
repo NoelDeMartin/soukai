@@ -20,9 +20,8 @@ class User extends SolidModel {
     };
 }
 
+bootSolidModels();
 setEngine(new SolidEngine());
-
-await bootSolidModels();
 
 // Read profile.
 const webId = 'https://noeldemartin.solidcommunity.net/profile/card#me';
