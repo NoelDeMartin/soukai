@@ -193,3 +193,22 @@ In order to support both, you can use the `aliasRdfPrefixes` method:
 ```js
 Task.aliasRdfPrefixes({ 'http://schema.org/': 'https://schema.org/' });
 ```
+
+However, doing this will only let you _read_ data using the aliased prefix, but the data that you _write_ will continue using the prefix you used in your schema definitions.
+
+You can check whether a model is using some aliases with the `usesRDFAliases` method, and replace them altogether in the schema definition using `replaceRdfPrefixes` instead:
+
+```js
+// Prepare aliases.
+Task.aliasRdfPrefixes({ 'http://schema.org/': 'https://schema.org/' });
+
+// Read data.
+const task = await Task.find('...');
+
+// Respect user's prefix in subsequent writes.
+if (task.usesRdfAliases()) {
+    Task.resetRdfAliases();
+    Task.replaceRdfPrefixes({ 'https://schema.org/': 'http://schema.org/' });
+    Task.aliasRdfPrefixes({ 'http://schema.org/': 'https://schema.org/' });
+}
+```
