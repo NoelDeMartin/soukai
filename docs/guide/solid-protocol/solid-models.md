@@ -37,7 +37,7 @@ const movies = await Movie.from('https://example.org/movies/').all();
 
 This approach is Soukai's bread and butter, but it has some limitations.
 
-For example, if you have a collection of movies in your POD, you may want to share movie lists publicly. But the way Solid works at the moment, it's not possible to selectively change the visibility of documents listed in a container. You either publish the entire container, or you don't. One approach would be to simply use different containers for each list. For example classified by genre: `/movies/comedy/`, `/movies/horror/`, etc. But that approach also has some drawbacks. It would complicate the retrieval of models using the `all()` method, you'd need to call it for each container. It also requires changing the url of a model if it has moved between lists. And finally, it doesn't support having the same movie in more than one list (unless you duplicate it).
+For example, if you have a collection of movies in your POD, you may want to share movie lists publicly. But the way Solid works at the moment, it's not possible to selectively change the visibility of documents listed in a container. You either publish the entire container, or you don't. One approach would be to use different containers for each list, with the [contains relationship](#contains-and-iscontainedby). For example classified by genre: `/movies/comedy/`, `/movies/horror/`, etc. But that approach also has some drawbacks. It would complicate the retrieval of all models because you'd need to load them from each container. It also requires changing the url of a model if it has moved between lists. And finally, it doesn't support having the same movie in more than one list (unless you duplicate it).
 
 One solution to this problem is to create another model that points to a list of movies. For example, using the [schema:ItemList](https://schema.org/ItemList) class you can hold a list of items using the `schema:itemListElement` property that each points to a movie with `schema:item`. Using [relations](#relations), you could model these relationships and retrieve the movies as such:
 
@@ -315,7 +315,7 @@ There is a couple of relationships that are helpful to work with Solid container
 Here's an example:
 
 ```js
-class MoviesContainer extends SolidModel {
+class MoviesContainer extends SolidContainer {
     static fields = {
         name: {
             type: FieldType.String,
@@ -331,12 +331,8 @@ class MoviesContainer extends SolidModel {
 
 ```js
 class Movie extends SolidModel {
-    static rdfContexts = {
-        schema: 'https://schema.org/',
-    };
-
+    static rdfContext = 'https://schema.org/';
     static rdfsClasses = ['Movie'];
-
     static fields = {
         title: {
             type: FieldType.String,
@@ -351,6 +347,9 @@ class Movie extends SolidModel {
 ```
 
 These methods don't take foreign and local keys because they rely on the `url` of the models to resolve collections and model ids.
+
+> [!NOTE]
+> Under the hood, the `contains` relationship uses the `$in` filter to find models withing the contained documents. This means, for example, that there could be more than one Model per document as discussed in the [data modeling and retrieval strategies](#data-modeling-and-retrieval-strategies) section.
 
 ## Automatic Timestamps
 
