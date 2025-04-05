@@ -292,7 +292,7 @@ Something else to keep in mind is that you can't use [magic attributes](#magic-a
 >         authorId: FieldType.Key,
 >     };
 >
->     async initialize(attributes, exists, user) {
+>     initialize(attributes, exists, user) {
 >         super.initialize(attributes, exists);
 >
 >         this.getRelation('author').attach(user);
