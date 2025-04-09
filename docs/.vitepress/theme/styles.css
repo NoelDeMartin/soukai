@@ -49,6 +49,14 @@
     padding: 16px !important;
 }
 
+.aspect-video {
+    aspect-ratio: 16/9;
+}
+
+.w-full {
+    width: 100%;
+}
+
 @media (min-width: 640px) {
     :root {
         --vp-home-hero-image-filter: blur(56px);

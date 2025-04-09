@@ -5,7 +5,7 @@
 
 Interoperability is one of the most important aspects of building Solid Applications. If you don't agree, or want to learn more about it, check out this presentation:
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/KN9OWj_XdkY?si=g4iECttSLSRB5S0O" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe class="aspect-video w-full" src="https://www.youtube.com/embed/KN9OWj_XdkY?si=g4iECttSLSRB5S0O" title="Interoperable Serendipity" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 In this page, you can find about some of the tools that come built-in with Soukai to favour interoperability.
 

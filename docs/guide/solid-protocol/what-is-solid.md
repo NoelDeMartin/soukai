@@ -4,7 +4,7 @@ The [Solid Protocol](https://solidproject.org) is a standard for decentralized s
 
 If you want to learn how it works, you can look at the first 10 minutes of this presentation:
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/kPzhykRVDuI?si=p2u8CE5qBrnzNs0Z" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe class="aspect-video w-full" src="https://www.youtube.com/embed/kPzhykRVDuI?si=p2u8CE5qBrnzNs0Z" title="From Zero to Hero with Solid" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## Soukai and Solid
 
