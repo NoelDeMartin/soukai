@@ -48,7 +48,7 @@ Also, make sure to check [soukai's release notes](https://github.com/NoelDeMarti
 ### Added
 
 - [Authorization helpers](./README.md#authorization) (only for [WAC](https://solidproject.org/TR/wac)).
-- [History tracking](./README.md#history-tracking).
+- [History tracking](./README.md#local-first).
 - Related models in the same document will be loaded automatically in relationships.
 - Inverse relationships will be set automatically.
 - New `SolidTypeIndex` and `SolidTypeRegistration` models to help working with [type indexes](https://solid.github.io/type-indexes/).

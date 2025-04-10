@@ -1,4 +1,4 @@
-# History Tracking
+# Local-first
 
 > [!Note]
 > This is functionality is limited to applications using the [Solid Protocol](../solid-protocol/what-is-solid.md).

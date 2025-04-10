@@ -63,7 +63,7 @@ export default defineConfig({
                         items: [
                             { text: 'TypeScript', link: 'typescript' },
                             { text: 'Interoperability', link: 'interoperability' },
-                            { text: 'History tracking', link: 'history-tracking' },
+                            { text: 'Local-first', link: 'local-first' },
                             { text: 'Authorization', link: 'authorization' },
                             { text: 'Observability', link: 'observability' },
                         ],
