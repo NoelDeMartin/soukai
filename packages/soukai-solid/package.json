@@ -22,7 +22,7 @@
         "verify": "noeldemartin-verify"
     },
     "peerDependencies": {
-        "soukai": "^0.6.0"
+        "soukai": "*"
     },
     "dependencies": {
         "@noeldemartin/solid-utils": "^0.6.0",
