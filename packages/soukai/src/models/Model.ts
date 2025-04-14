@@ -11,6 +11,7 @@ import {
     toString,
 } from '@noeldemartin/utils';
 
+import InvalidModelAttributes from 'soukai/errors/InvalidModelAttributes';
 import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
 import SoukaiError from 'soukai/errors/SoukaiError';
 import { extractFinalEngine, getEngine, requireEngine } from 'soukai/engines';
@@ -1015,27 +1016,31 @@ export class Model {
     }
 
     protected initializeAttributes(attributes: Attributes, exists: boolean): void {
-        const fields = this.static('fields');
+        try {
+            const fields = this.static('fields');
 
-        this._malformedDocumentAttributes = {};
-        this._attributes = objectDeepClone(attributes);
-        this._attributes = this.castAttributes(
-            validateAttributes(this._attributes, fields),
-            fields,
-            this._malformedDocumentAttributes,
-        );
+            this._malformedDocumentAttributes = {};
+            this._attributes = objectDeepClone(attributes);
+            this._attributes = this.castAttributes(
+                validateAttributes(this._attributes, fields),
+                fields,
+                this._malformedDocumentAttributes,
+            );
 
-        for (const [field, alias] of Object.entries(this.static().fieldAliases)) {
-            const value = this._attributes[field] ?? this._attributes[alias];
+            for (const [field, alias] of Object.entries(this.static().fieldAliases)) {
+                const value = this._attributes[field] ?? this._attributes[alias];
 
-            this._attributes[field] = value;
-            this._attributes[alias] = value;
+                this._attributes[field] = value;
+                this._attributes[alias] = value;
+            }
+
+            this._originalAttributes = exists ? objectDeepClone(this._attributes) : {};
+            this._dirtyAttributes = exists ? {} : objectDeepClone(this._attributes);
+
+            delete this._malformedDocumentAttributes[this.static('primaryKey')];
+        } catch (error) {
+            throw new InvalidModelAttributes(this.static('modelName'), attributes, { cause: error });
         }
-
-        this._originalAttributes = exists ? objectDeepClone(this._attributes) : {};
-        this._dirtyAttributes = exists ? {} : objectDeepClone(this._attributes);
-
-        delete this._malformedDocumentAttributes[this.static('primaryKey')];
     }
 
     protected initializeRelations(): void {
