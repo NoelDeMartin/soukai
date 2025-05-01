@@ -38,6 +38,10 @@ const bootedModels: Map<string, typeof Model> = new Map();
 
 export interface ModelsRegistry {}
 
+export function getBootedModels(): Map<string, typeof Model> {
+    return new Map(bootedModels);
+}
+
 export function requireBootedModel<T extends keyof ModelsRegistry>(name: T): ModelsRegistry[T];
 export function requireBootedModel<T extends ModelConstructor<Model> = ModelConstructor<Model>>(name: string): T;
 export function requireBootedModel(name: string): typeof Model {
