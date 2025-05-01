@@ -8,6 +8,7 @@ import SolidDocument from './SolidDocument';
 import SolidTypeIndex from './SolidTypeIndex';
 import SolidTypeRegistration from './SolidTypeRegistration';
 
+export * from './guards';
 export * from './helpers';
 export * from './history/index';
 export * from './inference';
