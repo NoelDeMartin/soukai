@@ -48,7 +48,41 @@ console.log(original.getAttributes());
 console.log(divergent.getAttributes());
 ```
 
-There are also other use-cases supported, such as soft-deletes (marking a resource as deleted even though it still exists), and tombstones (leaving a `crdt:Tombstone` resource behind instead of deleting the entire document).
+## Deletions
+
+In a pure local-first approach, you wouldn't be able to delete documents, given that CRDT operations are supposed to be immutable. However, this library allows to delete documents. In order to make sure that these are not re-created on sync, by default deleted documents will leave a `crdt:Tombstone` behind:
+
+```js
+await alice.delete(); // This will delete all data and operations from alice, and leave a crdt:Tombstone with the deletion date.
+```
+
+This behaviour can be disabled by setting the `tombstone` in the model declaration, but it's not recommended:
+
+```js
+class Person extends SolidModel {
+    static history = true;
+    static tombstone = false;
+}
+```
+
+Finally, it is also possible to soft-delete documents. This won't delete any of the data, but it will mark a resource as deleted:
+
+```js
+await alice.softDelete();
+
+alice.isSoftDeleted(); // true
+```
+
+If you want to make sure that all models are soft-deleted, you can use the `useSoftDeletes` static method:
+
+```js
+Person.useSoftDeletes(true); // or false to disable
+
+await alice.delete(); // The resource will be soft-deleted.
+await alice.forceDelete(); // Use to make sure that the resource is deleted either way.
+```
+
+## Learn more
 
 If you want to learn more about CRDTs in Solid, check out the following presentation:
 

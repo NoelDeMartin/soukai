@@ -141,6 +141,7 @@ export class SolidModel extends SolidModelBase {
 
     protected static rdfPropertyFields?: Record<string, string>;
     protected static historyDisabled: WeakMap<SolidModel, void> = new WeakMap();
+    protected static softDeletesEnabled: boolean = false;
 
     public static getFieldDefinition(field: string, value?: unknown): SolidBootedFieldDefinition {
         if (field.endsWith('.*')) {
@@ -207,6 +208,10 @@ export class SolidModel extends SolidModelBase {
 
     public static usingSolidEngine(): boolean {
         return !!(this.requireFinalEngine() as { __isSolidEngine?: true }).__isSolidEngine;
+    }
+
+    public static useSoftDeletes(enabled: boolean): void {
+        this.softDeletesEnabled = enabled;
     }
 
     public static from<T extends SolidModel>(
@@ -781,6 +786,14 @@ export class SolidModel extends SolidModelBase {
     }
 
     public delete(): Promise<this> {
+        if (this.static().softDeletesEnabled) {
+            return this.softDelete();
+        }
+
+        return this.forceDelete();
+    }
+
+    public forceDelete(): Promise<this> {
         return this.static().withCollection(this.guessCollection(), () => super.delete());
     }
 
