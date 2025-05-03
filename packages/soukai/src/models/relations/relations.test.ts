@@ -295,4 +295,19 @@ describe('Model Relations', () => {
         });
     });
 
+    it('attaches related models', async () => {
+        // Arrange
+        const name = faker.random.word();
+        const post = new Post({ id: uuid() });
+
+        await post.loadRelation('author');
+
+        // Act
+        post.relatedAuthor.attach({ name });
+
+        // Assert
+        expect(post.author).toBeInstanceOf(User);
+        expect(post.author?.name).toBe(name);
+    });
+
 });

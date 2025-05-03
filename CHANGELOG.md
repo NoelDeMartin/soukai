@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - Default foreign key names in relations now use the related model's name (they were using the class name instead, which may cause errors at runtime after minification).
+- Calling `attach()` on single model relations previously failed when adding a new model, even if the relation was empty.
 
 ## [v0.6.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.6.0) - 2025-03-31
 
