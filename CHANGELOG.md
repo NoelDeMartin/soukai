@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - `useSoftDeletes` static method in `SolidModel` to soft-delete models when `delete()` is called. Also added to `forceDelete()` to make sure that a model is deleted either way.
 
+### Fixed
+
+- Default foreign key names in relations now use the related model's name (they were using the class name instead, which may cause errors at runtime after minification).
+
 ## [v0.6.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.6.0) - 2025-03-31
 
 <img src="http://soukai.js.org/img/nlnet.svg" alt="" width="300">

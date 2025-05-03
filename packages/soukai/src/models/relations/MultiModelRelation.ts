@@ -18,7 +18,7 @@ export default abstract class MultiModelRelation<
         super(
             parent,
             relatedClass,
-            foreignKeyName || stringToCamelCase(relatedClass.name + '_' + relatedClass.primaryKey + 's'),
+            foreignKeyName || stringToCamelCase(relatedClass.modelName + '_' + relatedClass.primaryKey + 's'),
             localKeyName,
         );
     }

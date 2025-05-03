@@ -18,7 +18,7 @@ export default abstract class SingleModelRelation<
         super(
             parent,
             relatedClass,
-            foreignKeyName || stringToCamelCase(relatedClass.name + '_' + relatedClass.primaryKey),
+            foreignKeyName || stringToCamelCase(relatedClass.modelName + '_' + relatedClass.primaryKey),
             localKeyName,
         );
     }
