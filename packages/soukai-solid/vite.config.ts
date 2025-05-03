@@ -24,6 +24,7 @@ export default defineConfig({
     ],
     resolve: {
         alias: {
+            'soukai': fileURLToPath(new URL('../soukai/src/', import.meta.url)),
             'soukai-solid': fileURLToPath(new URL('./src/', import.meta.url)),
         },
     },

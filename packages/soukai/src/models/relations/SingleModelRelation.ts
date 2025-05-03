@@ -26,19 +26,13 @@ export default abstract class SingleModelRelation<
     public attach(model?: Related): Related;
     public attach(attributes: Attributes): Related;
     public attach(modelOrAttributes: Related | Attributes = {}): Related {
-        if (!this.loaded) {
-            throw new SoukaiError(
-                'The "attach" method can\'t be called because the related model hasn\'t been loaded yet.',
-            );
-        }
-
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)
                 : this.relatedClass.newInstance(modelOrAttributes);
 
         return tap(model, () => {
-            if (this.related && !this.isRelated(model)) {
+            if (this.loaded && this.related && !this.isRelated(model)) {
                 throw new SoukaiError(
                     'The "attach" method can\'t be called because a related model already exists, ' +
                         'use a hasMany relationship if you want to support multiple related models.',
