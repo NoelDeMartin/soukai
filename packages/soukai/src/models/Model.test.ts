@@ -17,6 +17,8 @@ import Post from 'soukai/testing/stubs/Post';
 import User from 'soukai/testing/stubs/User';
 import UserSchema from 'soukai/testing/stubs/User.schema';
 import FakeEngine from 'soukai/testing/fakes/FakeEngine';
+import type Action from 'soukai/testing/stubs/Action';
+import type { ActionStatus } from 'soukai/testing/stubs/Action.schema';
 
 describe('Model', () => {
 
@@ -1279,6 +1281,7 @@ describe('Model types', () => {
             | Expect<Equals<City['name'], string>>
             | Expect<Equals<City['birthRecords'], Key[] | undefined>>
             | Expect<Equals<City['createdAt'], Date>>
+            | Expect<Equals<Action['status'], ActionStatus | undefined>>
             | Expect<Not<HasKey<City, 'updatedAt'>>>
             | Expect<Not<HasKey<User, 'undefinedProperty'>>>
         >(),

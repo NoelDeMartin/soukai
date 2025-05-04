@@ -2619,6 +2619,8 @@ describe('SolidModel types', () => {
 
     it('has correct types', async () => {
         // Arrange
+        const STATUSES = ['pending', 'completed', 'failed'] as const;
+        type Status = (typeof STATUSES)[number];
         class StubModel extends defineSolidModelSchema({
             fields: {
                 foo: FieldType.String,
@@ -2626,6 +2628,10 @@ describe('SolidModel types', () => {
                 baz: {
                     type: FieldType.Array,
                     items: FieldType.Date,
+                },
+                qux: {
+                    type: FieldType.String,
+                    deserialize: (value): Status | undefined => (STATUSES.includes(value) ? value : undefined),
                 },
             },
         }) {}
@@ -2648,6 +2654,7 @@ describe('SolidModel types', () => {
             | Expect<Equals<(typeof instance)['foo'], string | undefined>>
             | Expect<Equals<(typeof instance)['bar'], number | undefined>>
             | Expect<Equals<(typeof instance)['baz'], Date[]>>
+            | Expect<Equals<(typeof instance)['qux'], Status | undefined>>
             | true
         >();
     });

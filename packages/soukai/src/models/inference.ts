@@ -53,7 +53,10 @@ export type NestedMagicAttributes<T extends FieldsDefinition, TKey extends Key> 
     Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>, TKey>>;
 
 export type MagicAttributeProperties<T extends FieldsDefinition, TKey extends Key> = {
-    -readonly [K in keyof T]: MagicAttributeValue<GetFieldType<T[K]>, TKey>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    -readonly [K in keyof T]: T[K] extends { deserialize: (value: any) => infer TValue }
+        ? TValue
+        : MagicAttributeValue<GetFieldType<T[K]>, TKey>;
 };
 
 export type MagicAttributeValue<T, TKey extends Key> = T extends FieldsDefinition
