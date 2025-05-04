@@ -1228,6 +1228,35 @@ describe('Model attributes', () => {
         });
     });
 
+    it('serializes and deserializes fields', async () => {
+        // Arrange
+        class StubModel extends Model {
+
+            public static fields = {
+                name: {
+                    type: FieldType.String,
+                    serialize: (value?: string) => value && value.toUpperCase(),
+                    deserialize: (value?: string) => value && value.toLowerCase(),
+                },
+            };
+        
+        }
+
+        bootModels({ StubModel });
+
+        // Act
+        const model = await StubModel.create({ name: 'John Doe' });
+
+        // Assert
+        const freshModel = await model.fresh();
+        const [freshCollectionModel] = await StubModel.all();
+        const freshDocument = FakeEngine.database[StubModel.collection][model.id];
+
+        expect(freshModel.getAttribute('name')).toEqual('john doe');
+        expect(freshCollectionModel.getAttribute('name')).toEqual('john doe');
+        expect(freshDocument.name).toEqual('JOHN DOE');
+    });
+
 });
 
 describe('Model types', () => {

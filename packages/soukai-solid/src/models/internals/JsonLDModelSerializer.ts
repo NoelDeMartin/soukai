@@ -292,7 +292,13 @@ export default class JsonLDModelSerializer {
         value: unknown,
         options: SerializeOptions,
     ): void {
-        value = this.castJsonLDValue(value, model.static().getFieldDefinition(field, value));
+        const definition = model.static().getFieldDefinition(field, value);
+
+        value = this.castJsonLDValue(value, definition);
+
+        if (definition.serialize) {
+            value = definition.serialize(value);
+        }
 
         if (value instanceof EmptyJsonLDValue) {
             if (options.keepEmptyValues) {

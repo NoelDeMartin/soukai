@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - `useSoftDeletes` static method in `SolidModel` to soft-delete models when `delete()` is called. Also added to `forceDelete()` to make sure that a model is deleted either way.
+- `serialize` and `deserialize` methods in field definitions.
 
 ### Fixed
 

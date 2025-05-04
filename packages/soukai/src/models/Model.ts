@@ -1067,6 +1067,14 @@ export class Model {
 
         attributes[this.static('primaryKey')] = id;
 
+        for (const [name, definition] of Object.entries(this.static('fields'))) {
+            if (!definition.deserialize) {
+                continue;
+            }
+
+            attributes[name] = definition.deserialize(attributes[name]);
+        }
+
         return this.newInstance(attributes, true);
     }
 
@@ -1413,7 +1421,18 @@ export class Model {
     }
 
     protected toEngineDocument(): EngineDocument {
-        return removeUndefinedAttributes(this._attributes, this.static('fields')) as EngineDocument;
+        const definitions = this.static('fields');
+        const attributes = removeUndefinedAttributes(this._attributes, definitions);
+
+        for (const [name, definition] of Object.entries(definitions)) {
+            if (!definition.serialize) {
+                continue;
+            }
+
+            attributes[name] = definition.serialize(attributes[name]);
+        }
+
+        return attributes;
     }
 
     protected getDirtyEngineDocumentUpdates(): EngineUpdates {

@@ -1210,6 +1210,14 @@ export class SolidModel extends SolidModelBase {
 
             attributes[this.static('primaryKey')] = new ModelKey(resourceId || id);
 
+            for (const [name, definition] of Object.entries(this.static('fields'))) {
+                if (!definition.deserialize) {
+                    continue;
+                }
+
+                attributes[name] = definition.deserialize(attributes[name]);
+            }
+
             return this.newInstance(attributes, true);
         };
 

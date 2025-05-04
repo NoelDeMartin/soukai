@@ -46,6 +46,12 @@ export type FieldDefinitionBase<T = unknown> = T & {
     cast?: (value: unknown) => unknown;
     set?: (this: Model, value: unknown) => void;
     get?: (this: Model) => unknown;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    serialize?: (value: any) => unknown;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    deserialize?: (value: any) => unknown;
 };
 
 export type BasicFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
@@ -74,6 +80,12 @@ export type BootedFieldDefinitionBase<T = unknown> = T & {
     cast?: (value: unknown) => unknown;
     set?: (this: Model, value: unknown) => void;
     get?: (this: Model) => unknown;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    serialize?: (value: any) => unknown;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    deserialize?: (value: any) => unknown;
 };
 
 export type BootedBasicFieldDefinition<T = unknown> = BootedFieldDefinitionBase<T> & {

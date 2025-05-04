@@ -2583,6 +2583,36 @@ describe('SolidModel', () => {
         });
     });
 
+    it('serializes and deserializes fields', async () => {
+        // Arrange
+        class StubModel extends SolidModel {
+
+            public static rdfContext = 'http://schema.org/';
+            public static fields = {
+                name: {
+                    type: FieldType.String,
+                    serialize: (value?: string) => value && value.toUpperCase(),
+                    deserialize: (value?: string) => value && value.toLowerCase(),
+                },
+            };
+        
+        }
+
+        bootModels({ StubModel });
+
+        // Act
+        const model = await StubModel.create({ name: 'John Doe' });
+
+        // Assert
+        const freshModel = await model.fresh();
+        const [freshCollectionModel] = await StubModel.all();
+        const freshDocument = FakeSolidEngine.database[StubModel.collection][model.requireDocumentUrl()] as JsonLDGraph;
+
+        expect(freshModel.getAttribute('name')).toEqual('john doe');
+        expect(freshCollectionModel.getAttribute('name')).toEqual('john doe');
+        expect(freshDocument['@graph'][0]['name']).toEqual('JOHN DOE');
+    });
+
 });
 
 describe('SolidModel types', () => {
