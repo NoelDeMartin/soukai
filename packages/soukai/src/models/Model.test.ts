@@ -88,8 +88,8 @@ describe('Model', () => {
         await post.delete();
 
         // Assert
-        expect(modifiedHistory).toHaveLength(13);
-        expect(modifiedHistory.filter((field) => field === 'title')).toHaveLength(5);
+        expect(modifiedHistory).toHaveLength(12);
+        expect(modifiedHistory.filter((field) => field === 'title')).toHaveLength(4);
         expect(modifiedHistory.filter((field) => field === 'body')).toHaveLength(1);
         expect(modifiedHistory.filter((field) => field === 'createdAt')).toHaveLength(2);
         expect(modifiedHistory.filter((field) => field === 'updatedAt')).toHaveLength(5);

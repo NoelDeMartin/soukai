@@ -1,12 +1,33 @@
 import type { ClosureArgs } from '@noeldemartin/utils';
-import { arrayRemove } from '@noeldemartin/utils';
+import { arrayRemove, memo, tap } from '@noeldemartin/utils';
 
 import type { Model } from './Model';
 import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 
-const eventTargets = new WeakSet<Model | typeof Model>();
+const EMPTY_OBJECT = {};
+const UNKNOWN_OBJECT = {};
+const eventTargets: WeakMap<String, WeakMap<object, WeakSet<Model | typeof Model>>> = new WeakMap();
 let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap();
+
+function makeKey(value: unknown): object {
+    if (value === null || value === undefined) {
+        return EMPTY_OBJECT;
+    }
+
+    switch (typeof value) {
+        case 'string':
+            return memo(`listeners-string-key-${value}`, () => new String(value));
+        case 'number':
+            return memo(`listeners-number-key-${value}`, () => new Number(value));
+        case 'boolean':
+            return memo(`listeners-boolean-key-${value}`, () => new Boolean(value));
+        case 'object':
+            return value;
+        default:
+            return UNKNOWN_OBJECT;
+    }
+}
 
 export type ModelListener<
     TModel extends Model = Model,
@@ -87,14 +108,22 @@ export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
     const payload = args[2];
     const target = model ?? modelClass;
     const modelListeners = listeners.get(modelClass)?.[event];
+    const eventKey = makeKey(event) as String;
+    const payloadKey = makeKey(payload);
+    const events = eventTargets.has(eventKey)
+        ? (eventTargets.get(eventKey) as WeakMap<object, WeakSet<Model | typeof Model>>)
+        : tap(new WeakMap(), (map) => eventTargets.set(eventKey, map));
+    const payloads = events.has(payloadKey)
+        ? (events.get(payloadKey) as WeakSet<Model | typeof Model>)
+        : tap(new WeakSet(), (set) => events.set(payloadKey, set));
 
-    if (!modelListeners || eventTargets.has(target)) {
+    if (!modelListeners || payloads.has(target)) {
         return;
     }
 
-    eventTargets.add(target);
+    payloads.add(target);
 
     await Promise.all(modelListeners.map((listener) => (model ? listener(model, payload) : listener(payload))));
 
-    eventTargets.delete(target);
+    payloads.delete(target);
 }
