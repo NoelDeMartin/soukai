@@ -50,7 +50,9 @@ export default class SolidBelongsToManyRelation<
             this.__modelsInOtherDocumentIds = this.parent.getAttribute(this.foreignKeyName);
         }
 
-        if (this.isEmpty()) return (this.related = []);
+        if (this.isEmpty()) {
+            return this.setRelated([]);
+        }
 
         const idsByContainerUrl: Record<string, Set<string>> = {};
 
@@ -75,9 +77,7 @@ export default class SolidBelongsToManyRelation<
             return models;
         }, []);
 
-        this.related = [...this.__modelsInSameDocument, ...this.__newModels, ...modelsInOtherDocuments];
-
-        return this.related;
+        return this.setRelated([...this.__modelsInSameDocument, ...this.__newModels, ...modelsInOtherDocuments]);
     }
 
     public associate(foreignKey: ModelKey | unknown): void {
@@ -98,7 +98,8 @@ export default class SolidBelongsToManyRelation<
     }
 
     public reset(related: Related[] = []): void {
-        this.related = [];
+        this.setRelated([]);
+
         this.__newModels = [];
         this.__modelsInSameDocument = [];
 
@@ -160,7 +161,9 @@ export default class SolidBelongsToManyRelation<
                 otherRelatedMap.get(foreignKey instanceof ModelKey ? foreignKey.toString() : foreignKey))
             .filter((model): model is Related => !!model)
             .forEach((model) => {
-                if (thisRelatedMap.hasKey(model.getAttribute(localKeyName as string))) return;
+                if (thisRelatedMap.hasKey(model.getAttribute(localKeyName as string))) {
+                    return;
+                }
 
                 const newRelated = model.clone({ clones });
 
@@ -181,7 +184,7 @@ export default class SolidBelongsToManyRelation<
             }),
         );
 
-        this.related = [...arrayFilter(related), ...this.__newModels];
+        this.setRelated([...arrayFilter(related), ...this.__newModels]);
     }
 
 }

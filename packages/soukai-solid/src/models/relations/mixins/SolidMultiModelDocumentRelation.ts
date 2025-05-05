@@ -187,10 +187,21 @@ export default class SolidMultiModelDocumentRelation<
         this.__modelsInSameDocument = modelsInSameDocument;
         this.__modelsInOtherDocumentIds = modelsInOtherDocumentIds;
 
-        if (this.__modelsInOtherDocumentIds.length === 0)
-            this.related = arrayUnique([...(this.related ?? []), ...this.__modelsInSameDocument]);
+        if (this.__modelsInOtherDocumentIds.length === 0) {
+            this.setRelated(arrayUnique([...(this.related ?? []), ...this.__modelsInSameDocument]));
+        }
 
         this.documentModelsLoaded = true;
+    }
+
+    protected setRelated(this: This<Parent, Related, RelatedClass>, related: Related[]): Related[] {
+        this.related = related;
+
+        for (const model of this.related) {
+            this.initializeInverseRelations(model);
+        }
+
+        return related;
     }
 
 }

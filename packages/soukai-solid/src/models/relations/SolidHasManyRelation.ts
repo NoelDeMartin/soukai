@@ -31,22 +31,24 @@ export default class SolidHasManyRelation<
 {
 
     public async load(): Promise<Related[]> {
-        if (this.isEmpty()) return (this.related = []);
+        if (this.isEmpty()) {
+            return this.setRelated([]);
+        }
 
-        if (!this.__modelsInSameDocument || !this.__modelsInOtherDocumentIds)
+        if (!this.__modelsInSameDocument || !this.__modelsInOtherDocumentIds) {
             // Solid hasMany relation only finds related models that have been
             // declared in the same document.
-            return (this.related = []);
+            return this.setRelated([]);
+        }
 
         const modelsInOtherDocuments = await this.loadRelatedModels(this.__modelsInOtherDocumentIds);
 
-        this.related = [...this.__modelsInSameDocument, ...modelsInOtherDocuments];
-
-        return this.related;
+        return this.setRelated([...this.__modelsInSameDocument, ...modelsInOtherDocuments]);
     }
 
     public reset(related: Related[] = []): void {
-        this.related = [];
+        this.setRelated([]);
+
         this.__newModels = [];
         this.__modelsInSameDocument = [];
 

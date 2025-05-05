@@ -1,16 +1,19 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
 import { bootModels } from 'soukai';
-import { expandIRI } from '@noeldemartin/solid-utils';
-import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import type { Relation } from 'soukai';
+import type { JsonLD } from '@noeldemartin/solid-utils';
+import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { uuid } from '@noeldemartin/utils';
+import type { EngineDocument, Relation } from 'soukai';
 import type { Tuple } from '@noeldemartin/utils';
 
 import { SolidModel } from 'soukai-solid/models/SolidModel';
 
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
-import { stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
+import Group from 'soukai-solid/testing/lib/stubs/Group';
+import { stubGroupJsonLD, stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
 
 class PersonWithHistory extends Person {
 
@@ -25,7 +28,7 @@ class PersonWithHistory extends Person {
 
 describe('SolidHasManyRelation', () => {
 
-    beforeAll(() => bootModels({ Person, PersonWithHistory }));
+    beforeAll(() => bootModels({ Group, Person, PersonWithHistory }));
     beforeEach(() => FakeSolidEngine.use());
 
     it('uses document models for resolving models', async () => {
@@ -120,4 +123,36 @@ describe('SolidHasManyRelation', () => {
         expect(target.friends?.[2]?.name).toEqual('Usopp');
     });
 
+    it('Loads inverse relationships', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const personUrl = fakeResourceUrl({ documentUrl });
+        const groupUrl = fakeResourceUrl({ documentUrl, hash: uuid() });
+
+        FakeSolidEngine.database[containerUrl] = {
+            [documentUrl]: (await normalizeJsonLD({
+                '@graph': [
+                    stubPersonJsonLD(personUrl)['@graph'][0],
+                    stubGroupJsonLD(groupUrl, 'Team', { members: [personUrl] })['@graph'][0],
+                ],
+            })) as EngineDocument,
+        };
+
+        // Act
+        const person = await Person.find(personUrl);
+
+        // Assert
+        expect(person).toBeInstanceOf(Person);
+        expect(person?.group).toBeInstanceOf(Group);
+        expect(person?.group?.members).toHaveLength(1);
+        expect(person?.group?.members?.[0]).toBe(person);
+    });
+
 });
+
+async function normalizeJsonLD(jsonld: JsonLD): Promise<JsonLD> {
+    const quads = await jsonldToQuads(jsonld);
+
+    return quadsToJsonLD(quads);
+}

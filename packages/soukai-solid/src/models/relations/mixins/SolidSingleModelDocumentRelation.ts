@@ -53,7 +53,7 @@ export default class SolidSingleModelDocumentRelation<
      * @param attributes Attributes to create the related instance.
      */
     public async create(this: This<Parent, Related, RelatedClass>, attributes: Attributes = {}): Promise<Related> {
-        this.assertNotLoaded('create');
+        this.assertNotLoadedOrEmpty('create');
 
         const model = this.relatedClass.newInstance<Related>(attributes);
 
@@ -70,7 +70,7 @@ export default class SolidSingleModelDocumentRelation<
      * @param model Related model instance to save.
      */
     public async save(this: This, model: Related): Promise<Related> {
-        this.assertNotLoaded('save');
+        this.assertNotLoadedOrEmpty('save');
         this.attach(model);
 
         if (!this.useSameDocument || usingExperimentalActivityPods()) {
@@ -123,8 +123,9 @@ export default class SolidSingleModelDocumentRelation<
 
         if (modelsInSameDocument.length > 0) {
             this.__modelInSameDocument = modelsInSameDocument[0];
-            this.related = this.__modelInSameDocument;
             this.documentModelsLoaded = true;
+
+            this.setRelated(this.__modelInSameDocument);
 
             if (!this.__modelInSameDocument?.exists()) {
                 this.__newModel = this.__modelInSameDocument;
@@ -147,12 +148,23 @@ export default class SolidSingleModelDocumentRelation<
         this.documentModelsLoaded = true;
     }
 
-    private assertNotLoaded(this: This, method: string): void {
-        if (this.loaded)
-            throw new SoukaiError(
-                `The "${method}" method can't be called because a related model already exists, ` +
-                    'use a hasMany relationship if you want to support multiple related models.',
-            );
+    protected setRelated(this: This<Parent, Related, RelatedClass>, related: Related | null): Related | null {
+        this.related = related;
+
+        related && this.initializeInverseRelations(related);
+
+        return related;
+    }
+
+    private assertNotLoadedOrEmpty(this: This, method: string): void {
+        if (!this.loaded || !this.related) {
+            return;
+        }
+
+        throw new SoukaiError(
+            `The "${method}" method can't be called because a related model already exists, ` +
+                'use a hasMany relationship if you want to support multiple related models.',
+        );
     }
 
 }

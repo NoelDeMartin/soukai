@@ -1,4 +1,5 @@
-import { arrayFilter, arrayFrom, urlRoute } from '@noeldemartin/utils';
+import { arrayFilter, arrayFrom, fail, urlRoute } from '@noeldemartin/utils';
+import { SoukaiError } from 'soukai';
 import type { Attributes, EngineDocument } from 'soukai';
 
 import JsonLDModelSerializer from 'soukai-solid/models/internals/JsonLDModelSerializer';
@@ -77,7 +78,9 @@ export default class OperationsRelation<Parent extends SolidModel = SolidModel> 
 
     public async __loadDocumentModels(documentUrl: string, document: JsonLDGraph): Promise<void> {
         const foreignFields = this.relatedClass.fields as unknown as SolidBootedFieldsDefinition;
-        const foreignProperty = foreignFields[this.foreignKeyName]?.rdfProperty as string;
+        const foreignProperty =
+            foreignFields[this.foreignKeyName]?.rdfProperty ??
+            fail(SoukaiError, `Field '${this.foreignKeyName}' does not exist in ${this.relatedClass.modelName} model.`);
         const reducedDocument = RDFDocument.reduceJsonLDGraph(document, this.parent.url) as EngineDocument;
         const resources = document['@graph'].filter((resource) => {
             const property = RDF.getJsonLDProperty(resource, foreignProperty);

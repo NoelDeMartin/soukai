@@ -1,5 +1,5 @@
-import { EngineHelper } from 'soukai';
-import { urlRoute } from '@noeldemartin/utils';
+import { EngineHelper, SoukaiError } from 'soukai';
+import { fail, urlRoute } from '@noeldemartin/utils';
 import type { EngineDocument, EngineDocumentsCollection, Relation } from 'soukai';
 import type { JsonLDGraph } from '@noeldemartin/solid-utils';
 
@@ -32,7 +32,9 @@ export default class SolidHasRelation {
     public async __loadDocumentModels(this: This, documentUrl: string, document: JsonLDGraph): Promise<void> {
         const helper = new EngineHelper();
         const foreignFields = this.relatedClass.fields as SolidBootedFieldsDefinition;
-        const foreignProperty = foreignFields[this.foreignKeyName]?.rdfProperty as string;
+        const foreignProperty =
+            foreignFields[this.foreignKeyName]?.rdfProperty ??
+            fail(SoukaiError, `Field '${this.foreignKeyName}' does not exist in ${this.relatedClass.modelName} model.`);
         const filters = this.relatedClass.prepareEngineFilters();
         const reducedDocument = RDFDocument.reduceJsonLDGraph(document, this.parent.url) as EngineDocument;
         const resourceDocuments = document['@graph']

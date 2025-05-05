@@ -31,24 +31,41 @@ export default class SolidHasOneRelation<
 {
 
     public async load(): Promise<Related | null> {
-        if (this.isEmpty()) return (this.related = null);
+        if (this.isEmpty()) {
+            return this.setRelated(null);
+        }
 
-        if (!(this.__modelInSameDocument || this.__modelInOtherDocumentId))
+        if (!(this.__modelInSameDocument || this.__modelInOtherDocumentId)) {
             // Solid hasOne relation only finds related models that have been
             // declared in the same document.
-            return (this.related = null);
+            return this.setRelated(null);
+        }
 
         const resolveModel = async (): Promise<Related | null> => {
-            if (this.__modelInSameDocument) return this.__modelInSameDocument;
+            if (this.__modelInSameDocument) {
+                return this.__modelInSameDocument;
+            }
 
-            if (this.__modelInOtherDocumentId) return this.relatedClass.find(this.__modelInOtherDocumentId);
+            if (this.__modelInOtherDocumentId) {
+                return this.relatedClass.find(this.__modelInOtherDocumentId);
+            }
 
             return null;
         };
 
-        this.related = await resolveModel();
+        const model = await resolveModel();
 
-        return this.related;
+        return this.setRelated(model);
+    }
+
+    public async remove(): Promise<void> {
+        if (!this.related) {
+            return;
+        }
+
+        await this.related.delete();
+
+        this.related = null;
     }
 
     public reset(related: Related[] = []): void {
@@ -64,7 +81,8 @@ export default class SolidHasOneRelation<
 
         model.unsetAttribute(this.foreignKeyName);
 
-        this.related = model;
+        this.setRelated(model);
+
         this.__newModel = model;
     }
 

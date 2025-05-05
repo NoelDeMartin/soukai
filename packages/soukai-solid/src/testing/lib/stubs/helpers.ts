@@ -3,7 +3,7 @@ import type { JsonLDGraph, JsonLDResource } from '@noeldemartin/solid-utils';
 
 export function stubPersonJsonLD(
     url: string,
-    name: string,
+    name: string = 'Alice',
     optional: {
         birthDate?: string;
         directed?: string;
@@ -78,13 +78,23 @@ export function stubMoviesCollectionJsonLD(
     return jsonLDGraph(jsonld);
 }
 
-export function stubGroupJsonLD(url: string, name: string): JsonLDGraph & EngineDocument {
-    return jsonLDGraph({
+export function stubGroupJsonLD(
+    url: string,
+    name: string = 'Team',
+    options: { members?: string[] } = {},
+): JsonLDGraph & EngineDocument {
+    const jsonld: JsonLDResource & { '@context': Record<string, unknown> } = {
         '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
         '@id': url,
         '@type': 'Group',
         'name': name,
-    });
+    };
+
+    if (options.members) {
+        jsonld['member'] = options.members.map((memberUrl) => ({ '@id': memberUrl }));
+    }
+
+    return jsonLDGraph(jsonld);
 }
 
 export function stubMovieJsonLD(
