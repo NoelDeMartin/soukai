@@ -5,6 +5,7 @@ import type { Model } from './Model';
 import type { ModelConstructor, SchemaDefinition } from './inference';
 import type { Relation } from './relations/Relation';
 
+const eventTargets = new WeakSet<Model | typeof Model>();
 let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap();
 
 export type ModelListener<
@@ -84,11 +85,16 @@ export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
     const model = '__attributeGetters' in args[0] ? null : args[0];
     const event = args[1];
     const payload = args[2];
+    const target = model ?? modelClass;
     const modelListeners = listeners.get(modelClass)?.[event];
 
-    if (!modelListeners) {
+    if (!modelListeners || eventTargets.has(target)) {
         return;
     }
 
+    eventTargets.add(target);
+
     await Promise.all(modelListeners.map((listener) => (model ? listener(model, payload) : listener(payload))));
+
+    eventTargets.delete(target);
 }
