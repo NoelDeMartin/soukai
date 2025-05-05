@@ -26,7 +26,7 @@ class PersonWithHistory extends Person {
 
 }
 
-describe('SolidHasManyRelation', () => {
+describe('SolidBelongsToManyRelation', () => {
 
     beforeAll(() => bootModels({ Group, Person, PersonWithHistory }));
     beforeEach(() => FakeSolidEngine.use());

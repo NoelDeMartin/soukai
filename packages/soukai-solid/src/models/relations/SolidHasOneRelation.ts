@@ -63,9 +63,11 @@ export default class SolidHasOneRelation<
             return;
         }
 
-        await this.related.delete();
+        const related = this.related;
 
         this.related = null;
+
+        await related.delete();
     }
 
     public reset(related: Related[] = []): void {
