@@ -893,12 +893,15 @@ export class SolidModel extends SolidModelBase {
     }
 
     public isDirty(field?: string, ignoreRelations?: boolean): boolean {
-        if (field)
+        if (field) {
             return this.static('timestamps').includes(field as TimestampFieldValue)
                 ? this.metadata?.isDirty(field) || super.isDirty(field)
                 : super.isDirty(field);
+        }
 
-        if (super.isDirty()) return true;
+        if (super.isDirty()) {
+            return true;
+        }
 
         if (ignoreRelations) {
             return this.metadata?.isDirty('deletedAt');
@@ -1051,6 +1054,8 @@ export class SolidModel extends SolidModelBase {
 
         const documentUrl = this.getDocumentUrl();
         const addModels = (models: SolidModel[]) => models.forEach((model) => documentModels.add(model));
+        const isUsingSameDocument = (relation: Relation, model: SolidModel) =>
+            model.getDocumentUrl() === documentUrl || (isSolidDocumentRelation(relation) && relation.useSameDocument);
 
         documentModels.add(this);
 
@@ -1060,24 +1065,34 @@ export class SolidModel extends SolidModelBase {
             if (
                 !relation.enabled ||
                 !relation.loaded ||
-                (!isDocumentContainsManyRelation && !isSolidDocumentRelation(relation)) ||
-                (isSolidDocumentRelation(relation) && (!relation.useSameDocument || usingExperimentalActivityPods()))
+                usingExperimentalActivityPods() ||
+                (!isDocumentContainsManyRelation && !isSolidDocumentRelation(relation))
             ) {
                 continue;
             }
 
-            if (isSolidSingleModelDocumentRelation(relation) && relation.__newModel) {
+            if (
+                isSolidSingleModelDocumentRelation(relation) &&
+                relation.__newModel &&
+                isUsingSameDocument(relation, relation.__newModel)
+            ) {
                 addModels(relation.__newModel.getDocumentModels(documentModels));
             }
 
             if (isSolidMultiModelDocumentRelation(relation)) {
-                addModels(relation.__newModels.map((model) => model.getDocumentModels(documentModels)).flat());
+                for (const newModel of relation.__newModels) {
+                    if (!isUsingSameDocument(relation, newModel)) {
+                        continue;
+                    }
+
+                    addModels(newModel.getDocumentModels(documentModels));
+                }
             }
 
             addModels(
                 relation
                     .getLoadedModels()
-                    .filter((model) => isDocumentContainsManyRelation || model.getDocumentUrl() === documentUrl)
+                    .filter((model) => isDocumentContainsManyRelation || isUsingSameDocument(relation, model))
                     .map((model) => model.getDocumentModels(documentModels))
                     .flat(),
             );
@@ -1106,7 +1121,7 @@ export class SolidModel extends SolidModelBase {
     }
 
     public getDirtyDocumentModels(): SolidModel[] {
-        return this.getDocumentModels().filter((model) => model.isDirty());
+        return this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
     }
 
     public requireRelation<T extends SolidRelation = SolidRelation>(relation: string): T;
@@ -1314,7 +1329,7 @@ export class SolidModel extends SolidModelBase {
         let unprocessedModels: SolidModel[] = [];
         const processedModels = new Set<SolidModel>();
         const hasUnprocessedModels = () => {
-            unprocessedModels = this.getDirtyDocumentModels().filter((model) => !processedModels.has(model));
+            unprocessedModels = this.getDocumentModels().filter((model) => !processedModels.has(model));
 
             return unprocessedModels.length > 0;
         };
@@ -1326,7 +1341,9 @@ export class SolidModel extends SolidModelBase {
 
             await Promise.all(
                 unprocessedModels.map(async (model) => {
-                    if (model !== this && model.isDirty()) await model.beforeSave(true);
+                    if (model !== this && model.isDirty(undefined, true)) {
+                        await model.beforeSave(true);
+                    }
 
                     processedModels.add(model);
                 }),
