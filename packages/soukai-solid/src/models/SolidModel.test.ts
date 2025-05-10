@@ -524,6 +524,23 @@ describe('SolidModel', () => {
         });
     });
 
+    it('doesn\'t find model if classes don\'t match', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const resourceUrl = fakeResourceUrl({ documentUrl });
+
+        FakeSolidEngine.database[containerUrl] = {
+            [documentUrl]: stubPersonJsonLD(resourceUrl),
+        };
+
+        // Act
+        const movie = await Movie.at(containerUrl).find(resourceUrl);
+
+        // Assert
+        expect(movie).toBeNull();
+    });
+
     it('converts filters to JSON-LD', async () => {
         // Arrange
         const peopleUrl = 'https://example.com/people/';

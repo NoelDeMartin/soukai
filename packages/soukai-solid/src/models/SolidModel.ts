@@ -328,6 +328,7 @@ export class SolidModel extends SolidModelBase {
     public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null>;
     public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null>;
     public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null> {
+        const rdfsClasses = arrayUnique([this.rdfsClasses, ...this.rdfsClassesAliases].flat());
         const resourceUrl = this.instance().serializeKey(id);
         const documentUrl = urlRoute(resourceUrl);
         const containerUrl = urlParentDirectory(documentUrl) ?? urlRoot(documentUrl);
@@ -337,6 +338,12 @@ export class SolidModel extends SolidModelBase {
         try {
             const { documentPermissions, stopTracking } = this.instance().trackPublicPermissions();
             const document = await this.requireEngine().readOne(containerUrl, documentUrl);
+            const resource = await RDFDocument.resourceFromJsonLDGraph(document as JsonLDGraph, resourceUrl);
+
+            if (!rdfsClasses.some((type) => resource.isType(type))) {
+                return null;
+            }
+
             const model = await this.instance().createFromEngineDocument(documentUrl, document, resourceUrl);
 
             stopTracking();
