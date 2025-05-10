@@ -138,7 +138,7 @@ export default class SolidBelongsToManyRelation<
         this.loadDocumentModels([], foreignKeys);
     }
 
-    public async __synchronizeRelated(other: this): Promise<void> {
+    public async __synchronizeRelated(other: this, models: WeakSet<SolidModel>): Promise<void> {
         const { SetPropertyOperation, AddPropertyOperation, RemovePropertyOperation } = operationClasses();
         const foreignProperty = this.parent.static().getFieldRdfProperty(this.foreignKeyName);
         const localKeyName = this.localKeyName as keyof Related;
@@ -178,7 +178,7 @@ export default class SolidBelongsToManyRelation<
 
                 if (!thisRelated || !otherRelated) return thisRelated;
 
-                await thisRelated.static().synchronize(thisRelated, otherRelated);
+                await thisRelated.static().synchronize(thisRelated, otherRelated, models);
 
                 return thisRelated;
             }),

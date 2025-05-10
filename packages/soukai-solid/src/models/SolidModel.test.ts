@@ -59,6 +59,7 @@ describe('SolidModel', () => {
             GroupWithHistoryAndPersonsInSameDocument,
             GroupWithPersonsInSameDocument,
             Movie,
+            MovieWithHistory,
             MoviesCollection,
             Person,
             PersonWithHistory,
@@ -88,7 +89,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'foaf:givenname',
                 },
             };
-        
+
         }
 
         bootModels({ StubModel });
@@ -125,7 +126,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-        
+
         }
 
         bootModels({ StubModel });
@@ -160,7 +161,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-        
+
         }
 
         bootModels({ StubModel });
@@ -195,7 +196,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-        
+
         }
 
         bootModels({ StubModel });
@@ -220,13 +221,13 @@ describe('SolidModel', () => {
         class A extends SolidModel {
 
             public static rdfsClass = 'http://xmlns.com/foaf/0.1/A';
-        
+
         }
 
         class B extends SolidModel {
 
             public static rdfsClass = 'foaf:B';
-        
+
         }
 
         bootModels({ A, B });
@@ -247,7 +248,7 @@ describe('SolidModel', () => {
             public static fields = {
                 name: FieldType.String,
             };
-        
+
         }
 
         bootModels({ StubModel });
@@ -298,7 +299,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static classFields = ['stubField'];
-        
+
         }
 
         bootModels({ StubModel });
@@ -456,7 +457,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static rdfsClasses = ['https://schema.org/Action', 'http://www.w3.org/2002/12/cal/ical#Vtodo'];
-        
+
         }
         const documentUrl = fakeDocumentUrl();
         const quads = turtleToQuadsSync('<#it> a <https://schema.org/Action> .', {
@@ -573,7 +574,7 @@ describe('SolidModel', () => {
 
             declare public name: string | undefined;
             declare public surname: string | undefined;
-        
+
         }
 
         bootModels({ StubModel });
@@ -694,7 +695,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static defaultResourceHash = 'foobar';
-        
+
         }
 
         const containerUrl = fakeContainerUrl();
@@ -839,7 +840,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static mintsUrls = false;
-        
+
         }
 
         const containerUrl = fakeContainerUrl();
@@ -891,7 +892,7 @@ describe('SolidModel', () => {
             public static timestamps = false;
             public static mintsUrls = false;
             public static defaultResourceHash = null;
-        
+
         }
 
         const containerUrl = fakeContainerUrl();
@@ -1806,7 +1807,7 @@ describe('SolidModel', () => {
 
             public static timestamps = true;
             public static history = true;
-        
+
         }
 
         // Act
@@ -2518,6 +2519,30 @@ describe('SolidModel', () => {
         expect(versionB.members?.[1]?.exists()).toBe(true);
     });
 
+    it('Synchronizes models history with hasOne or hasMany relations', async () => {
+        // Arrange
+        const movie = await MovieWithHistory.create({ title: 'Spirited Away' });
+
+        const versionA = movie.clone({ clean: true });
+        const versionB = movie.clone({ clean: true });
+
+        await versionA.relatedActions.create({ startTime: new Date() });
+
+        // Act
+        await SolidModel.synchronize(versionA, versionB);
+
+        // Assert
+        expect(versionA.actions).toHaveLength(1);
+        expect(versionB.actions).toHaveLength(1);
+        expect(versionA.actions?.[0]).toBeInstanceOf(WatchAction);
+        expect(versionB.actions?.[0]).toBeInstanceOf(WatchAction);
+        expect(versionA.actions?.[0].show).toBeUndefined();
+        expect(versionB.actions?.[0].show).toBeUndefined();
+        expect(versionA.actions?.[0].movie).toBe(versionA);
+        expect(versionA.actions?.[0].exists()).toBe(true);
+        expect(versionB.actions?.[0].exists()).toBe(false);
+    });
+
     it('History tracking for new arrays uses add operation', async () => {
         // Arrange
         setEngine(new InMemoryEngine());
@@ -2595,7 +2620,7 @@ describe('SolidModel', () => {
                     deserialize: (value?: string) => value && value.toLowerCase(),
                 },
             };
-        
+
         }
 
         bootModels({ StubModel });
@@ -2683,6 +2708,8 @@ function solidModelWithHistory<T extends SolidModel>(
 }
 
 class PersonWithHistory extends solidModelWithHistory(Person) {}
+
+class MovieWithHistory extends solidModelWithHistory(Movie) {}
 
 class GroupWithHistory extends solidModelWithHistory(Group) {}
 

@@ -34,24 +34,25 @@ function get<T extends keyof ProtectedProperties>(self: This, property: T): Prot
 
 export type This = SolidModel & TracksHistory;
 
-export async function synchronizeModels(a: SolidModel, b: SolidModel): Promise<void> {
+export async function synchronizeModels(a: SolidModel, b: SolidModel, models: WeakSet<SolidModel>): Promise<void> {
     if (a.getPrimaryKey() !== b.getPrimaryKey()) {
         throw new SoukaiError('Can\'t synchronize different models');
     }
 
+    if (models.has(a) || models.has(b)) {
+        return;
+    }
+
+    models.add(a);
+    models.add(b);
+
     await a.loadRelationIfUnloaded('operations');
     await b.loadRelationIfUnloaded('operations');
 
-    if (a.operations.length === 0 && b.operations.length === 0) {
-        return;
+    if (a.operations.length > 0 || b.operations.length > 0 || a.getHistoryHash() !== b.getHistoryHash()) {
+        a.addHistoryOperations(b.operations);
+        b.addHistoryOperations(a.operations);
     }
-
-    if (a.getHistoryHash() === b.getHistoryHash()) {
-        return;
-    }
-
-    a.addHistoryOperations(b.operations);
-    b.addHistoryOperations(a.operations);
 
     for (const relation of arrayWithout(a.static().relations, a.static().reservedRelations)) {
         const relationA = a.requireRelation(relation);
@@ -61,8 +62,8 @@ export async function synchronizeModels(a: SolidModel, b: SolidModel): Promise<v
             continue;
         }
 
-        await when(relationA, synchronizesRelatedModels).__synchronizeRelated(relationB);
-        await when(relationB, synchronizesRelatedModels).__synchronizeRelated(relationA);
+        await when(relationA, synchronizesRelatedModels).__synchronizeRelated(relationB, models);
+        await when(relationB, synchronizesRelatedModels).__synchronizeRelated(relationA, models);
     }
 }
 

@@ -1,6 +1,6 @@
 import { HasManyRelation } from 'soukai';
-import { mixedWithoutTypes, tap } from '@noeldemartin/utils';
-import type { RelationCloneOptions } from 'soukai';
+import { map, mixedWithoutTypes, tap } from '@noeldemartin/utils';
+import type { Model, RelationCloneOptions } from 'soukai';
 
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
@@ -70,6 +70,41 @@ export default class SolidHasManyRelation<
         if (this.documentModelsLoaded) return;
 
         this.loadDocumentModels([], []);
+    }
+
+    public async __synchronizeRelated(other: this, models: WeakSet<SolidModel>): Promise<void> {
+        const thisRelatedMap = map(this.related ?? [], 'url');
+        const otherRelatedMap = map(other.related ?? [], 'url');
+        const missingInThis = otherRelatedMap.getItems().filter((model) => !thisRelatedMap.hasKey(model.url));
+        const missingInOther = [];
+
+        for (const thisRelated of thisRelatedMap.items()) {
+            const otherRelated = otherRelatedMap.get(thisRelated.url);
+
+            if (!otherRelated) {
+                missingInOther.push(thisRelated);
+
+                continue;
+            }
+
+            await thisRelated.static().synchronize(thisRelated, otherRelated, models);
+        }
+
+        this.setRelated([
+            ...thisRelatedMap.items(),
+            ...missingInThis.map((model) =>
+                model.clone({
+                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                })),
+        ]);
+
+        other.setRelated([
+            ...otherRelatedMap.items(),
+            ...missingInOther.map((model) =>
+                model.clone({
+                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                })),
+        ]);
     }
 
     protected loadRelatedModels(documentIds: string[]): Promise<Related[]> {

@@ -3,6 +3,7 @@ import type { Relation } from 'soukai';
 
 import type SolidBelongsToManyRelation from 'soukai-solid/models/relations/SolidBelongsToManyRelation';
 import type SolidHasManyRelation from 'soukai-solid/models/relations/SolidHasManyRelation';
+import type SolidHasOneRelation from 'soukai-solid/models/relations/SolidHasOneRelation';
 
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
@@ -13,6 +14,7 @@ import Post from './Post';
 export default class Person extends Model {
 
     declare public friends: Person[] | undefined;
+    declare public relatedGroup: SolidHasOneRelation<Person, Group, typeof Group>;
     declare public relatedFriends: SolidBelongsToManyRelation<Person, Person, typeof Person>;
     declare public relatedStarredMovies: SolidBelongsToManyRelation<Person, Movie, typeof Movie>;
     declare public group: Group | undefined;

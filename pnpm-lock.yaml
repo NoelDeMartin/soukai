@@ -101,7 +101,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: next
-        version: 0.6.0-next.9e5255c1e3f28414be67ade1f4aadbbbd1211cb2(web-streams-polyfill@3.3.3)
+        version: 0.6.0-next.c7addc0a638eedd08392f2f42039946a876fe146(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: ^0.7.0
         version: 0.7.0
@@ -672,8 +672,8 @@ packages:
     resolution: {integrity: sha512-nOZ1BGimZF3isy88XK+nLiECzMOVBMhcox6guvNU3c+8hjqh6/vS59zDEC0FmN0ep7sXBVs/VB8Xc9nJqvwd0g==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.0-next.9e5255c1e3f28414be67ade1f4aadbbbd1211cb2':
-    resolution: {integrity: sha512-v7ehPoStlU7p2D2bGp+HOaRVECK1C71ctisQajsuj5Yo9eir89NGN2zbDZTTW4oVfibrzxHH6jH10S3u/ZkcdA==}
+  '@noeldemartin/solid-utils@0.6.0-next.c7addc0a638eedd08392f2f42039946a876fe146':
+    resolution: {integrity: sha512-o9k40zrig4N/c1izZ57+qgI7PR+HZYEAPzOQ4H2qKph8Bf/VtDo7kWd4ox3jNf6qxbI0aV7qi9zKHDgdjgZfIQ==}
 
   '@noeldemartin/testing@0.0.0-next.3aa03a51f580a9508bbc982c55eda4fd2b302f35':
     resolution: {integrity: sha512-SAPGNaz5IPTR3FgPuFZyUcb4i4jWOvfXgPt4xVYwwDKDIT9xdMFbBpfLvxV5KiO0E0EPnqmtmgDj3+laBhMOZA==}
@@ -3211,7 +3211,7 @@ snapshots:
       - svelte-eslint-parser
       - typescript
 
-  '@noeldemartin/solid-utils@0.6.0-next.9e5255c1e3f28414be67ade1f4aadbbbd1211cb2(web-streams-polyfill@3.3.3)':
+  '@noeldemartin/solid-utils@0.6.0-next.c7addc0a638eedd08392f2f42039946a876fe146(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.7.0
       '@rdfjs/types': 2.0.1

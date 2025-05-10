@@ -1,6 +1,6 @@
 import { SingleModelRelation, SoukaiError } from 'soukai';
 import { tap } from '@noeldemartin/utils';
-import type { Attributes } from 'soukai';
+import type { Attributes, Model } from 'soukai';
 import type { ClosureArgs } from '@noeldemartin/utils';
 
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
@@ -154,6 +154,44 @@ export default class SolidSingleModelDocumentRelation<
         related && this.initializeInverseRelations(related);
 
         return related;
+    }
+
+    protected async synchronizeRelated(
+        this: This<Parent, Related, RelatedClass>,
+        other: This<Parent, Related, RelatedClass>,
+        models: WeakSet<SolidModel>,
+    ): Promise<void> {
+        if (!this.related && other.related) {
+            this.setRelated(
+                other.related.clone({
+                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                }),
+            );
+
+            return;
+        }
+
+        if (!other.related || !this.related) {
+            return;
+        }
+
+        const foreignKey = this.parent.getAttribute(this.foreignKeyName);
+
+        await this.related.static().synchronize(this.related, other.related, models);
+
+        if (this.__newModel || this.related.url === foreignKey) {
+            this.setRelated(this.__newModel ?? this.related);
+
+            return;
+        }
+
+        if (other.related.url === foreignKey) {
+            this.setRelated(
+                other.related.clone({
+                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                }),
+            );
+        }
     }
 
     private assertNotLoadedOrEmpty(this: This, method: string): void {

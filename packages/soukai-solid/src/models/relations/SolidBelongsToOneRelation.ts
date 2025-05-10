@@ -78,14 +78,14 @@ export default class SolidBelongsToOneRelation<
         this.loadDocumentModels([], foreignValue ? [foreignValue] : []);
     }
 
-    public async __synchronizeRelated(other: this): Promise<void> {
+    public async __synchronizeRelated(other: this, models: WeakSet<SolidModel>): Promise<void> {
         if (!this.related || !other.related || this.related.url !== other.related.url) {
             return;
         }
 
         const foreignKey = this.parent.getAttribute(this.foreignKeyName);
 
-        await this.related.static().synchronize(this.related, other.related);
+        await this.related.static().synchronize(this.related, other.related, models);
 
         if (this.__newModel || this.related.url === foreignKey) {
             this.setRelated(this.__newModel ?? this.related);

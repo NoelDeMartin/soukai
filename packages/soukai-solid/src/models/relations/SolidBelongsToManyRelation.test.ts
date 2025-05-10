@@ -1,8 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
 import { bootModels } from 'soukai';
-import type { JsonLD } from '@noeldemartin/solid-utils';
-import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { expandIRI, normalizeJsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { uuid } from '@noeldemartin/utils';
 import type { EngineDocument, Relation } from 'soukai';
@@ -150,9 +149,3 @@ describe('SolidBelongsToManyRelation', () => {
     });
 
 });
-
-async function normalizeJsonLD(jsonld: JsonLD): Promise<JsonLD> {
-    const quads = await jsonldToQuads(jsonld);
-
-    return quadsToJsonLD(quads);
-}

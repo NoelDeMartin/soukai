@@ -1,6 +1,6 @@
 import { HasOneRelation } from 'soukai';
 import { mixedWithoutTypes, tap } from '@noeldemartin/utils';
-import type { RelationCloneOptions } from 'soukai';
+import type { Model, RelationCloneOptions } from 'soukai';
 
 import SolidHasRelation from 'soukai-solid/models/relations/mixins/SolidHasRelation';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
@@ -98,6 +98,28 @@ export default class SolidHasOneRelation<
         if (this.documentModelsLoaded) return;
 
         this.loadDocumentModels([], []);
+    }
+
+    public async __synchronizeRelated(other: this, models: WeakSet<SolidModel>): Promise<void> {
+        if (this.related && other.related && this.related.url === other.related.url) {
+            await this.related.static().synchronize(this.related, other.related, models);
+
+            return;
+        }
+
+        if (!other.related || (this.related && this.related.url !== other.related.url)) {
+            return;
+        }
+
+        if (!this.related) {
+            this.setRelated(
+                other.related.clone({
+                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                }),
+            );
+
+            return;
+        }
     }
 
 }

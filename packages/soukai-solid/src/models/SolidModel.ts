@@ -471,12 +471,17 @@ export class SolidModel extends SolidModelBase {
         return tap(new this(attributes) as T, (instance) => instance.saveInDocument(documentUrl, resourceHash));
     }
 
-    public static async synchronize<T extends SolidModel>(this: SolidModelConstructor<T>, a: T, b: T): Promise<void> {
+    public static async synchronize<T extends SolidModel>(
+        this: SolidModelConstructor<T>,
+        a: T,
+        b: T,
+        __models?: WeakSet<SolidModel>,
+    ): Promise<void> {
         if (this !== a.static()) {
-            return a.static().synchronize(a, b);
+            return a.static().synchronize(a, b, __models ?? new WeakSet());
         }
 
-        await synchronizeModels(a, b);
+        await synchronizeModels(a, b, __models ?? new WeakSet());
     }
 
     public static findMatchingResourceIds(quads: Quad[], baseUrl?: string): string[] {
