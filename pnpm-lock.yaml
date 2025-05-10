@@ -15,6 +15,9 @@ catalogs:
     '@noeldemartin/scripts':
       specifier: next
       version: 0.3.0-next.73e253ff6238acee8a0199922401c4be310129bd
+    eslint:
+      specifier: ^8.57.1
+      version: 8.57.1
     publint:
       specifier: ^0.3.12
       version: 0.3.12
@@ -84,6 +87,9 @@ importers:
       '@noeldemartin/scripts':
         specifier: 'catalog:'
         version: 0.3.0-next.73e253ff6238acee8a0199922401c4be310129bd(prettier-eslint@16.4.2(typescript@5.8.3))(typescript@5.8.3)
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
       fake-indexeddb:
         specifier: ^6.0.0
         version: 6.0.1
@@ -115,6 +121,9 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
       publint:
         specifier: 'catalog:'
         version: 0.3.12

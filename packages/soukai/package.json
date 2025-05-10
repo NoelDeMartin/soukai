@@ -35,6 +35,7 @@
         "@arethetypeswrong/cli": "catalog:",
         "@noeldemartin/faker": "catalog:",
         "@noeldemartin/scripts": "catalog:",
+        "eslint": "catalog:",
         "fake-indexeddb": "^6.0.0",
         "publint": "catalog:"
     },

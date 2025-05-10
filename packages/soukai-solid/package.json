@@ -34,6 +34,7 @@
         "@noeldemartin/faker": "catalog:",
         "@noeldemartin/scripts": "catalog:",
         "dayjs": "^1.11.13",
+        "eslint": "catalog:",
         "publint": "catalog:",
         "soukai": "workspace:*"
     },

@@ -16,10 +16,10 @@ jobs:
                   node-version-file: '.nvmrc'
                   cache: 'pnpm'
             - run: pnpm install
-            - run: pnpm run build
-            - run: pnpm run lint
-            - run: pnpm run test:ci
-            - run: pnpm run verify
+            - run: pnpm build
+            - run: pnpm lint
+            - run: pnpm test:ci
+            - run: pnpm verify
             - uses: actions/cache/save@v4
               with:
                   key: build-${{ github.sha }}
