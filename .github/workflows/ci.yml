@@ -24,11 +24,7 @@ jobs:
               with:
                   key: build-${{ github.sha }}
                   path: |
-                      ~/.npm/**/*
-                      ~/.cache/**/*
                       packages/*/dist/**
-                      node_modules/**/*
-                      packages/*/node_modules/**/*
     publish:
         if: github.ref == 'refs/heads/main'
         needs: tests
@@ -50,11 +46,8 @@ jobs:
               with:
                   key: build-${{ github.sha }}
                   path: |
-                      ~/.npm/**/*
-                      ~/.cache/**/*
                       packages/*/dist/**
-                      node_modules/**/*
-                      packages/*/node_modules/**/*
+            - run: pnpm install
             - name: Publish updated packages
               run: |
                   for package in $(git diff-tree --no-commit-id --name-only -r HEAD | grep "^packages/" | cut -d/ -f2 | sort -u); do
