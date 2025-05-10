@@ -2,6 +2,7 @@ import { tap } from '@noeldemartin/utils';
 import type { ClosureArgs } from '@noeldemartin/utils';
 
 import type { Engine } from 'soukai/engines/Engine';
+import type { ModelConstructor } from 'soukai/models/inference';
 
 const originalEngines: WeakMap<object, [Engine | undefined, number]> = new WeakMap();
 
@@ -59,4 +60,19 @@ export function withEngineImpl<TResult, TTarget extends EngineTarget>(options: {
     }
 
     return executeOperation(options.operation);
+}
+
+export function isModelClassOrSubclass(value: ModelConstructor, target: ModelConstructor): boolean {
+    let prototype = value;
+
+    while (prototype) {
+        if (prototype !== target) {
+            prototype = Object.getPrototypeOf(prototype);
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
 }

@@ -11,8 +11,8 @@ import SolidIsContainedByRelation from './SolidIsContainedByRelation';
 import TombstoneRelation from './TombstoneRelation';
 import type { DocumentContainsRelation } from './DocumentContainsRelation';
 
-SolidContainsRelation.inverseRelationClasses = [SolidIsContainedByRelation];
-SolidIsContainedByRelation.inverseRelationClasses = [SolidContainsRelation];
+SolidContainsRelation.inverseHasRelationClasses = [SolidIsContainedByRelation];
+SolidIsContainedByRelation.inverseBelongsToRelationClasses = [SolidContainsRelation];
 
 export * from './guards';
 export * from './cardinality-guards';

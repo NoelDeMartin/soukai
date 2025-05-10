@@ -27,7 +27,9 @@ export default class BelongsToOneRelation<
     public setForeignAttributes(related: Related): void {
         const foreignKey = related.getAttribute(this.localKeyName);
 
-        if (!foreignKey) return;
+        if (!foreignKey) {
+            return;
+        }
 
         this.parent.setAttribute(this.foreignKeyName, foreignKey);
     }

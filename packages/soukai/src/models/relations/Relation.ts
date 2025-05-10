@@ -1,6 +1,7 @@
 import { arrayFrom } from '@noeldemartin/utils';
 import type { Constructor } from '@noeldemartin/utils';
 
+import { isModelClassOrSubclass } from 'soukai/models/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Model } from 'soukai/models/Model';
 
@@ -18,7 +19,8 @@ export abstract class Relation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > {
 
-    public static inverseRelationClasses: Constructor<Relation>[] = [];
+    public static inverseHasRelationClasses: Constructor<Relation>[] = [];
+    public static inverseBelongsToRelationClasses: Constructor<Relation>[] = [];
 
     public name!: string;
     public related?: Related[] | Related | null;
@@ -126,15 +128,26 @@ export abstract class Relation<
         }
     }
 
-    public isInverseOf(relation: Relation): boolean {
-        const isInstanceOf = (inverseClass: Constructor<Relation>) => relation instanceof inverseClass;
+    public isInverseOf(other: Relation): boolean {
+        const isInstanceOf = (inverseClass: Constructor<Relation>) => other instanceof inverseClass;
 
-        return (
-            this.static().inverseRelationClasses.some(isInstanceOf) &&
-            relation.relatedClass === this.parent.constructor &&
-            relation.foreignKeyName === this.foreignKeyName &&
-            relation.localKeyName === this.localKeyName
-        );
+        if (this.static().inverseBelongsToRelationClasses.some(isInstanceOf)) {
+            return (
+                isModelClassOrSubclass(this.parent.constructor as ModelConstructor, other.relatedClass) &&
+                other.foreignKeyName === this.foreignKeyName &&
+                other.localKeyName === this.localKeyName
+            );
+        }
+
+        if (this.static().inverseHasRelationClasses.some(isInstanceOf)) {
+            return (
+                isModelClassOrSubclass(other.parent.constructor as ModelConstructor, this.relatedClass) &&
+                this.foreignKeyName === other.foreignKeyName &&
+                this.localKeyName === other.localKeyName
+            );
+        }
+
+        return false;
     }
 
 }

@@ -6,14 +6,14 @@ import MultiModelRelation from './MultiModelRelation';
 import SingleModelRelation from './SingleModelRelation';
 
 export function ensureInverseRelationsBooted(): void {
-    if (HasOneRelation.inverseRelationClasses.length > 0) {
+    if (HasOneRelation.inverseBelongsToRelationClasses.length > 0) {
         return;
     }
 
-    HasOneRelation.inverseRelationClasses = [BelongsToOneRelation, BelongsToManyRelation];
-    HasManyRelation.inverseRelationClasses = [BelongsToOneRelation, BelongsToManyRelation];
-    BelongsToOneRelation.inverseRelationClasses = [HasOneRelation, HasManyRelation];
-    BelongsToManyRelation.inverseRelationClasses = [HasOneRelation, HasManyRelation];
+    HasOneRelation.inverseBelongsToRelationClasses = [BelongsToOneRelation, BelongsToManyRelation];
+    HasManyRelation.inverseBelongsToRelationClasses = [BelongsToOneRelation, BelongsToManyRelation];
+    BelongsToOneRelation.inverseHasRelationClasses = [HasOneRelation, HasManyRelation];
+    BelongsToManyRelation.inverseHasRelationClasses = [HasOneRelation, HasManyRelation];
 }
 
 export * from './Relation';
