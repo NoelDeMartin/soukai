@@ -1,0 +1,8 @@
+packages:
+    - packages/**
+
+catalog:
+    "@arethetypeswrong/cli": ^0.17.4
+    "@noeldemartin/scripts": next
+    "@noeldemartin/faker": 7.6.0
+    publint: ^0.3.12

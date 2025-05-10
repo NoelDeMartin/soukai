@@ -25,12 +25,17 @@
         "soukai": "*"
     },
     "dependencies": {
-        "@noeldemartin/solid-utils": "^0.6.0",
-        "@noeldemartin/utils": "^0.7.0"
+        "@noeldemartin/solid-utils": "next",
+        "@noeldemartin/utils": "^0.7.0",
+        "@rdfjs/types": "^2.0.1"
     },
     "devDependencies": {
+        "@arethetypeswrong/cli": "catalog:",
+        "@noeldemartin/faker": "catalog:",
+        "@noeldemartin/scripts": "catalog:",
         "dayjs": "^1.11.13",
-        "soukai": "*"
+        "publint": "catalog:",
+        "soukai": "workspace:*"
     },
     "eslintConfig": {
         "extends": [

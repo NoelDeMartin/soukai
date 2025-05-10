@@ -32,7 +32,11 @@
         "idb": "^8.0.2"
     },
     "devDependencies": {
-        "fake-indexeddb": "^6.0.0"
+        "@arethetypeswrong/cli": "catalog:",
+        "@noeldemartin/faker": "catalog:",
+        "@noeldemartin/scripts": "catalog:",
+        "fake-indexeddb": "^6.0.0",
+        "publint": "catalog:"
     },
     "eslintConfig": {
         "extends": [
