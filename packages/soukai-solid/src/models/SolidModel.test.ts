@@ -2612,7 +2612,8 @@ describe('SolidModel', () => {
         // Arrange
         class StubModel extends SolidModel {
 
-            public static rdfContext = 'http://schema.org/';
+            public static history = true;
+            public static rdfContext = 'https://schema.org/';
             public static fields = {
                 name: {
                     type: FieldType.String,
@@ -2628,14 +2629,20 @@ describe('SolidModel', () => {
         // Act
         const model = await StubModel.create({ name: 'John Doe' });
 
+        await model.update({ name: 'Alice Doe' });
+
         // Assert
         const freshModel = await model.fresh();
         const [freshCollectionModel] = await StubModel.all();
         const freshDocument = FakeSolidEngine.database[StubModel.collection][model.requireDocumentUrl()] as JsonLDGraph;
 
-        expect(freshModel.getAttribute('name')).toEqual('john doe');
-        expect(freshCollectionModel.getAttribute('name')).toEqual('john doe');
-        expect(freshDocument['@graph'][0]['name']).toEqual('JOHN DOE');
+        expect(freshModel.getAttribute('name')).toEqual('alice doe');
+        expect(freshCollectionModel.getAttribute('name')).toEqual('alice doe');
+        expect(freshModel.operations).toHaveLength(2);
+        expect((freshModel.operations[0] as SetPropertyOperation).value).toBe('JOHN DOE');
+        expect((freshModel.operations[1] as SetPropertyOperation).value).toBe('ALICE DOE');
+
+        expect(freshDocument['@graph'][0]['https://schema.org/name']).toEqual('ALICE DOE');
     });
 
 });

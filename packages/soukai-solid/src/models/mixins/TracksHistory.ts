@@ -334,7 +334,11 @@ export default class TracksHistory {
         }
 
         if (value && definition.type === FieldType.Key) {
-            return new ModelKey(value);
+            value = new ModelKey(value);
+        }
+
+        if (definition.serialize) {
+            value = definition.serialize(value);
         }
 
         return value;

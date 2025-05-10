@@ -14,7 +14,9 @@ export default class RemovePropertyOperation extends Model {
     private static attributeCasters: WeakMap<typeof SolidModel, AttributeCaster> = new WeakMap();
 
     protected applyPropertyUpdate(model: SolidModel, field: string): void {
-        const value = model.getAttributeValue(field);
+        const definition = model.static().getFieldDefinition(field);
+        const rawValue = model.getAttributeValue(field);
+        const value = definition.deserialize ? definition.deserialize(rawValue) : rawValue;
 
         if (!Array.isArray(value)) {
             throw new SoukaiError('Can\'t apply Remove operation to non-array field (use Unset instead)');
@@ -40,7 +42,7 @@ export default class RemovePropertyOperation extends Model {
             public castAttribute<T>(value: T, options: ModelCastAttributeOptions = {}): T {
                 return super.castAttribute(value, options) as T;
             }
-        
+
         };
         const casterInstance = CasterClass.pureInstance();
 
