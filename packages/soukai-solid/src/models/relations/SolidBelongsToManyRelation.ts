@@ -51,7 +51,7 @@ export default class SolidBelongsToManyRelation<
         }
 
         if (this.isEmpty()) {
-            return this.setRelated([]);
+            return (this.related = []);
         }
 
         const idsByContainerUrl: Record<string, Set<string>> = {};
@@ -68,7 +68,7 @@ export default class SolidBelongsToManyRelation<
 
         const results = await Promise.all(
             Object.entries(idsByContainerUrl).map(([containerUrl, ids]) =>
-                this.relatedClass.from(containerUrl).all<Related>({ $in: [...ids] })),
+                this.relatedClass.from(containerUrl).all<Related>({ $in: Array.from(ids) })),
         );
 
         const modelsInOtherDocuments = results.reduce((models: Related[], containerModels: Related[]) => {
@@ -77,7 +77,7 @@ export default class SolidBelongsToManyRelation<
             return models;
         }, []);
 
-        return this.setRelated([...this.__modelsInSameDocument, ...this.__newModels, ...modelsInOtherDocuments]);
+        return (this.related = this.__modelsInSameDocument.concat(this.__newModels).concat(modelsInOtherDocuments));
     }
 
     public associate(foreignKey: ModelKey | unknown): void {
@@ -98,8 +98,7 @@ export default class SolidBelongsToManyRelation<
     }
 
     public reset(related: Related[] = []): void {
-        this.setRelated([]);
-
+        this.related = [];
         this.__newModels = [];
         this.__modelsInSameDocument = [];
 
@@ -176,7 +175,9 @@ export default class SolidBelongsToManyRelation<
                 const thisRelated = thisRelatedMap.get(foreignValue);
                 const otherRelated = otherRelatedMap.get(foreignValue);
 
-                if (!thisRelated || !otherRelated) return thisRelated;
+                if (!thisRelated || !otherRelated) {
+                    return thisRelated;
+                }
 
                 await thisRelated.static().synchronize(thisRelated, otherRelated, models);
 
@@ -184,7 +185,7 @@ export default class SolidBelongsToManyRelation<
             }),
         );
 
-        this.setRelated([...arrayFilter(related), ...this.__newModels]);
+        this.related = (arrayFilter(related) as Related[]).concat(this.__newModels);
     }
 
 }

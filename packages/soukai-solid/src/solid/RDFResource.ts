@@ -53,7 +53,7 @@ export default class RDFResource {
 
         this.statements.push(statement);
         this.properties.push(property);
-        this.propertiesIndex[property.name] = [...(this.propertiesIndex[property.name] || []), property];
+        this.propertiesIndex[property.name] = (this.propertiesIndex[property.name] || []).concat([property]);
     }
 
 }

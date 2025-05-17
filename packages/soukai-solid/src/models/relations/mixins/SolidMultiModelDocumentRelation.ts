@@ -1,8 +1,9 @@
-import { arrayUnique, tap } from '@noeldemartin/utils';
+import { arrayDiff, arrayUnique, tap } from '@noeldemartin/utils';
 import { MultiModelRelation } from 'soukai';
 import type { Attributes, Key } from 'soukai';
-import type { ClosureArgs } from '@noeldemartin/utils';
+import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
 
+import { bustWeakMemoModelCache, monkeyPatchPrototype } from 'soukai-solid/models/utils';
 import { isSolidBelongsToRelation, isSolidHasRelation } from 'soukai-solid/models/relations/guards';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
@@ -34,10 +35,10 @@ export default class SolidMultiModelDocumentRelation<
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
 > extends SolidDocumentRelation<Related> {
 
-    public __newModels: Related[] = [];
     public __removedDocumentModels: Related[] = [];
     declare public __modelsInSameDocument?: Related[];
     declare public __modelsInOtherDocumentIds?: string[];
+    declare private __newModelsValue: Related[];
 
     protected get protectedSolidMulti(): ProtectedSolidMultiRelation {
         return this as unknown as ProtectedSolidMultiRelation;
@@ -49,6 +50,18 @@ export default class SolidMultiModelDocumentRelation<
                 return (...args: ClosureArgs) => MultiModelRelation.prototype[property].call(this, ...args);
             },
         }) as unknown as MultiModelRelation;
+    }
+
+    public get __newModels(): Related[] {
+        return (this.__newModelsValue ??= []);
+    }
+
+    public set __newModels(value: Related[]) {
+        bustWeakMemoModelCache((this as unknown as This).parent);
+        this.__newModelsValue?.forEach((model) => bustWeakMemoModelCache(model));
+        value?.forEach((model) => bustWeakMemoModelCache(model));
+
+        this.__newModelsValue = value;
     }
 
     public isEmpty(this: This): boolean | null {
@@ -137,16 +150,24 @@ export default class SolidMultiModelDocumentRelation<
         }
     }
 
-    public addRelated(related: Related): void {
+    public addRelated(this: This, related: Related): void {
+        if (this.related?.includes(related)) {
+            return;
+        }
+
         this.super.addRelated(related);
 
         if (!related.exists()) {
-            this.__newModels.push(related);
+            this.__newModels = this.__newModels.concat([related]);
         }
     }
 
     public isRelated(model: Related): boolean {
         return this.super.isRelated(model) || this.__newModels.includes(model);
+    }
+
+    public __afterParentSave(): void {
+        this.__removedDocumentModels = [];
     }
 
     protected cloneSolidData(clone: This<Parent, Related, RelatedClass>): void {
@@ -171,12 +192,15 @@ export default class SolidMultiModelDocumentRelation<
             );
         }
 
-        if (this.__modelsInSameDocument)
+        if (this.__modelsInSameDocument) {
             clone.__modelsInSameDocument = this.__modelsInSameDocument.map((relatedModel) => {
                 return relatedClones.find((relatedClone) => relatedClone.is(relatedModel)) ?? relatedModel.clone();
             });
+        }
 
-        if (this.__modelsInOtherDocumentIds) clone.__modelsInOtherDocumentIds = this.__modelsInOtherDocumentIds;
+        if (this.__modelsInOtherDocumentIds) {
+            clone.__modelsInOtherDocumentIds = this.__modelsInOtherDocumentIds;
+        }
     }
 
     protected loadDocumentModels(
@@ -188,20 +212,31 @@ export default class SolidMultiModelDocumentRelation<
         this.__modelsInOtherDocumentIds = modelsInOtherDocumentIds;
 
         if (this.__modelsInOtherDocumentIds.length === 0) {
-            this.setRelated(arrayUnique([...(this.related ?? []), ...this.__modelsInSameDocument]));
+            this.related = arrayUnique(this.related ?? []).concat(this.__modelsInSameDocument);
         }
 
         this.documentModelsLoaded = true;
     }
 
-    protected setRelated(this: This<Parent, Related, RelatedClass>, related: Related[]): Related[] {
-        this.related = related;
+}
 
-        for (const model of this.related) {
-            this.initializeInverseRelations(model);
+// This is necessary because otherwise, Typescript gives an error when this is extended,
+// for example in SolidHasManyRelation.
+monkeyPatchPrototype(
+    SolidMultiModelDocumentRelation,
+    'onRelatedUpdated',
+    function(this: This, oldValue: Nullable<SolidModel[]>, newValue: Nullable<SolidModel[]>): void {
+        if (this !== this.parent.requireRelation(this.name)) {
+            return;
         }
 
-        return related;
-    }
+        const { added, removed } = arrayDiff(oldValue ?? [], newValue ?? []);
 
-}
+        bustWeakMemoModelCache(this.parent);
+
+        oldValue?.forEach((model) => bustWeakMemoModelCache(model));
+        newValue?.forEach((model) => bustWeakMemoModelCache(model));
+        removed.forEach((model) => this.clearInverseRelations(model));
+        added.forEach((model) => this.initializeInverseRelations(model));
+    },
+);

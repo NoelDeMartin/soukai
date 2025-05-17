@@ -32,23 +32,22 @@ export default class SolidHasManyRelation<
 
     public async load(): Promise<Related[]> {
         if (this.isEmpty()) {
-            return this.setRelated([]);
+            return (this.related = []);
         }
 
         if (!this.__modelsInSameDocument || !this.__modelsInOtherDocumentIds) {
             // Solid hasMany relation only finds related models that have been
             // declared in the same document.
-            return this.setRelated([]);
+            return (this.related = []);
         }
 
         const modelsInOtherDocuments = await this.loadRelatedModels(this.__modelsInOtherDocumentIds);
 
-        return this.setRelated([...this.__modelsInSameDocument, ...modelsInOtherDocuments]);
+        return (this.related = this.__modelsInSameDocument.concat(modelsInOtherDocuments));
     }
 
     public reset(related: Related[] = []): void {
-        this.setRelated([]);
-
+        this.related = [];
         this.__newModels = [];
         this.__modelsInSameDocument = [];
 
@@ -90,21 +89,19 @@ export default class SolidHasManyRelation<
             await thisRelated.static().synchronize(thisRelated, otherRelated, models);
         }
 
-        this.setRelated([
-            ...thisRelatedMap.items(),
-            ...missingInThis.map((model) =>
+        this.related = Array.from(thisRelatedMap.items()).concat(
+            missingInThis.map((model) =>
                 model.clone({
                     clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
                 })),
-        ]);
+        );
 
-        other.setRelated([
-            ...otherRelatedMap.items(),
-            ...missingInOther.map((model) =>
+        other.related = Array.from(otherRelatedMap.items()).concat(
+            missingInOther.map((model) =>
                 model.clone({
                     clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
                 })),
-        ]);
+        );
     }
 
     protected loadRelatedModels(documentIds: string[]): Promise<Related[]> {

@@ -25,6 +25,10 @@ export default class DocumentContainsManyRelation<
         // nothing to do here, these models don't have any attributes pointing to each other.
     }
 
+    public clearForeignAttributes(): void {
+        // nothing to do here, these models don't have any attributes pointing to each other.
+    }
+
     public async load(): Promise<Related[]> {
         this.related ??= [];
 

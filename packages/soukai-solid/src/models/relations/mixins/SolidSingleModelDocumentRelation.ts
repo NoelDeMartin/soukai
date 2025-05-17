@@ -1,8 +1,9 @@
 import { SingleModelRelation, SoukaiError } from 'soukai';
 import { tap } from '@noeldemartin/utils';
 import type { Attributes, Model } from 'soukai';
-import type { ClosureArgs } from '@noeldemartin/utils';
+import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
 
+import { bustWeakMemoModelCache, monkeyPatchPrototype } from 'soukai-solid/models/utils';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
@@ -29,9 +30,9 @@ export default class SolidSingleModelDocumentRelation<
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
 > extends SolidDocumentRelation<Related> {
 
-    declare public __newModel?: Related;
     declare public __modelInSameDocument?: Related;
     declare public __modelInOtherDocumentId?: string;
+    declare private __newModelValue?: Related;
 
     private get super(): SingleModelRelation {
         return new Proxy(this, {
@@ -39,6 +40,18 @@ export default class SolidSingleModelDocumentRelation<
                 return (...args: ClosureArgs) => SingleModelRelation.prototype[property].call(this, ...args);
             },
         }) as unknown as SingleModelRelation;
+    }
+
+    public get __newModel(): Related | undefined {
+        return this.__newModelValue;
+    }
+
+    public set __newModel(value: Related | undefined) {
+        bustWeakMemoModelCache((this as unknown as This).parent);
+        bustWeakMemoModelCache(this.__newModelValue);
+        bustWeakMemoModelCache(value);
+
+        this.__newModelValue = value;
     }
 
     public isEmpty(this: This): boolean | null {
@@ -82,7 +95,11 @@ export default class SolidSingleModelDocumentRelation<
         return model;
     }
 
-    public addRelated(related: Related): void {
+    public addRelated(this: This, related: Related): void {
+        if (this.related === related) {
+            return;
+        }
+
         this.super.addRelated(related);
 
         if (!related.exists()) {
@@ -94,19 +111,26 @@ export default class SolidSingleModelDocumentRelation<
         return this.super.isRelated(related) || this.__newModel === related;
     }
 
-    protected cloneSolidData(clone: This<Parent, Related, RelatedClass>): void {
+    protected cloneSolidData(
+        this: This<Parent, Related, RelatedClass>,
+        clone: This<Parent, Related, RelatedClass>,
+    ): void {
         let relatedClone = clone.related ?? (null as Related | null);
 
         clone.useSameDocument = this.useSameDocument;
         clone.documentModelsLoaded = this.documentModelsLoaded;
 
-        if (this.__newModel)
+        if (this.__newModel) {
             this.__newModel = relatedClone ?? tap(this.__newModel.clone(), (rClone) => (relatedClone = rClone));
+        }
 
-        if (this.__modelInSameDocument)
+        if (this.__modelInSameDocument) {
             clone.__modelInSameDocument = relatedClone ?? this.__modelInSameDocument.clone();
+        }
 
-        if (this.__modelInOtherDocumentId) clone.__modelInOtherDocumentId = this.__modelInOtherDocumentId;
+        if (this.__modelInOtherDocumentId) {
+            clone.__modelInOtherDocumentId = this.__modelInOtherDocumentId;
+        }
     }
 
     protected loadDocumentModels(
@@ -125,7 +149,7 @@ export default class SolidSingleModelDocumentRelation<
             this.__modelInSameDocument = modelsInSameDocument[0];
             this.documentModelsLoaded = true;
 
-            this.setRelated(this.__modelInSameDocument);
+            this.related = this.__modelInSameDocument;
 
             if (!this.__modelInSameDocument?.exists()) {
                 this.__newModel = this.__modelInSameDocument;
@@ -133,7 +157,7 @@ export default class SolidSingleModelDocumentRelation<
                 return;
             }
 
-            delete this.__newModel;
+            this.__newModel = undefined;
 
             return;
         }
@@ -148,25 +172,15 @@ export default class SolidSingleModelDocumentRelation<
         this.documentModelsLoaded = true;
     }
 
-    protected setRelated(this: This<Parent, Related, RelatedClass>, related: Related | null): Related | null {
-        this.related = related;
-
-        related && this.initializeInverseRelations(related);
-
-        return related;
-    }
-
     protected async synchronizeRelated(
         this: This<Parent, Related, RelatedClass>,
         other: This<Parent, Related, RelatedClass>,
         models: WeakSet<SolidModel>,
     ): Promise<void> {
         if (!this.related && other.related) {
-            this.setRelated(
-                other.related.clone({
-                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
-                }),
-            );
+            this.related = other.related.clone({
+                clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+            });
 
             return;
         }
@@ -180,17 +194,15 @@ export default class SolidSingleModelDocumentRelation<
         await this.related.static().synchronize(this.related, other.related, models);
 
         if (this.__newModel || this.related.url === foreignKey) {
-            this.setRelated(this.__newModel ?? this.related);
+            this.related = this.__newModel ?? this.related;
 
             return;
         }
 
         if (other.related.url === foreignKey) {
-            this.setRelated(
-                other.related.clone({
-                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
-                }),
-            );
+            this.related = other.related.clone({
+                clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+            });
         }
     }
 
@@ -206,3 +218,22 @@ export default class SolidSingleModelDocumentRelation<
     }
 
 }
+
+// This is necessary because otherwise, Typescript gives an error when this is extended,
+// for example in SolidHasOneRelation.
+monkeyPatchPrototype(
+    SolidSingleModelDocumentRelation,
+    'onRelatedUpdated',
+    function(this: This, oldValue: Nullable<SolidModel>, newValue: Nullable<SolidModel>): void {
+        if (this !== this.parent.requireRelation(this.name)) {
+            return;
+        }
+
+        bustWeakMemoModelCache(this.parent);
+        bustWeakMemoModelCache(oldValue);
+        bustWeakMemoModelCache(newValue);
+
+        oldValue && this.clearInverseRelations(oldValue);
+        newValue && this.initializeInverseRelations(newValue);
+    },
+);

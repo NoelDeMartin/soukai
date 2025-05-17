@@ -48,12 +48,10 @@ export default class MigratesSchemas {
 
         const model = await this.newInstanceForSchema(schema, addedFields, removedFields);
         const dirtyUrl = model.url !== this.url ? model.url : null;
-        const updates = [
-            ...(await this.getOperationSchemaUpdates(model, removedFields, dirtyUrl, options)),
-            ...this.getMetadataSchemaUpdates(dirtyUrl),
-            ...this.getUrlSchemaUpdates(dirtyUrl),
-            this.getResourceSchemaUpdate(model, dirtyUrl),
-        ];
+        const updates = (await this.getOperationSchemaUpdates(model, removedFields, dirtyUrl, options))
+            .concat(this.getMetadataSchemaUpdates(dirtyUrl))
+            .concat(this.getUrlSchemaUpdates(dirtyUrl))
+            .concat([this.getResourceSchemaUpdate(model, dirtyUrl)]);
 
         return { model, updates };
     }

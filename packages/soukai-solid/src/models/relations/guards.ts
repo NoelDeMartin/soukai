@@ -10,12 +10,20 @@ export interface BeforeParentCreateRelation extends Relation {
     __beforeParentCreate(): void;
 }
 
+export interface AfterParentSaveRelation extends Relation {
+    __afterParentSave(): void;
+}
+
 export interface SynchronizesRelatedModels extends Relation {
     __synchronizeRelated(other: Relation, models: WeakSet<SolidModel>): Promise<void>;
 }
 
 export function hasBeforeParentCreateHook(relation: Relation): relation is BeforeParentCreateRelation {
     return '__beforeParentCreate' in relation;
+}
+
+export function hasAfterParentSaveHook(relation: Relation): relation is AfterParentSaveRelation {
+    return '__afterParentSave' in relation;
 }
 
 export function isSolidDocumentRelation(relation: Relation): relation is SolidDocumentRelationInstance {

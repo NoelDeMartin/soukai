@@ -1,5 +1,5 @@
 import { arrayFrom } from '@noeldemartin/utils';
-import type { Constructor } from '@noeldemartin/utils';
+import type { Constructor, Nullable } from '@noeldemartin/utils';
 
 import { isModelClassOrSubclass } from 'soukai/models/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
@@ -23,13 +23,13 @@ export abstract class Relation<
     public static inverseBelongsToRelationClasses: Constructor<Relation>[] = [];
 
     public name!: string;
-    public related?: Related[] | Related | null;
     public parent: Parent;
     public relatedClass: RelatedClass;
     public foreignKeyName: string;
     public localKeyName: string;
     public enabled: boolean = true;
     public deleteStrategy: RelationDeleteStrategy = null;
+    protected _related?: Related[] | Related | null;
 
     public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName: string, localKeyName?: string) {
         this.parent = parent;
@@ -40,6 +40,17 @@ export abstract class Relation<
 
     public get loaded(): boolean {
         return this.related !== undefined;
+    }
+
+    public get related(): Nullable<Related[] | Related> {
+        return this._related;
+    }
+
+    public set related(related: Nullable<Related[] | Related>) {
+        const old = this._related;
+        this._related = related;
+
+        this.onRelatedUpdated(old, related);
     }
 
     public static(): RelationConstructor<this> {
@@ -56,7 +67,9 @@ export abstract class Relation<
 
     public abstract load(): Promise<Related[] | Related | null>;
     public abstract setForeignAttributes(related: Related): void;
+    public abstract clearForeignAttributes(related: Related): void;
     public abstract addRelated(related: Related): void;
+    public abstract removeRelated(related: Related): void;
     public abstract isRelated(model: Related): boolean;
 
     /**
@@ -83,7 +96,7 @@ export abstract class Relation<
     }
 
     public unload(): void {
-        delete this.related;
+        this.related = undefined;
     }
 
     public onDelete(strategy: RelationDeleteStrategy): this {
@@ -107,10 +120,13 @@ export abstract class Relation<
         // TODO get from parent clone relation instead
         clone.relatedClass = (constructors.get(this.relatedClass) as RelatedClass) ?? this.relatedClass;
 
-        if (this.related === null) clone.related = null;
-        else if (Array.isArray(this.related))
+        if (this.related === null) {
+            clone.related = null;
+        } else if (Array.isArray(this.related)) {
             clone.related = this.related.map((model) => model.clone({ clones, constructors }));
-        else if (this.related) clone.related = this.related.clone({ clones, constructors });
+        } else if (this.related) {
+            clone.related = this.related.clone({ clones, constructors });
+        }
 
         return clone;
     }
@@ -125,6 +141,19 @@ export abstract class Relation<
 
             relationInstance.setForeignAttributes(this.parent);
             relationInstance.addRelated(this.parent);
+        }
+    }
+
+    public clearInverseRelations(model: Related): void {
+        for (const relationName of this.relatedClass.relations) {
+            const relationInstance = model.requireRelation(relationName);
+
+            if (!relationInstance.enabled || !relationInstance.isInverseOf(this)) {
+                continue;
+            }
+
+            relationInstance.clearForeignAttributes(this.parent);
+            relationInstance.removeRelated(this.parent);
         }
     }
 
@@ -148,6 +177,11 @@ export abstract class Relation<
         }
 
         return false;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    protected onRelatedUpdated(oldValue: Nullable<Model[] | Model>, newValue: Nullable<Model[] | Model>): void {
+        //
     }
 
 }

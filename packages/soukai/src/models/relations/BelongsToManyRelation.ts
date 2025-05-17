@@ -1,4 +1,5 @@
 import MultiModelRelation from 'soukai/models/relations/MultiModelRelation';
+import { arrayWithout } from '@noeldemartin/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Key, Model } from 'soukai/models/Model';
 
@@ -36,12 +37,29 @@ export default class BelongsToManyRelation<
     public setForeignAttributes(related: Related): void {
         const foreignKey = related.getAttribute<string>(this.localKeyName);
 
-        if (!foreignKey) return;
+        if (!foreignKey) {
+            return;
+        }
 
         const foreignValues = this.parent.getAttribute<string[]>(this.foreignKeyName);
 
-        if (!foreignValues.includes(foreignKey))
-            this.parent.setAttribute(this.foreignKeyName, [...foreignValues, foreignKey]);
+        if (!foreignValues.includes(foreignKey)) {
+            this.parent.setAttribute(this.foreignKeyName, foreignValues.concat([foreignKey]));
+        }
+    }
+
+    public clearForeignAttributes(related: Related): void {
+        const foreignKey = related.getAttribute<string>(this.localKeyName);
+
+        if (!foreignKey) {
+            return;
+        }
+
+        const foreignValues = this.parent.getAttribute<string[]>(this.foreignKeyName);
+
+        if (foreignValues.includes(foreignKey)) {
+            this.parent.setAttribute(this.foreignKeyName, arrayWithout(foreignValues, foreignKey));
+        }
     }
 
 }

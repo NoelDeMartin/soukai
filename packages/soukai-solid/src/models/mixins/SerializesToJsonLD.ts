@@ -63,7 +63,7 @@ export default class SerializesToJsonLD {
 
             if (typeof firstValue === 'undefined') continue;
 
-            attributes[fieldName] = otherValues.length > 0 ? [firstValue, ...otherValues] : firstValue;
+            attributes[fieldName] = otherValues.length > 0 ? [firstValue].concat(otherValues) : firstValue;
         }
 
         return attributes;

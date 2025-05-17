@@ -49,7 +49,7 @@ export async function synchronizeModels(a: SolidModel, b: SolidModel, models: We
     await a.loadRelationIfUnloaded('operations');
     await b.loadRelationIfUnloaded('operations');
 
-    if (a.operations.length > 0 || b.operations.length > 0 || a.getHistoryHash() !== b.getHistoryHash()) {
+    if (a.operations.length > 0 || b.operations.length > 0) {
         a.addHistoryOperations(b.operations);
         b.addHistoryOperations(a.operations);
     }
@@ -207,7 +207,7 @@ export default class TracksHistory {
             return;
         }
 
-        this.setRelationModels('operations', arraySorted([...this.operations, ...newOperations], ['date', 'url']));
+        this.setRelationModels('operations', arraySorted(this.operations.concat(newOperations), ['date', 'url']));
         this.removeDuplicatedHistoryOperations();
         this.rebuildAttributesFromHistory();
 

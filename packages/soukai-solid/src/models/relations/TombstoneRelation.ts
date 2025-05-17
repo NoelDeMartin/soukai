@@ -37,4 +37,10 @@ export default class TombstoneRelation<Parent extends SolidModel = SolidModel> e
         // as a temporary mechanism to mark a model before deletion.
     }
 
+    public clearForeignAttributes(): void {
+        // Nothing to do here.
+        // Tombstones are not meant to coexist with models in storage, this relation is only used
+        // as a temporary mechanism to mark a model before deletion.
+    }
+
 }

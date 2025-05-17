@@ -130,7 +130,7 @@ export default class OperationsRelation<Parent extends SolidModel = SolidModel> 
             const serializer = JsonLDModelSerializer.forModel(operation);
             const expandedTypes = operation.rdfsClasses;
             const compactedTypes = expandedTypes.map((rdfClass) => serializer.processExpandedIRI(rdfClass));
-            const rdfsClasses = [...expandedTypes, ...compactedTypes];
+            const rdfsClasses = expandedTypes.concat(compactedTypes);
 
             return {
                 operation,

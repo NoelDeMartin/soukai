@@ -32,7 +32,11 @@ export default class SolidACLAuthorizationsRelation<Parent extends SolidModel = 
     }
 
     public setForeignAttributes(): void {
-        // nothing to do here
+        // nothing to do here, these models don't have any attributes pointing to each other.
+    }
+
+    public clearForeignAttributes(): void {
+        // nothing to do here, these models don't have any attributes pointing to each other.
     }
 
     public async load(): Promise<SolidACLAuthorization[]> {

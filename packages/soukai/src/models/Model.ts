@@ -1180,7 +1180,10 @@ export class Model {
         const modelPromises = await Promise.all(relationPromises);
         const models = await Promise.all(modelPromises.flat());
 
-        return [...models.flat(), this].filter((model) => model.exists());
+        return models
+            .flat()
+            .concat([this])
+            .filter((model) => model.exists());
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
@@ -1410,7 +1413,7 @@ export class Model {
                 if (field && malformedAttributes) {
                     const malformations = malformedAttributes[field] ?? [];
 
-                    malformedAttributes[field] = [...malformations, 'malformed-key'];
+                    malformedAttributes[field] = malformations.concat(['malformed-key']);
                 }
 
                 return value;

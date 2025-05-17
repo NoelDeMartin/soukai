@@ -1,4 +1,4 @@
-import { arrayUnique, requireUrlParentDirectory, urlParentDirectory, urlRoot } from '@noeldemartin/utils';
+import { arrayWithout, requireUrlParentDirectory, urlParentDirectory, urlRoot } from '@noeldemartin/utils';
 import { SingleModelRelation } from 'soukai';
 
 import type SolidContainer from 'soukai-solid/models/SolidContainer';
@@ -22,11 +22,27 @@ export default class SolidIsContainedByRelation<
     public setForeignAttributes(related: Related): void {
         const parentDocumentUrl = this.parent.getDocumentUrl();
 
-        if (!this.parent.url || (parentDocumentUrl && related.resourceUrls.includes(parentDocumentUrl))) {
+        if (!parentDocumentUrl || !this.parent.url || related.resourceUrls.includes(parentDocumentUrl)) {
             return;
         }
 
-        const resourceUrls = arrayUnique([...related.resourceUrls, this.parent.getDocumentUrl()]);
+        const resourceUrls = related.resourceUrls.concat([parentDocumentUrl]);
+
+        if (this.parent.usingSolidEngine()) {
+            related.setOriginalAttribute('resourceUrls', resourceUrls);
+        } else {
+            related.setAttribute('resourceUrls', resourceUrls);
+        }
+    }
+
+    public clearForeignAttributes(related: Related): void {
+        const parentDocumentUrl = this.parent.getDocumentUrl();
+
+        if (!parentDocumentUrl || !this.parent.url || !related.resourceUrls.includes(parentDocumentUrl)) {
+            return;
+        }
+
+        const resourceUrls = arrayWithout(related.resourceUrls, parentDocumentUrl);
 
         if (this.parent.usingSolidEngine()) {
             related.setOriginalAttribute('resourceUrls', resourceUrls);

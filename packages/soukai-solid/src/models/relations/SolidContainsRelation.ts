@@ -1,4 +1,4 @@
-import { arrayUnique, arrayWithout, tap } from '@noeldemartin/utils';
+import { arrayWithout, tap } from '@noeldemartin/utils';
 import { BelongsToManyRelation, SoukaiError } from 'soukai';
 import type { Attributes } from 'soukai';
 
@@ -20,11 +20,27 @@ export default class SolidContainsRelation<
     public setForeignAttributes(related: Related): void {
         const relatedDocumentUrl = related.getDocumentUrl();
 
-        if (!related.url || (relatedDocumentUrl && this.parent.resourceUrls.includes(relatedDocumentUrl))) {
+        if (!relatedDocumentUrl || !related.url || this.parent.resourceUrls.includes(relatedDocumentUrl)) {
             return;
         }
 
-        const resourceUrls = arrayUnique([...this.parent.resourceUrls, related.getDocumentUrl()]);
+        const resourceUrls = this.parent.resourceUrls.concat([relatedDocumentUrl]);
+
+        if (this.parent.usingSolidEngine()) {
+            this.parent.setOriginalAttribute('resourceUrls', resourceUrls);
+        } else {
+            this.parent.setAttribute('resourceUrls', resourceUrls);
+        }
+    }
+
+    public clearForeignAttributes(related: Related): void {
+        const relatedDocumentUrl = related.getDocumentUrl();
+
+        if (!relatedDocumentUrl || !related.url || !this.parent.resourceUrls.includes(relatedDocumentUrl)) {
+            return;
+        }
+
+        const resourceUrls = arrayWithout(this.parent.resourceUrls, relatedDocumentUrl);
 
         if (this.parent.usingSolidEngine()) {
             this.parent.setOriginalAttribute('resourceUrls', resourceUrls);

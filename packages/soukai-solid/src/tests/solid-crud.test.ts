@@ -447,6 +447,7 @@ describe('Solid CRUD', () => {
         await group.relatedMembers.remove(member);
 
         // Assert
+        expect(group.isDirty()).toBe(false);
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
         expect(FakeServer.fetchSpy.mock.calls[1]?.[0]).toEqual(documentUrl);

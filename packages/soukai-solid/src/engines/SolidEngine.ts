@@ -227,7 +227,7 @@ export class SolidEngine implements Engine {
 
                 return {
                     ...map,
-                    [containerUrl]: [...(map[containerUrl] || []), documentUrl],
+                    [containerUrl]: (map[containerUrl] || []).concat([documentUrl]),
                 };
             },
             {} as Record<string, string[]>,

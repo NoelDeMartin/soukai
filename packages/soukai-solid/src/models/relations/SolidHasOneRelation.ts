@@ -32,13 +32,13 @@ export default class SolidHasOneRelation<
 
     public async load(): Promise<Related | null> {
         if (this.isEmpty()) {
-            return this.setRelated(null);
+            return (this.related = null);
         }
 
         if (!(this.__modelInSameDocument || this.__modelInOtherDocumentId)) {
             // Solid hasOne relation only finds related models that have been
             // declared in the same document.
-            return this.setRelated(null);
+            return (this.related = null);
         }
 
         const resolveModel = async (): Promise<Related | null> => {
@@ -55,7 +55,7 @@ export default class SolidHasOneRelation<
 
         const model = await resolveModel();
 
-        return this.setRelated(model);
+        return (this.related = model);
     }
 
     public async remove(): Promise<void> {
@@ -73,8 +73,8 @@ export default class SolidHasOneRelation<
     public reset(related: Related[] = []): void {
         const model = related[0];
 
-        delete this.related;
-        delete this.__newModel;
+        this.related = undefined;
+        this.__newModel = undefined;
         delete this.__modelInSameDocument;
 
         if (!model) {
@@ -83,8 +83,7 @@ export default class SolidHasOneRelation<
 
         model.unsetAttribute(this.foreignKeyName);
 
-        this.setRelated(model);
-
+        this.related = model;
         this.__newModel = model;
     }
 
@@ -112,11 +111,9 @@ export default class SolidHasOneRelation<
         }
 
         if (!this.related) {
-            this.setRelated(
-                other.related.clone({
-                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
-                }),
-            );
+            this.related = other.related.clone({
+                clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+            });
 
             return;
         }

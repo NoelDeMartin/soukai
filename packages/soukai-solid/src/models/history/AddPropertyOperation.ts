@@ -14,7 +14,7 @@ export default class AddPropertyOperation extends Model {
             throw new SoukaiError('Can\'t apply Add operation to non-array field (should be Set instead)');
         }
 
-        model.setAttributeValue(field, [...value, ...arrayFrom(this.value)]);
+        model.setAttributeValue(field, value.concat(arrayFrom(this.value)));
     }
 
 }

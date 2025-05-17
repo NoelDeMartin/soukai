@@ -1,8 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
 import { bootModels } from 'soukai';
+import { uuid } from '@noeldemartin/utils';
 import type { EngineDocument } from 'soukai';
-import { type Tuple, uuid } from '@noeldemartin/utils';
+import type { Tuple } from '@noeldemartin/utils';
 
 import IRI from 'soukai-solid/solid/utils/IRI';
 

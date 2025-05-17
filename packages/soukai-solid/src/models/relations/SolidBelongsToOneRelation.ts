@@ -32,18 +32,18 @@ export default class SolidBelongsToOneRelation<
 
     public async load(): Promise<Related | null> {
         if (this.__modelInSameDocument) {
-            return this.setRelated(this.__modelInSameDocument);
+            return (this.related = this.__modelInSameDocument);
         }
 
         const foreignKey = this.__modelInOtherDocumentId ?? this.parent.getAttribute(this.foreignKeyName);
 
         if (!foreignKey) {
-            return this.setRelated(null);
+            return (this.related = null);
         }
 
         const related = await this.relatedClass.find(foreignKey);
 
-        return this.setRelated(related);
+        return (this.related = related);
     }
 
     public reset(related: Related[] = []): void {
@@ -59,8 +59,7 @@ export default class SolidBelongsToOneRelation<
 
         this.parent.unsetAttribute(this.foreignKeyName);
 
-        this.setRelated(model);
-
+        this.related = model;
         this.__newModel = model;
     }
 
@@ -88,17 +87,15 @@ export default class SolidBelongsToOneRelation<
         await this.related.static().synchronize(this.related, other.related, models);
 
         if (this.__newModel || this.related.url === foreignKey) {
-            this.setRelated(this.__newModel ?? this.related);
+            this.related = this.__newModel ?? this.related;
 
             return;
         }
 
         if (other.related.url === foreignKey) {
-            this.setRelated(
-                other.related.clone({
-                    clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
-                }),
-            );
+            this.related = other.related.clone({
+                clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+            });
         }
     }
 

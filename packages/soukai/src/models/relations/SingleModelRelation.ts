@@ -1,4 +1,5 @@
 import { stringToCamelCase, tap } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai/errors/SoukaiError';
 import { Relation } from 'soukai/models/relations/Relation';
@@ -12,8 +13,6 @@ export default abstract class SingleModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
-    declare public related?: Related | null;
-
     public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName?: string, localKeyName?: string) {
         super(
             parent,
@@ -21,6 +20,17 @@ export default abstract class SingleModelRelation<
             foreignKeyName || stringToCamelCase(relatedClass.modelName + '_' + relatedClass.primaryKey),
             localKeyName,
         );
+    }
+
+    public get related(): Related | undefined | null {
+        return this._related as Related | undefined | null;
+    }
+
+    public set related(related: Related | undefined | null) {
+        const old = this.related;
+        this._related = related;
+
+        this.onRelatedUpdated(old, related);
     }
 
     public attach(model?: Related): Related;
@@ -46,7 +56,19 @@ export default abstract class SingleModelRelation<
     }
 
     public addRelated(related: Related): void {
+        if (related === this.related) {
+            return;
+        }
+
         this.related = related;
+    }
+
+    public removeRelated(related: Related): void {
+        if (related !== this.related) {
+            return;
+        }
+
+        this.related = null;
     }
 
     public isRelated(related: Related): boolean {
@@ -54,5 +76,10 @@ export default abstract class SingleModelRelation<
     }
 
     public abstract load(): Promise<Related | null>;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    protected onRelatedUpdated(oldValue: Nullable<Model>, newValue: Nullable<Model>): void {
+        //
+    }
 
 }

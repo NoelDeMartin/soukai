@@ -1,4 +1,5 @@
-import { arrayUnique, stringToCamelCase, tap } from '@noeldemartin/utils';
+import { arrayWithout, stringToCamelCase, tap } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai/errors/SoukaiError';
 import { Relation } from 'soukai/models/relations/Relation';
@@ -12,8 +13,6 @@ export default abstract class MultiModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
-    declare public related?: Related[];
-
     public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName?: string, localKeyName?: string) {
         super(
             parent,
@@ -21,6 +20,17 @@ export default abstract class MultiModelRelation<
             foreignKeyName || stringToCamelCase(relatedClass.modelName + '_' + relatedClass.primaryKey + 's'),
             localKeyName,
         );
+    }
+
+    public get related(): Related[] | undefined {
+        return this._related as Related[] | undefined;
+    }
+
+    public set related(related: Related[] | undefined) {
+        const oldValue = this.related;
+        this._related = related;
+
+        this.onRelatedUpdated(oldValue, related);
     }
 
     public attach(model?: Related): Related;
@@ -51,13 +61,30 @@ export default abstract class MultiModelRelation<
     }
 
     public addRelated(related: Related): void {
-        this.related = arrayUnique([...(this.related ?? []), related]);
+        if (this.related?.includes(related)) {
+            return;
+        }
+
+        this.related = (this.related ?? []).concat(related);
+    }
+
+    public removeRelated(related: Related): void {
+        if (!this.related?.includes(related)) {
+            return;
+        }
+
+        this.related = arrayWithout(this.related, related);
     }
 
     public abstract load(): Promise<Related[]>;
 
     public isRelated(model: Related): boolean {
         return !!this.related?.includes(model);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    protected onRelatedUpdated(oldValue: Nullable<Model[]>, newValue: Nullable<Model[]>): void {
+        //
     }
 
     protected assertLoaded(method: string): this is { related: Related[] } {
