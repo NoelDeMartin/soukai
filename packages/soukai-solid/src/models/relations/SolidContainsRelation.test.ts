@@ -88,4 +88,21 @@ describe('SolidContainsRelation', () => {
         expect(freshCollection.resourceUrls[0]).toEqual(person.getDocumentUrl());
     });
 
+    it('busts related models cache', async () => {
+        // Arrange
+        setEngine(new InMemoryEngine());
+
+        const collection = await MoviesCollection.create({ url: fakeContainerUrl() });
+        const initialRelated = collection.getRelatedModels();
+
+        // Act
+        await collection.relatedMovies.create({ title: faker.lorem.sentence() });
+
+        // Assert
+        const related = collection.getRelatedModels();
+
+        expect(initialRelated).toHaveLength(1);
+        expect(related).toHaveLength(2);
+    });
+
 });

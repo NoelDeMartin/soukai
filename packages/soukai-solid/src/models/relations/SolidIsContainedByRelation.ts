@@ -1,6 +1,9 @@
 import { arrayWithout, requireUrlParentDirectory, urlParentDirectory, urlRoot } from '@noeldemartin/utils';
 import { SingleModelRelation } from 'soukai';
+import type { Nullable } from '@noeldemartin/utils';
+import type { Model } from 'soukai';
 
+import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 import type SolidContainer from 'soukai-solid/models/SolidContainer';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidContainerConstructor } from 'soukai-solid/models/inference';
@@ -62,6 +65,19 @@ export default class SolidIsContainedByRelation<
         this.relatedClass.collection = oldCollection;
 
         return this.related;
+    }
+
+    protected onRelatedUpdated(oldValue: Nullable<Model>, newValue: Nullable<Model>): void {
+        if (this !== this.parent.requireRelation(this.name)) {
+            return;
+        }
+
+        bustWeakMemoModelCache(this.parent);
+        bustWeakMemoModelCache(oldValue);
+        bustWeakMemoModelCache(newValue);
+
+        oldValue && this.clearInverseRelations(oldValue as Related);
+        newValue && this.initializeInverseRelations(newValue as Related);
     }
 
 }

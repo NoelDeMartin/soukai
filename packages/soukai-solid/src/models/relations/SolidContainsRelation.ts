@@ -1,7 +1,9 @@
-import { arrayWithout, tap } from '@noeldemartin/utils';
+import { arrayDiff, arrayWithout, tap } from '@noeldemartin/utils';
 import { BelongsToManyRelation, SoukaiError } from 'soukai';
-import type { Attributes } from 'soukai';
+import type { Attributes, Model } from 'soukai';
+import type { Nullable } from '@noeldemartin/utils';
 
+import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import type SolidContainer from 'soukai-solid/models/SolidContainer';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
@@ -106,6 +108,21 @@ export default class SolidContainsRelation<
         }
 
         throw new SoukaiError('Cannot save a model because the container doesn\'t exist');
+    }
+
+    protected onRelatedUpdated(oldValue: Nullable<Model[]>, newValue: Nullable<Model[]>): void {
+        if (this !== this.parent.requireRelation(this.name)) {
+            return;
+        }
+
+        const { added, removed } = arrayDiff(oldValue ?? [], newValue ?? []);
+
+        bustWeakMemoModelCache(this.parent);
+
+        oldValue?.forEach((model) => bustWeakMemoModelCache(model));
+        newValue?.forEach((model) => bustWeakMemoModelCache(model));
+        removed.forEach((model) => this.clearInverseRelations(model as Related));
+        added.forEach((model) => this.initializeInverseRelations(model as Related));
     }
 
 }
