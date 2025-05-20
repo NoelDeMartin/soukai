@@ -140,15 +140,22 @@ export default class TracksHistory {
         const PropertyOperation = operationClass('PropertyOperation');
         const operations = arraySorted(this.operations, 'date');
         const unfilledAttributes = new Set(Object.keys(get(this, '_attributes')));
-        const arrayFields = Object.entries(this.static('fields'))
-            .filter(([_, definition]) => definition.type === FieldType.Array)
-            .map(([field]) => field);
+        const arrayFields = Object.entries(this.static('fields')).filter(
+            ([_, definition]) => definition.type === FieldType.Array,
+        );
 
         unfilledAttributes.delete(this.static('primaryKey'));
         unfilledAttributes.delete(TimestampField.CreatedAt);
         unfilledAttributes.delete(TimestampField.UpdatedAt);
 
-        arrayFields.forEach((field) => this.setAttribute(field, []));
+        arrayFields.forEach(([field, definition]) => {
+            if (this.ignoreRdfPropertyHistory(definition.rdfProperty)) {
+                return;
+            }
+
+            this.setAttribute(field, []);
+        });
+
         operations.forEach((operation) => {
             if (operation instanceof PropertyOperation) {
                 const field = this.static().getRdfPropertyField(operation.property);
@@ -158,7 +165,16 @@ export default class TracksHistory {
 
             operation.apply(this);
         });
-        unfilledAttributes.forEach((attribute) => this.unsetAttribute(attribute));
+
+        unfilledAttributes.forEach((attribute) => {
+            const field = this.static().getFieldRdfProperty(attribute);
+
+            if (field && this.ignoreRdfPropertyHistory(field)) {
+                return;
+            }
+
+            this.unsetAttribute(attribute);
+        });
 
         this.setAttribute('createdAt', operations[0]?.date);
         this.setAttribute('updatedAt', operations[operations.length - 1]?.date);

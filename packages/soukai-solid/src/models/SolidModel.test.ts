@@ -19,7 +19,7 @@ import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl, tt } from '@noeldem
 import { FieldType, InMemoryEngine, ModelKey, TimestampField, bootModels, setEngine } from 'soukai';
 import { faker } from '@noeldemartin/faker';
 import type { EngineDocument, Relation } from 'soukai';
-import type { Constructor, Equals, Tuple } from '@noeldemartin/utils';
+import type { Equals, Tuple } from '@noeldemartin/utils';
 import type { Expect } from '@noeldemartin/testing';
 import type { JsonLDGraph, JsonLDResource } from '@noeldemartin/solid-utils';
 
@@ -31,7 +31,6 @@ import RemovePropertyOperation from 'soukai-solid/models/history/RemovePropertyO
 import SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperation';
 import UnsetPropertyOperation from 'soukai-solid/models/history/UnsetPropertyOperation';
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
-import type { SolidMagicAttributes, SolidModelConstructor } from 'soukai-solid/models/inference';
 
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
@@ -40,7 +39,7 @@ import Person from 'soukai-solid/testing/lib/stubs/Person';
 import PersonSchema from 'soukai-solid/testing/lib/stubs/Person.schema';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
 import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
-import { assertInstanceOf } from 'soukai-solid/testing/utils';
+import { assertInstanceOf, solidModelWithHistory, solidModelWithTimestamps } from 'soukai-solid/testing/utils';
 import {
     stubMovieJsonLD,
     stubMoviesCollectionJsonLD,
@@ -2717,18 +2716,6 @@ function expandIRI(iri: string) {
             foaf: 'http://xmlns.com/foaf/0.1/',
         },
     });
-}
-
-function solidModelWithTimestamps<T extends SolidModel>(
-    model: SolidModelConstructor<T>,
-): Constructor<SolidMagicAttributes<{ timestamps: true }>> & SolidModelConstructor<T> {
-    return defineSolidModelSchema(model, { timestamps: true });
-}
-
-function solidModelWithHistory<T extends SolidModel>(
-    model: SolidModelConstructor<T>,
-): Constructor<SolidMagicAttributes<{ timestamps: true; history: true }>> & SolidModelConstructor<T> {
-    return defineSolidModelSchema(model, { timestamps: true, history: true });
 }
 
 class PersonWithHistory extends solidModelWithHistory(Person) {}

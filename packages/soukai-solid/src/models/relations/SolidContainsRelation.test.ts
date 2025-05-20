@@ -8,6 +8,9 @@ import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 import PersonsCollection from 'soukai-solid/testing/lib/stubs/PersonsCollection';
 import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
+import { SolidModel } from 'soukai-solid/models/SolidModel';
+import { solidModelWithHistory } from 'soukai-solid/testing/utils';
+import { SolidEngine } from 'soukai-solid/engines';
 
 describe('SolidContainsRelation', () => {
 
@@ -105,4 +108,33 @@ describe('SolidContainsRelation', () => {
         expect(related).toHaveLength(2);
     });
 
+    it('synchronizes models using different engines', async () => {
+        // Arrange
+        bootModels({ MoviesCollectionWithHistory });
+        setEngine(new InMemoryEngine());
+
+        const collectionA = await MoviesCollectionWithHistory.create({ url: fakeContainerUrl(), name: 'Movies' });
+        const movie = await collectionA.relatedMovies.create({ title: faker.lorem.sentence() });
+        const collectionB = new MoviesCollectionWithHistory(
+            {
+                url: collectionA.url,
+                name: 'Movies',
+                resourceUrls: [movie.getDocumentUrl()],
+            },
+            true,
+        );
+
+        collectionB.setEngine(new SolidEngine());
+        collectionB.setRelationModels('operations', []);
+
+        // Act
+        await SolidModel.synchronize(collectionA, collectionB);
+
+        // Assert
+        expect(collectionA.resourceUrls).toHaveLength(1);
+        expect(collectionB.resourceUrls).toHaveLength(1);
+    });
+
 });
+
+class MoviesCollectionWithHistory extends solidModelWithHistory(MoviesCollection) {}
