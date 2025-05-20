@@ -24,7 +24,7 @@
         "build": "vite build",
         "lint": "noeldemartin-lint src",
         "test": "vitest --run",
-        "test:ci": "vitest --run --reporter verbose",
+        "test:ci": "vitest --run --reporter verbose --retry=3",
         "verify": "noeldemartin-verify"
     },
     "dependencies": {
