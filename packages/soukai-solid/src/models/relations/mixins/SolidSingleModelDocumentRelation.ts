@@ -1,9 +1,9 @@
 import { SingleModelRelation, SoukaiError } from 'soukai';
-import { tap } from '@noeldemartin/utils';
+import { overridePrototypeMethod, tap } from '@noeldemartin/utils';
 import type { Attributes, Model } from 'soukai';
 import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
 
-import { bustWeakMemoModelCache, monkeyPatchPrototype } from 'soukai-solid/models/utils';
+import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
@@ -221,7 +221,8 @@ export default class SolidSingleModelDocumentRelation<
 
 // This is necessary because otherwise, Typescript gives an error when this is extended,
 // for example in SolidHasOneRelation.
-monkeyPatchPrototype(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+overridePrototypeMethod<any, string>(
     SolidSingleModelDocumentRelation,
     'onRelatedUpdated',
     function(this: This, oldValue: Nullable<SolidModel>, newValue: Nullable<SolidModel>): void {

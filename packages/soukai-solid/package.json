@@ -25,8 +25,8 @@
         "soukai": "*"
     },
     "dependencies": {
-        "@noeldemartin/solid-utils": "next",
-        "@noeldemartin/utils": "^0.7.0",
+        "@noeldemartin/solid-utils": "^0.6.1",
+        "@noeldemartin/utils": "^0.7.1",
         "@rdfjs/types": "^2.0.1"
     },
     "devDependencies": {

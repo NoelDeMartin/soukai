@@ -35,9 +35,6 @@ importers:
       '@noeldemartin/testing':
         specifier: 0.0.0-next.3aa03a51f580a9508bbc982c55eda4fd2b302f35
         version: 0.0.0-next.3aa03a51f580a9508bbc982c55eda4fd2b302f35(vitest@3.1.3(@types/node@22.15.17)(yaml@2.7.1))
-      '@noeldemartin/utils':
-        specifier: 0.7.0-next.febf11f10be81ab8b5562e4fe2cddbd1929ac9ca
-        version: 0.7.0-next.febf11f10be81ab8b5562e4fe2cddbd1929ac9ca
       '@tsconfig/node22':
         specifier: ^22.0.0
         version: 22.0.1
@@ -84,8 +81,8 @@ importers:
   packages/soukai:
     dependencies:
       '@noeldemartin/utils':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: ^0.7.1
+        version: 0.7.1
       idb:
         specifier: ^8.0.2
         version: 8.0.3
@@ -112,11 +109,11 @@ importers:
   packages/soukai-solid:
     dependencies:
       '@noeldemartin/solid-utils':
-        specifier: next
-        version: 0.6.0-next.c7addc0a638eedd08392f2f42039946a876fe146(web-streams-polyfill@3.3.3)
+        specifier: ^0.6.1
+        version: 0.6.1(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: ^0.7.1
+        version: 0.7.1
       '@rdfjs/types':
         specifier: ^2.0.1
         version: 2.0.1
@@ -684,22 +681,19 @@ packages:
     resolution: {integrity: sha512-nOZ1BGimZF3isy88XK+nLiECzMOVBMhcox6guvNU3c+8hjqh6/vS59zDEC0FmN0ep7sXBVs/VB8Xc9nJqvwd0g==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.0-next.c7addc0a638eedd08392f2f42039946a876fe146':
-    resolution: {integrity: sha512-o9k40zrig4N/c1izZ57+qgI7PR+HZYEAPzOQ4H2qKph8Bf/VtDo7kWd4ox3jNf6qxbI0aV7qi9zKHDgdjgZfIQ==}
+  '@noeldemartin/solid-utils@0.6.1':
+    resolution: {integrity: sha512-DJq3DoGgSgA/dbNelkhS/IyfzfXXuVWmF7GH3neEVHZVuhAWkWtW+Grpn41cJ2+USJdVfyqbKonn/QOX+KBbkA==}
 
   '@noeldemartin/testing@0.0.0-next.3aa03a51f580a9508bbc982c55eda4fd2b302f35':
     resolution: {integrity: sha512-SAPGNaz5IPTR3FgPuFZyUcb4i4jWOvfXgPt4xVYwwDKDIT9xdMFbBpfLvxV5KiO0E0EPnqmtmgDj3+laBhMOZA==}
     peerDependencies:
       vitest: '*'
 
-  '@noeldemartin/utils@0.7.0':
-    resolution: {integrity: sha512-mWynJrqIcMZGNzhyKj+i99Jye9ncYa8fud7cUXw+qCCdX4bt7eiR2LTmS8DJIrmGEUJBmsQoAPFIQjm2VhQIWQ==}
-
   '@noeldemartin/utils@0.7.0-next.928e77e4d67adf7b9e4e1c5387f321ecfe3b11ca':
     resolution: {integrity: sha512-rP/sbx+ifnKVJpLhmok0uYvuWEerPzm2onN8l+VYrPkGPMqsFSPUsKSbID9PMVYbIQ52CZFekijIvF5Fkc/42Q==}
 
-  '@noeldemartin/utils@0.7.0-next.febf11f10be81ab8b5562e4fe2cddbd1929ac9ca':
-    resolution: {integrity: sha512-ROkGv7hflUaryGGjpNdj8qv0WHuL6wVfRLwi8Ma81qGlTF4P4L1xwDqLy5LvjC5gDza0BcYUgJsnG6ZUFgU0oA==}
+  '@noeldemartin/utils@0.7.1':
+    resolution: {integrity: sha512-RLXifg+/jmPpSWBzqen/e4QxwrCSnAOmGARvpICwuF9Af9sIfiL3wG9ietjtX8QNHyd1L99oKhzxnsyoXBG3jg==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3223,9 +3217,9 @@ snapshots:
       - svelte-eslint-parser
       - typescript
 
-  '@noeldemartin/solid-utils@0.6.0-next.c7addc0a638eedd08392f2f42039946a876fe146(web-streams-polyfill@3.3.3)':
+  '@noeldemartin/solid-utils@0.6.1(web-streams-polyfill@3.3.3)':
     dependencies:
-      '@noeldemartin/utils': 0.7.0
+      '@noeldemartin/utils': 0.7.1
       '@rdfjs/types': 2.0.1
       jsonld: 8.3.3(web-streams-polyfill@3.3.3)
       md5: 2.3.0
@@ -3239,15 +3233,11 @@ snapshots:
       '@noeldemartin/utils': 0.7.0-next.928e77e4d67adf7b9e4e1c5387f321ecfe3b11ca
       vitest: 3.1.3(@types/node@22.15.17)(yaml@2.7.1)
 
-  '@noeldemartin/utils@0.7.0':
-    dependencies:
-      idb: 8.0.3
-
   '@noeldemartin/utils@0.7.0-next.928e77e4d67adf7b9e4e1c5387f321ecfe3b11ca':
     dependencies:
       idb: 8.0.3
 
-  '@noeldemartin/utils@0.7.0-next.febf11f10be81ab8b5562e4fe2cddbd1929ac9ca':
+  '@noeldemartin/utils@0.7.1':
     dependencies:
       idb: 8.0.3
 

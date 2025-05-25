@@ -12,11 +12,16 @@ jobs:
             contents: write
         steps:
             - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+                  run_install: false
             - uses: actions/setup-node@v4
               with:
                   node-version-file: '.nvmrc'
-            - run: npm ci
-            - run: npm run docs:build
+                  cache: 'pnpm'
+            - run: pnpm install
+            - run: pnpm docs:build
             - name: Push to gh-pages branch
               run: |
                   cd docs/.vitepress/dist

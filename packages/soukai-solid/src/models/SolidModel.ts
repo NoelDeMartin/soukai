@@ -13,6 +13,7 @@ import {
     mixed,
     objectWithoutEmpty,
     requireUrlParentDirectory,
+    setWeakMemo,
     shortId,
     stringToSlug,
     tap,
@@ -24,6 +25,7 @@ import {
     urlRoot,
     urlRoute,
     uuid,
+    weakMemo,
     when,
 } from '@noeldemartin/utils';
 import {
@@ -92,7 +94,6 @@ import {
     isSolidDocumentRelation,
     isSolidHasRelation,
 } from './relations/guards';
-import { setWeakMemo, weakMemo } from './utils';
 import { isSolidMultiModelDocumentRelation, isSolidSingleModelDocumentRelation } from './relations/cardinality-guards';
 import { getSchemaUpdateContext, startSchemaUpdate, stopSchemaUpdate } from './internals/helpers';
 import { inferFieldDefinition, isSolidArrayFieldDefinition } from './fields';
