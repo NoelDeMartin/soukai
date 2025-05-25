@@ -58,7 +58,7 @@ const movies = await Movie.all({
 });
 ```
 
-This is a special behaviour in `SolidEngine`. Using the `$in` filter with any other engine will still retrieve one single model per id, given that all the models will always be stored in the same collection. But this was implemented in order to handle the fact that models can be spread throughout containers and documents in Solid.
+This is a special behaviour in `SolidEngine`, you can learn more about it in [the following section](./solid-engine.md).
 
 ## Primary keys
 
@@ -349,7 +349,7 @@ class Movie extends SolidModel {
 These methods don't take foreign and local keys because they rely on the `url` of the models to resolve collections and model ids.
 
 > [!NOTE]
-> Under the hood, the `contains` relationship uses the `$in` filter to find models withing the contained documents. This means, for example, that there could be more than one Model per document as discussed in the [data modeling and retrieval strategies](#data-modeling-and-retrieval-strategies) section.
+> Under the hood, the `contains` relationship uses the `$in` filter to find models within the contained documents. This means, for example, that there could be more than one Model per document as discussed in the [data modeling and retrieval strategies](#data-modeling-and-retrieval-strategies) section.
 
 ## Automatic Timestamps
 

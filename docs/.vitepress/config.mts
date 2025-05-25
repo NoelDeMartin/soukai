@@ -53,6 +53,7 @@ export default defineConfig({
                         items: [
                             { text: 'What is Solid?', link: 'what-is-solid' },
                             { text: 'Solid Models', link: 'solid-models' },
+                            { text: 'Solid Engine', link: 'solid-engine' },
                             { text: 'Limitations', link: 'limitations' },
                         ],
                     },

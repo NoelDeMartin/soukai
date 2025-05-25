@@ -122,7 +122,10 @@ const users = await User.all({ name: { $in: ['John', 'Amy'] } });
 console.log('Users with name "John" or "Amy"', users);
 ```
 
-And there are also some special operators to perform advanced filters:
+> [!Note]
+> If you're using a `SolidEngine`, the `$in` filter works slightly differently. Learn more about it in the [Solid Engine](../solid-protocol/solid-engine.md) section.
+
+There are also some special operators to perform advanced filters:
 
 - The `$contains` operator can be used to perform partial matches in array fields:
 
