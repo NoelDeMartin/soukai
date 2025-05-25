@@ -4,17 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [v0.6.1](https://github.com/NoelDeMartin/soukai/releases/tag/v0.6.1) - 2025-05-25
 
 ### Added
 
+- New field definition settings: `alias`, `get`, `set`, `serialize` and `deserialize`.
 - `useSoftDeletes` static method in `SolidModel` to soft-delete models when `delete()` is called. Also added to `forceDelete()` to make sure that a model is deleted either way.
-- `serialize` and `deserialize` methods in field definitions.
+- `InvalidModelAttributes` error when model attributes are invalid, rather than throwing a plain `Error`.
+- `getBootedModels` helper.
+
+### Changed
+
+- `getRelatedModels` and `getDocumentModels` have been refactored to improve performance, and this also affected the way in which inverse relations are updated. This shouldn't have any repercussions in user-land, but it may have affected some edge cases.
 
 ### Fixed
 
 - Default foreign key names in relations now use the related model's name (they were using the class name instead, which may cause errors at runtime after minification).
 - Calling `attach()` on single model relations previously failed when adding a new model, even if the relation was empty.
+- Syncing models with history tracking using different engines (in particular, regarding fields that are ignored in some engines like `ldp:contains`).
+- `find` method in Solid models wasn't properly using the RDF class to filter.
 
 ## [v0.6.0](https://github.com/NoelDeMartin/soukai/releases/tag/v0.6.0) - 2025-03-31
 
