@@ -126,7 +126,7 @@ import ICalTaskSchema from './ICalTask.schema';
 await Task.updateSchema(ICalTaskSchema);
 ```
 
-Notice how you can also implement logic that is specific to a given schema, using the `hooks` property to run code in lifecycle events such as `beforeSave` or `afterSave`.
+Notice how you can also implement logic that is specific to a given schema, using the `hooks` property to run code in lifecycle events such as `afterInitialize`, `beforeSave`, and `afterSave`.
 
 You may also find that you want to [support multiple schemas at once](https://www.w3.org/DesignIssues/BagOfChips.html), given that not all applications will be as flexible. To do that, you can declare multiple RDF classes and use the `alias` attribute in fields:
 

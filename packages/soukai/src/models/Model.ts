@@ -495,6 +495,7 @@ export class Model {
         this.static().ensureBooted();
         this.initializeProxy();
         this.initialize(attributes, exists);
+        this.static('hooks').afterInitialize?.call(this._proxy);
 
         return this._proxy;
     }

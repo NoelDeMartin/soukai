@@ -1,3 +1,7 @@
 import type { Model } from './Model';
 
-export type ModelHooks = Partial<Record<'beforeSave' | 'afterSave', (this: Model) => Promise<void> | void>>;
+export interface ModelHooks {
+    beforeSave?: (this: Model) => Promise<void> | void;
+    afterSave?: (this: Model) => Promise<void> | void;
+    afterInitialize?: (this: Model) => void;
+}
