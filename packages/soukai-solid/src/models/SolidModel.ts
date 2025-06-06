@@ -1793,7 +1793,8 @@ export class SolidModel extends SolidModelBase {
 
         const documentUrl = this.getDocumentUrl();
         const isUsingSameDocument = (relation: Relation, model: SolidModel) =>
-            model.getDocumentUrl() === documentUrl || (isSolidDocumentRelation(relation) && relation.useSameDocument);
+            (documentUrl && model.getDocumentUrl() === documentUrl) ||
+            (isSolidDocumentRelation(relation) && relation.useSameDocument);
 
         documentModels.add(this);
 
