@@ -20,7 +20,7 @@ import type { ClosesConnections } from 'soukai/engines/ClosesConnections';
 interface MetadataSchema extends DBSchema {
     collections: {
         key: string;
-        value: { name: string };
+        value: { name: string; dropped?: true };
     };
 }
 
@@ -49,6 +49,22 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         const keys = await this.withMetadataTransaction('readonly', (transaction) => transaction.store.getAllKeys());
 
         return keys.map((key) => key.toString());
+    }
+
+    public async deleteCollections(collections: string[]): Promise<void> {
+        const allCollections = await this.getCollections();
+
+        await this.withMetadataTransaction('readwrite', (transaction) => {
+            collections.forEach((collection) => transaction.store.put({ name: collection, dropped: true }, collection));
+
+            return transaction.done;
+        });
+
+        await this.withDocumentsTransaction(allCollections, collections, 'readwrite', (transaction) => {
+            collections.forEach((collection) => transaction.db.deleteObjectStore(collection as '__collection_name__'));
+
+            return transaction.done;
+        });
     }
 
     public async purgeDatabase(): Promise<void> {
@@ -240,7 +256,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
         collections: string[],
-        collection: string,
+        collection: string | string[],
         mode: TMode,
         operation: (transaction: IDBPTransaction<DocumentsSchema, ['__collection_name__'], TMode>) => TResult,
     ): Promise<TResult> {
