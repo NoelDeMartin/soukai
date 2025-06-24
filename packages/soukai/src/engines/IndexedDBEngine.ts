@@ -17,10 +17,16 @@ import type {
 import { EngineHelper } from 'soukai/engines/EngineHelper';
 import type { ClosesConnections } from 'soukai/engines/ClosesConnections';
 
+interface CollectionMetadata {
+    name: string;
+    updates?: number;
+    dropped?: true;
+}
+
 interface MetadataSchema extends DBSchema {
     collections: {
         key: string;
-        value: { name: string; dropped?: true };
+        value: CollectionMetadata;
     };
 }
 
@@ -36,6 +42,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private database: string;
     private helper: EngineHelper;
     private lock: Semaphore;
+    private _metadata?: Record<string, CollectionMetadata>;
     private _metadataConnection?: IDBPDatabase<MetadataSchema>;
     private _documentsConnection?: IDBPDatabase<DocumentsSchema>;
 
@@ -46,24 +53,30 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async getCollections(): Promise<string[]> {
-        const keys = await this.withMetadataTransaction('readonly', (transaction) => transaction.store.getAllKeys());
+        const metadata = await this.getMetadata();
 
-        return keys.map((key) => key.toString());
+        return Object.values(metadata)
+            .filter(({ dropped }) => !dropped)
+            .map(({ name }) => name.toString());
     }
 
-    public async deleteCollections(collections: string[]): Promise<void> {
-        const allCollections = await this.getCollections();
+    public async dropCollections(collections: string[]): Promise<void> {
+        await this.lock.run(async () => {
+            await this.withMetadataTransaction('readwrite', (transaction) => {
+                collections.forEach((collection) => {
+                    transaction.store.put({
+                        name: collection,
+                        dropped: true,
+                        updates: (this._metadata?.[collection].updates ?? 1) + 1,
+                    });
+                });
 
-        await this.withMetadataTransaction('readwrite', (transaction) => {
-            collections.forEach((collection) => transaction.store.put({ name: collection, dropped: true }, collection));
+                return transaction.done;
+            });
 
-            return transaction.done;
-        });
+            this.closeConnections();
 
-        await this.withDocumentsTransaction(allCollections, collections, 'readwrite', (transaction) => {
-            collections.forEach((collection) => transaction.db.deleteObjectStore(collection as '__collection_name__'));
-
-            return transaction.done;
+            await this.getDocumentsConnection();
         });
     }
 
@@ -74,6 +87,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() }),
             deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() }),
         ]);
+
+        delete this._metadata;
     }
 
     public async closeConnections(): Promise<void> {
@@ -85,6 +100,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             this._documentsConnection.close();
         }
 
+        delete this._metadata;
         delete this._metadataConnection;
         delete this._documentsConnection;
     }
@@ -124,7 +140,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             return documents;
         }
 
-        await this.withDocumentsTransaction(collections, collection, 'readonly', (transaction) => {
+        await this.withDocumentsTransaction(collection, 'readonly', (transaction) => {
             const processCursor = async (cursor: IDBPCursorWithValue<DocumentsSchema> | null): Promise<void> => {
                 if (!cursor) {
                     return;
@@ -185,7 +201,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                 return null;
             }
 
-            const document = await this.withDocumentsTransaction(collections, collection, 'readonly', (transaction) =>
+            const document = await this.withDocumentsTransaction(collection, 'readonly', (transaction) =>
                 transaction.store.get(id));
 
             return document || null;
@@ -203,7 +219,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             collections.push(collection);
         }
 
-        return this.withDocumentsTransaction(collections, collection, 'readwrite', (transaction) => {
+        return this.withDocumentsTransaction(collection, 'readwrite', (transaction) => {
             transaction.store.add(document, id);
 
             return transaction.done;
@@ -213,7 +229,11 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private async updateDocument(collection: string, id: string, document: EngineDocument): Promise<void> {
         const collections = await this.getCollections();
 
-        return this.withDocumentsTransaction(collections, collection, 'readwrite', (transaction) => {
+        if (collections.indexOf(collection) === -1) {
+            return;
+        }
+
+        return this.withDocumentsTransaction(collection, 'readwrite', (transaction) => {
             transaction.store.put(document, id);
 
             return transaction.done;
@@ -223,7 +243,11 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     private async deleteDocument(collection: string, id: string): Promise<void> {
         const collections = await this.getCollections();
 
-        return this.withDocumentsTransaction(collections, collection, 'readwrite', (transaction) => {
+        if (collections.indexOf(collection) === -1) {
+            return;
+        }
+
+        return this.withDocumentsTransaction(collection, 'readwrite', (transaction) => {
             transaction.store.delete(id);
 
             return transaction.done;
@@ -255,31 +279,57 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
-        collections: string[],
-        collection: string | string[],
+        collectionOrCollections: string | string[],
         mode: TMode,
         operation: (transaction: IDBPTransaction<DocumentsSchema, ['__collection_name__'], TMode>) => TResult,
     ): Promise<TResult> {
-        const connection = (this._documentsConnection =
+        const connection = await this.getDocumentsConnection();
+
+        return this.retryingOnTransactionInactive(() => {
+            const transaction = connection.transaction(collectionOrCollections as '__collection_name__', mode);
+
+            return operation(transaction);
+        });
+    }
+
+    private async getDocumentsConnection(): Promise<IDBPDatabase<DocumentsSchema>> {
+        const metadata = await this.getMetadata();
+        const version = Object.values(metadata).reduce((total, { updates }) => total + (updates ?? 1), 0);
+
+        return (this._documentsConnection =
             this._documentsConnection ||
-            ((await openDB(this.database, collections.length, {
+            ((await openDB(this.database, version, {
                 upgrade(db) {
-                    for (const documentsCollection of collections) {
-                        if (db.objectStoreNames.contains(documentsCollection)) {
+                    for (const { name, dropped } of Object.values(metadata)) {
+                        if (
+                            (db.objectStoreNames.contains(name) && !dropped) ||
+                            (!db.objectStoreNames.contains(name) && dropped)
+                        ) {
                             continue;
                         }
 
-                        db.createObjectStore(documentsCollection);
+                        dropped ? db.deleteObjectStore(name) : db.createObjectStore(name);
                     }
                 },
                 blocked: () => this.throwDatabaseBlockedError(),
             })) as unknown as IDBPDatabase<DocumentsSchema>));
+    }
 
-        return this.retryingOnTransactionInactive(() => {
-            const transaction = connection.transaction(collection as '__collection_name__', mode);
+    private async getMetadata(): Promise<Record<string, CollectionMetadata>> {
+        return (this._metadata ??= await this.initializeMetadata());
+    }
 
-            return operation(transaction);
-        });
+    private async initializeMetadata(): Promise<Record<string, CollectionMetadata>> {
+        const documents = await this.withMetadataTransaction('readonly', (transaction) => transaction.store.getAll());
+
+        return documents.reduce(
+            (metadata, document) => {
+                metadata[document.name] = document;
+
+                return metadata;
+            },
+            {} as Record<string, CollectionMetadata>,
+        );
     }
 
     // See https://github.com/jakearchibald/idb/issues/201
@@ -304,6 +354,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
             return transaction.done;
         });
+
+        delete this._metadata;
 
         if (this._documentsConnection) {
             this._documentsConnection.close();

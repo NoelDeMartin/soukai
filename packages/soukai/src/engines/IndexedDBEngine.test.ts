@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
-import { range, resetMemo } from '@noeldemartin/utils';
+import { range, resetMemo, uuid } from '@noeldemartin/utils';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
 import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
@@ -221,6 +221,33 @@ describe('IndexedDBEngine', () => {
         const documents = await Promise.all(range(tables).map((i) => getDatabaseDocuments(`${User.collection}-${i}`)));
 
         expect(documents.flat()).toHaveLength(concurrency);
+    });
+
+    it('drops collections', async () => {
+        // Arrange
+        await setDatabaseDocument(User.collection, uuid(), {});
+
+        closeConnections();
+
+        await engine.create('foo', {});
+        await engine.create('bar', {});
+        await engine.create('baz', {});
+
+        // Act
+        await engine.dropCollections(['foo', 'bar']);
+
+        // Assert
+        const collections = await engine.getCollections();
+
+        expect(collections).toHaveLength(2);
+        expect(collections).toContain('baz');
+        expect(collections).toContain('users');
+
+        await reopenConnections();
+
+        expect(collectionsConnection?.objectStoreNames).toHaveLength(2);
+        expect(collectionsConnection?.objectStoreNames).toContain('baz');
+        expect(collectionsConnection?.objectStoreNames).toContain('users');
     });
 
     async function resetDatabase(): Promise<void> {
