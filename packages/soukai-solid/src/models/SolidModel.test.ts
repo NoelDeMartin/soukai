@@ -29,6 +29,7 @@ import IRI from 'soukai-solid/solid/utils/IRI';
 import PropertyOperation from 'soukai-solid/models/history/PropertyOperation';
 import RemovePropertyOperation from 'soukai-solid/models/history/RemovePropertyOperation';
 import SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperation';
+import SolidContainer from 'soukai-solid/models/SolidContainer';
 import UnsetPropertyOperation from 'soukai-solid/models/history/UnsetPropertyOperation';
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
 
@@ -2659,6 +2660,33 @@ describe('SolidModel', () => {
         expect((freshModel.operations[1] as SetPropertyOperation).value).toBe('ALICE DOE');
 
         expect(freshDocument['@graph'][0]['https://schema.org/name']).toEqual('ALICE DOE');
+    });
+
+    it('gets related models', () => {
+        // Arrange
+        class StubMovie extends SolidModel {}
+        class StubMoviesCollection extends SolidContainer {
+
+            public moviesRelationship(): Relation {
+                return this.contains(StubMovie);
+            }
+
+        }
+
+        bootModels({ StubMovie, StubMoviesCollection });
+
+        const movie = new StubMovie();
+        const collection = new StubMoviesCollection();
+
+        collection.setRelationModels('movies', [movie]);
+
+        // Act
+        const collectionRelated = collection.getRelatedModels();
+        const movieRelated = movie.getRelatedModels();
+
+        // Assert
+        expect(collectionRelated).toHaveLength(3);
+        expect(movieRelated).toHaveLength(2);
     });
 
 });

@@ -1138,9 +1138,7 @@ export class SolidModel extends SolidModelBase {
 
             this.populateRelatedModels(modelsSet);
 
-            return tap(Array.from(modelsSet), (models) => {
-                models.forEach((model) => setWeakMemo('related-models', model, models));
-            });
+            return Array.from(modelsSet);
         });
     }
 
