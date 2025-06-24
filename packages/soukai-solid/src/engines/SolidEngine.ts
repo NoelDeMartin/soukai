@@ -167,6 +167,8 @@ export class SolidEngine implements Engine {
             usingExperimentalActivityPods() ? { format: 'application/ld+json' } : {},
         );
 
+        this.cache.delete(id);
+
         if (metadata) {
             await this._listeners.emit('onDocumentUpdated', id, metadata);
         }
@@ -174,6 +176,8 @@ export class SolidEngine implements Engine {
 
     public async delete(collection: string, id: string): Promise<void> {
         const metadata = await this.client.deleteDocument(id);
+
+        this.cache.delete(id);
 
         if (metadata) {
             await this._listeners.emit('onDocumentDeleted', id, metadata);
