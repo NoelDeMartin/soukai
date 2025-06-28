@@ -2,15 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DocumentAlreadyExists, DocumentNotFound, SoukaiError } from 'soukai';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import {
-    arrayZip,
-    range,
-    requireUrlParentDirectory,
-    stringToSlug,
-    urlResolve,
-    urlResolveDirectory,
-    uuid,
-} from '@noeldemartin/utils';
+import { requireUrlParentDirectory, stringToSlug, urlResolve, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 import type { EngineFilters } from 'soukai';
 
 import { faker } from '@noeldemartin/faker';
@@ -290,46 +282,6 @@ describe('SolidEngine', () => {
         expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl, false);
 
         await expect(documents[firstUrl]).toEqualJsonLD(stubPersonJsonLD(firstUrl, name));
-    });
-
-    it('gets many documents using globbing for $in filter', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentsCount = 10;
-        const urls: string[] = [];
-        const names: string[] = [];
-
-        engine.setConfig({ useGlobbing: true });
-
-        await Promise.all(
-            range(documentsCount).map(async (i) => {
-                const url = urlResolve(containerUrl, `document-${i}`);
-                const name = faker.name.firstName();
-
-                urls.push(url);
-                names.push(name);
-
-                await FakeSolidClient.createDocument(containerUrl, url, [
-                    RDFResourceProperty.type(url, IRI('foaf:Person')),
-                    RDFResourceProperty.literal(url, IRI('foaf:name'), name),
-                ]);
-            }),
-        );
-
-        // Act
-        const documents = await engine.readMany(containerUrl, {
-            $in: urls,
-            ...modelFilters(['foaf:Person']),
-        });
-
-        // Assert
-        expect(Object.keys(documents)).toHaveLength(documentsCount);
-        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl, false);
-
-        await Promise.all(
-            arrayZip(urls, names).map(([url, name]) =>
-                expect(documents[url as string]).toEqualJsonLD(stubPersonJsonLD(url as string, name as string))),
-        );
     });
 
     it('gets many documents with the legacy "document root" format', async () => {

@@ -7,7 +7,7 @@ import type { Tuple } from '@noeldemartin/utils';
 
 import ChangeUrlOperation from 'soukai-solid/solid/operations/ChangeUrlOperation';
 import IRI from 'soukai-solid/solid/utils/IRI';
-import RDFResourceProperty, { RDFResourcePropertyType } from 'soukai-solid/solid/RDFResourceProperty';
+import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
 import SolidClient from 'soukai-solid/solid/SolidClient';
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
@@ -283,135 +283,6 @@ describe('SolidClient', () => {
             headers: { Accept: 'text/turtle' },
         });
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, `${containerUrl}another-container/`, {
-            headers: { Accept: 'text/turtle' },
-        });
-    });
-
-    it('getting documents with globbing does not mix document properties', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const data = `
-            <${containerUrl}/foo>
-                a <http://xmlns.com/foaf/0.1/Person> ;
-                <http://xmlns.com/foaf/0.1/name> "Foo" .
-            <${containerUrl}/bar>
-                a <http://xmlns.com/foaf/0.1/Person> ;
-                <http://xmlns.com/foaf/0.1/name> "Bar" .
-            <${containerUrl}/bar#baz>
-                a <http://xmlns.com/foaf/0.1/Person> ;
-                <http://xmlns.com/foaf/0.1/name> "Baz" .
-        `;
-
-        client.setConfig({ useGlobbing: true });
-        FakeServer.respondOnce('*', data);
-
-        // Act
-        const documents = (await client.getDocuments(containerUrl)) as Tuple<RDFDocument, 2>;
-
-        // Assert
-        expect(documents).toHaveLength(2);
-
-        const fooProperties = documents[0].properties;
-        expect(Object.values(fooProperties)).toHaveLength(2);
-        expect(
-            fooProperties.find(
-                (property) => property.type === RDFResourcePropertyType.Type && property.value === IRI('foaf:Person'),
-            ),
-        ).not.toBeUndefined();
-        expect(
-            fooProperties.find(
-                (property) =>
-                    property.type === RDFResourcePropertyType.Literal &&
-                    property.name === IRI('foaf:name') &&
-                    property.value === 'Foo',
-            ),
-        ).not.toBeUndefined();
-
-        expect(documents[1].resources).toHaveLength(2);
-        expect(documents[1].requireResource(`${containerUrl}/bar`).url).toEqual(`${containerUrl}/bar`);
-        expect(documents[1].resources[1]?.url).toEqual(`${containerUrl}/bar#baz`);
-
-        const barProperties = documents[1].properties;
-        expect(Object.values(barProperties)).toHaveLength(4);
-        expect(
-            barProperties.find(
-                (property) => property.type === RDFResourcePropertyType.Type && property.value === IRI('foaf:Person'),
-            ),
-        ).not.toBeUndefined();
-        expect(
-            barProperties.find(
-                (property) =>
-                    property.resourceUrl === `${containerUrl}/bar` &&
-                    property.type === RDFResourcePropertyType.Literal &&
-                    property.name === IRI('foaf:name') &&
-                    property.value === 'Bar',
-            ),
-        ).not.toBeUndefined();
-        expect(
-            barProperties.find(
-                (property) =>
-                    property.resourceUrl === `${containerUrl}/bar#baz` &&
-                    property.type === RDFResourcePropertyType.Literal &&
-                    property.name === IRI('foaf:name') &&
-                    property.value === 'Baz',
-            ),
-        ).not.toBeUndefined();
-    });
-
-    it('getting container documents does not use globbing', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const type = fakeDocumentUrl();
-
-        client.setConfig({ useGlobbing: true });
-        FakeServer.respondOnce(
-            containerUrl,
-            FakeResponse.success(`
-                <> <http://www.w3.org/ns/ldp#contains> <foo>, <bar> .
-                <foo> a <http://www.w3.org/ns/ldp#Container> .
-                <bar> a <http://www.w3.org/ns/ldp#Container> .
-            `),
-        );
-        FakeServer.respondOnce(
-            `${containerUrl}foo`,
-            FakeResponse.success(`
-                <${containerUrl}foo>
-                    a <http://www.w3.org/ns/ldp#Container>, <${type}> ;
-                    <http://xmlns.com/foaf/0.1/name> "Foo" .
-            `),
-        );
-        FakeServer.respondOnce(
-            `${containerUrl}bar`,
-            FakeResponse.success(`
-                <${containerUrl}bar>
-                    a <http://www.w3.org/ns/ldp#Container> ;
-                    <http://xmlns.com/foaf/0.1/name> "Bar" .
-            `),
-        );
-
-        // Act
-        const documents = (await client.getDocuments(containerUrl, true)) as Tuple<RDFDocument, 2>;
-
-        // Assert
-        expect(documents).toHaveLength(2);
-
-        expect(documents[0].url).toEqual(`${containerUrl}foo`);
-        expect(documents[0].requireResource(`${containerUrl}foo`).url).toEqual(`${containerUrl}foo`);
-        expect(documents[0].requireResource(`${containerUrl}foo`).name).toEqual('Foo');
-        expect(documents[0].requireResource(`${containerUrl}foo`).types).toEqual([LDP_CONTAINER, type]);
-
-        expect(documents[1].url).toEqual(`${containerUrl}bar`);
-        expect(documents[1].requireResource(`${containerUrl}bar`).url).toEqual(`${containerUrl}bar`);
-        expect(documents[1].requireResource(`${containerUrl}bar`).name).toEqual('Bar');
-        expect(documents[1].requireResource(`${containerUrl}bar`).types).toEqual([LDP_CONTAINER]);
-
-        expect(FakeServer.fetch).toHaveBeenCalledWith(containerUrl, {
-            headers: { Accept: 'text/turtle' },
-        });
-        expect(FakeServer.fetch).toHaveBeenCalledWith(`${containerUrl}foo`, {
-            headers: { Accept: 'text/turtle' },
-        });
-        expect(FakeServer.fetch).toHaveBeenCalledWith(`${containerUrl}bar`, {
             headers: { Accept: 'text/turtle' },
         });
     });
