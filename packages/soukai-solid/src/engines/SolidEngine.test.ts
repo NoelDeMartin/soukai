@@ -161,7 +161,7 @@ describe('SolidEngine', () => {
 
         // Assert
         expect(Object.keys(documents)).toHaveLength(2);
-        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl, false);
+        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl);
 
         const secondPerson = stubPersonJsonLD(secondPersonUrl, secondPersonName);
         const thirdPerson = stubPersonJsonLD(thirdPersonUrl, thirdPersonName);
@@ -241,7 +241,7 @@ describe('SolidEngine', () => {
 
         // Assert
         expect(Object.keys(documents)).toHaveLength(1);
-        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(parentUrl, true);
+        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(parentUrl);
 
         await expect(documents[containerUrl]).toEqualJsonLD({
             '@graph': [
@@ -279,7 +279,7 @@ describe('SolidEngine', () => {
 
         // Assert
         expect(Object.keys(documents)).toHaveLength(1);
-        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl, false);
+        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl);
 
         await expect(documents[firstUrl]).toEqualJsonLD(stubPersonJsonLD(firstUrl, name));
     });
@@ -311,7 +311,7 @@ describe('SolidEngine', () => {
 
         // Assert
         expect(Object.keys(documents)).toHaveLength(2);
-        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl, false);
+        expect(FakeSolidClient.getDocuments).toHaveBeenCalledWith(containerUrl);
 
         const secondPerson = stubPersonJsonLD(secondUrl, secondName);
         const thirdPerson = stubPersonJsonLD(thirdUrl, thirdName);
