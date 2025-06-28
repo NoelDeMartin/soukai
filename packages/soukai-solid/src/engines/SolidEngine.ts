@@ -29,7 +29,6 @@ import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
 import SolidClient from 'soukai-solid/solid/SolidClient';
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
-import { LDP_CONTAINER } from 'soukai-solid/solid/constants';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import type { Fetch, ResponseMetadata } from 'soukai-solid/solid/SolidClient';
 import type { LiteralValue } from 'soukai-solid/solid/RDFResourceProperty';
@@ -37,10 +36,6 @@ import type { RDFDocumentMetadata } from 'soukai-solid/solid/RDFDocument';
 import type { UpdateOperation } from 'soukai-solid/solid/operations/Operation';
 
 export interface SolidEngineConfig {
-    /** @deprecated */
-    useGlobbing: boolean;
-    /** @deprecated */
-    globbingBatchSize: number | null;
     concurrentFetchBatchSize: number | null;
     cachesDocuments: boolean;
 }
@@ -68,8 +63,6 @@ export class SolidEngine implements Engine {
     public constructor(fetch?: Fetch, config: Partial<SolidEngineConfig> = {}) {
         this.helper = new EngineHelper();
         this.config = {
-            useGlobbing: false,
-            globbingBatchSize: 5,
             concurrentFetchBatchSize: 10,
             cachesDocuments: false,
             ...config,
@@ -77,7 +70,6 @@ export class SolidEngine implements Engine {
         this.client = new SolidClient(fetch);
 
         this.client.setConfig({
-            useGlobbing: this.config.useGlobbing,
             concurrentFetchBatchSize: this.config.concurrentFetchBatchSize,
         });
     }
@@ -217,14 +209,12 @@ export class SolidEngine implements Engine {
     }
 
     private async getDocumentsForFilters(collection: string, filters: EngineFilters): Promise<RDFDocument[]> {
-        const rdfsClasses = this.extractJsonLDGraphTypes(filters);
-
         return filters.$in
-            ? await this.getDocumentsFromUrls(filters.$in.map(toString), rdfsClasses)
-            : await this.client.getDocuments(collection, rdfsClasses.includes(LDP_CONTAINER));
+            ? await this.getDocumentsFromUrls(filters.$in.map(toString))
+            : await this.client.getDocuments(collection);
     }
 
-    private async getDocumentsFromUrls(urls: string[], rdfsClasses: string[]): Promise<RDFDocument[]> {
+    private async getDocumentsFromUrls(urls: string[]): Promise<RDFDocument[]> {
         const containerDocumentUrlsMap = urls.reduce(
             (map, documentUrl) => {
                 const containerUrl = urlParentDirectory(documentUrl) ?? urlRoot(documentUrl);
@@ -237,21 +227,12 @@ export class SolidEngine implements Engine {
             {} as Record<string, string[]>,
         );
 
-        const containerDocumentPromises = Object.entries(containerDocumentUrlsMap).map(
-            async ([containerUrl, documentUrls]) => {
-                if (
-                    this.config.useGlobbing &&
-                    this.config.globbingBatchSize !== null &&
-                    this.config.globbingBatchSize <= documentUrls.length
-                )
-                    return this.client.getDocuments(containerUrl, rdfsClasses.includes(LDP_CONTAINER));
+        const containerDocumentPromises = Object.values(containerDocumentUrlsMap).map(async (documentUrls) => {
+            const documentPromises = documentUrls.map((url) => this.getDocument(url));
+            const documents = await Promise.all(documentPromises);
 
-                const documentPromises = documentUrls.map((url) => this.getDocument(url));
-                const documents = await Promise.all(documentPromises);
-
-                return documents.filter((document) => document != null) as RDFDocument[];
-            },
-        );
+            return documents.filter((document) => document != null) as RDFDocument[];
+        });
 
         const containerDocuments = await Promise.all(containerDocumentPromises);
 

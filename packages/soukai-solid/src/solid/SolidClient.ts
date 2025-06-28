@@ -6,7 +6,6 @@ import {
     isEmpty,
     requireUrlDirectoryName,
     requireUrlParentDirectory,
-    urlClean,
     urlFileName,
     urlResolve,
 } from '@noeldemartin/utils';
@@ -17,7 +16,7 @@ import {
     quadsToJsonLD,
     turtleToQuads,
 } from '@noeldemartin/solid-utils';
-import type { Quad, Quad_Object } from '@rdfjs/types';
+import type { Quad_Object } from '@rdfjs/types';
 
 import IRI from 'soukai-solid/solid/utils/IRI';
 import RDFDocument from 'soukai-solid/solid/RDFDocument';
@@ -45,8 +44,6 @@ export declare type TypedFetch = (input: RequestInfo, options?: RequestInit) => 
 export declare type Fetch = TypedFetch | AnyFetch;
 
 export type SolidClientConfig = {
-    /** @deprecated */
-    useGlobbing: boolean;
     concurrentFetchBatchSize: number | null;
 };
 
@@ -79,7 +76,6 @@ export default class SolidClient {
             }
         };
         this.config = {
-            useGlobbing: false,
             concurrentFetchBatchSize: 5,
         };
     }
@@ -130,23 +126,12 @@ export default class SolidClient {
         return document;
     }
 
-    public async getDocuments(containerUrl: string, needsContainers: boolean = false): Promise<RDFDocument[]> {
-        try {
-            return this.config.useGlobbing && !needsContainers
-                ? await this.getContainerDocumentsUsingGlobbing(containerUrl)
-                : await this.getContainerDocuments(containerUrl);
-        } catch (error) {
-            if (this.config.useGlobbing) {
-                // Due to an existing bug, empty containers return 404
-                // see: https://github.com/solid/node-solid-server/issues/900
-                // eslint-disable-next-line no-console
-                console.error(error);
+    public async getDocuments(containerUrl: string): Promise<RDFDocument[]> {
+        const response = await this.fetch(containerUrl, { headers: { Accept: 'text/turtle' } });
+        const turtleData = await response.text();
+        const containerDocument = await RDFDocument.fromTurtle(turtleData, { baseIRI: containerUrl });
 
-                return [];
-            }
-
-            throw error;
-        }
+        return this.getDocumentsFromContainer(containerUrl, containerDocument);
     }
 
     public async updateDocument(
@@ -211,9 +196,7 @@ export default class SolidClient {
         }
 
         if (document.resource(url)?.isType(LDP_CONTAINER)) {
-            const documents = this.config.useGlobbing
-                ? await this.getContainerDocumentsUsingGlobbing(url)
-                : await this.getDocumentsFromContainer(url, document);
+            const documents = await this.getDocumentsFromContainer(url, document);
 
             await Promise.all(documents.map((doc) => this.deleteDocument(doc.url as string, doc)));
         }
@@ -356,14 +339,6 @@ export default class SolidClient {
         return { url, metadata: { headers: response.headers } };
     }
 
-    private async getContainerDocuments(containerUrl: string): Promise<RDFDocument[]> {
-        const response = await this.fetch(containerUrl, { headers: { Accept: 'text/turtle' } });
-        const turtleData = await response.text();
-        const containerDocument = await RDFDocument.fromTurtle(turtleData, { baseIRI: containerUrl });
-
-        return this.getDocumentsFromContainer(containerUrl, containerDocument);
-    }
-
     private async getDocumentsFromContainer(
         containerUrl: string,
         containerDocument: RDFDocument,
@@ -380,31 +355,6 @@ export default class SolidClient {
         }
 
         return documents.filter<RDFDocument>((document: RDFDocument | null): document is RDFDocument => !!document);
-    }
-
-    private async getContainerDocumentsUsingGlobbing(containerUrl: string): Promise<RDFDocument[]> {
-        const response = await this.fetch(containerUrl + '*', { headers: { Accept: 'text/turtle' } });
-
-        this.assertSuccessfulResponse(
-            response,
-            `Error getting container documents using globbing from ${containerUrl}`,
-        );
-
-        const turtleData = await response.text();
-        const globbingDocument = await RDFDocument.fromTurtle(turtleData, { baseIRI: containerUrl });
-        const statementsByUrl = globbingDocument.statements.reduce(
-            (statements, statement) => {
-                const baseUrl = urlClean(statement.subject.value, { fragment: false });
-                const urlStatements = (statements[baseUrl] = statements[baseUrl] ?? []);
-
-                urlStatements.push(statement);
-
-                return statements;
-            },
-            {} as Record<string, Quad[]>,
-        );
-
-        return Object.entries(statementsByUrl).map(([url, statements]) => new RDFDocument(url, statements));
     }
 
     private async updateContainerDocument(
