@@ -36,6 +36,12 @@ export default class DocumentsCache {
         this.active[this.getDocumentKey(collection, id)] = !!meta?.modifiedAt && meta.modifiedAt >= modifiedAt;
     }
 
+    public async clear(): Promise<void> {
+        await this.metadata.clear();
+
+        this.metadata.close();
+    }
+
     protected getDocumentKey(collection: string, id: string): string {
         return `${collection}-${id}`;
     }
