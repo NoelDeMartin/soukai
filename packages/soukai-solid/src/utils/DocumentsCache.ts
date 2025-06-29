@@ -3,9 +3,9 @@ import type { Engine, EngineDocument } from 'soukai';
 
 export default class DocumentsCache {
 
-    private engine: Engine;
-    private metadata: IndexedDBMap<{ modifiedAt: number }>;
-    private active: Partial<Record<string, boolean>> = {};
+    protected engine: Engine;
+    protected metadata: IndexedDBMap<{ modifiedAt: number }>;
+    protected active: Partial<Record<string, boolean>> = {};
 
     constructor(name: string, engine: Engine) {
         this.engine = engine;
@@ -36,7 +36,7 @@ export default class DocumentsCache {
         this.active[this.getDocumentKey(collection, id)] = !!meta?.modifiedAt && meta.modifiedAt >= modifiedAt;
     }
 
-    private getDocumentKey(collection: string, id: string): string {
+    protected getDocumentKey(collection: string, id: string): string {
         return `${collection}-${id}`;
     }
 
