@@ -2,8 +2,9 @@ packages:
     - packages/**
 
 catalog:
-    "@arethetypeswrong/cli": ^0.17.4
-    "@noeldemartin/scripts": next
-    "@noeldemartin/faker": 7.6.0
+    '@arethetypeswrong/cli': ^0.17.4
+    '@noeldemartin/scripts': next
+    '@noeldemartin/faker': 7.6.0
     eslint: ^8.57.1
+    fake-indexeddb: ^6.0.0
     publint: ^0.3.12

@@ -30,6 +30,9 @@ import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropert
 import SolidClient from 'soukai-solid/solid/SolidClient';
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
+import { LDP_CONTAINER, LDP_CONTAINS, PURL_MODIFIED } from 'soukai-solid/solid/constants';
+import { toDate } from 'soukai-solid/utils/object_helpers';
+import type DocumentsCache from 'soukai-solid/utils/DocumentsCache';
 import type { Fetch, ResponseMetadata } from 'soukai-solid/solid/SolidClient';
 import type { LiteralValue } from 'soukai-solid/solid/RDFResourceProperty';
 import type { RDFDocumentMetadata } from 'soukai-solid/solid/RDFDocument';
@@ -38,6 +41,7 @@ import type { UpdateOperation } from 'soukai-solid/solid/operations/Operation';
 export interface SolidEngineConfig {
     concurrentFetchBatchSize: number | null;
     cachesDocuments: boolean;
+    persistentCache?: DocumentsCache;
 }
 
 export interface SolidEngineListener {
@@ -111,7 +115,11 @@ export class SolidEngine implements Engine {
         return url;
     }
 
-    public async readOne(_: string, id: string): Promise<EngineDocument> {
+    public async readOne(collection: string, id: string): Promise<EngineDocument> {
+        if (this.config.persistentCache?.has(collection, id)) {
+            return (await this.config.persistentCache.get(collection, id)) ?? fail(DocumentNotFound, id);
+        }
+
         const rdfDocument = await this.getDocument(id);
 
         if (rdfDocument === null) {
@@ -122,6 +130,15 @@ export class SolidEngine implements Engine {
 
         await this._listeners.emit('onRDFDocumentLoaded', rdfDocument.url as string, rdfDocument.metadata);
         await this._listeners.emit('onDocumentRead', rdfDocument.url as string, rdfDocument.metadata);
+
+        if (this.config.persistentCache && rdfDocument.resource(id)?.isType(LDP_CONTAINER)) {
+            for (const childReference of rdfDocument.resource(id)?.getPropertyValues(LDP_CONTAINS) ?? []) {
+                const childUrl = String(childReference);
+                const modifiedAt = toDate(rdfDocument.resource(childUrl)?.getPropertyValue(PURL_MODIFIED));
+
+                modifiedAt && (await this.config.persistentCache.activate(id, childUrl, modifiedAt.getTime()));
+            }
+        }
 
         return document;
     }
@@ -195,17 +212,17 @@ export class SolidEngine implements Engine {
     }
 
     private async getDocument(url: string): Promise<RDFDocument | null> {
-        if (!this.config.cachesDocuments) {
-            return this.client.getDocument(url);
+        if (this.config.cachesDocuments && this.cache.has(url)) {
+            return this.cache.get(url)?.clone() ?? null;
         }
 
-        if (!this.cache.has(url)) {
-            const document = await this.client.getDocument(url);
+        const document = await this.client.getDocument(url);
 
+        if (this.config.cachesDocuments) {
             this.cache.set(url, document);
         }
 
-        return this.cache.get(url)?.clone() ?? null;
+        return document;
     }
 
     private async getDocumentsForFilters(collection: string, filters: EngineFilters): Promise<RDFDocument[]> {

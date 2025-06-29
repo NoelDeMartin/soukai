@@ -35,6 +35,7 @@
         "@noeldemartin/scripts": "catalog:",
         "dayjs": "^1.11.13",
         "eslint": "catalog:",
+        "fake-indexeddb": "catalog:",
         "publint": "catalog:",
         "soukai": "workspace:*"
     },

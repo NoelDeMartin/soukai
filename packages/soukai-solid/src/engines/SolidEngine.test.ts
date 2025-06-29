@@ -1,6 +1,7 @@
+import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DocumentAlreadyExists, DocumentNotFound, SoukaiError } from 'soukai';
+import { DocumentAlreadyExists, DocumentNotFound, InMemoryEngine, SoukaiError } from 'soukai';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { requireUrlParentDirectory, stringToSlug, urlResolve, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 import type { EngineFilters } from 'soukai';
@@ -15,7 +16,8 @@ import RDFDocument from 'soukai-solid/solid/RDFDocument';
 import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
-import { LDP_CONTAINER } from 'soukai-solid/solid/constants';
+import DocumentsCache from 'soukai-solid/utils/DocumentsCache';
+import { LDP_CONTAINER, LDP_CONTAINS, PURL_MODIFIED } from 'soukai-solid/solid/constants';
 import type { Fetch } from 'soukai-solid/solid/SolidClient';
 
 import { jsonLDGraph, stubMoviesCollectionJsonLD, stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
@@ -525,6 +527,34 @@ describe('SolidEngine', () => {
         results.forEach((result) => expect(result).toEqualJsonLD(person));
 
         expect(FakeSolidClient.getDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses persistent cache', async () => {
+        // Arrange
+        const modifiedAt = new Date();
+        const parentContainerUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentContainerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const inMemoryEngine = new InMemoryEngine();
+        const persistentCache = new DocumentsCache('test', inMemoryEngine);
+
+        engine.setConfig({ persistentCache });
+
+        await persistentCache.remember(containerUrl, documentUrl, modifiedAt);
+        await inMemoryEngine.create(containerUrl, { foo: 'bar' }, documentUrl);
+        await FakeSolidClient.createDocument(parentContainerUrl, containerUrl, [
+            RDFResourceProperty.type(containerUrl, LDP_CONTAINER),
+            RDFResourceProperty.reference(containerUrl, LDP_CONTAINS, documentUrl),
+            RDFResourceProperty.literal(documentUrl, PURL_MODIFIED, modifiedAt),
+        ]);
+
+        // Act
+        const containerDocument = await engine.readOne(parentContainerUrl, containerUrl);
+        const document = await engine.readOne(containerUrl, documentUrl);
+
+        // Assert
+        expect(containerDocument).not.toBeNull();
+        expect(document).toEqual({ foo: 'bar' });
     });
 
 });

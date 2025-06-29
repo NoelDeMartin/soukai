@@ -5,3 +5,4 @@ export const CRDT_RESOURCE = IRI('crdt:resource');
 export const LDP_CONTAINER = IRI('ldp:Container');
 export const LDP_CONTAINS = IRI('ldp:contains');
 export const RDF_TYPE = IRI('rdf:type');
+export const PURL_MODIFIED = IRI('purl:modified');
