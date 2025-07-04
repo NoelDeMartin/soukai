@@ -50,13 +50,17 @@ export type {
     SolidSchemaDefinition,
 } from './fields';
 
+const _coreModels = {
+    ...historyModels,
+    SolidACLAuthorization,
+    SolidContainer,
+    SolidDocument,
+    SolidTypeIndex,
+    SolidTypeRegistration,
+};
+
+export const coreModels = new Set(Object.values(_coreModels));
+
 export function bootSolidModels(): void {
-    bootModels({
-        ...historyModels,
-        SolidACLAuthorization,
-        SolidContainer,
-        SolidDocument,
-        SolidTypeIndex,
-        SolidTypeRegistration,
-    });
+    bootModels(_coreModels);
 }
