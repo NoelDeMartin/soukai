@@ -1,4 +1,5 @@
 import { bootModels } from 'soukai';
+import type { Model } from 'soukai';
 
 import { historyModels } from './history/index';
 
@@ -59,7 +60,11 @@ const _coreModels = {
     SolidTypeRegistration,
 };
 
-export const coreModels = new Set(Object.values(_coreModels));
+export const coreModels = new Set<typeof Model>(Object.values(_coreModels));
+
+export function isCoreModel(model: typeof Model): boolean {
+    return coreModels.has(model);
+}
 
 export function bootSolidModels(): void {
     bootModels(_coreModels);
