@@ -550,11 +550,13 @@ describe('SolidEngine', () => {
 
         // Act
         const containerDocument = await engine.readOne(parentContainerUrl, containerUrl);
-        const document = await engine.readOne(containerUrl, documentUrl);
+        const documentFromOne = await engine.readOne(containerUrl, documentUrl);
+        const documentsFromMany = await engine.readMany(containerUrl, { $in: [documentUrl] });
 
         // Assert
         expect(containerDocument).not.toBeNull();
-        expect(document).toEqual({ foo: 'bar' });
+        expect(documentFromOne).toEqual({ foo: 'bar' });
+        expect(documentsFromMany).toEqual({ [documentUrl]: { foo: 'bar' } });
     });
 
 });

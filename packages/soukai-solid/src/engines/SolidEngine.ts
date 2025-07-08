@@ -3,6 +3,7 @@ import {
     arrayFrom,
     arrayUnique,
     fail,
+    isInstanceOf,
     isObject,
     toString,
     urlParentDirectory,
@@ -134,9 +135,14 @@ export class SolidEngine implements Engine {
         if (this.config.persistentCache && rdfDocument.resource(id)?.isType(LDP_CONTAINER)) {
             for (const childReference of rdfDocument.resource(id)?.getPropertyValues(LDP_CONTAINS) ?? []) {
                 const childUrl = String(childReference);
+                const isContainer = rdfDocument.resource(childUrl)?.isType(LDP_CONTAINER);
                 const modifiedAt = toDate(rdfDocument.resource(childUrl)?.getPropertyValue(PURL_MODIFIED));
 
-                modifiedAt && (await this.config.persistentCache.activate(id, childUrl, modifiedAt.getTime()));
+                if (isContainer || !modifiedAt) {
+                    continue;
+                }
+
+                await this.config.persistentCache.activate(id, childUrl, modifiedAt.getTime());
             }
         }
 
@@ -148,8 +154,14 @@ export class SolidEngine implements Engine {
         const documents: EngineDocumentsCollection = {};
 
         await Promise.all(
-            documentsArray.map(async (document) => {
-                documents[document.url as string] = await this.convertToEngineDocument(document);
+            Object.entries(documentsArray).map(async ([url, document]) => {
+                if (!isInstanceOf(document, RDFDocument)) {
+                    documents[url] = document;
+
+                    return;
+                }
+
+                documents[url] = await this.convertToEngineDocument(document);
 
                 await this._listeners.emit('onRDFDocumentLoaded', document.url as string, document.metadata);
                 await this._listeners.emit('onDocumentRead', document.url as string, document.metadata);
@@ -225,13 +237,20 @@ export class SolidEngine implements Engine {
         return document;
     }
 
-    private async getDocumentsForFilters(collection: string, filters: EngineFilters): Promise<RDFDocument[]> {
-        return filters.$in
-            ? await this.getDocumentsFromUrls(filters.$in.map(toString))
-            : await this.client.getDocuments(collection);
+    private async getDocumentsForFilters(
+        collection: string,
+        filters: EngineFilters,
+    ): Promise<Record<string, RDFDocument | EngineDocument>> {
+        if (filters.$in) {
+            return this.getDocumentsFromUrls(filters.$in.map(toString));
+        }
+
+        const documents = await this.client.getDocuments(collection);
+
+        return Object.fromEntries(documents.map((document) => [document.url, document]));
     }
 
-    private async getDocumentsFromUrls(urls: string[]): Promise<RDFDocument[]> {
+    private async getDocumentsFromUrls(urls: string[]): Promise<Record<string, RDFDocument | EngineDocument>> {
         const containerDocumentUrlsMap = urls.reduce(
             (map, documentUrl) => {
                 const containerUrl = urlParentDirectory(documentUrl) ?? urlRoot(documentUrl);
@@ -244,16 +263,27 @@ export class SolidEngine implements Engine {
             {} as Record<string, string[]>,
         );
 
-        const containerDocumentPromises = Object.values(containerDocumentUrlsMap).map(async (documentUrls) => {
-            const documentPromises = documentUrls.map((url) => this.getDocument(url));
-            const documents = await Promise.all(documentPromises);
+        const containerDocumentPromises = Object.entries(containerDocumentUrlsMap).map(
+            async ([containerUrl, documentUrls]) => {
+                const documentPromises = documentUrls.map((url) => {
+                    if (this.config.persistentCache?.has(containerUrl, url)) {
+                        return this.config.persistentCache.get(containerUrl, url);
+                    }
 
-            return documents.filter((document) => document != null) as RDFDocument[];
-        });
+                    return this.getDocument(url);
+                });
+
+                const documents = await Promise.all(documentPromises);
+
+                return documents
+                    .map((document, index) => [documentUrls[index], document])
+                    .filter(([_, document]) => document !== null) as [string, RDFDocument | EngineDocument][];
+            },
+        );
 
         const containerDocuments = await Promise.all(containerDocumentPromises);
 
-        return containerDocuments.flat();
+        return Object.fromEntries(containerDocuments.flat());
     }
 
     private async convertToEngineDocument(document: RDFDocument): Promise<EngineDocument> {
