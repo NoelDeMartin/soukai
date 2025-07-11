@@ -4,7 +4,7 @@ import type { Relation } from 'soukai';
 import SolidBelongsToRelation from 'soukai-solid/models/relations/mixins/SolidBelongsToRelation';
 import SolidHasRelation from 'soukai-solid/models/relations/mixins/SolidHasRelation';
 import type { SolidDocumentRelationInstance } from 'soukai-solid/models/relations/mixins/SolidDocumentRelation';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 
 export interface BeforeParentCreateRelation extends Relation {
     __beforeParentCreate(): void;
@@ -15,7 +15,10 @@ export interface AfterParentSaveRelation extends Relation {
 }
 
 export interface SynchronizesRelatedModels extends Relation {
-    __synchronizeRelated(other: Relation, models: WeakSet<SolidModel>): Promise<void>;
+    __synchronizeRelated(
+        other: Relation,
+        options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions
+    ): Promise<void>;
 }
 
 export function hasBeforeParentCreateHook(relation: Relation): relation is BeforeParentCreateRelation {

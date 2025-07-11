@@ -5,7 +5,7 @@ import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
 
 import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 
 import SolidDocumentRelation from './SolidDocumentRelation';
@@ -172,14 +172,17 @@ export default class SolidSingleModelDocumentRelation<
         this.documentModelsLoaded = true;
     }
 
-    protected async synchronizeRelated(
+    protected async __synchronizeRelated(
         this: This<Parent, Related, RelatedClass>,
         other: This<Parent, Related, RelatedClass>,
-        models: WeakSet<SolidModel>,
+        options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
     ): Promise<void> {
+        const { models, ...cloneOptions } = options;
+
         if (!this.related && other.related) {
             this.related = other.related.clone({
                 clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                ...cloneOptions,
             });
 
             return;
@@ -191,7 +194,10 @@ export default class SolidSingleModelDocumentRelation<
 
         const foreignKey = this.parent.getAttribute(this.foreignKeyName);
 
-        await this.related.static().synchronize(this.related, other.related, models);
+        await this.related.static().synchronize(this.related, other.related, {
+            __models: models,
+            ...cloneOptions,
+        });
 
         if (this.__newModel || this.related.url === foreignKey) {
             this.related = this.__newModel ?? this.related;
@@ -202,6 +208,7 @@ export default class SolidSingleModelDocumentRelation<
         if (other.related.url === foreignKey) {
             this.related = other.related.clone({
                 clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                ...cloneOptions,
             });
         }
     }

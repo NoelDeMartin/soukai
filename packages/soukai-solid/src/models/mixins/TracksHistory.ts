@@ -16,7 +16,7 @@ import type { Attributes } from 'soukai';
 import { operationClass } from 'soukai-solid/models/history/operations';
 import { synchronizesRelatedModels } from 'soukai-solid/models/relations/guards';
 import type Operation from 'soukai-solid/models/history/Operation';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 
 const historyDisabled = new WeakMap<SolidModel, void>();
 
@@ -34,17 +34,21 @@ function get<T extends keyof ProtectedProperties>(self: This, property: T): Prot
 
 export type This = SolidModel & TracksHistory;
 
-export async function synchronizeModels(a: SolidModel, b: SolidModel, models: WeakSet<SolidModel>): Promise<void> {
+export async function synchronizeModels(
+    a: SolidModel,
+    b: SolidModel,
+    options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
+): Promise<void> {
     if (a.getPrimaryKey() !== b.getPrimaryKey()) {
         throw new SoukaiError('Can\'t synchronize different models');
     }
 
-    if (models.has(a) || models.has(b)) {
+    if (options.models.has(a) || options.models.has(b)) {
         return;
     }
 
-    models.add(a);
-    models.add(b);
+    options.models.add(a);
+    options.models.add(b);
 
     await a.loadRelationIfUnloaded('operations');
     await b.loadRelationIfUnloaded('operations');
@@ -62,8 +66,8 @@ export async function synchronizeModels(a: SolidModel, b: SolidModel, models: We
             continue;
         }
 
-        await when(relationA, synchronizesRelatedModels).__synchronizeRelated(relationB, models);
-        await when(relationB, synchronizesRelatedModels).__synchronizeRelated(relationA, models);
+        await when(relationA, synchronizesRelatedModels).__synchronizeRelated(relationB, options);
+        await when(relationB, synchronizesRelatedModels).__synchronizeRelated(relationA, options);
     }
 }
 

@@ -2,7 +2,7 @@ import { HasManyRelation } from 'soukai';
 import { map, mixedWithoutTypes, tap } from '@noeldemartin/utils';
 import type { Model, RelationCloneOptions } from 'soukai';
 
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 
 import SolidHasRelation from './mixins/SolidHasRelation';
@@ -71,7 +71,11 @@ export default class SolidHasManyRelation<
         this.loadDocumentModels([], []);
     }
 
-    public async __synchronizeRelated(other: this, models: WeakSet<SolidModel>): Promise<void> {
+    public async __synchronizeRelated(
+        other: this,
+        options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
+    ): Promise<void> {
+        const { models, ...cloneOptions } = options;
         const thisRelatedMap = map(this.related ?? [], 'url');
         const otherRelatedMap = map(other.related ?? [], 'url');
         const missingInThis = otherRelatedMap.getItems().filter((model) => !thisRelatedMap.hasKey(model.url));
@@ -86,13 +90,17 @@ export default class SolidHasManyRelation<
                 continue;
             }
 
-            await thisRelated.static().synchronize(thisRelated, otherRelated, models);
+            await thisRelated.static().synchronize(thisRelated, otherRelated, {
+                __models: models,
+                ...cloneOptions,
+            });
         }
 
         this.related = Array.from(thisRelatedMap.items()).concat(
             missingInThis.map((model) =>
                 model.clone({
                     clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                    ...cloneOptions,
                 })),
         );
 
@@ -100,6 +108,7 @@ export default class SolidHasManyRelation<
             missingInOther.map((model) =>
                 model.clone({
                     clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                    ...cloneOptions,
                 })),
         );
     }

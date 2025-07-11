@@ -16,7 +16,7 @@ import { operationClasses } from 'soukai-solid/models/history/operations';
 import type AddPropertyOperation from 'soukai-solid/models/history/AddPropertyOperation';
 import type RemovePropertyOperation from 'soukai-solid/models/history/RemovePropertyOperation';
 import type SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperation';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 
 import SolidBelongsToRelation from './mixins/SolidBelongsToRelation';
@@ -137,7 +137,11 @@ export default class SolidBelongsToManyRelation<
         this.loadDocumentModels([], foreignKeys);
     }
 
-    public async __synchronizeRelated(other: this, models: WeakSet<SolidModel>): Promise<void> {
+    public async __synchronizeRelated(
+        other: this,
+        options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
+    ): Promise<void> {
+        const { models, ...cloneOptions } = options;
         const { SetPropertyOperation, AddPropertyOperation, RemovePropertyOperation } = operationClasses();
         const foreignProperty = this.parent.static().getFieldRdfProperty(this.foreignKeyName);
         const localKeyName = this.localKeyName as keyof Related;
@@ -164,7 +168,7 @@ export default class SolidBelongsToManyRelation<
                     return;
                 }
 
-                const newRelated = model.clone({ clones });
+                const newRelated = model.clone({ clones, ...cloneOptions });
 
                 this.related?.push(newRelated);
                 thisRelatedMap.add(newRelated);
@@ -179,7 +183,10 @@ export default class SolidBelongsToManyRelation<
                     return thisRelated;
                 }
 
-                await thisRelated.static().synchronize(thisRelated, otherRelated, models);
+                await thisRelated.static().synchronize(thisRelated, otherRelated, {
+                    __models: models,
+                    ...cloneOptions,
+                });
 
                 return thisRelated;
             }),

@@ -56,6 +56,7 @@ import type {
     EngineUpdates,
     Key,
     ModelCastAttributeOptions,
+    ModelCloneOptions,
     ModelConstructor,
     MultiModelRelation,
     Relation,
@@ -113,6 +114,8 @@ import type {
 import type { SolidDocumentRelationInstance } from './relations/mixins/SolidDocumentRelation';
 import type { SolidModelConstructor } from './inference';
 import type { SolidRelation } from './relations/inference';
+
+export type SynchronizeCloneOptions = Omit<ModelCloneOptions, 'clones'>;
 
 export const SolidModelBase = mixed(Model, [
     DeletesModels,
@@ -489,13 +492,19 @@ export class SolidModel extends SolidModelBase {
         this: SolidModelConstructor<T>,
         a: T,
         b: T,
-        __models?: WeakSet<SolidModel>,
+        options: { __models?: WeakSet<SolidModel> } & SynchronizeCloneOptions = {},
     ): Promise<void> {
         if (this !== a.static()) {
-            return a.static().synchronize(a, b, __models ?? new WeakSet());
+            return a.static().synchronize(a, b, {
+                ...options,
+                __models: options.__models ?? new WeakSet(),
+            });
         }
 
-        await synchronizeModels(a, b, __models ?? new WeakSet());
+        await synchronizeModels(a, b, {
+            ...options,
+            models: options.__models ?? new WeakSet(),
+        });
     }
 
     public static findMatchingResourceIds(quads: Quad[], baseUrl?: string): string[] {
