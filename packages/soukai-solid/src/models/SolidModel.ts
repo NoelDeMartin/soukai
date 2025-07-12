@@ -1159,6 +1159,12 @@ export class SolidModel extends SolidModelBase {
         });
     }
 
+    public getDefaultCollection(): string {
+        const collection = super.getDefaultCollection();
+
+        return `solid://${collection}/`;
+    }
+
     public usingSolidEngine(): boolean {
         return !!(this.requireFinalEngine() as { __isSolidEngine?: true }).__isSolidEngine;
     }
@@ -1187,12 +1193,6 @@ export class SolidModel extends SolidModelBase {
         newDocumentUrl && this.setSourceDocumentUrl(newDocumentUrl);
 
         // TODO update related models as well using same document
-    }
-
-    protected getDefaultCollection(): string {
-        const collection = super.getDefaultCollection();
-
-        return `solid://${collection}/`;
     }
 
     protected async createFromEngineDocument(id: Key, document: EngineDocument, resourceId?: string): Promise<this> {

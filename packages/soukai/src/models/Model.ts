@@ -576,6 +576,10 @@ export class Model {
         return extractFinalEngine(this.requireEngine()) as T;
     }
 
+    public getDefaultCollection(): string {
+        return this.static('modelName').toLowerCase() + 's';
+    }
+
     public async loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(relation: string): Promise<T> {
         const relationInstance = this.requireRelation(relation);
         const related = await relationInstance.relatedClass.withEngine(this.requireEngine(), () =>
@@ -1057,10 +1061,6 @@ export class Model {
             },
             {} as Record<string, Relation>,
         );
-    }
-
-    protected getDefaultCollection(): string {
-        return this.static('modelName').toLowerCase() + 's';
     }
 
     protected async createFromEngineDocument(id: Key, document: EngineDocument): Promise<this> {
