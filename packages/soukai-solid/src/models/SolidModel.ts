@@ -958,29 +958,37 @@ export class SolidModel extends SolidModelBase {
 
         Object.values(this._relations)
             .filter(isSolidMultiModelDocumentRelation)
-            .filter((relation) => relation.enabled && relation.useSameDocument && !usingExperimentalActivityPods())
+            .filter((relation) => relation.enabled && !usingExperimentalActivityPods())
             .forEach((relation) => {
-                relation.__modelsInSameDocument = relation.__modelsInSameDocument || [];
-                relation.__modelsInSameDocument.push(...relation.__newModels);
+                if (relation.useSameDocument) {
+                    relation.__modelsInSameDocument = relation.__modelsInSameDocument || [];
+                    relation.__modelsInSameDocument.push(...relation.__newModels);
 
-                relation.__newModels = [];
+                    relation.__newModels = [];
+
+                    return;
+                }
+
+                relation.__newModels = relation.__newModels.filter((model) => !model.exists());
             });
 
         Object.values(this._relations)
             .filter(isSolidSingleModelDocumentRelation)
-            .filter(
-                (relation) =>
-                    relation.useSameDocument &&
-                    relation.enabled &&
-                    !!relation.__newModel &&
-                    !usingExperimentalActivityPods(),
-            )
+            .filter((relation) => relation.enabled && !!relation.__newModel && !usingExperimentalActivityPods())
             .forEach((relation) => {
-                relation.__modelInSameDocument = relation.__newModel;
-                relation.__newModel = undefined;
+                if (relation.useSameDocument) {
+                    relation.__modelInSameDocument = relation.__newModel;
+                    relation.__newModel = undefined;
+
+                    return;
+                }
+
+                relation.__newModel = relation.__newModel?.exists() ? undefined : relation.__newModel;
             });
 
-        if (!ignoreRelations) this.getDocumentModels().forEach((model) => model.cleanDirty(true));
+        if (!ignoreRelations) {
+            this.getDocumentModels().forEach((model) => model.cleanDirty(true));
+        }
     }
 
     public fixMalformedAttributes(): void {
