@@ -52,12 +52,8 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         this.lock = memo(`idb-${this.database}`, () => new Semaphore());
     }
 
-    public async getCollections(): Promise<string[]> {
-        const metadata = await this.getMetadata();
-
-        return Object.values(metadata)
-            .filter(({ dropped }) => !dropped)
-            .map(({ name }) => name.toString());
+    public getCollections(): Promise<string[]> {
+        return this.lock.run(() => this.__getCollections());
     }
 
     public async dropCollections(collections: string[]): Promise<void> {
@@ -81,14 +77,16 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async purgeDatabase(): Promise<void> {
-        this.closeConnections();
+        await this.lock.run(async () => {
+            this.closeConnections();
 
-        await Promise.all([
-            deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() }),
-            deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() }),
-        ]);
+            await Promise.all([
+                deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() }),
+                deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() }),
+            ]);
 
-        delete this._metadata;
+            delete this._metadata;
+        });
     }
 
     public async closeConnections(): Promise<void> {
@@ -120,41 +118,45 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     public async readOne(collection: string, id: string): Promise<EngineDocument> {
-        if (!(await this.collectionExists(collection))) {
-            throw new DocumentNotFound(id, collection);
-        }
+        return this.lock.run(async () => {
+            if (!(await this.collectionExists(collection))) {
+                throw new DocumentNotFound(id, collection);
+            }
 
-        const document = await this.getDocument(collection, id);
-        if (!document) {
-            throw new DocumentNotFound(id, collection);
-        }
+            const document = await this.getDocument(collection, id);
+            if (!document) {
+                throw new DocumentNotFound(id, collection);
+            }
 
-        return document;
+            return document;
+        });
     }
 
     public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
-        const documents = {} as EngineDocumentsCollection;
-        const collections = await this.getCollections();
+        return this.lock.run(async () => {
+            const documents = {} as EngineDocumentsCollection;
+            const collections = await this.__getCollections();
 
-        if (collections.indexOf(collection) === -1) {
-            return documents;
-        }
+            if (collections.indexOf(collection) === -1) {
+                return documents;
+            }
 
-        await this.withDocumentsTransaction(collection, 'readonly', (transaction) => {
-            const processCursor = async (cursor: IDBPCursorWithValue<DocumentsSchema> | null): Promise<void> => {
-                if (!cursor) {
-                    return;
-                }
+            await this.withDocumentsTransaction(collection, 'readonly', (transaction) => {
+                const processCursor = async (cursor: IDBPCursorWithValue<DocumentsSchema> | null): Promise<void> => {
+                    if (!cursor) {
+                        return;
+                    }
 
-                documents[cursor.key] = cursor.value;
+                    documents[cursor.key] = cursor.value;
 
-                return cursor.continue().then(processCursor);
-            };
+                    return cursor.continue().then(processCursor);
+                };
 
-            return transaction.store.openCursor().then(processCursor);
+                return transaction.store.openCursor().then(processCursor);
+            });
+
+            return this.helper.filterDocuments(documents, filters);
         });
-
-        return this.helper.filterDocuments(documents, filters);
     }
 
     public async update(collection: string, id: string, updates: EngineUpdates): Promise<void> {
@@ -181,8 +183,16 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         });
     }
 
+    private async __getCollections(): Promise<string[]> {
+        const metadata = await this.getMetadata();
+
+        return Object.values(metadata)
+            .filter(({ dropped }) => !dropped)
+            .map(({ name }) => name.toString());
+    }
+
     private async collectionExists(collection: string): Promise<boolean> {
-        const collections = await this.getCollections();
+        const collections = await this.__getCollections();
 
         return collections.indexOf(collection) !== -1;
     }
@@ -195,7 +205,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     private async getDocument(collection: string, id: string): Promise<EngineDocument | null> {
         try {
-            const collections = await this.getCollections();
+            const collections = await this.__getCollections();
 
             if (collections.indexOf(collection) === -1) {
                 return null;
@@ -211,7 +221,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     private async createDocument(collection: string, id: string, document: EngineDocument): Promise<void> {
-        const collections = await this.getCollections();
+        const collections = await this.__getCollections();
 
         if (collections.indexOf(collection) === -1) {
             await this.createCollection(collection);
@@ -227,7 +237,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     private async updateDocument(collection: string, id: string, document: EngineDocument): Promise<void> {
-        const collections = await this.getCollections();
+        const collections = await this.__getCollections();
 
         if (collections.indexOf(collection) === -1) {
             return;
@@ -241,7 +251,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
     }
 
     private async deleteDocument(collection: string, id: string): Promise<void> {
-        const collections = await this.getCollections();
+        const collections = await this.__getCollections();
 
         if (collections.indexOf(collection) === -1) {
             return;
