@@ -390,7 +390,7 @@ export class SolidModel extends SolidModelBase {
 
         const { documentPermissions, stopTracking } = this.instance().trackPublicPermissions();
 
-        const models = await this.withCollection(() => super.all(filters) as unknown as T[]);
+        const models = (await super.all(filters)) as unknown as T[];
 
         stopTracking();
 

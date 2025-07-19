@@ -1,4 +1,5 @@
 import {
+    Semaphore,
     arrayUnique,
     deepEquals,
     fail,
@@ -6,6 +7,7 @@ import {
     isObject,
     objectDeepClone,
     objectHasOwnProperty,
+    required,
     stringToCamelCase,
     tap,
     toString,
@@ -39,6 +41,7 @@ import type { Relation } from './relations/Relation';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
 
 const modelsWithMintedCollections = new WeakSet();
+const modelLocks = new WeakMap<typeof Model, Semaphore>();
 
 export type Key = string | number | Record<string, string | number>;
 
@@ -254,37 +257,36 @@ export class Model {
     }
 
     public static async withCollection<Result>(
-        collection: string | undefined | (() => Result | Promise<Result>) = '',
-        operation?: () => Result | Promise<Result>,
+        collection: string | undefined,
+        operation: () => Result | Promise<Result>,
     ): Promise<Result> {
-        const oldCollection = this.collection;
+        return this.exclusive(async () => {
+            const oldCollection = this.collection;
 
-        if (typeof collection !== 'string') {
-            operation = collection;
-            collection = '';
-        }
+            this.collection = collection || oldCollection;
 
-        if (!operation) {
-            throw new SoukaiError(
-                'Invalid method given to withCollection (this is an internal error, please report this bug)',
-            );
-        }
+            try {
+                const result = await operation();
 
-        this.collection = collection || oldCollection;
-
-        try {
-            const result = await operation();
-
-            return result;
-        } finally {
-            this.collection = oldCollection;
-        }
+                return result;
+            } finally {
+                this.collection = oldCollection;
+            }
+        });
     }
 
     public static async withoutTimestamps<T>(operation: () => Promise<T>): Promise<T> {
         this.ignoringTimestamps.set(this, true);
 
         return tap(await operation(), () => this.ignoringTimestamps.delete(this));
+    }
+
+    public static async exclusive<T>(operation: () => Promise<T>): Promise<T> {
+        if (!modelLocks.has(this)) {
+            modelLocks.set(this, new Semaphore());
+        }
+
+        return required(modelLocks.get(this)).run(operation);
     }
 
     protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {

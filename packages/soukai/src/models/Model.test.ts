@@ -827,6 +827,21 @@ describe('Models CRUD', () => {
         await expect(createModel()).rejects.toThrow('Engine must be initialized before performing any operations');
     });
 
+    it('withCollection', async () => {
+        // Arrange
+        const originalCollection = User.collection;
+
+        // Act
+        await Promise.all([
+            User.withCollection('override-1', () => after(100)),
+            User.withCollection('override-2', () => after(200)),
+            User.withCollection('override-3', () => after(300)),
+        ]);
+
+        // Assert
+        expect(User.collection).toBe(originalCollection);
+    });
+
 });
 
 describe('Model attributes', () => {
