@@ -260,6 +260,10 @@ export class Model {
         collection: string | undefined,
         operation: () => Result | Promise<Result>,
     ): Promise<Result> {
+        if (this.collection === collection) {
+            return operation();
+        }
+
         return this.exclusive(async () => {
             const oldCollection = this.collection;
 
@@ -281,12 +285,12 @@ export class Model {
         return tap(await operation(), () => this.ignoringTimestamps.delete(this));
     }
 
-    public static async exclusive<T>(operation: () => Promise<T>): Promise<T> {
+    public static async exclusive<T>(operation: () => Promise<T> | T): Promise<T> {
         if (!modelLocks.has(this)) {
             modelLocks.set(this, new Semaphore());
         }
 
-        return required(modelLocks.get(this)).run(operation);
+        return required(modelLocks.get(this)).run(async () => operation());
     }
 
     protected static pureInstance<T extends Model>(this: ModelConstructor<T>): T {

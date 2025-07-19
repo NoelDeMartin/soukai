@@ -67,7 +67,7 @@ export default class SolidContainsRelation<
         const related = this.relatedClass.newInstance(attributes);
 
         if (!related.url && related.static('mintsUrls') && !usingExperimentalActivityPods()) {
-            this.relatedClass.withCollection(this.parent.url, () => related.mintUrl());
+            await this.relatedClass.withCollection(this.parent.url, () => related.mintUrl());
         }
 
         return tap(this.attach(related), (model) => this.save(model));

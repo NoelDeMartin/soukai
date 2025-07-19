@@ -842,6 +842,19 @@ describe('Models CRUD', () => {
         expect(User.collection).toBe(originalCollection);
     });
 
+    it('withCollection nested', async () => {
+        // Arrange
+        const originalCollection = User.collection;
+
+        // Act
+        await User.withCollection('override', async () => {
+            await User.withCollection('override', () => after(100));
+        });
+
+        // Assert
+        expect(User.collection).toBe(originalCollection);
+    });
+
 });
 
 describe('Model attributes', () => {
