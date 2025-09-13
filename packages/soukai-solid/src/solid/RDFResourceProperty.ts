@@ -1,7 +1,8 @@
 import type { Literal, Quad } from '@rdfjs/types';
 
 import IRI from 'soukai-solid/solid/utils/IRI';
-import { RDF_TYPE } from 'soukai-solid/solid/constants';
+import { RDF_TYPE, XSD_DATE_TIME } from 'soukai-solid/solid/constants';
+import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
 
 export type LiteralValue = string | number | boolean | Date;
 
@@ -189,22 +190,11 @@ class RDFResourceLiteralProperty extends RDFResourceProperty {
 
     protected getTurtleObject(): string {
         if (this.originalValue && this.value instanceof Date) {
-            return `"${this.originalValue}"^^<${IRI('xsd:dateTime')}>`;
+            return `"${this.originalValue}"^^<${XSD_DATE_TIME}>`;
         }
 
         if (this.value instanceof Date) {
-            const digits = (...numbers: number[]) => numbers.map((number) => number.toString().padStart(2, '0'));
-            const date = digits(
-                this.value.getUTCFullYear(),
-                this.value.getUTCMonth() + 1,
-                this.value.getUTCDate(),
-            ).join('-');
-            const time = digits(this.value.getUTCHours(), this.value.getUTCMinutes(), this.value.getUTCSeconds()).join(
-                ':',
-            );
-            const milliseconds = this.value.getUTCMilliseconds().toString().padStart(3, '0');
-
-            return `"${date}T${time}.${milliseconds}Z"^^<${IRI('xsd:dateTime')}>`;
+            return `"${renderRDFDateValue(this.value)}"^^<${XSD_DATE_TIME}>`;
         }
 
         return JSON.stringify(this.value);

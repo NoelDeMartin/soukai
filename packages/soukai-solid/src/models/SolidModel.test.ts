@@ -32,6 +32,7 @@ import SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperati
 import SolidContainer from 'soukai-solid/models/SolidContainer';
 import UnsetPropertyOperation from 'soukai-solid/models/history/UnsetPropertyOperation';
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
+import { XSD_DATE_TIME } from 'soukai-solid/solid/constants';
 
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
@@ -89,7 +90,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'foaf:givenname',
                 },
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -126,7 +127,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -161,7 +162,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -196,7 +197,7 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -221,13 +222,13 @@ describe('SolidModel', () => {
         class A extends SolidModel {
 
             public static rdfsClass = 'http://xmlns.com/foaf/0.1/A';
-
+        
         }
 
         class B extends SolidModel {
 
             public static rdfsClass = 'foaf:B';
-
+        
         }
 
         bootModels({ A, B });
@@ -248,7 +249,7 @@ describe('SolidModel', () => {
             public static fields = {
                 name: FieldType.String,
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -299,7 +300,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static classFields = ['stubField'];
-
+        
         }
 
         bootModels({ StubModel });
@@ -457,7 +458,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static rdfsClasses = ['https://schema.org/Action', 'http://www.w3.org/2002/12/cal/ical#Vtodo'];
-
+        
         }
         const documentUrl = fakeDocumentUrl();
         const quads = turtleToQuadsSync('<#it> a <https://schema.org/Action> .', {
@@ -507,7 +508,7 @@ describe('SolidModel', () => {
                             $where: { '@id': actionUrl },
                             $update: {
                                 [IRI('schema:startTime')]: {
-                                    '@type': IRI('xsd:dateTime'),
+                                    '@type': XSD_DATE_TIME,
                                     '@value': action.startTime.toISOString(),
                                 },
                             },
@@ -591,7 +592,7 @@ describe('SolidModel', () => {
 
             declare public name: string | undefined;
             declare public surname: string | undefined;
-
+        
         }
 
         bootModels({ StubModel });
@@ -712,7 +713,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static defaultResourceHash = 'foobar';
-
+        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -857,7 +858,7 @@ describe('SolidModel', () => {
         class StubModel extends SolidModel {
 
             public static mintsUrls = false;
-
+        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -909,7 +910,7 @@ describe('SolidModel', () => {
             public static timestamps = false;
             public static mintsUrls = false;
             public static defaultResourceHash = null;
-
+        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -1824,7 +1825,7 @@ describe('SolidModel', () => {
 
             public static timestamps = true;
             public static history = true;
-
+        
         }
 
         // Act
@@ -2270,7 +2271,7 @@ describe('SolidModel', () => {
                             $update: {
                                 [IRI('crdt:updatedAt')]: {
                                     '@value': versionA.updatedAt.toISOString(),
-                                    '@type': IRI('xsd:dateTime'),
+                                    '@type': XSD_DATE_TIME,
                                 },
                             },
                         },
@@ -2471,7 +2472,7 @@ describe('SolidModel', () => {
                             $update: {
                                 [IRI('crdt:updatedAt')]: {
                                     '@value': versionA.updatedAt.toISOString(),
-                                    '@type': IRI('xsd:dateTime'),
+                                    '@type': XSD_DATE_TIME,
                                 },
                             },
                         },
@@ -2638,7 +2639,7 @@ describe('SolidModel', () => {
                     deserialize: (value?: string) => value && value.toLowerCase(),
                 },
             };
-
+        
         }
 
         bootModels({ StubModel });
@@ -2670,7 +2671,7 @@ describe('SolidModel', () => {
             public moviesRelationship(): Relation {
                 return this.contains(StubMovie);
             }
-
+        
         }
 
         bootModels({ StubMovie, StubMoviesCollection });

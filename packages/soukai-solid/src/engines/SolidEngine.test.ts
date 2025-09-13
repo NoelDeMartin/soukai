@@ -18,6 +18,7 @@ import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropert
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
 import DocumentsCache from 'soukai-solid/utils/DocumentsCache';
 import { LDP_CONTAINER, LDP_CONTAINS, PURL_MODIFIED } from 'soukai-solid/solid/constants';
+import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
 import type { Fetch } from 'soukai-solid/solid/SolidClient';
 
 import { jsonLDGraph, stubMoviesCollectionJsonLD, stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
@@ -535,28 +536,50 @@ describe('SolidEngine', () => {
         const parentContainerUrl = fakeContainerUrl();
         const containerUrl = fakeContainerUrl({ baseUrl: parentContainerUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
+        const tombstoneDocumentUrl = fakeDocumentUrl({ containerUrl });
         const inMemoryEngine = new InMemoryEngine();
         const persistentCache = new DocumentsCache('test', inMemoryEngine);
 
         engine.setConfig({ persistentCache });
 
         await persistentCache.remember(containerUrl, documentUrl, modifiedAt);
+        await persistentCache.remember(containerUrl, tombstoneDocumentUrl, modifiedAt, {
+            tombstone: { url: `${tombstoneDocumentUrl}#it-metadata`, resourceUrl: `${tombstoneDocumentUrl}#it` },
+        });
         await inMemoryEngine.create(containerUrl, { foo: 'bar' }, documentUrl);
         await FakeSolidClient.createDocument(parentContainerUrl, containerUrl, [
             RDFResourceProperty.type(containerUrl, LDP_CONTAINER),
             RDFResourceProperty.reference(containerUrl, LDP_CONTAINS, documentUrl),
             RDFResourceProperty.literal(documentUrl, PURL_MODIFIED, modifiedAt),
+            RDFResourceProperty.reference(containerUrl, LDP_CONTAINS, tombstoneDocumentUrl),
+            RDFResourceProperty.literal(tombstoneDocumentUrl, PURL_MODIFIED, modifiedAt),
         ]);
 
         // Act
         const containerDocument = await engine.readOne(parentContainerUrl, containerUrl);
         const documentFromOne = await engine.readOne(containerUrl, documentUrl);
         const documentsFromMany = await engine.readMany(containerUrl, { $in: [documentUrl] });
+        const tombstoneDocument = await engine.readOne(containerUrl, tombstoneDocumentUrl);
 
         // Assert
         expect(containerDocument).not.toBeNull();
         expect(documentFromOne).toEqual({ foo: 'bar' });
         expect(documentsFromMany).toEqual({ [documentUrl]: { foo: 'bar' } });
+        expect(tombstoneDocument).toEqual({
+            '@graph': [
+                {
+                    '@id': `${tombstoneDocumentUrl}#it-metadata`,
+                    '@type': 'https://vocab.noeldemartin.com/crdt/Tombstone',
+                    'https://vocab.noeldemartin.com/crdt/deletedAt': {
+                        '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
+                        '@value': renderRDFDateValue(modifiedAt),
+                    },
+                    'https://vocab.noeldemartin.com/crdt/resource': {
+                        '@id': `${tombstoneDocumentUrl}#it`,
+                    },
+                },
+            ],
+        });
     });
 
 });
