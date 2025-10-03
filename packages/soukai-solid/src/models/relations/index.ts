@@ -4,6 +4,7 @@ import SolidACLAuthorizationsRelation from './SolidACLAuthorizationsRelation';
 import SolidBelongsToManyRelation from './SolidBelongsToManyRelation';
 import SolidBelongsToOneRelation from './SolidBelongsToOneRelation';
 import SolidContainerDocumentsRelation from './SolidContainerDocumentsRelation';
+import SolidContainerResourcesRelation from './SolidContainerResourcesRelation';
 import SolidContainsRelation from './SolidContainsRelation';
 import SolidHasManyRelation from './SolidHasManyRelation';
 import SolidHasOneRelation from './SolidHasOneRelation';
@@ -25,6 +26,7 @@ export {
     SolidBelongsToManyRelation,
     SolidBelongsToOneRelation,
     SolidContainerDocumentsRelation,
+    SolidContainerResourcesRelation,
     SolidContainsRelation,
     SolidHasManyRelation,
     SolidHasOneRelation,

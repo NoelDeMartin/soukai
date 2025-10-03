@@ -13,12 +13,14 @@ import { LDP_CONTAINS } from 'soukai-solid/solid/constants';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
 
 import SolidContainerDocumentsRelation from './relations/SolidContainerDocumentsRelation';
+import SolidContainerResourcesRelation from 'soukai-solid/models/relations/SolidContainerResourcesRelation';
 import SolidContainsRelation from './relations/SolidContainsRelation';
 
 import Model from './SolidContainer.schema';
 import SolidTypeRegistration from './SolidTypeRegistration';
 import type SolidDocument from './SolidDocument';
 import type SolidTypeIndex from './SolidTypeIndex';
+import type SolidResource from 'soukai-solid/models/SolidResource';
 import type { SolidModel } from './SolidModel';
 import type { SolidModelConstructor } from './inference';
 import type { SolidBootedFieldsDefinition } from 'soukai-solid/models/fields';
@@ -47,9 +49,15 @@ export default class SolidContainer extends Model {
 
     declare public documents: SolidDocument[];
     declare public relatedDocuments: SolidContainerDocumentsRelation;
+    declare public resources: SolidResource[];
+    declare public relatedResources: SolidContainerResourcesRelation;
 
     public documentsRelationship(): Relation {
         return new SolidContainerDocumentsRelation(this);
+    }
+
+    public resourcesRelationship(): Relation {
+        return new SolidContainerResourcesRelation(this);
     }
 
     protected markAttributeDirty(field: string, originalValue: unknown, newValue: unknown): boolean {

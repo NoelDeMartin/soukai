@@ -267,4 +267,60 @@ describe('SolidContainer', () => {
         expect(collection.documents).toEqual([]);
     });
 
+    it('parses resources with type predicates', async () => {
+        // Arrange
+        const parentContainerUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentContainerUrl });
+        const turtleDocumentUrl = fakeDocumentUrl({ containerUrl });
+        const imageDocumentUrl = fakeDocumentUrl({ containerUrl });
+
+        FakeSolidEngine.database[parentContainerUrl] = {
+            [containerUrl]: {
+                '@graph': [
+                    {
+                        '@id': containerUrl,
+                        '@type': [
+                            'http://www.w3.org/ns/ldp#Container',
+                            'http://www.w3.org/ns/ldp#BasicContainer',
+                            'http://www.w3.org/ns/ldp#Resource',
+                        ],
+                        'http://www.w3.org/ns/ldp#contains': [
+                            { '@id': turtleDocumentUrl },
+                            { '@id': imageDocumentUrl },
+                        ],
+                    },
+                    {
+                        '@id': turtleDocumentUrl,
+                        '@type': [
+                            'http://www.w3.org/ns/ldp#Resource',
+                            'http://www.w3.org/ns/iana/media-types/text/turtle#Resource',
+                        ],
+                    },
+                    {
+                        '@id': imageDocumentUrl,
+                        '@type': [
+                            'http://www.w3.org/ns/ldp#Resource',
+                            'http://www.w3.org/ns/iana/media-types/image/png#Resource',
+                        ],
+                    },
+                ],
+            },
+        };
+
+        // Act
+        const container = await SolidContainer.find(containerUrl);
+
+        // Assert
+        expect(container).not.toBeNull();
+        expect(container?.resources).toHaveLength(2);
+        expect(container?.resources[0].types).toEqual([
+            'http://www.w3.org/ns/ldp#Resource',
+            'http://www.w3.org/ns/iana/media-types/text/turtle#Resource',
+        ]);
+        expect(container?.resources[1].types).toEqual([
+            'http://www.w3.org/ns/ldp#Resource',
+            'http://www.w3.org/ns/iana/media-types/image/png#Resource',
+        ]);
+    });
+
 });

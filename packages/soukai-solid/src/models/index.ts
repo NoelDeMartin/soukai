@@ -6,6 +6,7 @@ import { historyModels } from './history/index';
 import SolidACLAuthorization from './SolidACLAuthorization';
 import SolidContainer from './SolidContainer';
 import SolidDocument from './SolidDocument';
+import SolidResource from './SolidResource';
 import SolidTypeIndex from './SolidTypeIndex';
 import SolidTypeRegistration from './SolidTypeRegistration';
 
@@ -19,11 +20,12 @@ export * from './schema-container';
 export * from './SolidModel';
 export * from './SolidContainer.schema';
 
-export { SolidACLAuthorization, SolidContainer, SolidDocument, SolidTypeIndex, SolidTypeRegistration };
+export { SolidACLAuthorization, SolidContainer, SolidDocument, SolidResource, SolidTypeIndex, SolidTypeRegistration };
 
 export { default as SolidACLAuthorizationSchema } from './SolidACLAuthorization.schema';
 export { default as SolidContainerSchema } from './SolidContainer.schema';
 export { default as SolidDocumentSchema } from './SolidDocument.schema';
+export { default as SolidResourceSchema } from './SolidResource.schema';
 export { default as SolidTypeIndexSchema } from './SolidTypeIndex.schema';
 export { default as SolidTypeRegistrationSchema } from './SolidTypeRegistration.schema';
 
@@ -56,6 +58,7 @@ const _coreModels = {
     SolidACLAuthorization,
     SolidContainer,
     SolidDocument,
+    SolidResource,
     SolidTypeIndex,
     SolidTypeRegistration,
 };
