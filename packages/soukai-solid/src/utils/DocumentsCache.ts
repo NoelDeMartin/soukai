@@ -1,6 +1,7 @@
 import { IndexedDBMap } from '@noeldemartin/utils';
-import type { Engine, EngineDocument } from 'soukai';
+import { DocumentNotFound } from 'soukai';
 import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
+import type { Engine, EngineDocument } from 'soukai';
 
 interface DocumentMetadata {
     modifiedAt: number;
@@ -48,7 +49,17 @@ export default class DocumentsCache {
             };
         }
 
-        return this.engine.readOne(collection, id);
+        try {
+            const document = await this.engine.readOne(collection, id);
+
+            return document;
+        } catch (error) {
+            if (error instanceof DocumentNotFound) {
+                return null;
+            }
+
+            throw error;
+        }
     }
 
     public async remember(

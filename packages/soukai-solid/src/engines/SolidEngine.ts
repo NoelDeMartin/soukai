@@ -118,7 +118,14 @@ export class SolidEngine implements Engine {
 
     public async readOne(collection: string, id: string): Promise<EngineDocument> {
         if (this.config.persistentCache?.has(collection, id)) {
-            return (await this.config.persistentCache.get(collection, id)) ?? fail(DocumentNotFound, id);
+            const cachedDocument = await this.config.persistentCache.get(collection, id);
+
+            if (cachedDocument) {
+                return cachedDocument;
+            }
+
+            // eslint-disable-next-line no-console
+            console.warn(`[Soukai] Document '${id}' not found in persistent cache, fetching from server`);
         }
 
         const rdfDocument = await this.getDocument(id);
