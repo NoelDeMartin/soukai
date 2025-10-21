@@ -54,7 +54,7 @@ export class InMemoryEngine implements Engine {
     public async readOne(collectionName: string, id: string): Promise<EngineDocument> {
         const collection = this.collection(collectionName);
 
-        return collection[id] ?? fail(DocumentNotFound, id, collection);
+        return collection[id] ?? fail(DocumentNotFound, id, collectionName);
     }
 
     public async readMany(collection: string, filters?: EngineFilters): Promise<EngineDocumentsCollection> {
