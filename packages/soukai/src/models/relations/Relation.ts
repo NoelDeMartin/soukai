@@ -162,7 +162,7 @@ export abstract class Relation<
 
         if (this.static().inverseBelongsToRelationClasses.some(isInstanceOf)) {
             return (
-                isModelClassOrSubclass(this.parent.constructor as ModelConstructor, other.relatedClass) &&
+                isModelClassOrSubclass(other.parent.static(), this.relatedClass) &&
                 other.foreignKeyName === this.foreignKeyName &&
                 other.localKeyName === this.localKeyName
             );
@@ -170,7 +170,7 @@ export abstract class Relation<
 
         if (this.static().inverseHasRelationClasses.some(isInstanceOf)) {
             return (
-                isModelClassOrSubclass(other.parent.constructor as ModelConstructor, this.relatedClass) &&
+                isModelClassOrSubclass(other.parent.static(), this.relatedClass) &&
                 this.foreignKeyName === other.foreignKeyName &&
                 this.localKeyName === other.localKeyName
             );
