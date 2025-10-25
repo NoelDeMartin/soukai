@@ -81,12 +81,21 @@ export default class SolidBelongsToOneRelation<
         other: this,
         options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
     ): Promise<void> {
-        if (!this.related || !other.related || this.related.url !== other.related.url) {
+        if (!other.related || (this.related && this.related.url !== other.related.url)) {
             return;
         }
 
         const { models, ...cloneOptions } = options;
         const foreignKey = this.parent.getAttribute(this.foreignKeyName);
+
+        if (!this.related) {
+            this.related = other.related.clone({
+                clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
+                ...cloneOptions,
+            });
+
+            return;
+        }
 
         await this.related.static().synchronize(this.related, other.related, {
             __models: models,
