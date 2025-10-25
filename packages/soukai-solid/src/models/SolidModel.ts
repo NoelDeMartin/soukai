@@ -914,14 +914,7 @@ export class SolidModel extends SolidModelBase {
     }
 
     public setDocumentExists(documentExists: boolean): void {
-        this._documentExists = documentExists;
-
-        Object.values(this._relations)
-            .filter(isSolidDocumentRelation)
-            .filter((relation) => relation.enabled && relation.useSameDocument && !usingExperimentalActivityPods())
-            .map((relation) => relation.getLoadedModels())
-            .flat()
-            .forEach((relatedModel) => relatedModel.setDocumentExists(documentExists));
+        this.getDocumentModels().forEach((model) => (model._documentExists = documentExists));
     }
 
     public isDirty(field?: string, ignoreRelations?: boolean): boolean {
