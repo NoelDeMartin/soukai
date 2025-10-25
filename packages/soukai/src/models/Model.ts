@@ -3,11 +3,13 @@ import {
     arrayUnique,
     deepEquals,
     fail,
+    getWeakMemo,
     isNullable,
     isObject,
     objectDeepClone,
     objectHasOwnProperty,
     required,
+    setWeakMemo,
     stringToCamelCase,
     tap,
     toString,
@@ -1176,21 +1178,19 @@ export class Model {
     }
 
     protected async getCascadeModels(): Promise<Model[]> {
-        const relationPromises = this.static('relations')
-            .map((relation) => this.requireRelation(relation))
-            .filter((relation) => relation.enabled && relation.deleteStrategy === 'cascade')
-            .map(async (relation) => {
-                const relationModels = await relation.getModels();
+        let cascadeModels = getWeakMemo<Model[]>('cascade-models', this);
 
-                return relationModels.map((model) => model.getCascadeModels());
-            });
-        const modelPromises = await Promise.all(relationPromises);
-        const models = await Promise.all(modelPromises.flat());
+        if (!cascadeModels) {
+            const modelsSet = new Set<Model>();
 
-        return models
-            .flat()
-            .concat([this])
-            .filter((model) => model.exists());
+            await this.populateCascadeModels(modelsSet);
+
+            cascadeModels = Array.from(modelsSet).filter((model) => model.exists());
+
+            setWeakMemo('cascade-models', this, cascadeModels);
+        }
+
+        return cascadeModels;
     }
 
     protected async deleteModelsFromEngine(models: Model[]): Promise<void> {
@@ -1457,6 +1457,24 @@ export class Model {
         }
 
         return updates as EngineUpdates;
+    }
+
+    protected async populateCascadeModels(cascadeModels: Set<Model>): Promise<void> {
+        if (cascadeModels.has(this)) {
+            return;
+        }
+
+        cascadeModels.add(this);
+
+        for (const relation of Object.values(this._relations)) {
+            if (!relation.enabled || relation.deleteStrategy !== 'cascade') {
+                continue;
+            }
+
+            const relationModels = await relation.getModels();
+
+            relationModels.forEach((model) => model.populateCascadeModels(cascadeModels));
+        }
     }
 
     protected async parseEngineDocumentAttributes(id: Key, document: EngineDocument): Promise<Attributes> {
