@@ -492,7 +492,7 @@ export class Model {
     declare private _engine?: Engine;
     declare private _recentlyDeletedPrimaryKey?: Key | null;
 
-    constructor(attributes: Attributes = {}, exists: boolean = false) {
+    constructor(attributes: Attributes = {}, _?: boolean) {
         // We need to do this in order to get a pure instance during boot; that is an instance that is not a proxy.
         // This is necessary in order to obtain information about the class definition without being polluted by magic
         // accessors, for example class fields.
@@ -502,6 +502,13 @@ export class Model {
 
         this.static().ensureBooted();
         this.initializeProxy();
+
+        // This fixes an undiagnosed Firefox bug where the second argument wouldn't be assigned
+        // to the default value.
+        // eslint-disable-next-line prefer-rest-params
+        const exists = arguments[1] ?? false;
+
+        // TODO why exists not a boolean!?
         this.initialize(attributes, exists);
         this.static('hooks').afterInitialize?.call(this._proxy);
 
