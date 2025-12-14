@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+wip
+
 ## v0.6.0+
 
 The changelogs for new releases of `soukai` and `soukai-solid` have been consolidated: [CHANGELOG](../../CHANGELOG.md).

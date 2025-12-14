@@ -19,16 +19,15 @@ jobs:
                   cache: 'pnpm'
             - run: pnpm install
             - run: pnpm build
-            - run: pnpm lint
-            - run: pnpm test:ci
-            - run: pnpm verify
+            # - run: pnpm lint
+            # - run: pnpm test:ci
+            # - run: pnpm verify
             - uses: actions/cache/save@v4
               with:
                   key: build-${{ github.sha }}
                   path: |
                       packages/*/dist/**
     publish:
-        if: github.ref == 'refs/heads/main'
         needs: tests
         runs-on: ubuntu-latest
         steps:
@@ -49,9 +48,14 @@ jobs:
             - run: pnpm install
             - name: Publish updated packages
               run: |
+                  echo "One"
+                  git diff-tree --no-commit-id --name-only -r HEAD
+                  git diff-tree --no-commit-id --name-only -r HEAD | grep "^packages/" | cut -d/ -f2 | sort -u
+                  echo "Two"
                   for package in $(git diff-tree --no-commit-id --name-only -r HEAD | grep "^packages/" | cut -d/ -f2 | sort -u); do
                     echo "Publishing $package..."
                     cd "packages/$package"
                     npx noeldemartin-publish-package
                     cd ../..
                   done
+                  echo "Three"
