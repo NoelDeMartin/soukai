@@ -508,7 +508,6 @@ export class Model {
         // eslint-disable-next-line prefer-rest-params
         const exists = arguments[1] ?? false;
 
-        // TODO why exists not a boolean!?
         this.initialize(attributes, exists);
         this.static('hooks').afterInitialize?.call(this._proxy);
 
