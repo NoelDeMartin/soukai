@@ -11,6 +11,7 @@
         "test:ci": "pnpm run -r test:ci",
         "verify": "pnpm run -r verify"
     },
+    "packageManager": "pnpm@10.20.0",
     "devDependencies": {
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
         "@noeldemartin/eslint-plugin": "^0.1.0",
