@@ -1,6 +1,6 @@
 import { URL, fileURLToPath } from 'node:url';
 
-import dts from 'vite-plugin-dts';
+import dts from 'unplugin-dts/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -20,7 +20,7 @@ export default defineConfig({
     },
     plugins: [
         dts({
-            rollupTypes: true,
+            bundleTypes: true,
             tsconfigPath: './tsconfig.json',
             insertTypesEntry: true,
         }),

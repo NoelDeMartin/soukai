@@ -28,7 +28,7 @@
         "verify": "noeldemartin-verify"
     },
     "dependencies": {
-        "@noeldemartin/utils": "^0.7.1",
+        "@noeldemartin/utils": "^0.7.3",
         "idb": "^8.0.2"
     },
     "devDependencies": {
