@@ -40,8 +40,7 @@ export default class SerializesToJsonLD {
     ): Promise<Attributes> {
         const jsonGraph = document as JsonLDGraph;
         const resourceJson =
-            jsonGraph['@graph'].find((entity) => entity['@id'] === resourceId) ??
-            fail(ResourceNotFound, resourceId, document.url);
+            jsonGraph['@graph'].find((entity) => entity['@id'] === resourceId) ?? fail(ResourceNotFound, resourceId);
         const resource = await RDFDocument.resourceFromJsonLDGraph(jsonGraph, resourceId, resourceJson);
         const fieldsDefinition = this.static('fields');
         const attributes: Attributes = {};

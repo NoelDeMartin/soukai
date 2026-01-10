@@ -69,7 +69,7 @@ export class InMemoryEngine implements Engine {
 
     public async update(collectionName: string, id: string, updates: EngineUpdates): Promise<void> {
         const collection = this.collection(collectionName);
-        const document = (collection[id] as EngineDocument) ?? fail(DocumentNotFound, id, 3, collectionName);
+        const document = (collection[id] as EngineDocument) ?? fail(DocumentNotFound, id, collectionName);
         const newDocument = { ...document };
 
         this.helper.updateAttributes(newDocument, updates);
