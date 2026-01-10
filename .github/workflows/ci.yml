@@ -50,10 +50,4 @@ jobs:
                       packages/*/dist/**
             - run: pnpm install
             - name: Publish updated packages
-              run: |
-                  for package in $(git diff-tree --no-commit-id --name-only -r HEAD | grep "^packages/" | cut -d/ -f2 | sort -u); do
-                    echo "Publishing $package..."
-                    cd "packages/$package"
-                    npx noeldemartin-publish-package
-                    cd ../..
-                  done
+              run: pnpm exec noeldemartin-publish-modified-packages

@@ -11,13 +11,12 @@
         "test:ci": "pnpm run -r test:ci",
         "verify": "pnpm run -r verify"
     },
-    "packageManager": "pnpm@10.20.0",
+    "packageManager": "pnpm@10.27.0",
     "devDependencies": {
         "@microsoft/api-extractor": "^7.55.2",
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
         "@noeldemartin/eslint-plugin": "^0.1.0",
         "@noeldemartin/testing": "next",
-        "@noeldemartin/utils": "^0.7.1",
         "@tsconfig/node22": "^22.0.0",
         "@types/node": "^22.13.10",
         "@types/webpack-env": "^1.18.8",

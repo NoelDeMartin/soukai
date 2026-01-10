@@ -29,17 +29,23 @@ jobs:
                   node-version-file: '.nvmrc'
                   registry-url: 'https://registry.npmjs.org'
                   cache: 'pnpm'
-            - run: pnpm install --frozen-lockfile
-            - run: npm run build
+            - run: pnpm install
+            - run: pnpm build
             - name: Publish packages
               run: |
-                  for package in ${{ github.event.inputs.packages }}; do
+                  if [ "${{ github.event.inputs.packages }}" = "*" ]; then
+                    packages=$(ls packages)
+                  else
+                    packages="${{ github.event.inputs.packages }}"
+                  fi
+
+                  for package in $packages; do
                     echo "Publishing $package..."
                     cd "packages/$package"
                     if [ "${{ github.event.inputs.latest }}" = "true" ]; then
-                      npx noeldemartin-publish-package --latest
+                      pnpm exec noeldemartin-publish-package --latest
                     else
-                      npx noeldemartin-publish-package
+                      pnpm exec noeldemartin-publish-package
                     fi
                     cd ../..
                   done

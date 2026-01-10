@@ -1,17 +1,11 @@
 {
-    "name": "soukai",
-    "version": "0.7.1",
+    "name": "soukai-bis",
+    "version": "0.0.0",
     "type": "module",
     "sideEffects": false,
     "exports": {
-        ".": {
-            "types": "./dist/soukai.d.ts",
-            "default": "./dist/soukai.js"
-        },
-        "./testing": {
-            "types": "./dist/testing.d.ts",
-            "default": "./dist/testing.js"
-        }
+        "types": "./dist/soukai-bis.d.ts",
+        "default": "./dist/soukai-bis.js"
     },
     "files": [
         "src",
@@ -28,15 +22,15 @@
         "verify": "noeldemartin-verify"
     },
     "dependencies": {
-        "@noeldemartin/utils": "catalog:",
-        "idb": "^8.0.2"
+        "@noeldemartin/solid-utils": "next",
+        "@noeldemartin/utils": "next",
+        "zod": "^4.3.4"
     },
     "devDependencies": {
         "@arethetypeswrong/cli": "catalog:",
-        "@noeldemartin/faker": "catalog:",
         "@noeldemartin/scripts": "catalog:",
+        "@rdfjs/types": "catalog:",
         "eslint": "catalog:",
-        "fake-indexeddb": "catalog:",
         "publint": "catalog:"
     },
     "eslintConfig": {

@@ -25,9 +25,9 @@
         "soukai": "*"
     },
     "dependencies": {
-        "@noeldemartin/solid-utils": "^0.6.1",
-        "@noeldemartin/utils": "^0.7.3",
-        "@rdfjs/types": "^2.0.1"
+        "@noeldemartin/solid-utils": "catalog:",
+        "@noeldemartin/utils": "catalog:",
+        "@rdfjs/types": "catalog:"
     },
     "devDependencies": {
         "@arethetypeswrong/cli": "catalog:",

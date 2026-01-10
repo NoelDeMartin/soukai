@@ -15,6 +15,15 @@ catalogs:
     '@noeldemartin/scripts':
       specifier: next
       version: 0.3.0-next.106c7a107624952bbd18be58bde651adcc7afb64
+    '@noeldemartin/solid-utils':
+      specifier: ^0.6.1
+      version: 0.6.1
+    '@noeldemartin/utils':
+      specifier: ^0.7.3
+      version: 0.7.3
+    '@rdfjs/types':
+      specifier: ^2.0.1
+      version: 2.0.1
     eslint:
       specifier: ^8.57.1
       version: 8.57.1
@@ -41,9 +50,6 @@ importers:
       '@noeldemartin/testing':
         specifier: next
         version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19(vitest@3.2.4(@types/node@22.19.3)(yaml@2.8.2))
-      '@noeldemartin/utils':
-        specifier: ^0.7.1
-        version: 0.7.3
       '@tsconfig/node22':
         specifier: ^22.0.0
         version: 22.0.5
@@ -90,7 +96,7 @@ importers:
   packages/soukai:
     dependencies:
       '@noeldemartin/utils':
-        specifier: ^0.7.3
+        specifier: 'catalog:'
         version: 0.7.3
       idb:
         specifier: ^8.0.2
@@ -115,16 +121,44 @@ importers:
         specifier: 'catalog:'
         version: 0.3.12
 
+  packages/soukai-bis:
+    dependencies:
+      '@noeldemartin/solid-utils':
+        specifier: next
+        version: 0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6(web-streams-polyfill@3.3.3)
+      '@noeldemartin/utils':
+        specifier: next
+        version: 0.7.3-next.6f4d2e7b3d0149d46407283c64ac319497e20022
+      zod:
+        specifier: ^4.3.4
+        version: 4.3.4
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: 'catalog:'
+        version: 0.17.4
+      '@noeldemartin/scripts':
+        specifier: 'catalog:'
+        version: 0.4.0-next.388cd7d7c8829fedee5a85ae50a9fa182026af9f
+      '@rdfjs/types':
+        specifier: 'catalog:'
+        version: 2.0.1
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      publint:
+        specifier: 'catalog:'
+        version: 0.3.12
+
   packages/soukai-solid:
     dependencies:
       '@noeldemartin/solid-utils':
-        specifier: ^0.6.1
+        specifier: 'catalog:'
         version: 0.6.1(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
-        specifier: ^0.7.3
+        specifier: 'catalog:'
         version: 0.7.3
       '@rdfjs/types':
-        specifier: ^2.0.1
+        specifier: 'catalog:'
         version: 2.0.1
     devDependencies:
       '@arethetypeswrong/cli':
@@ -587,21 +621,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@eslint-community/eslint-utils@4.7.0':
-    resolution: {integrity: sha512-dyybb3AcajC7uha6CvhdVRJqaKyn7w2YKqKyAN37NKYgZT36w+iRb0Dymmc5qEJ549c/S31cMMSFd75bteCpCw==}
-    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
-    peerDependencies:
-      eslint: ^6.0.0 || ^7.0.0 || >=8.0.0
-
   '@eslint-community/eslint-utils@4.9.0':
     resolution: {integrity: sha512-ayVFHdtZ+hsq1t2Dy24wCmGXGe4q9Gu3smhLYALJrr473ZH27MsnSL+LKUlimp4BWJqMDMLmPpx/Q9R3OAlL4g==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
       eslint: ^6.0.0 || ^7.0.0 || >=8.0.0
-
-  '@eslint-community/regexpp@4.12.1':
-    resolution: {integrity: sha512-CCZCDJuduB9OUkFkY2IgppNZMi2lBQgD2qzwXkEia16cge2pijY/aXi96CJMquDMn3nJdlPV1A5KrJEXwfLNzQ==}
-    engines: {node: ^12.0.0 || ^14.0.0 || >=16.0.0}
 
   '@eslint-community/regexpp@4.12.2':
     resolution: {integrity: sha512-EriSTlt5OC9/7SXkRSCAhfSxxoSUgBm33OH+IkwbdpgoqsSsUg7y3uh+IICI/Qg4BBWr3U2i39RpmycbxMq4ew==}
@@ -734,8 +758,15 @@ packages:
     resolution: {integrity: sha512-pz1dOlhEhNfHIuIkTuo3LniVNztBR5JvKB9hIlfzOPHbHqi/ED9wwzp0t3J0rrieXTDU1pkTgYoOoEOr9bAyVA==}
     hasBin: true
 
+  '@noeldemartin/scripts@0.4.0-next.388cd7d7c8829fedee5a85ae50a9fa182026af9f':
+    resolution: {integrity: sha512-7ORG8dB5VzNWGSfO17jGLztcUf6ndAraFvE1GZEAMpUT5E04OV5k4bz71+faNcCR74EaOCxuOfUrTpJlQsYDjQ==}
+    hasBin: true
+
   '@noeldemartin/solid-utils@0.6.1':
     resolution: {integrity: sha512-DJq3DoGgSgA/dbNelkhS/IyfzfXXuVWmF7GH3neEVHZVuhAWkWtW+Grpn41cJ2+USJdVfyqbKonn/QOX+KBbkA==}
+
+  '@noeldemartin/solid-utils@0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6':
+    resolution: {integrity: sha512-7kWirNH9OFdDunQ+OHc/OdudHjjK/W9NCJ9TKEh8CsgSjWmK2+iufaolqy+B7lCI4L/CQvML2kstfsU73qMOOg==}
 
   '@noeldemartin/testing@0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19':
     resolution: {integrity: sha512-5moMGAYgqCnHWfbxgkgNjoaYhc6nvtqN7etPP+B76fyZVWWRLK+BOKKcwCXUd2ctD2N7lu9baa7M9qoN8oHEKg==}
@@ -987,9 +1018,6 @@ packages:
   '@types/node@22.19.3':
     resolution: {integrity: sha512-1N9SBnWYOJTrNZCdh/yJE+t910Y128BoyY+zBLWhL3r0TYzlTmFdXrPwHL9DyFZmlEXNQQolTZh3KHV31QDhyA==}
 
-  '@types/node@25.0.2':
-    resolution: {integrity: sha512-gWEkeiyYE4vqjON/+Obqcoeffmk0NF15WSBwSs7zwVA2bAbTaE0SJ7P0WNGoJn8uE7fiaV5a7dKYIJriEqOrmA==}
-
   '@types/semver@7.7.1':
     resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==}
 
@@ -1236,11 +1264,6 @@ packages:
     peerDependencies:
       acorn: ^6.0.0 || ^7.0.0 || ^8.0.0
 
-  acorn@8.14.1:
-    resolution: {integrity: sha512-OvQ/2pUDKmgfCg++xsTX1wGxfTaszcHVcTctW4UJB4hibJx2HXxxO5UmVgyjMa+ZDsiaf5wWLXYpRWMmBI0QHg==}
-    engines: {node: '>=0.4.0'}
-    hasBin: true
-
   acorn@8.15.0:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
@@ -1480,15 +1503,6 @@ packages:
 
   dayjs@1.11.13:
     resolution: {integrity: sha512-oaMBel6gjolK862uaPQOVTA7q3TZhuSvuMQAAglQDOWYO9A91IrAOUJEyKVlqJlHE0vq5p5UXxzdPfMH/x6xNg==}
-
-  debug@4.4.0:
-    resolution: {integrity: sha512-6WTZ/IxCY/T6BALoZHaE4ctp9xm+Z5kY/pzYaCHRFeyVhojxlrm+46y68HA6hr0TcwEssoxNiDEUJQjfPZ/RYA==}
-    engines: {node: '>=6.0'}
-    peerDependencies:
-      supports-color: '*'
-    peerDependenciesMeta:
-      supports-color:
-        optional: true
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -2557,9 +2571,6 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
-  undici-types@7.16.0:
-    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
-
   undici@5.29.0:
     resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
     engines: {node: '>=14.0'}
@@ -2830,6 +2841,9 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  zod@4.3.4:
+    resolution: {integrity: sha512-Zw/uYiiyF6pUT1qmKbZziChgNPRu+ZRneAsMUDU6IwmXdWt5JwcUfy2bvLOCUtz5UniaN/Zx5aFttZYbYc7O/A==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -3168,24 +3182,17 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
-  '@eslint-community/eslint-utils@4.7.0(eslint@8.57.1)':
-    dependencies:
-      eslint: 8.57.1
-      eslint-visitor-keys: 3.4.3
-
   '@eslint-community/eslint-utils@4.9.0(eslint@8.57.1)':
     dependencies:
       eslint: 8.57.1
       eslint-visitor-keys: 3.4.3
-
-  '@eslint-community/regexpp@4.12.1': {}
 
   '@eslint-community/regexpp@4.12.2': {}
 
   '@eslint/eslintrc@2.1.4':
     dependencies:
       ajv: 6.12.6
-      debug: 4.4.0
+      debug: 4.4.3
       espree: 9.6.1
       globals: 13.24.0
       ignore: 5.3.2
@@ -3211,7 +3218,7 @@ snapshots:
   '@humanwhocodes/config-array@0.13.0':
     dependencies:
       '@humanwhocodes/object-schema': 2.0.3
-      debug: 4.4.0
+      debug: 4.4.3
       minimatch: 3.1.2
     transitivePeerDependencies:
       - supports-color
@@ -3371,7 +3378,19 @@ snapshots:
       - svelte-eslint-parser
       - typescript
 
+  '@noeldemartin/scripts@0.4.0-next.388cd7d7c8829fedee5a85ae50a9fa182026af9f': {}
+
   '@noeldemartin/solid-utils@0.6.1(web-streams-polyfill@3.3.3)':
+    dependencies:
+      '@noeldemartin/utils': 0.7.3
+      '@rdfjs/types': 2.0.1
+      jsonld: 8.3.3(web-streams-polyfill@3.3.3)
+      md5: 2.3.0
+      n3: 1.25.2
+    transitivePeerDependencies:
+      - web-streams-polyfill
+
+  '@noeldemartin/solid-utils@0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.7.3
       '@rdfjs/types': 2.0.1
@@ -3402,7 +3421,7 @@ snapshots:
 
   '@rdfjs/types@2.0.1':
     dependencies:
-      '@types/node': 25.0.2
+      '@types/node': 22.19.3
 
   '@rollup/pluginutils@5.3.0(rollup@4.53.3)':
     dependencies:
@@ -3614,10 +3633,6 @@ snapshots:
   '@types/node@22.19.3':
     dependencies:
       undici-types: 6.21.0
-
-  '@types/node@25.0.2':
-    dependencies:
-      undici-types: 7.16.0
 
   '@types/semver@7.7.1': {}
 
@@ -3934,11 +3949,9 @@ snapshots:
     dependencies:
       event-target-shim: 5.0.1
 
-  acorn-jsx@5.3.2(acorn@8.14.1):
+  acorn-jsx@5.3.2(acorn@8.15.0):
     dependencies:
-      acorn: 8.14.1
-
-  acorn@8.14.1: {}
+      acorn: 8.15.0
 
   acorn@8.15.0: {}
 
@@ -4167,10 +4180,6 @@ snapshots:
 
   dayjs@1.11.13: {}
 
-  debug@4.4.0:
-    dependencies:
-      ms: 2.1.3
-
   debug@4.4.3:
     dependencies:
       ms: 2.1.3
@@ -4288,8 +4297,8 @@ snapshots:
 
   eslint@8.57.1:
     dependencies:
-      '@eslint-community/eslint-utils': 4.7.0(eslint@8.57.1)
-      '@eslint-community/regexpp': 4.12.1
+      '@eslint-community/eslint-utils': 4.9.0(eslint@8.57.1)
+      '@eslint-community/regexpp': 4.12.2
       '@eslint/eslintrc': 2.1.4
       '@eslint/js': 8.57.1
       '@humanwhocodes/config-array': 0.13.0
@@ -4299,7 +4308,7 @@ snapshots:
       ajv: 6.12.6
       chalk: 4.1.2
       cross-spawn: 7.0.6
-      debug: 4.4.0
+      debug: 4.4.3
       doctrine: 3.0.0
       escape-string-regexp: 4.0.0
       eslint-scope: 7.2.2
@@ -4331,8 +4340,8 @@ snapshots:
 
   espree@9.6.1:
     dependencies:
-      acorn: 8.14.1
-      acorn-jsx: 5.3.2(acorn@8.14.1)
+      acorn: 8.15.0
+      acorn-jsx: 5.3.2(acorn@8.15.0)
       eslint-visitor-keys: 3.4.3
 
   esquery@1.6.0:
@@ -5264,8 +5273,6 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici-types@7.16.0: {}
-
   undici@5.29.0:
     dependencies:
       '@fastify/busboy': 2.1.1
@@ -5557,5 +5564,7 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
+
+  zod@4.3.4: {}
 
   zwitch@2.0.4: {}
