@@ -16,6 +16,7 @@
         "@microsoft/api-extractor": "^7.55.2",
         "@noeldemartin/eslint-config-typescript": "^0.1.2",
         "@noeldemartin/eslint-plugin": "^0.1.0",
+        "@noeldemartin/scripts": "catalog:",
         "@noeldemartin/testing": "next",
         "@tsconfig/node22": "^22.0.0",
         "@types/node": "^22.13.10",
