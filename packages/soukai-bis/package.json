@@ -16,6 +16,7 @@
     "repository": "github:NoelDeMartin/soukai",
     "scripts": {
         "build": "vite build",
+        "docs:dev": "vitepress dev",
         "lint": "noeldemartin-lint src",
         "test": "vitest --run",
         "test:ci": "vitest --run --reporter verbose --retry=3",
@@ -28,10 +29,18 @@
     },
     "devDependencies": {
         "@arethetypeswrong/cli": "catalog:",
+        "@braintree/sanitize-url": "^7.1.1",
         "@noeldemartin/scripts": "catalog:",
         "@rdfjs/types": "catalog:",
+        "cytoscape": "^3.33.1",
+        "cytoscape-cose-bilkent": "^4.1.0",
+        "dayjs": "^1.11.19",
+        "debug": "^4.4.3",
         "eslint": "catalog:",
-        "publint": "catalog:"
+        "mermaid": "^11.12.2",
+        "publint": "catalog:",
+        "vitepress": "2.0.0-alpha.15",
+        "vitepress-plugin-mermaid": "^2.0.17"
     },
     "eslintConfig": {
         "extends": [
