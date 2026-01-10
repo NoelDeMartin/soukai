@@ -181,7 +181,7 @@ export default defineSolidModelSchema({
 Finally, you can migrate existing data using the `migrateSchema` method. Keep in mind that if you're using a `SolidEngine` this will, indeed, modify the data written in the POD that other applications may be using. Make sure that you aren't breaking any existing workflows.
 
 ```js
-const icalTask = await schemaOrgTask.updateSchema(ICalTaskSchema);
+const icalTask = await schemaOrgTask.migrateSchema(ICalTaskSchema);
 ```
 
 ## RDF prefix aliases
