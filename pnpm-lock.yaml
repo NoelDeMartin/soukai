@@ -16,11 +16,11 @@ catalogs:
       specifier: next
       version: 0.3.0-next.106c7a107624952bbd18be58bde651adcc7afb64
     '@noeldemartin/solid-utils':
-      specifier: ^0.6.1
-      version: 0.6.1
+      specifier: next
+      version: 0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6
     '@noeldemartin/utils':
-      specifier: ^0.7.3
-      version: 0.7.3
+      specifier: next
+      version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
     '@rdfjs/types':
       specifier: ^2.0.1
       version: 2.0.1
@@ -100,7 +100,7 @@ importers:
     dependencies:
       '@noeldemartin/utils':
         specifier: 'catalog:'
-        version: 0.7.3
+        version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
       idb:
         specifier: ^8.0.2
         version: 8.0.3
@@ -127,11 +127,11 @@ importers:
   packages/soukai-bis:
     dependencies:
       '@noeldemartin/solid-utils':
-        specifier: next
+        specifier: 'catalog:'
         version: 0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
-        specifier: next
-        version: 0.7.3-next.6f4d2e7b3d0149d46407283c64ac319497e20022
+        specifier: 'catalog:'
+        version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
       zod:
         specifier: ^4.3.4
         version: 4.3.4
@@ -156,10 +156,10 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
-        version: 0.7.3
+        version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
       '@rdfjs/types':
         specifier: 'catalog:'
         version: 2.0.1
@@ -765,9 +765,6 @@ packages:
     resolution: {integrity: sha512-7ORG8dB5VzNWGSfO17jGLztcUf6ndAraFvE1GZEAMpUT5E04OV5k4bz71+faNcCR74EaOCxuOfUrTpJlQsYDjQ==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.1':
-    resolution: {integrity: sha512-DJq3DoGgSgA/dbNelkhS/IyfzfXXuVWmF7GH3neEVHZVuhAWkWtW+Grpn41cJ2+USJdVfyqbKonn/QOX+KBbkA==}
-
   '@noeldemartin/solid-utils@0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6':
     resolution: {integrity: sha512-7kWirNH9OFdDunQ+OHc/OdudHjjK/W9NCJ9TKEh8CsgSjWmK2+iufaolqy+B7lCI4L/CQvML2kstfsU73qMOOg==}
 
@@ -781,6 +778,9 @@ packages:
 
   '@noeldemartin/utils@0.7.3-next.6f4d2e7b3d0149d46407283c64ac319497e20022':
     resolution: {integrity: sha512-VfjR4Jpv89/ARXaGyHzBzfcpWkmZfjqMyMdSG6C9yVuU3WhszulDtchXgbvBqjwa6vPFQjIdZoLA+S2cGXalNA==}
+
+  '@noeldemartin/utils@0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49':
+    resolution: {integrity: sha512-5J9Ph7FQWpo/4XKvd0QiiwjpjyIE5oxx+hUkJQ64FJohXNZ6F/OaeQ43nF92+QceQ5EIzAZ6HjfAAuYsCtd7bw==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3383,16 +3383,6 @@ snapshots:
 
   '@noeldemartin/scripts@0.4.0-next.388cd7d7c8829fedee5a85ae50a9fa182026af9f': {}
 
-  '@noeldemartin/solid-utils@0.6.1(web-streams-polyfill@3.3.3)':
-    dependencies:
-      '@noeldemartin/utils': 0.7.3
-      '@rdfjs/types': 2.0.1
-      jsonld: 8.3.3(web-streams-polyfill@3.3.3)
-      md5: 2.3.0
-      n3: 1.25.2
-    transitivePeerDependencies:
-      - web-streams-polyfill
-
   '@noeldemartin/solid-utils@0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.7.3
@@ -3414,6 +3404,10 @@ snapshots:
       idb: 8.0.3
 
   '@noeldemartin/utils@0.7.3-next.6f4d2e7b3d0149d46407283c64ac319497e20022':
+    dependencies:
+      idb: 8.0.3
+
+  '@noeldemartin/utils@0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49':
     dependencies:
       idb: 8.0.3
 

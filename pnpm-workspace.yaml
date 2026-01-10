@@ -5,8 +5,8 @@ catalog:
     '@arethetypeswrong/cli': ^0.17.4
     '@noeldemartin/faker': 7.6.0
     '@noeldemartin/scripts': next
-    '@noeldemartin/solid-utils': ^0.6.1
-    '@noeldemartin/utils': ^0.7.3
+    '@noeldemartin/solid-utils': next
+    '@noeldemartin/utils': next
     '@rdfjs/types': ^2.0.1
     eslint: ^8.57.1
     fake-indexeddb: ^6.0.0

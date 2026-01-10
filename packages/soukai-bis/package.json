@@ -22,8 +22,8 @@
         "verify": "noeldemartin-verify"
     },
     "dependencies": {
-        "@noeldemartin/solid-utils": "next",
-        "@noeldemartin/utils": "next",
+        "@noeldemartin/solid-utils": "catalog:",
+        "@noeldemartin/utils": "catalog:",
         "zod": "^4.3.4"
     },
     "devDependencies": {
