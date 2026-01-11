@@ -1,6 +1,5 @@
 import { object } from 'zod';
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
-import type { Constructor } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
 import type { NamedNode } from '@rdfjs/types';
 
@@ -13,7 +12,9 @@ export type Schema<T extends SchemaFields = SchemaFields> = {
     rdfDefaultResourceHash: string;
     rdfFieldProperties: Record<string, NamedNode>;
 };
-export type SchemaModel<T extends SchemaFields> = typeof Model & Constructor<z.infer<ZodObject<T>>>;
+export type SchemaModel<T extends SchemaFields> = Omit<typeof Model, 'new'> & {
+    new (attributes?: z.input<ZodObject<T>>): Model & z.infer<ZodObject<T>>;
+};
 export type SchemaFields = Record<string, ZodType>;
 
 export interface SchemaConfig<T extends SchemaFields> {
@@ -58,5 +59,5 @@ export function defineSchema<T extends SchemaFields>(config: SchemaConfig<T>): S
             ),
         };
     
-    } as SchemaModel<T>;
+    } as unknown as SchemaModel<T>;
 }

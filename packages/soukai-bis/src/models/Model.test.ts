@@ -41,4 +41,11 @@ describe('Model', () => {
         `);
     });
 
+    it('has typed constructors', () => {
+        expectTypeOf(User).toBeConstructibleWith({ name: 'John' });
+        expectTypeOf(User).toBeConstructibleWith({ name: 'John', age: 30 });
+        expectTypeOf({ name: 123 }).not.toExtend<ConstructorParameters<typeof User>[0]>();
+        expectTypeOf({ undefinedField: true }).not.toExtend<ConstructorParameters<typeof User>[0]>();
+    });
+
 });
