@@ -22,10 +22,12 @@
         "test:ci": "vitest --run --reporter verbose --retry=3",
         "verify": "noeldemartin-verify"
     },
+    "peerDependencies": {
+        "zod": "^4.3.4"
+    },
     "dependencies": {
         "@noeldemartin/solid-utils": "catalog:",
-        "@noeldemartin/utils": "catalog:",
-        "zod": "^4.3.4"
+        "@noeldemartin/utils": "catalog:"
     },
     "devDependencies": {
         "@arethetypeswrong/cli": "catalog:",
@@ -40,7 +42,8 @@
         "mermaid": "^11.12.2",
         "publint": "catalog:",
         "vitepress": "2.0.0-alpha.15",
-        "vitepress-plugin-mermaid": "^2.0.17"
+        "vitepress-plugin-mermaid": "^2.0.17",
+        "zod": "^4.3.4"
     },
     "eslintConfig": {
         "extends": [

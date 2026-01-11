@@ -132,9 +132,6 @@ importers:
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
-      zod:
-        specifier: ^4.3.4
-        version: 4.3.4
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 'catalog:'
@@ -175,6 +172,9 @@ importers:
       vitepress-plugin-mermaid:
         specifier: ^2.0.17
         version: 2.0.17(mermaid@11.12.2)(vitepress@2.0.0-alpha.15(@algolia/client-search@5.46.0)(@types/node@22.19.3)(postcss@8.5.6)(react@19.2.3)(search-insights@2.17.3)(typescript@5.9.3)(yaml@2.8.2))
+      zod:
+        specifier: ^4.3.4
+        version: 4.3.4
 
   packages/soukai-solid:
     dependencies:
