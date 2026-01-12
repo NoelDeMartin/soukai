@@ -1,22 +1,11 @@
-import { ZodArray, ZodDefault, ZodOptional, ZodURL } from 'zod';
+import { ZodArray, ZodURL } from 'zod';
 import { RDFLiteral, RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Object } from '@rdfjs/types';
 import type { SomeType } from 'zod/v4/core';
 
 import { RDF_TYPE } from 'soukai-bis/models/constants';
+import { getFinalType } from 'soukai-bis/zod/utils';
 import type Model from 'soukai-bis/models/Model';
-
-function getFinalType(type: SomeType): SomeType {
-    if (type instanceof ZodOptional) {
-        return getFinalType(type.def.innerType);
-    }
-
-    if (type instanceof ZodDefault) {
-        return getFinalType(type.def.innerType);
-    }
-
-    return type;
-}
 
 function castValue(value: unknown, type: SomeType): Quad_Object[] {
     const finalType = getFinalType(type);

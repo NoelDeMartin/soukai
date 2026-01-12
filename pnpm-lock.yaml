@@ -18,6 +18,9 @@ catalogs:
     '@noeldemartin/solid-utils':
       specifier: next
       version: 0.6.1-next.bf3a764266964fbc17b114eddb9cdb074e1dbef6
+    '@noeldemartin/testing':
+      specifier: next
+      version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19
     '@noeldemartin/utils':
       specifier: next
       version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
@@ -28,7 +31,7 @@ catalogs:
       specifier: ^8.57.1
       version: 8.57.1
     fake-indexeddb:
-      specifier: ^6.0.0
+      specifier: ^6.0.1
       version: 6.0.1
     publint:
       specifier: ^0.3.12
@@ -51,7 +54,7 @@ importers:
         specifier: 'catalog:'
         version: 0.4.0-next.388cd7d7c8829fedee5a85ae50a9fa182026af9f
       '@noeldemartin/testing':
-        specifier: next
+        specifier: 'catalog:'
         version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19(vitest@3.2.4(@types/node@22.19.3)(yaml@2.8.2))
       '@tsconfig/node22':
         specifier: ^22.0.0
@@ -132,6 +135,9 @@ importers:
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.74919477c961ac4f1cd3669b3c27a5ba69367d49
+      idb:
+        specifier: ^8.0.3
+        version: 8.0.3
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 'catalog:'
@@ -139,9 +145,15 @@ importers:
       '@braintree/sanitize-url':
         specifier: ^7.1.1
         version: 7.1.1
+      '@noeldemartin/faker':
+        specifier: 'catalog:'
+        version: 7.6.0
       '@noeldemartin/scripts':
         specifier: 'catalog:'
         version: 0.4.0-next.388cd7d7c8829fedee5a85ae50a9fa182026af9f
+      '@noeldemartin/testing':
+        specifier: 'catalog:'
+        version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19(vitest@3.2.4(@types/node@22.19.3)(yaml@2.8.2))
       '@rdfjs/types':
         specifier: 'catalog:'
         version: 2.0.1
@@ -160,6 +172,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 8.57.1
+      fake-indexeddb:
+        specifier: 'catalog:'
+        version: 6.0.1
       mermaid:
         specifier: ^11.12.2
         version: 11.12.2
