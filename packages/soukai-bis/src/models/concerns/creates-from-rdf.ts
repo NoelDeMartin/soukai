@@ -1,4 +1,5 @@
 import { RDFNamedNode, SolidStore } from '@noeldemartin/solid-utils';
+import { required } from '@noeldemartin/utils';
 import { ZodArray, ZodNumber } from 'zod';
 import type { Quad } from '@rdfjs/types';
 import type { SomeType } from 'zod/v4/core';
@@ -42,7 +43,7 @@ export function createFromRDF<T extends Model>(
             continue;
         }
 
-        attributes[field] = castValue(values[0].object.value, fieldType);
+        attributes[field] = castValue(required(values[0]).object.value, fieldType);
     }
 
     return modelClass.newInstance({ url, ...attributes }, true) as MintedModel<T>;

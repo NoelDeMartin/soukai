@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
 import User from 'soukai-bis/testing/stubs/User';
@@ -85,6 +85,27 @@ describe('Model', () => {
         });
     });
 
+    it('updates instances with dirty attributes', async () => {
+        // Arrange
+        const user = await User.create({ name: 'John Doe', age: 30 });
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+
+        // Act
+        await user.update({ name: 'Jane Doe' });
+
+        // Assert
+        expect(user.name).toBe('Jane Doe');
+        expect(engine.documents[user.url]).toEqualJsonLD({
+            '@context': 'http://xmlns.com/foaf/0.1/',
+            '@id': user.url,
+            '@type': 'Person',
+            'name': 'Jane Doe',
+            'age': 30,
+        });
+
+        expect(updateDocumentSpy).toHaveBeenCalledWith(user.url, expect.anything(), ['http://xmlns.com/foaf/0.1/name']);
+    });
+
     it('creates instances statically', async () => {
         const user = await User.create({ name: 'John Doe' });
 
@@ -142,6 +163,14 @@ describe('Model', () => {
         const user = await User.createFromJsonLD(jsonld);
 
         expect(user).toBeNull();
+    });
+
+    it('infers attribute types', () => {
+        // @ts-expect-error - name is missing
+        () => new User({});
+
+        // @ts-expect-error - foo is not a valid attribute
+        () => new User({ name: 'John Doe', foo: 'bar' });
     });
 
 });

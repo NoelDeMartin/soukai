@@ -2,11 +2,17 @@
     "extends": "@tsconfig/node22/tsconfig.json",
     "include": ["packages/*/src/**/*.ts"],
     "compilerOptions": {
-        "baseUrl": ".",
         "module": "ESNext",
         "moduleResolution": "Bundler",
         "lib": ["DOM"],
         "types": ["node"],
+
+        /* Linting */
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+
+        /* Paths */
+        "baseUrl": ".",
         "paths": {
             "soukai/*": ["./packages/soukai/src/*"],
             "soukai-solid/*": ["./packages/soukai-solid/src/*"]

@@ -5,7 +5,8 @@ import { faker } from '@noeldemartin/faker';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
-import { IndexedDBEngine } from './IndexedDBEngine';
+import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import IndexedDBEngine from './IndexedDBEngine';
 
 describe('IndexedDBEngine', () => {
 
@@ -51,6 +52,30 @@ describe('IndexedDBEngine', () => {
                 'http://xmlns.com/foaf/0.1/name': name,
             },
         });
+    });
+
+    it('fails creating documents when they already exist', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const name = faker.name.firstName();
+
+        await setDatabaseDocument(containerUrl, documentUrl, {
+            '@id': `${documentUrl}#it`,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': name,
+        });
+
+        // Act
+        const createDocument = () =>
+            engine.createDocument(documentUrl, {
+                '@id': `${documentUrl}#it`,
+                '@type': 'http://xmlns.com/foaf/0.1/Person',
+                'http://xmlns.com/foaf/0.1/name': name,
+            });
+
+        // Assert
+        await expect(createDocument).rejects.toBeInstanceOf(DocumentAlreadyExists);
     });
 
     it('updates documents', async () => {

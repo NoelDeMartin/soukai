@@ -63,7 +63,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                     transaction.store.put({
                         name: collection,
                         dropped: true,
-                        updates: (this._metadata?.[collection].updates ?? 1) + 1,
+                        updates: (this._metadata?.[collection]?.updates ?? 1) + 1,
                     });
                 });
 

@@ -1,9 +1,10 @@
 import { openDB } from 'idb';
-import { Semaphore, requireUrlParentDirectory } from '@noeldemartin/utils';
+import { Semaphore, reduceBy, requireUrlParentDirectory } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
-import type { Engine } from './Engine';
+import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import type Engine from './Engine';
 
 export interface LocalDocument {
     url: string;
@@ -26,7 +27,7 @@ interface MetadataSchema extends DBSchema {
     };
 }
 
-export class IndexedDBEngine implements Engine {
+export default class IndexedDBEngine implements Engine {
 
     private database: string;
     private metadataConnection: Promise<IDBPDatabase<MetadataSchema>> | null = null;
@@ -54,7 +55,11 @@ export class IndexedDBEngine implements Engine {
         await this.lock.run(async () => {
             const containerUrl = requireUrlParentDirectory(url);
 
-            await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
+            await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+                if (await transaction.store.get(url)) {
+                    throw new DocumentAlreadyExists(url);
+                }
+
                 return transaction.store.add({ url, graph });
             });
         });
@@ -84,14 +89,7 @@ export class IndexedDBEngine implements Engine {
                 return transaction.store.getAll();
             });
 
-            return documents.reduce(
-                (graph, document) => {
-                    graph[document.url] = document.graph;
-
-                    return graph;
-                },
-                {} as Record<string, JsonLD>,
-            );
+            return reduceBy(documents, 'url', (document) => document.graph);
         });
     }
 

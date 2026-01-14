@@ -1,14 +1,15 @@
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
-import type { Engine } from './Engine';
+import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import type Engine from './Engine';
 
-export class InMemoryEngine implements Engine {
+export default class InMemoryEngine implements Engine {
 
     public documents: Record<string, JsonLD> = {};
 
     public async createDocument(url: string, graph: JsonLD): Promise<void> {
         if (url in this.documents) {
-            throw new Error(`Document already exists: ${url}`);
+            throw new DocumentAlreadyExists(url);
         }
 
         this.documents[url] = graph;

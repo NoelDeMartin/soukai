@@ -313,11 +313,11 @@ describe('SolidContainer', () => {
         // Assert
         expect(container).not.toBeNull();
         expect(container?.resources).toHaveLength(2);
-        expect(container?.resources[0].types).toEqual([
+        expect(container?.resources?.[0]?.types).toEqual([
             'http://www.w3.org/ns/ldp#Resource',
             'http://www.w3.org/ns/iana/media-types/text/turtle#Resource',
         ]);
-        expect(container?.resources[1].types).toEqual([
+        expect(container?.resources?.[1]?.types).toEqual([
             'http://www.w3.org/ns/ldp#Resource',
             'http://www.w3.org/ns/iana/media-types/image/png#Resource',
         ]);

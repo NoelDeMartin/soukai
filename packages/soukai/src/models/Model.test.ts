@@ -508,7 +508,7 @@ describe('Models CRUD', () => {
         const model = await User.create(attributes);
 
         // Assert
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         expect(model).toBeInstanceOf(User);
         expect(model.exists()).toBe(true);
@@ -543,7 +543,7 @@ describe('Models CRUD', () => {
         await model.save();
 
         // Assert
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         expect(model).toBeInstanceOf(User);
         expect(model.exists()).toBe(true);
@@ -712,7 +712,7 @@ describe('Models CRUD', () => {
         await model.update({ name: newName });
 
         // Assert
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         expect(model).toBeInstanceOf(User);
         expect(model.id).toBe(id);
@@ -746,7 +746,7 @@ describe('Models CRUD', () => {
         const newName = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
         await after({ ms: 100 });
@@ -775,7 +775,7 @@ describe('Models CRUD', () => {
         const name = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name, surname: faker.name.lastName() });
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
         await after({ ms: 100 });
@@ -803,7 +803,7 @@ describe('Models CRUD', () => {
         // Arrange
         const name = faker.name.firstName();
         const model = await User.create({ name });
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
         await model.delete();
@@ -1121,7 +1121,7 @@ describe('Model attributes', () => {
         const newName = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
         await after({ ms: 100 });
@@ -1150,7 +1150,7 @@ describe('Model attributes', () => {
         const name = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name, surname: faker.name.lastName() });
-        const id = Object.keys(FakeEngine.database[User.collection])[0];
+        const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
         await after({ ms: 100 });
@@ -1280,11 +1280,11 @@ describe('Model attributes', () => {
         // Assert
         const freshModel = await model.fresh();
         const [freshCollectionModel] = await StubModel.all();
-        const freshDocument = FakeEngine.database[StubModel.collection][model.id];
+        const freshDocument = FakeEngine.database[StubModel.collection]?.[model.id];
 
         expect(freshModel.getAttribute('name')).toEqual('john doe');
-        expect(freshCollectionModel.getAttribute('name')).toEqual('john doe');
-        expect(freshDocument.name).toEqual('JOHN DOE');
+        expect(freshCollectionModel?.getAttribute('name')).toEqual('john doe');
+        expect(freshDocument?.name).toEqual('JOHN DOE');
     });
 
 });

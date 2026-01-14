@@ -80,7 +80,10 @@ export default class OperationsRelation<Parent extends SolidModel = SolidModel> 
         const foreignFields = this.relatedClass.fields as unknown as SolidBootedFieldsDefinition;
         const foreignProperty =
             foreignFields[this.foreignKeyName]?.rdfProperty ??
-            fail(SoukaiError, `Field '${this.foreignKeyName}' does not exist in ${this.relatedClass.modelName} model.`);
+            fail<string>(
+                SoukaiError,
+                `Field '${this.foreignKeyName}' does not exist in ${this.relatedClass.modelName} model.`,
+            );
         const reducedDocument = RDFDocument.reduceJsonLDGraph(document, this.parent.url) as EngineDocument;
         const resources = document['@graph'].filter((resource) => {
             const property = RDF.getJsonLDProperty(resource, foreignProperty);

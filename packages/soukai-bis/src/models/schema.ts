@@ -1,7 +1,11 @@
 import { object, url } from 'zod';
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
-import type { ZodObject, ZodType, z } from 'zod';
+import type { JsonLD } from '@noeldemartin/solid-utils';
 import type { NamedNode } from '@rdfjs/types';
+import type { Override } from '@noeldemartin/utils';
+import type { ZodObject, ZodType, z } from 'zod';
+
+import type { MintedModel, ModelInstanceType } from 'soukai-bis/models/types';
 
 import Model from './Model';
 
@@ -10,12 +14,28 @@ export type Schema<T extends SchemaFields = SchemaFields> = {
     rdfContext: { default: string } & Record<string, string>;
     rdfClasses: NamedNode[];
     rdfDefaultResourceHash: string;
-    rdfFieldProperties: Record<string, NamedNode>;
+    rdfFieldProperties: Record<keyof T, NamedNode>;
 };
 
-export type SchemaModel<T extends SchemaFields = SchemaFields> = Omit<typeof Model, 'new'> & {
-    new (attributes?: z.input<ZodObject<T>> & { url?: string }, exists?: boolean): Model & z.infer<ZodObject<T>>;
-};
+export type SchemaModelInput<T extends SchemaFields = SchemaFields> = z.input<ZodObject<T>> & { url?: string };
+export type SchemaModelAttributes<T extends SchemaFields = SchemaFields> = z.infer<ZodObject<T>> & { url?: string };
+
+export type SchemaModel<T extends SchemaFields = SchemaFields> = Model<SchemaModelAttributes<T>> &
+    z.infer<ZodObject<T>>;
+
+export type SchemaModelClass<T extends SchemaFields = SchemaFields> = Override<
+    typeof Model,
+    {
+        new (attributes?: SchemaModelInput<T>, exists?: boolean): SchemaModel<T>;
+        newInstance<This>(this: This, attributes?: SchemaModelInput<T>, exists?: boolean): ModelInstanceType<This>;
+        create<This>(this: This, attributes?: SchemaModelInput<T>): Promise<MintedModel<ModelInstanceType<This>>>;
+        createFromJsonLD<This>(
+            this: This,
+            json: JsonLD,
+            options?: { url?: string }
+        ): Promise<MintedModel<ModelInstanceType<This>> | null>;
+    }
+>;
 
 export type SchemaFields = Record<string, ZodType>;
 
@@ -28,11 +48,11 @@ export interface SchemaConfig<T extends SchemaFields> {
     relations?: Record<string, unknown>;
 }
 
-export function defineSchema<T extends SchemaFields>(config: SchemaConfig<T>): SchemaModel<T> {
+export function defineSchema<T extends SchemaFields>(config: SchemaConfig<T>): SchemaModelClass<T> {
     const rdfContext = config.rdfContext ? { default: config.rdfContext } : { default: 'solid' };
     const { default: defaultPrefix, ...extraContext } = rdfContext;
 
-    return class extends Model {
+    return class extends Model<SchemaModelAttributes<T>> {
 
         public static schema = {
             fields: object(config.fields).extend({ url: url().optional() }) as unknown as ZodObject,
@@ -61,5 +81,5 @@ export function defineSchema<T extends SchemaFields>(config: SchemaConfig<T>): S
             ),
         };
     
-    } as unknown as SchemaModel<T>;
+    } as unknown as SchemaModelClass<T>;
 }

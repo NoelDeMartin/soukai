@@ -1,8 +1,9 @@
-import { MagicObject, fail, stringToCamelCase, uuid } from '@noeldemartin/utils';
+import { MagicObject, fail, objectOnly, stringToCamelCase, uuid } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import type { NamedNode } from '@rdfjs/types';
 
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { requireEngine } from 'soukai-bis/engines/state';
 import { RDF_TYPE } from './constants';
 import { createFromRDF } from './concerns/creates-from-rdf';
@@ -10,7 +11,10 @@ import { serializeToRDF } from './concerns/serializes-to-rdf';
 import type { Schema } from './schema';
 import type { BootedModelClass, MintedModel, ModelConstructor } from './types';
 
-export default class Model extends MagicObject {
+export default class Model<
+    Attributes extends Record<string, unknown> = Record<string, unknown>,
+    Field extends string = Exclude<keyof Attributes, number | symbol>,
+> extends MagicObject {
 
     public static schema: Schema;
     protected static _collection?: string;
@@ -27,7 +31,7 @@ export default class Model extends MagicObject {
 
     public static boot<T extends typeof Model>(this: T, name?: string): void {
         if (this.__booted) {
-            throw new Error(`${this.name} model already booted`);
+            throw new SoukaiError(`${this.name} model already booted`);
         }
 
         this._modelName ??= name ?? this.name;
@@ -109,22 +113,32 @@ export default class Model extends MagicObject {
 
     declare public url?: string;
     private __exists: boolean = false;
-    private __attributes: Record<string, unknown>;
+    private __attributes: Attributes;
+    private __dirtyAttributes: Set<Field> = new Set();
 
     public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
         super();
 
         if (this.static().isConjuring()) {
-            this.__attributes = {};
+            this.__attributes = {} as unknown as Attributes;
 
             return;
         }
+
         this.__exists = exists;
-        this.__attributes = this.static().schema.fields.parse(attributes);
+        this.__attributes = this.parseAttributes(attributes);
     }
 
-    public getAttributes(): Record<string, unknown> {
+    public getAttributes(): Attributes {
         return this.__attributes;
+    }
+
+    public isDirty(field?: Field): boolean {
+        if (field) {
+            return this.__dirtyAttributes.has(field);
+        }
+
+        return this.__dirtyAttributes.size > 0;
     }
 
     public exists(): boolean {
@@ -140,13 +154,33 @@ export default class Model extends MagicObject {
 
         const graph = await this.toJsonLD();
 
-        this.__exists
-            ? await requireEngine().updateDocument(this.url, graph)
-            : await requireEngine().createDocument(this.url, graph);
+        if (this.__exists) {
+            const dirtyProperties = Array.from(this.__dirtyAttributes)
+                .map((attribute) => this.static().schema.rdfFieldProperties[attribute]?.value)
+                .filter((property): property is string => !!property);
 
-        this.__exists = true;
+            await requireEngine().updateDocument(this.url, graph, dirtyProperties);
+        } else {
+            await requireEngine().createDocument(this.url, graph);
+
+            this.__exists = true;
+        }
+
+        this.__dirtyAttributes.clear();
 
         return this as MintedModel<this>;
+    }
+
+    public update(attributes: Partial<Attributes>): Promise<MintedModel<this>> {
+        const updateSchemas = objectOnly(this.static().schema.fields.def.shape, Object.keys(attributes));
+        const parsedAttributes = Object.fromEntries(
+            Object.entries(updateSchemas).map(([field, fieldSchema]) => [field, fieldSchema.parse(attributes[field])]),
+        );
+
+        Object.assign(this.__attributes, parsedAttributes);
+        Object.keys(parsedAttributes).forEach((field) => this.__dirtyAttributes.add(field as Field));
+
+        return this.save();
     }
 
     public async toJsonLD(): Promise<JsonLD> {
@@ -161,8 +195,29 @@ export default class Model extends MagicObject {
         return this.__attributes[property];
     }
 
+    protected __set(property: string, value: unknown): void {
+        if (!this.isField(property)) {
+            return;
+        }
+
+        this.__attributes[property] = this.parseAttribute(property, value);
+        this.__dirtyAttributes.add(property);
+    }
+
     protected mintUrl(): string {
         return `${this.static().collection}${uuid()}`;
+    }
+
+    private parseAttribute<T extends Field>(field: T, value: unknown): Attributes[T] {
+        return this.static().schema.fields.def.shape[field]?.parse(value) as Attributes[T];
+    }
+
+    private parseAttributes(values: unknown): Attributes {
+        return this.static().schema.fields.parse(values) as Attributes;
+    }
+
+    private isField(property: string): property is Field {
+        return property in this.static().schema.fields.def.shape;
     }
 
 }

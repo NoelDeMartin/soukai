@@ -33,8 +33,15 @@ export function serializeToRDF(model: Model): Quad[] {
     }
 
     for (const [field, value] of Object.entries(model.getAttributes())) {
-        for (const object of castValue(value, fields.def.shape[field])) {
-            statements.push(new RDFQuad(subject, rdfFieldProperties[field], object));
+        const fieldDefinition = fields.def.shape[field];
+        const predicate = rdfFieldProperties[field];
+
+        if (!fieldDefinition || !predicate) {
+            continue;
+        }
+
+        for (const object of castValue(value, fieldDefinition)) {
+            statements.push(new RDFQuad(subject, predicate, object));
         }
     }
 

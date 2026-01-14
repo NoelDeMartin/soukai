@@ -2554,11 +2554,11 @@ describe('SolidModel', () => {
         expect(versionB.actions).toHaveLength(1);
         expect(versionA.actions?.[0]).toBeInstanceOf(WatchAction);
         expect(versionB.actions?.[0]).toBeInstanceOf(WatchAction);
-        expect(versionA.actions?.[0].show).toBeUndefined();
-        expect(versionB.actions?.[0].show).toBeUndefined();
-        expect(versionA.actions?.[0].movie).toBe(versionA);
-        expect(versionA.actions?.[0].exists()).toBe(true);
-        expect(versionB.actions?.[0].exists()).toBe(false);
+        expect(versionA.actions?.[0]?.show).toBeUndefined();
+        expect(versionB.actions?.[0]?.show).toBeUndefined();
+        expect(versionA.actions?.[0]?.movie).toBe(versionA);
+        expect(versionA.actions?.[0]?.exists()).toBe(true);
+        expect(versionB.actions?.[0]?.exists()).toBe(false);
     });
 
     it('History tracking for new arrays uses add operation', async () => {
@@ -2652,15 +2652,17 @@ describe('SolidModel', () => {
         // Assert
         const freshModel = await model.fresh();
         const [freshCollectionModel] = await StubModel.all();
-        const freshDocument = FakeSolidEngine.database[StubModel.collection][model.requireDocumentUrl()] as JsonLDGraph;
+        const freshDocument = FakeSolidEngine.database[StubModel.collection]?.[
+            model.requireDocumentUrl()
+        ] as JsonLDGraph;
 
         expect(freshModel.getAttribute('name')).toEqual('alice doe');
-        expect(freshCollectionModel.getAttribute('name')).toEqual('alice doe');
+        expect(freshCollectionModel?.getAttribute('name')).toEqual('alice doe');
         expect(freshModel.operations).toHaveLength(2);
         expect((freshModel.operations[0] as SetPropertyOperation).value).toBe('JOHN DOE');
         expect((freshModel.operations[1] as SetPropertyOperation).value).toBe('ALICE DOE');
 
-        expect(freshDocument['@graph'][0]['https://schema.org/name']).toEqual('ALICE DOE');
+        expect(freshDocument['@graph'][0]?.['https://schema.org/name']).toEqual('ALICE DOE');
     });
 
     it('gets related models', () => {
