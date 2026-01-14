@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
-import type { JsonLDGraph } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 
@@ -124,7 +123,9 @@ describe('SolidEngine', () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
         const firstDocumentUrl = fakeDocumentUrl();
+        const firstDocumentResource = fakeResourceUrl({ documentUrl: firstDocumentUrl });
         const secondDocumentUrl = fakeDocumentUrl();
+        const secondDocumentResource = fakeResourceUrl({ documentUrl: secondDocumentUrl });
         const containerDocumentUrl = fakeContainerUrl();
         const firstName = faker.name.firstName();
         const secondName = faker.name.firstName();
@@ -145,7 +146,7 @@ describe('SolidEngine', () => {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
                 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
-                <${firstDocumentUrl}>
+                <${firstDocumentResource}>
                     rdf:type foaf:Person ;
                     foaf:name "${firstName}" .
             `,
@@ -157,7 +158,7 @@ describe('SolidEngine', () => {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
                 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
-                <${secondDocumentUrl}>
+                <${secondDocumentResource}>
                     rdf:type foaf:Person ;
                     foaf:name "${secondName}" .
             `,
@@ -178,31 +179,21 @@ describe('SolidEngine', () => {
         const documents = await engine.readManyDocuments(containerUrl);
 
         // Assert
+        expect(Object.keys(documents)).toHaveLength(2);
         expect(documents).toHaveProperty(firstDocumentUrl);
         expect(documents).toHaveProperty(secondDocumentUrl);
-        expect(documents).not.toHaveProperty(containerDocumentUrl);
 
-        const firstDocument = documents[firstDocumentUrl];
-        const firstDocumentGraph = firstDocument as JsonLDGraph;
-        const firstDocumentNode = firstDocumentGraph['@graph'].find((node) => node['@id'] === firstDocumentUrl);
+        await expect(documents[firstDocumentUrl]).toEqualJsonLD({
+            '@id': firstDocumentResource,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': firstName,
+        });
 
-        expect(firstDocumentNode).toEqual(
-            expect.objectContaining({
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                'http://xmlns.com/foaf/0.1/name': firstName,
-            }),
-        );
-
-        const secondDocument = documents[secondDocumentUrl];
-        const secondDocumentGraph = secondDocument as JsonLDGraph;
-        const secondDocumentNode = secondDocumentGraph['@graph'].find((node) => node['@id'] === secondDocumentUrl);
-
-        expect(secondDocumentNode).toEqual(
-            expect.objectContaining({
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                'http://xmlns.com/foaf/0.1/name': secondName,
-            }),
-        );
+        await expect(documents[secondDocumentUrl]).toEqualJsonLD({
+            '@id': secondDocumentResource,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': secondName,
+        });
     });
 
     it('updates documents', async () => {
