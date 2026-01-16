@@ -110,4 +110,27 @@ describe('Solid CRUD', () => {
         expect(user?.age).toEqual(age);
     });
 
+    it('Deletes models', async () => {
+        // Arrange
+        const name = faker.name.firstName();
+        const age = faker.datatype.number({ min: 18, max: 99 });
+        const documentUrl = fakeDocumentUrl();
+        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
+
+        FakeServer.respondOnce(documentUrl, FakeResponse.success()); // DELETE document
+
+        // Act
+        await user.delete();
+
+        // Assert
+        expect(user.exists()).toBe(false);
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
+        expect(FakeServer.fetch).toHaveBeenCalledWith(
+            documentUrl,
+            expect.objectContaining({
+                method: 'DELETE',
+            }),
+        );
+    });
+
 });

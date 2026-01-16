@@ -78,4 +78,8 @@ export default class SolidEngine implements Engine {
         return documents;
     }
 
+    public async deleteDocument(url: string): Promise<void> {
+        await this.client.delete(url);
+    }
+
 }

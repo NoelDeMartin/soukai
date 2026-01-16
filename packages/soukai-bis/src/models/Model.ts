@@ -178,6 +178,20 @@ export default class Model<
         this.__exists = exists;
     }
 
+    public async delete(): Promise<this> {
+        if (!this.exists()) {
+            return this;
+        }
+
+        const engine = requireEngine();
+
+        await engine.deleteDocument(this.requireDocumentUrl());
+
+        this.setExists(false);
+
+        return this;
+    }
+
     public async save(): Promise<MintedModel<this>> {
         this.url ??= this.mintUrl();
 

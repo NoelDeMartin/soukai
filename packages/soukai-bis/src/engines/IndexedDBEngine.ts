@@ -117,6 +117,20 @@ export default class IndexedDBEngine implements Engine {
         });
     }
 
+    public async deleteDocument(url: string): Promise<void> {
+        await this.lock.run(async () => {
+            const containerUrl = requireUrlParentDirectory(url);
+
+            if (!(await this.collectionExists(containerUrl))) {
+                return;
+            }
+
+            await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+                return transaction.store.delete(url);
+            });
+        });
+    }
+
     public async close(): Promise<void> {
         if (this.metadataConnection) {
             (await this.metadataConnection).close();

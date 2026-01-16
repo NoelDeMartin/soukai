@@ -7,4 +7,5 @@ export default interface Engine {
     updateDocument(url: string, operations: Operation[]): Promise<void>;
     readOneDocument(url: string): Promise<JsonLD>;
     readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>>;
+    deleteDocument(url: string): Promise<void>;
 }

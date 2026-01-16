@@ -54,4 +54,8 @@ export default class InMemoryEngine implements Engine {
         return documents;
     }
 
+    public async deleteDocument(url: string): Promise<void> {
+        delete this.documents[url];
+    }
+
 }

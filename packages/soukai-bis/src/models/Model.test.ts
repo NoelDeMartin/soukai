@@ -177,6 +177,15 @@ describe('Model', () => {
         expect(user).toBeNull();
     });
 
+    it('deletes instances', async () => {
+        const user = await User.create({ name: 'John Doe' });
+
+        await user.delete();
+
+        expect(user.exists()).toBe(false);
+        expect(engine.documents[user.url]).toBeUndefined();
+    });
+
     it('infers attribute types', () => {
         // @ts-expect-error - name is missing
         () => new User({});
