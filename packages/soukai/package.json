@@ -37,6 +37,7 @@
         "@noeldemartin/scripts": "catalog:",
         "eslint": "catalog:",
         "fake-indexeddb": "catalog:",
+        "prettier-eslint-cli": "^8.0.1",
         "publint": "catalog:"
     },
     "eslintConfig": {

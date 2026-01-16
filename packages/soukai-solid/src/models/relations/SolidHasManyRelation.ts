@@ -19,13 +19,13 @@ export default interface SolidHasManyRelation<
     Parent extends SolidModel = SolidModel,
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-> extends SolidMultiModelDocumentRelation<Parent, Related, RelatedClass>,
-        SolidHasRelation {}
+>
+    extends SolidMultiModelDocumentRelation<Parent, Related, RelatedClass>, SolidHasRelation {}
 export default class SolidHasManyRelation<
-        Parent extends SolidModel = SolidModel,
-        Related extends SolidModel = SolidModel,
-        RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-    >
+    Parent extends SolidModel = SolidModel,
+    Related extends SolidModel = SolidModel,
+    RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
+>
     extends SolidHasManyRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation
 {

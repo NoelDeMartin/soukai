@@ -42,7 +42,7 @@ export default class RemovePropertyOperation extends Model {
             public castAttribute<T>(value: T, options: ModelCastAttributeOptions = {}): T {
                 return super.castAttribute(value, options) as T;
             }
-
+        
         };
         const casterInstance = CasterClass.pureInstance();
 

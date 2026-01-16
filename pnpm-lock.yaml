@@ -123,6 +123,9 @@ importers:
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.5
+      prettier-eslint-cli:
+        specifier: ^8.0.1
+        version: 8.0.1(prettier-eslint@16.4.2(typescript@5.9.3))(typescript@5.9.3)
       publint:
         specifier: 'catalog:'
         version: 0.3.16
@@ -178,6 +181,9 @@ importers:
       mermaid:
         specifier: ^11.12.2
         version: 11.12.2
+      prettier-eslint-cli:
+        specifier: ^8.0.1
+        version: 8.0.1(prettier-eslint@16.4.2(typescript@5.9.3))(typescript@5.9.3)
       publint:
         specifier: 'catalog:'
         version: 0.3.16
@@ -221,6 +227,9 @@ importers:
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.5
+      prettier-eslint-cli:
+        specifier: ^8.0.1
+        version: 8.0.1(prettier-eslint@16.4.2(typescript@5.9.3))(typescript@5.9.3)
       publint:
         specifier: 'catalog:'
         version: 0.3.16

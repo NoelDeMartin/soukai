@@ -33,13 +33,13 @@ export default interface SolidBelongsToManyRelation<
     Parent extends SolidModel = SolidModel,
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-> extends SolidMultiModelDocumentRelation<Parent, Related, RelatedClass>,
-        SolidBelongsToRelation {}
+>
+    extends SolidMultiModelDocumentRelation<Parent, Related, RelatedClass>, SolidBelongsToRelation {}
 export default class SolidBelongsToManyRelation<
-        Parent extends SolidModel = SolidModel,
-        Related extends SolidModel = SolidModel,
-        RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-    >
+    Parent extends SolidModel = SolidModel,
+    Related extends SolidModel = SolidModel,
+    RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
+>
     extends SolidBelongsToManyRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation, SynchronizesRelatedModels
 {

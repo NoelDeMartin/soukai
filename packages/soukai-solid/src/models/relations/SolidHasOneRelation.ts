@@ -19,13 +19,13 @@ export default interface SolidHasOneRelation<
     Parent extends SolidModel = SolidModel,
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-> extends SolidSingleModelDocumentRelation<Parent, Related, RelatedClass>,
-        SolidHasRelation {}
+>
+    extends SolidSingleModelDocumentRelation<Parent, Related, RelatedClass>, SolidHasRelation {}
 export default class SolidHasOneRelation<
-        Parent extends SolidModel = SolidModel,
-        Related extends SolidModel = SolidModel,
-        RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-    >
+    Parent extends SolidModel = SolidModel,
+    Related extends SolidModel = SolidModel,
+    RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
+>
     extends SolidHasOneRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation
 {

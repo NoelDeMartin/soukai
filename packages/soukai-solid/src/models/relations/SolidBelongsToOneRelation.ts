@@ -19,13 +19,13 @@ export default interface SolidBelongsToOneRelation<
     Parent extends SolidModel = SolidModel,
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-> extends SolidSingleModelDocumentRelation<Parent, Related, RelatedClass>,
-        SolidBelongsToRelation {}
+>
+    extends SolidSingleModelDocumentRelation<Parent, Related, RelatedClass>, SolidBelongsToRelation {}
 export default class SolidBelongsToOneRelation<
-        Parent extends SolidModel = SolidModel,
-        Related extends SolidModel = SolidModel,
-        RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-    >
+    Parent extends SolidModel = SolidModel,
+    Related extends SolidModel = SolidModel,
+    RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
+>
     extends SolidBelongsToOneRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation, SynchronizesRelatedModels
 {

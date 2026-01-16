@@ -9,10 +9,10 @@ import type { JsonLDGraph } from '@noeldemartin/solid-utils';
 import type { DocumentContainsRelation } from 'soukai-solid/models/relations/DocumentContainsRelation';
 
 export default class DocumentContainsManyRelation<
-        Parent extends SolidModel = SolidModel,
-        Related extends SolidModel = SolidModel,
-        RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
-    >
+    Parent extends SolidModel = SolidModel,
+    Related extends SolidModel = SolidModel,
+    RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
+>
     extends MultiModelRelation<Parent, Related, RelatedClass>
     implements DocumentContainsRelation
 {

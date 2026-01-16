@@ -44,6 +44,7 @@
         "eslint": "catalog:",
         "fake-indexeddb": "catalog:",
         "mermaid": "^11.12.2",
+        "prettier-eslint-cli": "^8.0.1",
         "publint": "catalog:",
         "vitepress": "2.0.0-alpha.15",
         "vitepress-plugin-mermaid": "^2.0.17",

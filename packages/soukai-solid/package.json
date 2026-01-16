@@ -36,6 +36,7 @@
         "dayjs": "^1.11.13",
         "eslint": "catalog:",
         "fake-indexeddb": "catalog:",
+        "prettier-eslint-cli": "^8.0.1",
         "publint": "catalog:",
         "soukai": "workspace:*"
     },
