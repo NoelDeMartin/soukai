@@ -11,8 +11,8 @@ import {
 } from '@noeldemartin/utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import {
-    NetworkRequestError,
-    UnsuccessfulNetworkRequestError,
+    NetworkRequestFailed,
+    UnsuccessfulNetworkRequest,
     quadsToJsonLD,
     turtleToQuads,
 } from '@noeldemartin/solid-utils';
@@ -72,7 +72,7 @@ export default class SolidClient {
             } catch (error) {
                 const url = typeof input === 'object' ? input.url : input;
 
-                throw new NetworkRequestError(url, { cause: error });
+                throw new NetworkRequestFailed(url, { cause: error });
             }
         };
         this.config = {
@@ -662,7 +662,7 @@ export default class SolidClient {
             return;
         }
 
-        throw new UnsuccessfulNetworkRequestError(errorMessage, response);
+        throw new UnsuccessfulNetworkRequest(errorMessage, response);
     }
 
     private isInternalErrorResponse(response: Response): boolean {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { MalformedSolidDocumentError } from '@noeldemartin/solid-utils';
+import { MalformedSolidDocument } from '@noeldemartin/solid-utils';
 import { faker } from '@noeldemartin/faker';
 import { range, stringToSlug, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 import type { Tuple } from '@noeldemartin/utils';
@@ -836,7 +836,7 @@ describe('SolidClient', () => {
 
     it('handles malformed document errors', async () => {
         // Arrange
-        let error!: MalformedSolidDocumentError;
+        let error!: MalformedSolidDocument;
         const url = fakeDocumentUrl();
 
         FakeServer.respondOnce(url, FakeResponse.success('this is not turtle'));
@@ -845,17 +845,17 @@ describe('SolidClient', () => {
         try {
             await client.getDocument(url);
         } catch (e) {
-            error = e as MalformedSolidDocumentError;
+            error = e as MalformedSolidDocument;
         }
 
         // Assert
-        expect(error).toBeInstanceOf(MalformedSolidDocumentError);
+        expect(error).toBeInstanceOf(MalformedSolidDocument);
         expect(error.message).toEqual(`Malformed Turtle document found at ${url} - Unexpected "this" on line 1.`);
     });
 
     it('handles malformed document errors reading containers', async () => {
         // Arrange
-        let error!: MalformedSolidDocumentError;
+        let error!: MalformedSolidDocument;
         const containerUrl = fakeContainerUrl();
 
         FakeServer.respondOnce(containerUrl, FakeResponse.success('this is not turtle'));
@@ -864,11 +864,11 @@ describe('SolidClient', () => {
         try {
             await client.getDocuments(containerUrl);
         } catch (e) {
-            error = e as MalformedSolidDocumentError;
+            error = e as MalformedSolidDocument;
         }
 
         // Assert
-        expect(error).toBeInstanceOf(MalformedSolidDocumentError);
+        expect(error).toBeInstanceOf(MalformedSolidDocument);
         expect(error.message).toEqual(
             `Malformed Turtle document found at ${containerUrl} - Unexpected "this" on line 1.`,
         );
