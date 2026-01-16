@@ -17,7 +17,7 @@ catalogs:
       version: 0.4.0-next.2da6eab8f3c6dbb77ce708fac551334bddd474db
     '@noeldemartin/solid-utils':
       specifier: next
-      version: 0.6.1-next.dc1bb46c448b670138966468e45636942b1cba89
+      version: 0.6.1-next.bce9c3914b45f6ed95ab57e003359da6d5977705
     '@noeldemartin/testing':
       specifier: next
       version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19
@@ -134,7 +134,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.dc1bb46c448b670138966468e45636942b1cba89(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.bce9c3914b45f6ed95ab57e003359da6d5977705(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
@@ -201,7 +201,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.dc1bb46c448b670138966468e45636942b1cba89(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.bce9c3914b45f6ed95ab57e003359da6d5977705(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
@@ -1075,8 +1075,8 @@ packages:
     resolution: {integrity: sha512-g5Ltn/WVPV8Op/ESMCrTAx2TaA05zlyntjxj+pgp8B+OYlP+xJrnFtjTC0q4tnEy15Qf52tOLVp2q39t0KPbbg==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.1-next.dc1bb46c448b670138966468e45636942b1cba89':
-    resolution: {integrity: sha512-+dVbjuDL3dGEiZiA7wPTD0nclxiR2+b6us1svV52oxAycehB8yts2GQEIybZBF2LOBCCI53X9/zZvSAo7hmbZQ==}
+  '@noeldemartin/solid-utils@0.6.1-next.bce9c3914b45f6ed95ab57e003359da6d5977705':
+    resolution: {integrity: sha512-GpdGCfHD9RKY7RGY67QABljcqaequecSKjfvfC6L+REaHadsFx2a9W45lX7fgfXq0DUpNl2+cX2xFJgDMAcoUQ==}
 
   '@noeldemartin/testing@0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19':
     resolution: {integrity: sha512-5moMGAYgqCnHWfbxgkgNjoaYhc6nvtqN7etPP+B76fyZVWWRLK+BOKKcwCXUd2ctD2N7lu9baa7M9qoN8oHEKg==}
@@ -4503,7 +4503,7 @@ snapshots:
 
   '@noeldemartin/scripts@0.4.0-next.2da6eab8f3c6dbb77ce708fac551334bddd474db': {}
 
-  '@noeldemartin/solid-utils@0.6.1-next.dc1bb46c448b670138966468e45636942b1cba89(web-streams-polyfill@3.3.3)':
+  '@noeldemartin/solid-utils@0.6.1-next.bce9c3914b45f6ed95ab57e003359da6d5977705(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.7.3
       '@rdfjs/types': 2.0.1

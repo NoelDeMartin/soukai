@@ -2,6 +2,7 @@ import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToJsonLD, quadsToTurtle 
 import type { Fetch, JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, RDF_TYPE } from 'soukai-bis/models/constants';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
@@ -27,7 +28,12 @@ export default class SolidEngine implements Engine {
     }
 
     public async updateDocument(url: string, operations: Operation[]): Promise<void> {
-        const document = await this.client.read(url);
+        const document = await this.client.readIfFound(url);
+
+        if (!document) {
+            throw new DocumentNotFound(url);
+        }
+
         const sparql = new SparqlUpdate(document);
 
         for (const operation of operations) {
@@ -35,6 +41,16 @@ export default class SolidEngine implements Engine {
         }
 
         await this.client.update(url, sparql);
+    }
+
+    public async readOneDocument(url: string): Promise<JsonLD> {
+        const document = await this.client.readIfFound(url);
+
+        if (!document) {
+            throw new DocumentNotFound(url);
+        }
+
+        return quadsToJsonLD(document.getQuads());
     }
 
     public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {

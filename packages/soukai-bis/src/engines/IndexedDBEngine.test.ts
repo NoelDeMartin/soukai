@@ -147,6 +147,26 @@ describe('IndexedDBEngine', () => {
         });
     });
 
+    it('reads one document', async () => {
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const name = faker.name.firstName();
+
+        await setDatabaseDocument(containerUrl, documentUrl, {
+            '@id': `${documentUrl}#it`,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': name,
+        });
+
+        const document = await engine.readOneDocument(documentUrl);
+
+        expect(document).toEqual({
+            '@id': `${documentUrl}#it`,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': name,
+        });
+    });
+
     async function resetDatabase(): Promise<void> {
         await initMetaDatabase();
     }

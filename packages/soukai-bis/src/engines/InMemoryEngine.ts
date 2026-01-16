@@ -1,7 +1,9 @@
+import { fail } from '@noeldemartin/utils';
 import { jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import type Engine from './Engine';
@@ -22,7 +24,7 @@ export default class InMemoryEngine implements Engine {
         const document = this.documents[url];
 
         if (!document) {
-            return;
+            throw new DocumentNotFound(url);
         }
 
         let quads = await jsonldToQuads(document);
@@ -32,6 +34,10 @@ export default class InMemoryEngine implements Engine {
         }
 
         this.documents[url] = await quadsToJsonLD(quads);
+    }
+
+    public async readOneDocument(url: string): Promise<JsonLD> {
+        return this.documents[url] ?? fail(DocumentNotFound, url);
     }
 
     public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {

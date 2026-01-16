@@ -13,8 +13,6 @@ describe('SolidEngine', () => {
     let engine: SolidEngine;
 
     beforeEach(() => {
-        FakeServer.reset();
-
         engine = new SolidEngine(FakeServer.fetch);
     });
 
@@ -212,6 +210,34 @@ describe('SolidEngine', () => {
             '@id': secondDocumentResource,
             '@type': 'http://xmlns.com/foaf/0.1/Person',
             'http://xmlns.com/foaf/0.1/name': secondName,
+        });
+    });
+
+    it('reads one document', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const name = faker.name.firstName();
+
+        FakeServer.respond(
+            documentUrl,
+            `
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+                <${documentUrl}>
+                    rdf:type foaf:Person ;
+                    foaf:name "${name}" .
+            `,
+        );
+
+        // Act
+        const document = await engine.readOneDocument(documentUrl);
+
+        // Assert
+        await expect(document).toEqualJsonLD({
+            '@id': documentUrl,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': name,
         });
     });
 

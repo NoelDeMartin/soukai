@@ -5,6 +5,7 @@ import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import type Engine from './Engine';
@@ -42,18 +43,6 @@ export default class IndexedDBEngine implements Engine {
         this.lock = new Semaphore();
     }
 
-    public async close(): Promise<void> {
-        if (this.metadataConnection) {
-            (await this.metadataConnection).close();
-            this.metadataConnection = null;
-        }
-
-        if (this.documentsConnection) {
-            (await this.documentsConnection).close();
-            this.documentsConnection = null;
-        }
-    }
-
     public async createDocument(url: string, graph: JsonLD): Promise<void> {
         await this.lock.run(async () => {
             const containerUrl = requireUrlParentDirectory(url);
@@ -73,14 +62,14 @@ export default class IndexedDBEngine implements Engine {
             const containerUrl = requireUrlParentDirectory(url);
 
             if (!(await this.collectionExists(containerUrl))) {
-                return;
+                throw new DocumentNotFound(url);
             }
 
             await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                 const document = await transaction.store.get(url);
 
                 if (!document) {
-                    return;
+                    throw new DocumentNotFound(url);
                 }
 
                 let quads = await jsonldToQuads(document.graph);
@@ -91,6 +80,26 @@ export default class IndexedDBEngine implements Engine {
 
                 return transaction.store.put({ url, graph: await quadsToJsonLD(quads) });
             });
+        });
+    }
+
+    public async readOneDocument(url: string): Promise<JsonLD> {
+        return this.lock.run(async () => {
+            const containerUrl = requireUrlParentDirectory(url);
+
+            if (!(await this.collectionExists(containerUrl))) {
+                throw new DocumentNotFound(url);
+            }
+
+            const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+                return transaction.store.get(url);
+            });
+
+            if (!document) {
+                throw new DocumentNotFound(url);
+            }
+
+            return document.graph;
         });
     }
 
@@ -106,6 +115,18 @@ export default class IndexedDBEngine implements Engine {
 
             return reduceBy(documents, 'url', (document) => document.graph);
         });
+    }
+
+    public async close(): Promise<void> {
+        if (this.metadataConnection) {
+            (await this.metadataConnection).close();
+            this.metadataConnection = null;
+        }
+
+        if (this.documentsConnection) {
+            (await this.documentsConnection).close();
+            this.documentsConnection = null;
+        }
     }
 
     private async createCollection(collection: string): Promise<void> {

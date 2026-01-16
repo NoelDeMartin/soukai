@@ -7,20 +7,11 @@ import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { bootModels } from 'soukai-bis/models/helpers';
 import { setEngine } from 'soukai-bis/engines';
 
-class TestUser extends User {
-
-    public static get collection(): string {
-        return 'https://my-pod.com/users/';
-    }
-
-}
-
 describe('Solid CRUD', () => {
 
     beforeEach(() => {
-        FakeServer.reset();
         setEngine(new SolidEngine(FakeServer.fetch));
-        bootModels({ TestUser }, true);
+        bootModels({ User }, true);
     });
 
     it('Creates models', async () => {
@@ -32,9 +23,7 @@ describe('Solid CRUD', () => {
         FakeServer.respondOnce('*', FakeResponse.created()); // Create document
 
         // Act
-        const user = new TestUser({ name, age });
-
-        await user.save();
+        await User.create({ name, age });
 
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
@@ -59,7 +48,7 @@ describe('Solid CRUD', () => {
         const newName = faker.name.firstName();
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
-        const user = new TestUser({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
 
         FakeServer.respondOnce(
             documentUrl,
@@ -90,6 +79,35 @@ describe('Solid CRUD', () => {
                 <${documentUrl}#it> <http://xmlns.com/foaf/0.1/name> "${newName}" .
             }
         `);
+    });
+
+    it('Reads single models', async () => {
+        // Arrange
+        const name = faker.name.firstName();
+        const age = faker.datatype.number({ min: 18, max: 99 });
+        const documentUrl = fakeDocumentUrl();
+
+        FakeServer.respondOnce(
+            documentUrl,
+            `
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it>
+                    a foaf:Person ;
+                    foaf:name "${name}" ;
+                    foaf:age ${age} .
+            `,
+        );
+
+        // Act
+        const user = await User.find(`${documentUrl}#it`);
+
+        // Assert
+        expect(user).toBeInstanceOf(User);
+        expect(user?.url).toEqual(`${documentUrl}#it`);
+        expect(user?.name).toEqual(name);
+        expect(user?.age).toEqual(age);
     });
 
 });

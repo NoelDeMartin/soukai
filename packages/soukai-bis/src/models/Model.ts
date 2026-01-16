@@ -1,10 +1,12 @@
-import { MagicObject, fail, objectOnly, stringToCamelCase, urlRoute, uuid } from '@noeldemartin/utils';
+import { MagicObject, fail, isInstanceOf, objectOnly, stringToCamelCase, urlRoute, uuid } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import type { NamedNode } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { requireEngine } from 'soukai-bis/engines/state';
+
 import { RDF_TYPE } from './constants';
 import { createFromRDF, serializeToRDF } from './concerns/rdf';
 import { getDirtyUpdates } from './concerns/crdts';
@@ -48,6 +50,21 @@ export default class Model<
         ...params: ConstructorParameters<ModelConstructor<T>>
     ): T {
         return new this(...params);
+    }
+
+    public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<MintedModel<T> | null> {
+        try {
+            const engine = requireEngine();
+            const document = await engine.readOneDocument(urlRoute(url));
+
+            return this.createFromJsonLD(document, { url });
+        } catch (error) {
+            if (!isInstanceOf(error, DocumentNotFound)) {
+                throw error;
+            }
+
+            return null;
+        }
     }
 
     public static async all<T extends Model>(
