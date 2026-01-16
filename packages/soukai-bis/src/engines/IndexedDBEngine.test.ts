@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
@@ -6,6 +7,8 @@ import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+
 import IndexedDBEngine from './IndexedDBEngine';
 
 describe('IndexedDBEngine', () => {
@@ -90,22 +93,23 @@ describe('IndexedDBEngine', () => {
             'http://xmlns.com/foaf/0.1/name': name,
         });
 
-        await engine.updateDocument(documentUrl, {
-            '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': newName,
-        });
+        await engine.updateDocument(documentUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(`${documentUrl}#it`),
+                new RDFNamedNode(expandIRI('foaf:name')),
+                new RDFLiteral(newName),
+            ),
+        ]);
 
         const documents = await getDatabaseDocuments(containerUrl);
 
         expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({
-            url: documentUrl,
-            graph: {
-                '@id': `${documentUrl}#it`,
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                'http://xmlns.com/foaf/0.1/name': newName,
-            },
+        expect(documents[0]).toEqual({ url: documentUrl, graph: expect.anything() });
+
+        await expect(documents[0]?.graph).toEqualJsonLD({
+            '@id': `${documentUrl}#it`,
+            '@type': 'http://xmlns.com/foaf/0.1/Person',
+            'http://xmlns.com/foaf/0.1/name': newName,
         });
     });
 

@@ -1,6 +1,9 @@
+import { jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+
 import type Engine from './Engine';
 
 export default class InMemoryEngine implements Engine {
@@ -15,8 +18,20 @@ export default class InMemoryEngine implements Engine {
         this.documents[url] = graph;
     }
 
-    public async updateDocument(url: string, graph: JsonLD): Promise<void> {
-        this.documents[url] = graph;
+    public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+        const document = this.documents[url];
+
+        if (!document) {
+            return;
+        }
+
+        let quads = await jsonldToQuads(document);
+
+        for (const operation of operations) {
+            quads = operation.applyToQuads(quads);
+        }
+
+        this.documents[url] = await quadsToJsonLD(quads);
     }
 
     public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {

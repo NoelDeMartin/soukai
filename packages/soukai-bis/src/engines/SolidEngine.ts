@@ -1,8 +1,9 @@
-import { SolidClient, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { Fetch, JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, RDF_TYPE } from 'soukai-bis/models/constants';
+import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import type Engine from './Engine';
 
@@ -25,26 +26,15 @@ export default class SolidEngine implements Engine {
         await this.client.create(url, body);
     }
 
-    public async updateDocument(url: string, graph: JsonLD, dirtyProperties?: string[]): Promise<void> {
-        const quads = await jsonldToQuads(graph);
+    public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+        const document = await this.client.read(url);
+        const sparql = new SparqlUpdate(document);
 
-        if (dirtyProperties && dirtyProperties.length > 0) {
-            const document = await this.client.read(url);
-            const inserts = quads.filter((q) => dirtyProperties.includes(q.predicate.value));
-            const deletes = document.statements().filter((q) => dirtyProperties.includes(q.predicate.value));
-
-            await this.client.update(
-                url,
-                `
-                    DELETE DATA { ${quadsToTurtle(deletes)} } ;
-                    INSERT DATA { ${quadsToTurtle(inserts)} }
-                `,
-            );
+        for (const operation of operations) {
+            operation.applyToSparql(sparql);
         }
 
-        const body = quadsToTurtle(quads);
-
-        await this.client.create(url, body);
+        await this.client.update(url, sparql);
     }
 
     public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {

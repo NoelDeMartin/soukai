@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
 
 import User from 'soukai-bis/testing/stubs/User';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
+import { SetPropertyOperation } from 'soukai-bis/models/crdts';
 import { bootModels } from 'soukai-bis/models/helpers';
 import { fakeResourceUrl } from '@noeldemartin/testing';
 
@@ -43,8 +45,8 @@ describe('Model', () => {
     it('serializes to JsonLD', async () => {
         const user = new User({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
 
-        expect(await user.toJsonLD()).toEqualJsonLD({
-            '@context': 'http://xmlns.com/foaf/0.1/',
+        await expect(await user.toJsonLD()).toEqualJsonLD({
+            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': '#it',
             '@type': 'Person',
             'name': 'John Doe',
@@ -77,8 +79,9 @@ describe('Model', () => {
         const mintedUser = await user.save();
 
         expect(mintedUser.url).not.toBeUndefined();
-        expect(engine.documents[mintedUser.url]).toEqualJsonLD({
-            '@context': 'http://xmlns.com/foaf/0.1/',
+
+        await expect(engine.documents[mintedUser.url]).toEqualJsonLD({
+            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': user.url,
             '@type': 'Person',
             'name': 'John Doe',
@@ -95,23 +98,32 @@ describe('Model', () => {
 
         // Assert
         expect(user.name).toBe('Jane Doe');
-        expect(engine.documents[user.url]).toEqualJsonLD({
-            '@context': 'http://xmlns.com/foaf/0.1/',
+
+        await expect(engine.documents[user.url]).toEqualJsonLD({
+            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': user.url,
             '@type': 'Person',
             'name': 'Jane Doe',
             'age': 30,
         });
 
-        expect(updateDocumentSpy).toHaveBeenCalledWith(user.url, expect.anything(), ['http://xmlns.com/foaf/0.1/name']);
+        expect(updateDocumentSpy).toHaveBeenCalledWith(
+            user.url,
+            expect.arrayContaining([
+                new SetPropertyOperation(new RDFNamedNode(user.url), new RDFNamedNode(expandIRI('foaf:name')), [
+                    new RDFLiteral('Jane Doe'),
+                ]),
+            ]),
+        );
     });
 
     it('creates instances statically', async () => {
         const user = await User.create({ name: 'John Doe' });
 
         expect(user.url).not.toBeUndefined();
-        expect(engine.documents[user.url]).toEqualJsonLD({
-            '@context': 'http://xmlns.com/foaf/0.1/',
+
+        await expect(engine.documents[user.url]).toEqualJsonLD({
+            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': user.url,
             '@type': 'Person',
             'name': 'John Doe',

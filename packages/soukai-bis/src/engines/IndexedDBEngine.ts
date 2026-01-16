@@ -1,9 +1,12 @@
 import { openDB } from 'idb';
+import { jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { Semaphore, reduceBy, requireUrlParentDirectory } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+
 import type Engine from './Engine';
 
 export interface LocalDocument {
@@ -65,7 +68,7 @@ export default class IndexedDBEngine implements Engine {
         });
     }
 
-    public async updateDocument(url: string, graph: JsonLD): Promise<void> {
+    public async updateDocument(url: string, operations: Operation[]): Promise<void> {
         await this.lock.run(async () => {
             const containerUrl = requireUrlParentDirectory(url);
 
@@ -73,8 +76,20 @@ export default class IndexedDBEngine implements Engine {
                 return;
             }
 
-            await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
-                return transaction.store.put({ url, graph });
+            await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+                const document = await transaction.store.get(url);
+
+                if (!document) {
+                    return;
+                }
+
+                let quads = await jsonldToQuads(document.graph);
+
+                for (const operation of operations) {
+                    quads = operation.applyToQuads(quads);
+                }
+
+                return transaction.store.put({ url, graph: await quadsToJsonLD(quads) });
             });
         });
     }

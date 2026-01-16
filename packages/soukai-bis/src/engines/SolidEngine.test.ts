@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { RDFLiteral, RDFNamedNode } from '@noeldemartin/solid-utils';
 import { faker } from '@noeldemartin/faker';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 
 import SolidEngine from './SolidEngine';
 
@@ -88,34 +90,51 @@ describe('SolidEngine', () => {
     it('updates documents', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
+        const resourceUrl = `${documentUrl}#it`;
+        const oldName = faker.name.firstName();
         const name = faker.name.firstName();
+        const property = 'http://xmlns.com/foaf/0.1/name';
 
-        FakeServer.respond(documentUrl, FakeResponse.success());
+        FakeServer.respondOnce(
+            documentUrl,
+            `
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+                <${resourceUrl}>
+                    rdf:type foaf:Person ;
+                    foaf:name "${oldName}" .
+            `,
+        );
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
         // Act
-        await engine.updateDocument(documentUrl, {
-            '@id': documentUrl,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
-        });
+        await engine.updateDocument(documentUrl, [
+            new SetPropertyOperation(new RDFNamedNode(resourceUrl), new RDFNamedNode(property), new RDFLiteral(name)),
+        ]);
 
         // Assert
-        expect(FakeServer.fetch).toHaveBeenCalledWith(
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            2,
             documentUrl,
             expect.objectContaining({
-                method: 'PUT',
+                method: 'PATCH',
+                headers: expect.objectContaining({
+                    'Content-Type': 'application/sparql-update',
+                }),
             }),
         );
 
-        const body = FakeServer.fetchSpy.mock.calls[0]?.[1]?.body;
+        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body;
 
-        expect(body).toEqualTurtle(`
-            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-            @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-            <${documentUrl}>
-                rdf:type foaf:Person ;
-                foaf:name "${name}" .
+        expect(body).toEqualSparql(`
+            DELETE DATA {
+                <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
+            } ;
+            INSERT DATA {
+                <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${name}" .
+            }
         `);
     });
 
@@ -194,61 +213,6 @@ describe('SolidEngine', () => {
             '@type': 'http://xmlns.com/foaf/0.1/Person',
             'http://xmlns.com/foaf/0.1/name': secondName,
         });
-    });
-
-    it('updates documents', async () => {
-        // Arrange
-        const documentUrl = fakeDocumentUrl();
-        const resourceUrl = `${documentUrl}#it`;
-        const oldName = faker.name.firstName();
-        const name = faker.name.firstName();
-        const property = 'http://xmlns.com/foaf/0.1/name';
-
-        FakeServer.respondOnce(
-            documentUrl,
-            `
-                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-                <${resourceUrl}>
-                    rdf:type foaf:Person ;
-                    foaf:name "${oldName}" .
-            `,
-        );
-        FakeServer.respondOnce(documentUrl, FakeResponse.success());
-
-        // Act
-        await engine.updateDocument(
-            documentUrl,
-            {
-                '@id': resourceUrl,
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                [property]: name,
-            },
-            [property],
-        );
-
-        // Assert
-        expect(FakeServer.fetch).toHaveBeenCalledWith(
-            documentUrl,
-            expect.objectContaining({
-                method: 'PATCH',
-                headers: expect.objectContaining({
-                    'Content-Type': 'application/sparql-update',
-                }),
-            }),
-        );
-
-        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body as string;
-
-        expect(body).toEqualSparql(`
-            DELETE DATA {
-                <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
-            } ;
-            INSERT DATA {
-                <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${name}" .
-            }
-        `);
     });
 
 });

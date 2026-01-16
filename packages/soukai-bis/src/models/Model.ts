@@ -1,4 +1,4 @@
-import { MagicObject, fail, objectOnly, stringToCamelCase, uuid } from '@noeldemartin/utils';
+import { MagicObject, fail, objectOnly, stringToCamelCase, urlRoute, uuid } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import type { NamedNode } from '@rdfjs/types';
@@ -6,8 +6,8 @@ import type { NamedNode } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { requireEngine } from 'soukai-bis/engines/state';
 import { RDF_TYPE } from './constants';
-import { createFromRDF } from './concerns/creates-from-rdf';
-import { serializeToRDF } from './concerns/serializes-to-rdf';
+import { createFromRDF, serializeToRDF } from './concerns/rdf';
+import { getDirtyUpdates } from './concerns/crdts';
 import type { Schema } from './schema';
 import type { BootedModelClass, MintedModel, ModelConstructor } from './types';
 
@@ -133,6 +133,18 @@ export default class Model<
         return this.__attributes;
     }
 
+    public getDocumentUrl(): string | null {
+        return this.url ? urlRoute(this.url) : null;
+    }
+
+    public requireDocumentUrl(): string {
+        return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
+    }
+
+    public getDirtyAttributes(): Field[] {
+        return Array.from(this.__dirtyAttributes);
+    }
+
     public isDirty(field?: Field): boolean {
         if (field) {
             return this.__dirtyAttributes.has(field);
@@ -141,7 +153,7 @@ export default class Model<
         return this.__dirtyAttributes.size > 0;
     }
 
-    public exists(): boolean {
+    public exists(): this is MintedModel<this> {
         return this.__exists;
     }
 
@@ -152,16 +164,13 @@ export default class Model<
     public async save(): Promise<MintedModel<this>> {
         this.url ??= this.mintUrl();
 
+        const engine = requireEngine();
         const graph = await this.toJsonLD();
 
-        if (this.__exists) {
-            const dirtyProperties = Array.from(this.__dirtyAttributes)
-                .map((attribute) => this.static().schema.rdfFieldProperties[attribute]?.value)
-                .filter((property): property is string => !!property);
-
-            await requireEngine().updateDocument(this.url, graph, dirtyProperties);
+        if (this.exists()) {
+            await engine.updateDocument(this.requireDocumentUrl(), getDirtyUpdates(this));
         } else {
-            await requireEngine().createDocument(this.url, graph);
+            await engine.createDocument(this.requireDocumentUrl(), graph);
 
             this.__exists = true;
         }
