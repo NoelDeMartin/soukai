@@ -1,7 +1,10 @@
 import type { ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
 
+import BelongsToManyRelation from './BelongsToManyRelation';
 import BelongsToOneRelation from './BelongsToOneRelation';
-import HasOneRelation from 'soukai-bis/models/relations/HasOneRelation';
+import HasManyRelation from './HasManyRelation';
+import HasOneRelation from './HasOneRelation';
+import type MultiModelRelation from './MultiModelRelation';
 import type { RelationConstructor } from './types';
 
 export interface SchemaRelationDefinition<
@@ -20,7 +23,9 @@ export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelCons
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
 export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = {
-    [K in keyof T]?: GetRelatedModel<T[K]>;
+    [K in keyof T]?: InstanceType<T[K]['relationClass']> extends MultiModelRelation
+        ? GetRelatedModel<T[K]>[]
+        : GetRelatedModel<T[K]>;
 };
 
 export type GetRelatedModel<T extends SchemaRelationDefinition> = T['related'] extends () => infer TRelated
@@ -29,11 +34,27 @@ export type GetRelatedModel<T extends SchemaRelationDefinition> = T['related'] e
 
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
+export function belongsToMany<T extends RelatedModelDefinition>(related: T, foreignKey: string) {
+    return {
+        related,
+        foreignKey,
+        relationClass: BelongsToManyRelation,
+    };
+}
+
 export function belongsToOne<T extends RelatedModelDefinition>(related: T, foreignKey: string) {
     return {
         related,
         foreignKey,
         relationClass: BelongsToOneRelation,
+    };
+}
+
+export function hasMany<T extends RelatedModelDefinition>(related: T, foreignKey: string) {
+    return {
+        related,
+        foreignKey,
+        relationClass: HasManyRelation,
     };
 }
 

@@ -1,9 +1,10 @@
 import { defineSchema } from 'soukai-bis/models';
 import { array, email, number, string, url } from 'zod';
 
-import { hasOne } from 'soukai-bis/models/relations/schema';
+import { belongsToMany, hasMany, hasOne } from 'soukai-bis/models/relations/schema';
 
 import Post from './Post';
+import User from './User';
 
 export default defineSchema({
     crdts: true,
@@ -16,6 +17,8 @@ export default defineSchema({
         friendUrls: array(url()).rdfProperty('knows').default([]),
     },
     relations: {
-        post: hasOne(() => Post, 'authorUrl'),
+        posts: hasMany(() => Post, 'authorUrl'),
+        friends: belongsToMany(() => User, 'friendUrls'),
+        lastPost: hasOne(() => Post, 'authorUrl'),
     },
 });

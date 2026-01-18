@@ -25,12 +25,12 @@ describe('HasOneRelation', () => {
         });
 
         // Act
-        await user.loadRelation('post');
+        await user.loadRelation('lastPost');
 
         // Assert
-        expect(user.post).toBeInstanceOf(Post);
-        expect(user.post?.url).toBe(post.url);
-        expect(user.post?.title).toBe('Hello World');
+        expect(user.lastPost).toBeInstanceOf(Post);
+        expect(user.lastPost?.url).toBe(post.url);
+        expect(user.lastPost?.title).toBe('Hello World');
     });
 
     it('returns null when related model is missing', async () => {
@@ -38,10 +38,10 @@ describe('HasOneRelation', () => {
         const user = await User.create({ name: 'Bob' });
 
         // Act
-        await user.loadRelation('post');
+        await user.loadRelation('lastPost');
 
         // Assert
-        expect(user.post).toBeNull();
+        expect(user.lastPost).toBeNull();
     });
 
 });

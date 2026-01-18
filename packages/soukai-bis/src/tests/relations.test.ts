@@ -40,6 +40,51 @@ describe('Relations', () => {
         expect(post.author?.name).toEqual('Alice');
     });
 
+    it('belongsToMany', async () => {
+        // Arrange
+        const aliceDocumentUrl = fakeDocumentUrl();
+        const aliceUrl = fakeResourceUrl({ documentUrl: aliceDocumentUrl });
+        const bobDocumentUrl = fakeDocumentUrl();
+        const bobUrl = fakeResourceUrl({ documentUrl: bobDocumentUrl });
+        const charlieDocumentUrl = fakeDocumentUrl();
+        const charlieUrl = fakeResourceUrl({ documentUrl: charlieDocumentUrl });
+        const alice = new User({
+            url: aliceUrl,
+            name: 'Alice',
+            friendUrls: [bobUrl, charlieUrl],
+        });
+
+        FakeServer.respondOnce(
+            bobDocumentUrl,
+            `
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${bobUrl}>
+                    a foaf:Person ;
+                    foaf:name "Bob" .
+            `,
+        );
+
+        FakeServer.respondOnce(
+            charlieDocumentUrl,
+            `
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${charlieUrl}>
+                    a foaf:Person ;
+                    foaf:name "Charlie" .
+            `,
+        );
+
+        // Act
+        await alice.loadRelation('friends');
+
+        // Assert
+        expect(alice.friends).toHaveLength(2);
+        expect(alice.friends?.[0]).toBeInstanceOf(User);
+        expect(alice.friends?.map(({ name }) => name).sort()).toEqual(['Bob', 'Charlie']);
+    });
+
     it('hasOne', async () => {
         // Arrange
         const postsContainerUrl = fakeContainerUrl();
@@ -63,13 +108,63 @@ describe('Relations', () => {
         );
 
         // Act
-        await user.loadRelation('post');
+        await user.loadRelation('lastPost');
 
         // Assert
-        expect(user.post).toBeInstanceOf(Post);
-        expect(user.post?.url).toEqual(postUrl);
-        expect(user.post?.title).toEqual('Hello World');
-        expect(user.post?.authorUrl).toEqual(user.url);
+        expect(user.lastPost).toBeInstanceOf(Post);
+        expect(user.lastPost?.url).toEqual(postUrl);
+        expect(user.lastPost?.title).toEqual('Hello World');
+        expect(user.lastPost?.authorUrl).toEqual(user.url);
+    });
+
+    it('hasMany', async () => {
+        // Arrange
+        const postsContainerUrl = fakeContainerUrl();
+        const firstPostDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
+        const secondPostDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
+        const firstPostUrl = fakeResourceUrl({ documentUrl: firstPostDocumentUrl });
+        const secondPostUrl = fakeResourceUrl({ documentUrl: secondPostDocumentUrl });
+        const userUrl = fakeResourceUrl();
+        const user = new User({ url: userUrl, name: 'Alice' });
+
+        Post.defaultContainerUrl = postsContainerUrl;
+
+        FakeServer.respondOnce(
+            postsContainerUrl,
+            `<> <http://www.w3.org/ns/ldp#contains> <${firstPostDocumentUrl}>, <${secondPostDocumentUrl}> .`,
+        );
+
+        FakeServer.respondOnce(
+            firstPostDocumentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+
+                <${firstPostUrl}>
+                    a schema:Article ;
+                    schema:name "First Post" ;
+                    schema:author <${userUrl}> .
+            `,
+        );
+
+        FakeServer.respondOnce(
+            secondPostDocumentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+
+                <${secondPostUrl}>
+                    a schema:Article ;
+                    schema:name "Second Post" ;
+                    schema:author <${userUrl}> .
+            `,
+        );
+
+        // Act
+        await user.loadRelation('posts');
+
+        // Assert
+        expect(user.posts).toHaveLength(2);
+        expect(user.posts?.[0]).toBeInstanceOf(Post);
+        expect(user.posts?.map(({ title }) => title).sort()).toEqual(['First Post', 'Second Post']);
     });
 
 });
