@@ -3,6 +3,7 @@ import {
     arrayUnique,
     fail,
     isInstanceOf,
+    isTruthy,
     objectOnly,
     required,
     stringToCamelCase,
@@ -93,27 +94,11 @@ export default class Model<
     ): Promise<MintedModel<T>[]> {
         const engine = requireEngine();
         const documents = await engine.readManyDocuments(containerUrl ?? this.defaultContainerUrl);
-        const matchingDocuments = await Promise.all(
-            Object.entries(documents).map(async ([_, document]) => {
-                const quads = await jsonldToQuads(document);
-                const matches = arrayUnique(
-                    quads
-                        .filter(
-                            (q) =>
-                                RDF_TYPE_PREDICATE.equals(q.predicate) &&
-                                this.schema.rdfClasses.some((rdfClass) => rdfClass.equals(q.object)),
-                        )
-                        .map((q) => q.subject.value),
-                );
-
-                return matches.map((subject) => [subject, quads.filter((q) => q.subject.value === subject)] as const);
-            }),
-        );
         const models = await Promise.all(
-            matchingDocuments.flat().map(([subject, quads]) => this.createFromRDF(quads, { url: subject })),
+            Object.values(documents).map(async (document) => this.createManyFromJsonLD(document)),
         );
 
-        return models.filter((model) => model !== null) as MintedModel<T>[];
+        return models.flat();
     }
 
     public static async create<T extends Model>(
@@ -153,6 +138,27 @@ export default class Model<
         const quads = await jsonldToQuads(json);
 
         return this.createFromRDF(quads, { url });
+    }
+
+    public static async createManyFromJsonLD<T extends Model>(
+        this: ModelConstructor<T>,
+        json: JsonLD,
+    ): Promise<MintedModel<T>[]> {
+        const quads = await jsonldToQuads(json);
+        const matchingResourceUrls = arrayUnique(
+            quads
+                .filter(
+                    (q) =>
+                        RDF_TYPE_PREDICATE.equals(q.predicate) &&
+                        this.schema.rdfClasses.some((rdfClass) => rdfClass.equals(q.object)),
+                )
+                .map((q) => q.subject.value),
+        );
+        const models = await Promise.all(
+            matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl })),
+        );
+
+        return models.filter(isTruthy);
     }
 
     public static<T extends typeof Model>(): T;
@@ -204,21 +210,15 @@ export default class Model<
             `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
         );
 
-        if (!isModelClass(relation.related)) {
-            const related = (relation.related as () => ModelConstructor)();
+        if (!isModelClass(relation.relatedClass)) {
+            const relatedClass = (relation.relatedClass as () => ModelConstructor)();
 
-            if (!isModelClass(related)) {
-                throw new SoukaiError(
-                    `Relation '${name}' for ${this.static().modelName} model is not defined correctly, ` +
-                        'related value is not a model class.',
-                );
-            }
-
-            relation.related = related;
+            relation.relationClass.validateRelatedClass(this, relatedClass);
+            relation.relatedClass = relatedClass;
         }
 
         return tap(
-            relation.relationClass.newInstance(this, relation.related, {
+            relation.relationClass.newInstance(this, relation.relatedClass, {
                 foreignKeyName: relation.foreignKey,
                 localKeyName: relation.localKey,
             }),

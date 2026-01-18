@@ -1,4 +1,4 @@
-import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { ModelConstructor } from './types';
 
 export function bootModels(
     models: Record<string, { boot(name: string): unknown; reset(): void }>,

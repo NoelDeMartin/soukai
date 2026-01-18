@@ -1,5 +1,7 @@
 import { type Nullable, required } from '@noeldemartin/utils';
 
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { isModelClass } from 'soukai-bis/models/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -19,6 +21,17 @@ export default abstract class Relation<
     ): T {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return new (this as any)(parent, relatedClass, options);
+    }
+
+    public static validateRelatedClass(parent: Model, relatedClass: unknown): void {
+        if (isModelClass(relatedClass)) {
+            return;
+        }
+
+        throw new SoukaiError(
+            `Relation for model ${parent.static().modelName} is not defined correctly, ` +
+                'related value is not a model class.',
+        );
     }
 
     public parent: Parent;

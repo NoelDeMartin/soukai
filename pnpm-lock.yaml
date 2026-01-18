@@ -23,7 +23,7 @@ catalogs:
       version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19
     '@noeldemartin/utils':
       specifier: next
-      version: 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
+      version: 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
     '@rdfjs/types':
       specifier: ^2.0.1
       version: 2.0.1
@@ -103,7 +103,7 @@ importers:
     dependencies:
       '@noeldemartin/utils':
         specifier: 'catalog:'
-        version: 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
+        version: 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
       idb:
         specifier: ^8.0.2
         version: 8.0.3
@@ -137,7 +137,7 @@ importers:
         version: 0.6.1-next.ba6d104c7425058e5c048715eb10dbbdc24112e4(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
-        version: 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
+        version: 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
       idb:
         specifier: ^8.0.3
         version: 8.0.3
@@ -204,7 +204,7 @@ importers:
         version: 0.6.1-next.ba6d104c7425058e5c048715eb10dbbdc24112e4(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
-        version: 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
+        version: 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
       '@rdfjs/types':
         specifier: 'catalog:'
         version: 2.0.1
@@ -1086,8 +1086,8 @@ packages:
   '@noeldemartin/utils@0.7.3':
     resolution: {integrity: sha512-G/tT8r77H3HxklJl+nRFCflRLyBHAQF27A1kcfhoo1sl6SU3cB1JXBz4w5t21XeUB75O911zA3HyMttXp9d3lg==}
 
-  '@noeldemartin/utils@0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6':
-    resolution: {integrity: sha512-Q/WXMPOqpnu352thYDX9+RantemVGC0KOM5oWktgd8tBTiETgd+q7tRCD0bIsfHvNL2ZiXd4aavLiRb+hFjM4w==}
+  '@noeldemartin/utils@0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5':
+    resolution: {integrity: sha512-OgUkBjyIbhFN0V7u3g/BDrU7yC7slST7INdgvfkehvd5DMOGF+FBoLLGH4ARhqOg0CSjvXoVkv3pimSCh1RIEA==}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -4516,20 +4516,20 @@ snapshots:
   '@noeldemartin/testing@0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19(vitest@3.2.4(@types/node@22.19.7)(yaml@2.8.2))':
     dependencies:
       '@noeldemartin/faker': 7.6.0
-      '@noeldemartin/utils': 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
+      '@noeldemartin/utils': 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
       vitest: 3.2.4(@types/node@22.19.7)(yaml@2.8.2)
 
   '@noeldemartin/testing@0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19(vitest@3.2.4(@types/node@25.0.9)(yaml@2.8.2))':
     dependencies:
       '@noeldemartin/faker': 7.6.0
-      '@noeldemartin/utils': 0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6
+      '@noeldemartin/utils': 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
       vitest: 3.2.4(@types/node@25.0.9)(yaml@2.8.2)
 
   '@noeldemartin/utils@0.7.3':
     dependencies:
       idb: 8.0.3
 
-  '@noeldemartin/utils@0.7.3-next.cf1447c3c864c45542bbc025d425590e29ea23c6':
+  '@noeldemartin/utils@0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5':
     dependencies:
       idb: 8.0.3
 

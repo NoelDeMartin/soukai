@@ -6,7 +6,8 @@ import type { Override } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
 
 import Model from './Model';
-import type { MintedModel, ModelInstanceType } from './types';
+import { isModelClass } from './utils';
+import type { MintedModel, ModelConstructor, ModelInstanceType } from './types';
 import type { SchemaModelRelations, SchemaRelations } from './relations/schema';
 
 export type Schema<
@@ -27,15 +28,19 @@ export type SchemaModelAttributes<T extends SchemaFields = SchemaFields> = z.inf
 export type SchemaModel<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
-> = Model<SchemaModelAttributes<TFields>, TRelations> & z.infer<ZodObject<TFields>> & SchemaModelRelations<TRelations>;
+    TBaseClass extends ModelConstructor = typeof Model,
+> = (typeof Model extends TBaseClass ? Model<SchemaModelAttributes<TFields>, TRelations> : InstanceType<TBaseClass>) &
+    z.infer<ZodObject<TFields>> &
+    SchemaModelRelations<TRelations>;
 
 export type SchemaModelClass<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
+    TBaseClass extends ModelConstructor = typeof Model,
 > = Override<
-    typeof Model,
+    TBaseClass,
     {
-        new (attributes?: SchemaModelInput<TFields>, exists?: boolean): SchemaModel<TFields, TRelations>;
+        new (attributes?: SchemaModelInput<TFields>, exists?: boolean): SchemaModel<TFields, TRelations, TBaseClass>;
         newInstance<This>(
             this: This,
             attributes?: SchemaModelInput<TFields>,
@@ -61,41 +66,69 @@ export interface SchemaConfig<TFields extends SchemaFields, TRelations extends S
     relations?: TRelations;
 }
 
+export function defineSchema<
+    TFields extends SchemaFields,
+    TRelations extends SchemaRelations,
+    TBaseClass extends ModelConstructor = typeof Model,
+>(baseClass: TBaseClass, config?: SchemaConfig<TFields, TRelations>): SchemaModelClass<TFields, TRelations, TBaseClass>;
 export function defineSchema<TFields extends SchemaFields, TRelations extends SchemaRelations>(
-    config: SchemaConfig<TFields, TRelations>,
-): SchemaModelClass<TFields, TRelations> {
-    const rdfContext = config.rdfContext ? { default: config.rdfContext } : { default: 'solid' };
+    config: SchemaConfig<TFields, TRelations>
+): SchemaModelClass<TFields, TRelations>;
+export function defineSchema<
+    TFields extends SchemaFields,
+    TRelations extends SchemaRelations,
+    TBaseClass extends ModelConstructor = typeof Model,
+>(
+    baseClassOrConfig: TBaseClass | SchemaConfig<TFields, TRelations>,
+    configArg?: SchemaConfig<TFields, TRelations>,
+): SchemaModelClass<TFields, TRelations, TBaseClass> {
+    const baseClass = isModelClass(baseClassOrConfig) ? baseClassOrConfig : null;
+    const baseSchema = baseClass?.schema;
+    const config = isModelClass(baseClassOrConfig)
+        ? (configArg ?? ({ fields: {} } as SchemaConfig<TFields, TRelations>))
+        : baseClassOrConfig;
+    const rdfContext = {
+        default: 'solid',
+        ...baseSchema?.rdfContext,
+        ...(config.rdfContext ? { default: config.rdfContext } : {}),
+    };
     const { default: defaultPrefix, ...extraContext } = rdfContext;
 
-    return class extends Model<SchemaModelAttributes<TFields>, TRelations> {
+    return class extends (baseClass ?? Model) {
 
         public static schema = {
-            fields: object(config.fields).extend({ url: url().optional() }) as unknown as ZodObject,
-            relations: config.relations ?? {},
+            fields: baseSchema?.fields.extend(config.fields) ?? object(config.fields).extend({ url: url().optional() }),
+            relations: { ...baseSchema?.relations, ...config.relations },
             rdfContext,
-            rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? 'it',
-            rdfClasses: config.rdfClass
-                ? [
-                    new RDFNamedNode(
-                        expandIRI(config.rdfClass, {
-                            defaultPrefix,
-                            extraContext,
-                        }),
-                    ),
-                ]
-                : [],
-            rdfFieldProperties: Object.fromEntries(
-                Object.entries(config.fields).map(([field, definition]) => [
-                    field,
-                    new RDFNamedNode(
-                        expandIRI(definition.rdfProperty() ?? field, {
-                            defaultPrefix,
-                            extraContext,
-                        }),
-                    ),
-                ]),
-            ),
+            rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
+            rdfClasses: [
+                ...(baseSchema?.rdfClasses ?? []),
+                ...(config.rdfClass
+                    ? [
+                        new RDFNamedNode(
+                            expandIRI(config.rdfClass, {
+                                defaultPrefix,
+                                extraContext,
+                            }),
+                        ),
+                    ]
+                    : []),
+            ],
+            rdfFieldProperties: {
+                ...baseSchema?.rdfFieldProperties,
+                ...Object.fromEntries(
+                    Object.entries(config.fields).map(([field, definition]) => [
+                        field,
+                        new RDFNamedNode(
+                            expandIRI(definition.rdfProperty() ?? field, {
+                                defaultPrefix,
+                                extraContext,
+                            }),
+                        ),
+                    ]),
+                ),
+            },
         };
     
-    } as unknown as SchemaModelClass<TFields, TRelations>;
+    } as unknown as SchemaModelClass<TFields, TRelations, TBaseClass>;
 }

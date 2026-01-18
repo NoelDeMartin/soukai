@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 
 import Post from 'soukai-bis/testing/stubs/Post';
+import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import User from 'soukai-bis/testing/stubs/User';
 import { bootModels } from 'soukai-bis/models/utils';
@@ -11,7 +12,7 @@ describe('Relations', () => {
 
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
-        bootModels({ User, Post }, true);
+        bootModels({ User, Post, PostsCollection }, true);
     });
 
     it('belongsToOne', async () => {
@@ -120,10 +121,10 @@ describe('Relations', () => {
     it('hasMany', async () => {
         // Arrange
         const postsContainerUrl = fakeContainerUrl();
-        const firstPostDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
-        const secondPostDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
-        const firstPostUrl = fakeResourceUrl({ documentUrl: firstPostDocumentUrl });
-        const secondPostUrl = fakeResourceUrl({ documentUrl: secondPostDocumentUrl });
+        const firstDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
+        const secondDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
+        const firstPostUrl = fakeResourceUrl({ documentUrl: firstDocumentUrl });
+        const secondPostUrl = fakeResourceUrl({ documentUrl: secondDocumentUrl });
         const userUrl = fakeResourceUrl();
         const user = new User({ url: userUrl, name: 'Alice' });
 
@@ -131,11 +132,11 @@ describe('Relations', () => {
 
         FakeServer.respondOnce(
             postsContainerUrl,
-            `<> <http://www.w3.org/ns/ldp#contains> <${firstPostDocumentUrl}>, <${secondPostDocumentUrl}> .`,
+            `<> <http://www.w3.org/ns/ldp#contains> <${firstDocumentUrl}>, <${secondDocumentUrl}> .`,
         );
 
         FakeServer.respondOnce(
-            firstPostDocumentUrl,
+            firstDocumentUrl,
             `
                 @prefix schema: <https://schema.org/> .
 
@@ -147,7 +148,7 @@ describe('Relations', () => {
         );
 
         FakeServer.respondOnce(
-            secondPostDocumentUrl,
+            secondDocumentUrl,
             `
                 @prefix schema: <https://schema.org/> .
 
@@ -165,6 +166,89 @@ describe('Relations', () => {
         expect(user.posts).toHaveLength(2);
         expect(user.posts?.[0]).toBeInstanceOf(Post);
         expect(user.posts?.map(({ title }) => title).sort()).toEqual(['First Post', 'Second Post']);
+    });
+
+    it('contains', async () => {
+        // Arrange
+        const postsContainerUrl = fakeContainerUrl();
+        const firstDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
+        const firstPostUrl = fakeResourceUrl({ documentUrl: firstDocumentUrl });
+        const secondDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
+        const secondPostUrl = fakeResourceUrl({ documentUrl: secondDocumentUrl });
+
+        FakeServer.respondOnce(
+            postsContainerUrl,
+            `
+                @prefix ldp: <http://www.w3.org/ns/ldp#> .
+
+                <>
+                    a ldp:Container ;
+                    ldp:contains <${firstDocumentUrl}>, <${secondDocumentUrl}> .
+            `,
+        );
+
+        FakeServer.respondOnce(
+            firstDocumentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+
+                <${firstPostUrl}>
+                    a schema:Article ;
+                    schema:name "First Post" .
+            `,
+        );
+
+        FakeServer.respondOnce(
+            secondDocumentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+
+                <${secondPostUrl}>
+                    a schema:Article ;
+                    schema:name "Second Post" .
+            `,
+        );
+
+        // Act
+        const collection = await PostsCollection.find(postsContainerUrl);
+
+        await collection?.loadRelation('posts');
+
+        // Assert
+        expect(collection?.posts).toHaveLength(2);
+        expect(collection?.posts?.[0]).toBeInstanceOf(Post);
+        expect(collection?.posts?.map(({ title }) => title).sort()).toEqual(['First Post', 'Second Post']);
+    });
+
+    it('isContainedBy', async () => {
+        // Arrange
+        const postsCollectionUrl = fakeContainerUrl();
+        const postDocumentUrl = fakeDocumentUrl({ containerUrl: postsCollectionUrl });
+        const postUrl = fakeResourceUrl({ documentUrl: postDocumentUrl });
+        const post = new Post({
+            url: postUrl,
+            title: 'Hello World',
+        });
+
+        FakeServer.respondOnce(
+            postsCollectionUrl,
+            `
+                @prefix ldp: <http://www.w3.org/ns/ldp#> .
+                @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+                <>
+                    a ldp:Container ;
+                    rdfs:label "Blog Posts" .
+            `,
+        );
+
+        // Act
+        await post.loadRelation('collection');
+
+        // Assert
+        expect(post.collection).toBeInstanceOf(PostsCollection);
+        expect(post.collection?.url).toEqual(postsCollectionUrl);
+        expect(post.collection?.name).toEqual('Blog Posts');
     });
 
 });

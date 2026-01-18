@@ -1,9 +1,10 @@
 import { defineSchema } from 'soukai-bis/models';
 import { string, url } from 'zod';
 
-import { belongsToOne } from 'soukai-bis/models/relations/schema';
+import { belongsToOne, isContainedBy } from 'soukai-bis/models/relations/schema';
 
 import User from './User';
+import PostsCollection from './PostsCollection';
 
 export default defineSchema({
     rdfContext: 'https://schema.org/',
@@ -14,5 +15,6 @@ export default defineSchema({
     },
     relations: {
         author: belongsToOne(User, 'authorUrl'),
+        collection: isContainedBy(PostsCollection),
     },
 });
