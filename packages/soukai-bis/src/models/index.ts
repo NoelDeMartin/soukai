@@ -1,4 +1,4 @@
-export * from './helpers';
+export * from './utils';
 export * from './Model';
 export * from './schema';
 export * from './types';

@@ -1,9 +1,21 @@
-import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import {
+    RDFNamedNode,
+    SolidClient,
+    SparqlUpdate,
+    jsonldToQuads,
+    quadsToJsonLD,
+    quadsToTurtle,
+} from '@noeldemartin/solid-utils';
 import type { Fetch, JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, RDF_TYPE } from 'soukai-bis/models/constants';
+import {
+    LDP_BASIC_CONTAINER_OBJECT,
+    LDP_CONTAINER_OBJECT,
+    LDP_CONTAINS_PREDICATE,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/utils/rdf';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import type Engine from './Engine';
@@ -55,18 +67,19 @@ export default class SolidEngine implements Engine {
 
     public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {
         const container = await this.client.read(containerUrl);
-        const containsQuads = container.statements(containerUrl, LDP_CONTAINS);
+        const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
         const documents: Record<string, JsonLD> = {};
 
         await Promise.all(
             containsQuads.map(async (quad) => {
                 const url = quad.object.value;
+                const subject = quad.object.termType === 'Literal' ? quad.object.value : quad.object;
                 const document = await this.client.readIfFound(url);
 
                 if (
                     !document ||
-                    document.contains(url, RDF_TYPE, LDP_CONTAINER) ||
-                    document.contains(url, RDF_TYPE, LDP_BASIC_CONTAINER)
+                    document.contains(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT) ||
+                    document.contains(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT)
                 ) {
                     return;
                 }

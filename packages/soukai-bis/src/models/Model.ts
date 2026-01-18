@@ -1,30 +1,49 @@
-import { MagicObject, fail, isInstanceOf, objectOnly, stringToCamelCase, urlRoute, uuid } from '@noeldemartin/utils';
+import {
+    MagicObject,
+    arrayUnique,
+    fail,
+    isInstanceOf,
+    objectOnly,
+    required,
+    stringToCamelCase,
+    tap,
+    urlRoute,
+    uuid,
+} from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-import type { NamedNode } from '@rdfjs/types';
+import type { NamedNode, Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { requireEngine } from 'soukai-bis/engines/state';
+import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 
-import { RDF_TYPE } from './constants';
 import { createFromRDF, serializeToRDF } from './concerns/rdf';
 import { getDirtyUpdates } from './concerns/crdts';
+import { isModelClass } from './utils';
+import type Relation from './relations/Relation';
 import type { Schema } from './schema';
 import type { BootedModelClass, MintedModel, ModelConstructor } from './types';
 
 export default class Model<
     Attributes extends Record<string, unknown> = Record<string, unknown>,
-    Field extends string = Exclude<keyof Attributes, number | symbol>,
+    Relations extends Record<string, unknown> = Record<string, unknown>,
+    FieldName extends string = Exclude<keyof Attributes, number | symbol>,
+    RelationName extends string = Exclude<keyof Relations, number | symbol>,
 > extends MagicObject {
 
     public static schema: Schema;
-    protected static _collection?: string;
+    protected static _defaultContainerUrl?: string;
     protected static _modelName?: string;
     private static __booted: boolean = false;
 
-    public static get collection(): string {
-        return this._collection ?? this.booted()._collection;
+    public static get defaultContainerUrl(): string {
+        return this._defaultContainerUrl ?? this.booted()._defaultContainerUrl;
+    }
+
+    public static set defaultContainerUrl(value: string) {
+        this._defaultContainerUrl = value;
     }
 
     public static get modelName(): string {
@@ -37,7 +56,7 @@ export default class Model<
         }
 
         this._modelName ??= name ?? this.name;
-        this._collection ??= `solid://${stringToCamelCase(this._modelName)}s/`;
+        this._defaultContainerUrl ??= `solid://${stringToCamelCase(this._modelName)}s/`;
         this.__booted = true;
     }
 
@@ -47,9 +66,10 @@ export default class Model<
 
     public static newInstance<T extends Model>(
         this: ModelConstructor<T>,
-        ...params: ConstructorParameters<ModelConstructor<T>>
+        attributes?: Record<string, unknown>,
+        exists?: boolean,
     ): T {
-        return new this(...params);
+        return new this(attributes, exists);
     }
 
     public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<MintedModel<T> | null> {
@@ -69,12 +89,28 @@ export default class Model<
 
     public static async all<T extends Model>(
         this: ModelConstructor<T>,
-        containerUrl: string,
+        containerUrl?: string,
     ): Promise<MintedModel<T>[]> {
         const engine = requireEngine();
-        const documents = await engine.readManyDocuments(containerUrl);
+        const documents = await engine.readManyDocuments(containerUrl ?? this.defaultContainerUrl);
+        const matchingDocuments = await Promise.all(
+            Object.entries(documents).map(async ([_, document]) => {
+                const quads = await jsonldToQuads(document);
+                const matches = arrayUnique(
+                    quads
+                        .filter(
+                            (q) =>
+                                RDF_TYPE_PREDICATE.equals(q.predicate) &&
+                                this.schema.rdfClasses.some((rdfClass) => rdfClass.equals(q.object)),
+                        )
+                        .map((q) => q.subject.value),
+                );
+
+                return matches.map((subject) => [subject, quads.filter((q) => q.subject.value === subject)] as const);
+            }),
+        );
         const models = await Promise.all(
-            Object.entries(documents).map(([url, document]) => this.createFromJsonLD(document, { url })),
+            matchingDocuments.flat().map(([subject, quads]) => this.createFromRDF(quads, { url: subject })),
         );
 
         return models.filter((model) => model !== null) as MintedModel<T>[];
@@ -89,20 +125,16 @@ export default class Model<
         return model.save();
     }
 
-    public static async createFromJsonLD<T extends Model>(
+    public static async createFromRDF<T extends Model>(
         this: ModelConstructor<T>,
-        json: JsonLD,
-        options: { url?: string } = {},
+        quads: Quad[],
+        options: { url: string },
     ): Promise<MintedModel<T> | null> {
-        const url = options.url ?? json['@id'] ?? fail<string>('JsonLD is missing @id');
-        const quads = await jsonldToQuads(json);
+        const url = options.url;
         const subject = new RDFNamedNode(url);
         const isType = (rdfClass: NamedNode) =>
             quads.some(
-                (q) =>
-                    q.subject.value === subject.value &&
-                    q.predicate.value === RDF_TYPE &&
-                    q.object.value === rdfClass.value,
+                (q) => subject.equals(q.subject) && RDF_TYPE_PREDICATE.equals(q.predicate) && rdfClass.equals(q.object),
             );
 
         if (!this.schema.rdfClasses.some(isType)) {
@@ -110,6 +142,17 @@ export default class Model<
         }
 
         return createFromRDF<T>(this, url, quads);
+    }
+
+    public static async createFromJsonLD<T extends Model>(
+        this: ModelConstructor<T>,
+        json: JsonLD,
+        options: { url?: string } = {},
+    ): Promise<MintedModel<T> | null> {
+        const url = options.url ?? json['@id'] ?? fail<string>('JsonLD is missing @id');
+        const quads = await jsonldToQuads(json);
+
+        return this.createFromRDF(quads, { url });
     }
 
     public static<T extends typeof Model>(): T;
@@ -121,7 +164,7 @@ export default class Model<
     private static booted<T extends typeof Model>(this: T): BootedModelClass<T> {
         if (!this.__booted) {
             this._modelName ??= this.name;
-            this._collection ??= `solid://${stringToCamelCase(this._modelName)}s/`;
+            this._defaultContainerUrl ??= `solid://${stringToCamelCase(this._modelName)}s/`;
             this.__booted = true;
         }
 
@@ -131,7 +174,8 @@ export default class Model<
     declare public url?: string;
     private __exists: boolean = false;
     private __attributes: Attributes;
-    private __dirtyAttributes: Set<Field> = new Set();
+    private __dirtyAttributes: Set<FieldName> = new Set();
+    private __relations: Record<string, Relation> = {};
 
     public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
         super();
@@ -150,6 +194,42 @@ export default class Model<
         return this.__attributes;
     }
 
+    public getAttribute(field: FieldName): unknown {
+        return this.__attributes[field];
+    }
+
+    public getRelation(name: RelationName): Relation {
+        const relation = required(
+            this.static().schema.relations[name],
+            `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
+        );
+
+        if (!isModelClass(relation.related)) {
+            const related = (relation.related as () => ModelConstructor)();
+
+            if (!isModelClass(related)) {
+                throw new SoukaiError(
+                    `Relation '${name}' for ${this.static().modelName} model is not defined correctly, ` +
+                        'related value is not a model class.',
+                );
+            }
+
+            relation.related = related;
+        }
+
+        return tap(
+            relation.relationClass.newInstance(this, relation.related, {
+                foreignKeyName: relation.foreignKey,
+                localKeyName: relation.localKey,
+            }),
+            (instance) => void (this.__relations[name] = instance),
+        );
+    }
+
+    public async loadRelation(name: RelationName): Promise<void> {
+        await this.getRelation(name).load();
+    }
+
     public getDocumentUrl(): string | null {
         return this.url ? urlRoute(this.url) : null;
     }
@@ -158,11 +238,11 @@ export default class Model<
         return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
     }
 
-    public getDirtyAttributes(): Field[] {
+    public getDirtyAttributes(): FieldName[] {
         return Array.from(this.__dirtyAttributes);
     }
 
-    public isDirty(field?: Field): boolean {
+    public isDirty(field?: FieldName): boolean {
         if (field) {
             return this.__dirtyAttributes.has(field);
         }
@@ -218,7 +298,7 @@ export default class Model<
         );
 
         Object.assign(this.__attributes, parsedAttributes);
-        Object.keys(parsedAttributes).forEach((field) => this.__dirtyAttributes.add(field as Field));
+        Object.keys(parsedAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
 
         return this.save();
     }
@@ -232,6 +312,10 @@ export default class Model<
     }
 
     protected __get(property: string): unknown {
+        if (property in this.__relations) {
+            return this.__relations[property]?.related;
+        }
+
         return this.__attributes[property];
     }
 
@@ -245,10 +329,10 @@ export default class Model<
     }
 
     protected mintUrl(): string {
-        return `${this.static().collection}${uuid()}`;
+        return `${this.static().defaultContainerUrl}${uuid()}`;
     }
 
-    private parseAttribute<T extends Field>(field: T, value: unknown): Attributes[T] {
+    private parseAttribute<T extends FieldName>(field: T, value: unknown): Attributes[T] {
         return this.static().schema.fields.def.shape[field]?.parse(value) as Attributes[T];
     }
 
@@ -256,7 +340,7 @@ export default class Model<
         return this.static().schema.fields.parse(values) as Attributes;
     }
 
-    private isField(property: string): property is Field {
+    private isField(property: string): property is FieldName {
         return property in this.static().schema.fields.def.shape;
     }
 

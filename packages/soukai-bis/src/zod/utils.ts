@@ -1,12 +1,11 @@
-import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
+import { RDFLiteral, RDFNamedNode } from '@noeldemartin/solid-utils';
 import { ZodArray, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
 import { isDevelopment } from '@noeldemartin/utils';
 import type { Quad_Object } from '@rdfjs/types';
 import type { SomeType } from 'zod/v4/core';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-
-const XSD_INTEGER = new RDFNamedNode(expandIRI('xsd:integer'));
+import { XSD_INTEGER_TYPE } from 'soukai-bis/utils/rdf';
 
 export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], definition: SomeType): unknown {
     const finalType = getFinalType(definition);
@@ -41,7 +40,7 @@ export function castToRDF(value: unknown, definition: SomeType): Quad_Object[] {
     }
 
     if (finalType instanceof ZodNumber) {
-        return [new RDFLiteral(String(value), undefined, XSD_INTEGER)];
+        return [new RDFLiteral(String(value), undefined, XSD_INTEGER_TYPE)];
     }
 
     if (finalType instanceof ZodURL) {

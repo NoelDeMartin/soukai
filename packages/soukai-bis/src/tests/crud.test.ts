@@ -4,7 +4,7 @@ import { faker } from '@noeldemartin/faker';
 
 import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { bootModels } from 'soukai-bis/models/helpers';
+import { bootModels } from 'soukai-bis/models/utils';
 import { setEngine } from 'soukai-bis/engines';
 
 describe('Solid CRUD', () => {

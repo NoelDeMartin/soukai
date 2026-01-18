@@ -3,7 +3,7 @@ import { RDFNamedNode, RDFQuad, SolidStore } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import { castToJavaScript, castToRDF, getFinalType } from 'soukai-bis/zod/utils';
-import { RDF_TYPE } from 'soukai-bis/models/constants';
+import { RDF_TYPE } from 'soukai-bis/utils/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { MintedModel, ModelConstructor } from 'soukai-bis/models/types';
 

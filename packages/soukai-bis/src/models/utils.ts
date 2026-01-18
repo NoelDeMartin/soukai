@@ -1,3 +1,5 @@
+import type { ModelConstructor } from 'soukai-bis/models/types';
+
 export function bootModels(
     models: Record<string, { boot(name: string): unknown; reset(): void }>,
     reset: boolean = false,
@@ -7,4 +9,8 @@ export function bootModels(
 
         modelClass.boot(modelName);
     }
+}
+
+export function isModelClass(value: unknown): value is ModelConstructor {
+    return typeof value === 'function' && 'schema' in value && '__booted' in value;
 }

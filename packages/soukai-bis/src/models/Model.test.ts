@@ -5,7 +5,7 @@ import { ZodError } from 'zod';
 import User from 'soukai-bis/testing/stubs/User';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 import { SetPropertyOperation } from 'soukai-bis/models/crdts';
-import { bootModels } from 'soukai-bis/models/helpers';
+import { bootModels } from 'soukai-bis/models/utils';
 import { fakeResourceUrl } from '@noeldemartin/testing';
 
 describe('Model', () => {
@@ -20,7 +20,7 @@ describe('Model', () => {
     });
 
     it('boots models', () => {
-        expect(User.collection).toBe('solid://users/');
+        expect(User.defaultContainerUrl).toBe('solid://users/');
         expect(User.modelName).toBe('User');
     });
 
