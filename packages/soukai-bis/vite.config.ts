@@ -7,9 +7,12 @@ export default defineConfig({
     build: {
         sourcemap: true,
         lib: {
-            entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+            entry: {
+                'soukai-bis': fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+                'patch-zod': fileURLToPath(new URL('./src/patch-zod.ts', import.meta.url)),
+            },
             formats: ['es'],
-            fileName: 'soukai-bis',
+            fileName: (_, entry) => (entry.includes('patch-zod') ? 'patch-zod.js' : 'soukai-bis.js'),
         },
         rollupOptions: {
             external(source) {

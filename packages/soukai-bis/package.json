@@ -2,10 +2,18 @@
     "name": "soukai-bis",
     "version": "0.0.0",
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./dist/patch-zod.js"
+    ],
     "exports": {
-        "types": "./dist/soukai-bis.d.ts",
-        "default": "./dist/soukai-bis.js"
+        ".": {
+            "types": "./dist/soukai-bis.d.ts",
+            "default": "./dist/soukai-bis.js"
+        },
+        "./patch-zod": {
+            "types": "./dist/patch-zod.d.ts",
+            "default": "./dist/patch-zod.js"
+        }
     },
     "files": [
         "src",
