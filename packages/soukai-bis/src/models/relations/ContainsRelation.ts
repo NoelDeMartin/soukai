@@ -6,12 +6,15 @@ import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import MultiModelRelation from './MultiModelRelation';
+import { classMarker } from './helpers';
 
 export default class ContainsRelation<
     Parent extends SolidContainer = SolidContainer,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass> {
+
+    public static [classMarker] = ['ContainsRelation', ...MultiModelRelation[classMarker]];
 
     public constructor(parent: Parent, relatedClass: RelatedClass) {
         super(parent, relatedClass, { foreignKeyName: '__unused__' });
@@ -21,6 +24,10 @@ export default class ContainsRelation<
                 `non-container model initialized for ContainsRelation: ${(parent as Model).static().modelName}`,
             );
         }
+    }
+
+    public setForeignAttributes(): void {
+        // Nothing to do here, these models don't have any attributes pointing to each other.
     }
 
     public async load(): Promise<Related[]> {

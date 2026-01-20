@@ -6,13 +6,13 @@ import type Model from 'soukai-bis/models/Model';
 import type SolidContainer from 'soukai-bis/models/SolidContainer';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
-import Relation from './Relation';
+import SingleModelRelation from './SingleModelRelation';
 
 export default class IsContainedByRelation<
     Parent extends Model = Model,
     Related extends SolidContainer = SolidContainer,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends Relation<Parent, Related, RelatedClass> {
+> extends SingleModelRelation<Parent, Related, RelatedClass> {
 
     public static validateRelatedClass(parent: Model, relatedClass: unknown): void {
         if (isSolidContainerClass(relatedClass)) {
@@ -39,6 +39,18 @@ export default class IsContainedByRelation<
         this.related = await this.relatedClass.find(containerUrl);
 
         return this.related;
+    }
+
+    public setForeignAttributes(related: Related): void {
+        const parentDocumentUrl = this.parent.getDocumentUrl();
+
+        if (!parentDocumentUrl || !this.parent.url || related.resourceUrls.includes(parentDocumentUrl)) {
+            return;
+        }
+
+        const resourceUrls = related.resourceUrls.concat([parentDocumentUrl]);
+
+        related.setAttribute('resourceUrls', resourceUrls);
     }
 
 }

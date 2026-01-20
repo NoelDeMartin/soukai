@@ -15,6 +15,28 @@ export default class HasManyRelation<
         return this.related;
     }
 
+    public setForeignAttributes(related: Related): void {
+        const foreignKey = this.parent.getAttribute(this.localKeyName);
+
+        if (!foreignKey) {
+            return;
+        }
+
+        const foreignValue = related.getAttribute(this.foreignKeyName);
+
+        if (!Array.isArray(foreignValue)) {
+            related.setAttribute(this.foreignKeyName, foreignKey);
+
+            return;
+        }
+
+        if (foreignValue.includes(foreignKey)) {
+            return;
+        }
+
+        related.setAttribute(this.foreignKeyName, foreignValue.concat([foreignKey]));
+    }
+
     private async loadRelatedModels(): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
 

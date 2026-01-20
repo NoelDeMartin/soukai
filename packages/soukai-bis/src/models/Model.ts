@@ -7,7 +7,7 @@ import {
     objectOnly,
     required,
     stringToCamelCase,
-    tap,
+    urlResolve,
     urlRoute,
     uuid,
 } from '@noeldemartin/utils';
@@ -20,9 +20,10 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { requireEngine } from 'soukai-bis/engines/state';
 import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 
-import { createFromRDF, serializeToRDF } from './concerns/rdf';
-import { getDirtyUpdates } from './concerns/crdts';
+import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
+import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { isModelClass } from './utils';
+import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
 import type Relation from './relations/Relation';
 import type { Schema } from './schema';
 import type { BootedModelClass, MintedModel, ModelConstructor } from './types';
@@ -179,8 +180,9 @@ export default class Model<
 
     declare public url?: string;
     private __exists: boolean = false;
+    private __documentExists: boolean = false;
     private __attributes: Attributes;
-    private __dirtyAttributes: Set<FieldName> = new Set();
+    private __dirtyAttributes: Set<FieldName>;
     private __relations: Record<string, Relation> = {};
 
     public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
@@ -188,46 +190,73 @@ export default class Model<
 
         if (this.static().isConjuring()) {
             this.__attributes = {} as unknown as Attributes;
+            this.__dirtyAttributes = new Set();
 
             return;
         }
 
         this.__exists = exists;
+        this.__documentExists = exists;
         this.__attributes = this.parseAttributes(attributes);
-    }
-
-    public getAttributes(): Attributes {
-        return this.__attributes;
+        this.__dirtyAttributes = exists ? new Set() : new Set(Object.keys(this.__attributes) as FieldName[]);
     }
 
     public getAttribute(field: FieldName): unknown {
         return this.__attributes[field];
     }
 
-    public getRelation(name: RelationName): Relation {
-        const relation = required(
-            this.static().schema.relations[name],
-            `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
+    public getAttributes(): Attributes {
+        return this.__attributes;
+    }
+
+    public setAttribute(field: FieldName, value: unknown): void {
+        this.setAttributes({ [field]: value } as Partial<Attributes>);
+    }
+
+    public setAttributes(attributes: Partial<Attributes>): void {
+        const updateSchemas = objectOnly(this.static().schema.fields.def.shape, Object.keys(attributes));
+        const parsedAttributes = Object.fromEntries(
+            Object.entries(updateSchemas).map(([field, fieldSchema]) => [field, fieldSchema.parse(attributes[field])]),
         );
 
-        if (!isModelClass(relation.relatedClass)) {
-            const relatedClass = (relation.relatedClass as () => ModelConstructor)();
+        Object.assign(this.__attributes, parsedAttributes);
+        Object.keys(parsedAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
+    }
 
-            relation.relationClass.validateRelatedClass(this, relatedClass);
-            relation.relatedClass = relatedClass;
+    public getRelation(name: RelationName): Relation {
+        if (!(name in this.__relations)) {
+            const relation = required(
+                this.static().schema.relations[name],
+                `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
+            );
+
+            if (!isModelClass(relation.relatedClass)) {
+                const relatedClass = (relation.relatedClass as () => ModelConstructor)();
+
+                relation.relationClass.validateRelatedClass(this, relatedClass);
+                relation.relatedClass = relatedClass;
+            }
+
+            this.__relations[name] = relation.relationClass.newInstance(this, relation.relatedClass, {
+                foreignKeyName: relation.options.foreignKey,
+                localKeyName: relation.options.localKey,
+                usingSameDocument: relation.options.usingSameDocument,
+            });
         }
 
-        return tap(
-            relation.relationClass.newInstance(this, relation.relatedClass, {
-                foreignKeyName: relation.foreignKey,
-                localKeyName: relation.localKey,
-            }),
-            (instance) => void (this.__relations[name] = instance),
-        );
+        return this.__relations[name] as Relation;
     }
 
     public async loadRelation(name: RelationName): Promise<void> {
         await this.getRelation(name).load();
+    }
+
+    public mintUrl(documentUrl?: string, documentExists?: boolean, resourceHash?: string): void {
+        this.url ??= this.newUrl(documentUrl, resourceHash);
+
+        if (documentUrl) {
+            this.__documentExists = documentExists ?? true;
+        }
     }
 
     public getDocumentUrl(): string | null {
@@ -242,12 +271,34 @@ export default class Model<
         return Array.from(this.__dirtyAttributes);
     }
 
-    public isDirty(field?: FieldName): boolean {
+    public getDocumentModels(): Model[] {
+        const modelsSet = new Set<Model>();
+
+        this.populateDocumentModels(modelsSet);
+
+        return Array.from(modelsSet);
+    }
+
+    public getDirtyDocumentModels(): Model[] {
+        return this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
+    }
+
+    public isDirty(field?: FieldName, ignoreRelations?: boolean): boolean {
         if (field) {
             return this.__dirtyAttributes.has(field);
         }
 
-        return this.__dirtyAttributes.size > 0;
+        if (ignoreRelations) {
+            return this.__dirtyAttributes.size > 0;
+        }
+
+        const dirtyDocumentModels = this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
+
+        return dirtyDocumentModels.length > 0;
+    }
+
+    public cleanDirty(): void {
+        this.__dirtyAttributes.clear();
     }
 
     public exists(): this is MintedModel<this> {
@@ -256,6 +307,15 @@ export default class Model<
 
     public setExists(exists: boolean): void {
         this.__exists = exists;
+        this.__documentExists = exists;
+    }
+
+    public documentExists(): this is MintedModel<this> {
+        return this.__documentExists;
+    }
+
+    public setDocumentExists(documentExists: boolean): void {
+        this.__documentExists = documentExists;
     }
 
     public async delete(): Promise<this> {
@@ -273,47 +333,42 @@ export default class Model<
     }
 
     public async save(): Promise<MintedModel<this>> {
-        this.url ??= this.mintUrl();
-
-        const engine = requireEngine();
-        const graph = await this.toJsonLD();
-
-        if (this.exists()) {
-            await engine.updateDocument(this.requireDocumentUrl(), getDirtyUpdates(this));
-        } else {
-            await engine.createDocument(this.requireDocumentUrl(), graph);
-
-            this.__exists = true;
+        if (this.exists() && !this.isDirty()) {
+            return this;
         }
 
-        this.__dirtyAttributes.clear();
+        await this.beforeSave();
+        await this.performSave();
+        await this.afterSave();
 
         return this as MintedModel<this>;
     }
 
     public update(attributes: Partial<Attributes>): Promise<MintedModel<this>> {
-        const updateSchemas = objectOnly(this.static().schema.fields.def.shape, Object.keys(attributes));
-        const parsedAttributes = Object.fromEntries(
-            Object.entries(updateSchemas).map(([field, fieldSchema]) => [field, fieldSchema.parse(attributes[field])]),
-        );
-
-        Object.assign(this.__attributes, parsedAttributes);
-        Object.keys(parsedAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
+        this.setAttributes(attributes);
 
         return this.save();
     }
 
     public async toJsonLD(): Promise<JsonLD> {
-        return quadsToJsonLD(serializeToRDF(this));
+        return quadsToJsonLD(serializeToRDF(this.getDocumentModels()));
     }
 
     public async toTurtle(): Promise<string> {
-        return quadsToTurtle(serializeToRDF(this));
+        return quadsToTurtle(serializeToRDF(this.getDocumentModels()));
     }
 
     protected __get(property: string): unknown {
         if (property in this.__relations) {
             return this.__relations[property]?.related;
+        }
+
+        if (property.startsWith('related') && property !== 'related') {
+            const relation = stringToCamelCase(property.slice(7)) as RelationName;
+
+            if (relation in this.static().schema.relations) {
+                return this.getRelation(relation);
+            }
         }
 
         return this.__attributes[property];
@@ -324,16 +379,59 @@ export default class Model<
             return;
         }
 
-        this.__attributes[property] = this.parseAttribute(property, value);
-        this.__dirtyAttributes.add(property);
+        this.setAttribute(property, value);
     }
 
-    protected mintUrl(): string {
-        return `${this.static().defaultContainerUrl}${uuid()}`;
+    protected newUrl(documentUrl?: string, resourceHash?: string | null): string {
+        documentUrl = documentUrl ?? urlResolve(this.static('defaultContainerUrl'), uuid());
+        resourceHash = resourceHash ?? 'it';
+
+        return `${documentUrl}#${resourceHash}`;
     }
 
-    private parseAttribute<T extends FieldName>(field: T, value: unknown): Attributes[T] {
-        return this.static().schema.fields.def.shape[field]?.parse(value) as Attributes[T];
+    protected async beforeSave(): Promise<void> {
+        this.mintUrl();
+
+        const documentUrl = this.requireDocumentUrl();
+        const documentExists = this.__documentExists;
+        const documentModels = this.getDocumentModels();
+
+        for (const documentModel of documentModels) {
+            if (documentModel.url) {
+                continue;
+            }
+
+            documentModel.mintUrl(documentUrl, documentExists, uuid());
+        }
+
+        for (const documentModel of documentModels) {
+            for (const relation of Object.values(documentModel.__relations)) {
+                relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
+            }
+        }
+    }
+
+    protected async performSave(): Promise<void> {
+        const engine = requireEngine();
+
+        if (this.__documentExists) {
+            await engine.updateDocument(
+                this.requireDocumentUrl(),
+                getDirtyDocumentsUpdates(this.getDirtyDocumentModels()),
+            );
+        } else {
+            await engine.createDocument(this.requireDocumentUrl(), await this.toJsonLD());
+        }
+    }
+
+    protected async afterSave(): Promise<void> {
+        const modelDocuments = this.getDocumentModels();
+
+        for (const modelDocument of modelDocuments) {
+            modelDocument.setExists(true);
+            modelDocument.setDocumentExists(true);
+            modelDocument.cleanDirty();
+        }
     }
 
     private parseAttributes(values: unknown): Attributes {
@@ -342,6 +440,49 @@ export default class Model<
 
     private isField(property: string): property is FieldName {
         return property in this.static().schema.fields.def.shape;
+    }
+
+    private populateDocumentModels(documentModels: Set<Model>): void {
+        if (documentModels.has(this)) {
+            return;
+        }
+
+        const documentUrl = this.getDocumentUrl();
+
+        documentModels.add(this);
+
+        for (const relation of Object.values(this.__relations)) {
+            if (!relation.loaded) {
+                continue;
+            }
+
+            const isContainsRelationInstance = isContainsRelation(relation);
+
+            if (
+                isSingleModelRelation(relation) &&
+                relation.__newModel &&
+                isUsingSameDocument(documentUrl, relation, relation.__newModel)
+            ) {
+                relation.__newModel.populateDocumentModels(documentModels);
+            }
+
+            if (isMultiModelRelation(relation)) {
+                for (const newModel of relation.__newModels ?? []) {
+                    if (!isUsingSameDocument(documentUrl, relation, newModel)) {
+                        continue;
+                    }
+
+                    newModel.populateDocumentModels(documentModels);
+                }
+            }
+
+            relation
+                .getLoadedModels()
+                .filter(
+                    (model: Model) => isContainsRelationInstance || isUsingSameDocument(documentUrl, relation, model),
+                )
+                .forEach((model: Model) => model.populateDocumentModels(documentModels));
+        }
     }
 
 }

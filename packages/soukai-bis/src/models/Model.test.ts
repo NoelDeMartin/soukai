@@ -6,7 +6,7 @@ import User from 'soukai-bis/testing/stubs/User';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 import { SetPropertyOperation } from 'soukai-bis/models/crdts';
 import { bootModels } from 'soukai-bis/models/utils';
-import { fakeResourceUrl } from '@noeldemartin/testing';
+import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 
 describe('Model', () => {
 
@@ -80,7 +80,7 @@ describe('Model', () => {
 
         expect(mintedUser.url).not.toBeUndefined();
 
-        await expect(engine.documents[mintedUser.url]).toEqualJsonLD({
+        await expect(engine.documents[mintedUser.requireDocumentUrl()]).toEqualJsonLD({
             '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': user.url,
             '@type': 'Person',
@@ -99,7 +99,7 @@ describe('Model', () => {
         // Assert
         expect(user.name).toBe('Jane Doe');
 
-        await expect(engine.documents[user.url]).toEqualJsonLD({
+        await expect(engine.documents[user.requireDocumentUrl()]).toEqualJsonLD({
             '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': user.url,
             '@type': 'Person',
@@ -108,11 +108,45 @@ describe('Model', () => {
         });
 
         expect(updateDocumentSpy).toHaveBeenCalledWith(
-            user.url,
+            user.requireDocumentUrl(),
             expect.arrayContaining([
                 new SetPropertyOperation(new RDFNamedNode(user.url), new RDFNamedNode(expandIRI('foaf:name')), [
                     new RDFLiteral('Jane Doe'),
                 ]),
+            ]),
+        );
+    });
+
+    it('saves instances when document exists', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const firstUser = new User({ url: `${documentUrl}#first`, name: 'John Doe' });
+        const secondUser = new User({ url: `${documentUrl}#second`, name: 'Jane Doe' });
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+        const createDocumentSpy = vi.spyOn(engine, 'createDocument');
+
+        engine.documents[documentUrl] = await firstUser.toJsonLD();
+
+        secondUser.setDocumentExists(true);
+
+        // Act
+        const savedSecondUser = await secondUser.save();
+
+        // Assert
+        expect(createDocumentSpy).not.toHaveBeenCalled();
+        expect(updateDocumentSpy).toHaveBeenCalledWith(
+            firstUser.requireDocumentUrl(),
+            expect.arrayContaining([
+                new SetPropertyOperation(
+                    new RDFNamedNode(savedSecondUser.url),
+                    new RDFNamedNode(expandIRI('rdf:type')),
+                    [new RDFNamedNode(expandIRI('foaf:Person'))],
+                ),
+                new SetPropertyOperation(
+                    new RDFNamedNode(savedSecondUser.url),
+                    new RDFNamedNode(expandIRI('foaf:name')),
+                    [new RDFLiteral('Jane Doe')],
+                ),
             ]),
         );
     });
@@ -122,7 +156,7 @@ describe('Model', () => {
 
         expect(user.url).not.toBeUndefined();
 
-        await expect(engine.documents[user.url]).toEqualJsonLD({
+        await expect(engine.documents[user.requireDocumentUrl()]).toEqualJsonLD({
             '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': user.url,
             '@type': 'Person',

@@ -1,4 +1,5 @@
 export * from './Model';
+export * from './relations';
 export * from './schema-containers';
 export * from './schema';
 export * from './types';

@@ -1,4 +1,4 @@
-import { type Nullable, required } from '@noeldemartin/utils';
+import { type Nullable, arrayFrom, required } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isModelClass } from 'soukai-bis/models/utils';
@@ -17,7 +17,7 @@ export default abstract class Relation<
         this: RelationConstructor<T>,
         parent: Model,
         relatedClass: ModelConstructor,
-        options?: { foreignKeyName?: string; localKeyName?: string },
+        options?: { foreignKeyName?: string; localKeyName?: string; usingSameDocument?: boolean },
     ): T {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return new (this as any)(parent, relatedClass, options);
@@ -38,13 +38,13 @@ export default abstract class Relation<
     public relatedClass: RelatedClass;
     public foreignKeyName: string;
     public localKeyName: string;
-    public loaded: boolean = false;
+    public usingSameDocument: boolean = false;
     protected _related: Nullable<Related | Related[]> = null;
 
     public constructor(
         parent: Parent,
         relatedClass: RelatedClass,
-        options: { foreignKeyName?: string; localKeyName?: string } = {},
+        options: { foreignKeyName?: string; localKeyName?: string; usingSameDocument?: boolean } = {},
     ) {
         this.parent = parent;
         this.relatedClass = relatedClass;
@@ -53,6 +53,7 @@ export default abstract class Relation<
             `foreignKeyName missing from relation in ${parent.static().modelName} for ${relatedClass.modelName}.`,
         );
         this.localKeyName = options.localKeyName ?? 'url';
+        this.usingSameDocument = options.usingSameDocument ?? false;
     }
 
     public get related(): Nullable<Related | Related[]> {
@@ -61,14 +62,21 @@ export default abstract class Relation<
 
     public set related(related: Nullable<Related | Related[]>) {
         this._related = related;
-        this.loaded = true;
+    }
+
+    public get loaded(): boolean {
+        return this.related !== undefined;
+    }
+
+    public getLoadedModels(): Related[] {
+        return this.related ? (arrayFrom(this.related) as Related[]) : [];
     }
 
     public unload(): void {
         this.related = null;
-        this.loaded = false;
     }
 
     public abstract load(): Promise<Related | Related[] | null>;
+    public abstract setForeignAttributes(related: Related): void;
 
 }

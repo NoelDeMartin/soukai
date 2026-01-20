@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
+import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 import { bootModels } from 'soukai-bis/models/utils';
 
@@ -13,7 +15,7 @@ describe('HasOneRelation', () => {
         engine = new InMemoryEngine();
 
         setEngine(engine);
-        bootModels({ User, Post }, true);
+        bootModels({ User, Post, Movie, WatchAction }, true);
     });
 
     it('loads related model', async () => {
@@ -42,6 +44,19 @@ describe('HasOneRelation', () => {
 
         // Assert
         expect(user.lastPost).toBeNull();
+    });
+
+    it('attaches related models', async () => {
+        // Arrange
+        const movie = new Movie({ title: 'Spiderman' });
+        const action = new WatchAction({ startTime: new Date() });
+
+        // Act
+        await movie.relatedAction.attach(action);
+
+        // Assert
+        expect(movie.action).toBe(action);
+        expect(action.movieUrl).toBe(movie.url);
     });
 
 });

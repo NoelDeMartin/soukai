@@ -1,7 +1,12 @@
+import { tap } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
+
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { GetModelAttributes, ModelConstructor } from 'soukai-bis/models/types';
 
 import Relation from './Relation';
+import { classMarker } from './helpers';
 
 export default abstract class MultiModelRelation<
     Parent extends Model = Model,
@@ -9,6 +14,66 @@ export default abstract class MultiModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
 
+    public static [classMarker] = ['MultiModelRelation'];
+
+    declare public __newModels?: Related[];
+
+    public get related(): Nullable<Related[]> {
+        return this._related as Nullable<Related[]>;
+    }
+
+    public set related(related: Nullable<Related[]>) {
+        this._related = related;
+    }
+
+    public attach(model: Related): Promise<Related>;
+    public attach(attributes: GetModelAttributes<Related>): Promise<Related>;
+    public async attach(modelOrAttributes: Related | GetModelAttributes<Related>): Promise<Related> {
+        const model =
+            modelOrAttributes instanceof this.relatedClass
+                ? (modelOrAttributes as Related)
+                : this.relatedClass.newInstance(modelOrAttributes);
+
+        return tap(model, () => {
+            if (!this.assertLoaded('attach') || this.isRelated(model)) {
+                return;
+            }
+
+            this.addRelated(model);
+            this.setForeignAttributes(model);
+        });
+    }
+
+    public isRelated(related: Related): boolean {
+        return !!this.related?.includes(related);
+    }
+
+    public addRelated(related: Related): void {
+        if (this.isRelated(related)) {
+            return;
+        }
+
+        this.related = (this.related ?? []).concat(related);
+
+        if (!related.exists()) {
+            this.__newModels = (this.__newModels ?? []).concat([related]);
+        }
+    }
+
     public abstract load(): Promise<Related[]>;
+
+    protected assertLoaded(method: string): this is { related: Related[] } {
+        if (this.loaded) {
+            return true;
+        }
+
+        if (!this.parent.exists()) {
+            this.related = [];
+
+            return true;
+        }
+
+        throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);
+    }
 
 }

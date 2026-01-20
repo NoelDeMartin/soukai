@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 
+import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import User from 'soukai-bis/testing/stubs/User';
+import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { bootModels } from 'soukai-bis/models/utils';
 import { setEngine } from 'soukai-bis/engines';
 
@@ -12,7 +14,7 @@ describe('Relations', () => {
 
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
-        bootModels({ User, Post, PostsCollection }, true);
+        bootModels({ User, Post, PostsCollection, Movie, WatchAction }, true);
     });
 
     it('belongsToOne', async () => {
@@ -84,6 +86,36 @@ describe('Relations', () => {
         expect(alice.friends).toHaveLength(2);
         expect(alice.friends?.[0]).toBeInstanceOf(User);
         expect(alice.friends?.map(({ name }) => name).sort()).toEqual(['Bob', 'Charlie']);
+    });
+
+    it('belongsToMany attach', async () => {
+        // Arrange
+        const aliceDocumentUrl = fakeDocumentUrl();
+        const aliceUrl = fakeResourceUrl({ documentUrl: aliceDocumentUrl });
+        const bobDocumentUrl = fakeDocumentUrl();
+        const bobUrl = fakeResourceUrl({ documentUrl: bobDocumentUrl });
+
+        FakeServer.respondOnce(aliceDocumentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(aliceDocumentUrl, FakeResponse.success());
+        FakeServer.respondOnce(aliceDocumentUrl, FakeResponse.success());
+        FakeServer.respondOnce(aliceDocumentUrl, FakeResponse.success());
+        FakeServer.respondOnce(bobDocumentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(bobDocumentUrl, FakeResponse.success());
+
+        // Act
+        const alice = await User.create({ url: aliceUrl, name: 'Alice' });
+        const bob = await alice.relatedFriends.attach({ url: bobUrl, name: 'Bob' });
+
+        await alice.save();
+        await bob.save();
+
+        // Assert
+        expect(alice.friendUrls).toContain(bob.url);
+        expect(alice.friends).toHaveLength(1);
+        expect(alice.friends?.[0]?.url).toEqual(bob.url);
+        expect(alice.isDirty('friendUrls')).toBe(false);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(6);
     });
 
     it('hasOne', async () => {
@@ -249,6 +281,69 @@ describe('Relations', () => {
         expect(post.collection).toBeInstanceOf(PostsCollection);
         expect(post.collection?.url).toEqual(postsCollectionUrl);
         expect(post.collection?.name).toEqual('Blog Posts');
+    });
+
+    it('hasOne attach', async () => {
+        // Arrange
+        const movieDocumentUrl = fakeDocumentUrl();
+        const movieUrl = fakeResourceUrl({ documentUrl: movieDocumentUrl });
+        const actionDocumentUrl = fakeDocumentUrl();
+        const actionUrl = fakeResourceUrl({ documentUrl: actionDocumentUrl });
+
+        FakeServer.respondOnce(movieDocumentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(movieDocumentUrl, FakeResponse.success());
+        FakeServer.respondOnce(actionDocumentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(actionDocumentUrl, FakeResponse.success());
+
+        // Act
+        const movie = await Movie.create({ url: movieUrl, title: 'Spiderman' });
+        const action = await movie.relatedAction.attach({ url: actionUrl });
+
+        await action.save();
+
+        // Assert
+        expect(action.movieUrl).toEqual(movie.url);
+        expect(movie.action).toBe(action);
+        expect(action.exists()).toBe(true);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('hasOne attach (same document)', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const movieUrl = fakeResourceUrl({ documentUrl });
+
+        FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        // Act
+        const movie = new Movie({ url: movieUrl, title: 'Spiderman' });
+        const action = await movie.relatedAction.attach({});
+
+        await movie.save();
+
+        // Assert
+        expect(action.movieUrl).toEqual(movie.url);
+        expect(action.url).not.toEqual(movie.url);
+        expect(action.getDocumentUrl()).toEqual(movie.getDocumentUrl());
+        expect(action.exists()).toBe(true);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+
+        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body;
+
+        expect(body).toEqualTurtle(`
+            @prefix schema: <https://schema.org/> .
+
+            <${movieUrl}>
+                a schema:Movie ;
+                schema:name "Spiderman" .
+
+            <${documentUrl}#[[%uuid%]]>
+                a schema:WatchAction ;
+                schema:object <${movieUrl}> .
+        `);
     });
 
 });

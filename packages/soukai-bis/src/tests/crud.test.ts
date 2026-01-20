@@ -7,7 +7,7 @@ import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { bootModels } from 'soukai-bis/models/utils';
 import { setEngine } from 'soukai-bis/engines';
 
-describe('Solid CRUD', () => {
+describe('CRUD', () => {
 
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
@@ -33,9 +33,8 @@ describe('Solid CRUD', () => {
 
         expect(body).toEqualTurtle(`
             @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-            <${url}>
+            <${url}#it>
                 a foaf:Person ;
                 foaf:name "${name}" ;
                 foaf:age ${age} .

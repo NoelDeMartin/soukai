@@ -9,17 +9,29 @@ import IsContainedByRelation from './IsContainedByRelation';
 import type MultiModelRelation from './MultiModelRelation';
 import type { RelationConstructor } from './types';
 
-export interface SchemaRelationDefinition<
-    TRelation extends RelationConstructor = RelationConstructor,
-    TRelated extends ModelConstructor = ModelConstructor,
+export class SchemaRelationDefinition<
+    TRelated extends RelatedModelDefinition = RelatedModelDefinition,
+    TRelationClass extends RelationConstructor = RelationConstructor,
 > {
-    relatedClass: RelatedModelDefinition<TRelated>;
-    relationClass: TRelation;
-    foreignKey?: string;
-    localKey?: string;
+
+    constructor(
+        public relatedClass: TRelated,
+        public relationClass: TRelationClass,
+        public options: {
+            foreignKey?: string;
+            localKey?: string;
+            usingSameDocument?: boolean;
+        } = {},
+    ) {}
+
+    public usingSameDocument(): this {
+        this.options.usingSameDocument = true;
+
+        return this;
+    }
+
 }
 
-// Allow any with function definitions in order to avoid circular references
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> = TRelated | (() => any);
 export type RelatedSolidContainerDefinition<TRelated extends SolidContainerConstructor = SolidContainerConstructor> =
@@ -31,6 +43,8 @@ export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = 
     [K in keyof T]?: InstanceType<T[K]['relationClass']> extends MultiModelRelation
         ? GetRelatedModel<T[K]>[]
         : GetRelatedModel<T[K]>;
+} & {
+    [K in keyof T as `related${Capitalize<string & K>}`]: InstanceType<T[K]['relationClass']>;
 };
 
 export type GetRelatedModel<T extends SchemaRelationDefinition> = T['relatedClass'] extends () => infer TRelated
@@ -40,47 +54,27 @@ export type GetRelatedModel<T extends SchemaRelationDefinition> = T['relatedClas
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
 export function belongsToMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return {
-        relatedClass,
-        foreignKey,
-        relationClass: BelongsToManyRelation,
-    };
+    return new SchemaRelationDefinition(relatedClass, BelongsToManyRelation, { foreignKey });
 }
 
 export function belongsToOne<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return {
-        relatedClass,
-        foreignKey,
-        relationClass: BelongsToOneRelation,
-    };
+    return new SchemaRelationDefinition(relatedClass, BelongsToOneRelation, { foreignKey });
 }
 
 export function contains<T extends RelatedModelDefinition>(relatedClass: T) {
-    return {
-        relatedClass,
-        relationClass: ContainsRelation,
-    };
+    return new SchemaRelationDefinition(relatedClass, ContainsRelation);
 }
 
 export function hasMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return {
-        relatedClass,
-        foreignKey,
-        relationClass: HasManyRelation,
-    };
+    return new SchemaRelationDefinition(relatedClass, HasManyRelation, { foreignKey });
 }
 
 export function hasOne<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return {
-        relatedClass,
+    return new SchemaRelationDefinition(relatedClass, HasOneRelation, {
         foreignKey,
-        relationClass: HasOneRelation,
-    };
+    });
 }
 
 export function isContainedBy<T extends RelatedSolidContainerDefinition>(relatedClass: T) {
-    return {
-        relatedClass,
-        relationClass: IsContainedByRelation,
-    };
+    return new SchemaRelationDefinition(relatedClass, IsContainedByRelation);
 }
