@@ -1,7 +1,7 @@
 import { object, url } from 'zod';
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-import type { NamedNode } from '@rdfjs/types';
+import type { NamedNode, Quad } from '@rdfjs/types';
 import type { Override } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
 
@@ -30,7 +30,9 @@ export type SchemaModel<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
     TBaseClass extends ModelConstructor = typeof Model,
-> = (typeof Model extends TBaseClass ? Model<SchemaModelAttributes<TFields>, TRelations> : InstanceType<TBaseClass>) &
+> = (typeof Model extends TBaseClass
+    ? Model<SchemaModelAttributes<TFields>, TRelations>
+    : InstanceType<TBaseClass> & Model<SchemaModelAttributes<TFields>, TRelations>) &
     z.infer<ZodObject<TFields>> &
     SchemaModelRelations<TRelations>;
 
@@ -48,11 +50,22 @@ export type SchemaModelClass<
             exists?: boolean
         ): ModelInstanceType<This>;
         create<This>(this: This, attributes?: SchemaModelInput<TFields>): Promise<MintedModel<ModelInstanceType<This>>>;
+        createAt<This>(
+            this: This,
+            containerUrl: string,
+            attributes?: SchemaModelInput<TFields>
+        ): Promise<MintedModel<ModelInstanceType<This>>>;
         createFromJsonLD<This>(
             this: This,
             json: JsonLD,
             options?: { url?: string }
         ): Promise<MintedModel<ModelInstanceType<This>> | null>;
+        createFromRDF<This>(
+            this: This,
+            quads: Quad[],
+            options?: { url?: string }
+        ): Promise<MintedModel<ModelInstanceType<This>> | null>;
+        createManyFromJsonLD<This>(this: This, json: JsonLD): Promise<MintedModel<ModelInstanceType<This>>[]>;
     }
 >;
 

@@ -15,7 +15,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
         }
 
         const exists = model.exists();
-        const schema = model.static().schema;
+        const schema = model.static('schema');
         const attributes = model.getAttributes();
         const resource = new RDFNamedNode(model.url);
 

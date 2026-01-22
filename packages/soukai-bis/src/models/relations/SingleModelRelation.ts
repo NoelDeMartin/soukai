@@ -25,9 +25,9 @@ export default abstract class SingleModelRelation<
         this._related = related;
     }
 
-    public attach(model: Related): Promise<Related>;
-    public attach(attributes: GetModelAttributes<Related>): Promise<Related>;
-    public async attach(modelOrAttributes: Related | GetModelAttributes<Related>): Promise<Related> {
+    public attach(model: Related): Related;
+    public attach(attributes: GetModelAttributes<Related>): Related;
+    public attach(modelOrAttributes: Related | GetModelAttributes<Related>): Related {
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)

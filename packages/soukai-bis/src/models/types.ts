@@ -10,5 +10,4 @@ export type GetModelAttributes<T extends Model> = T extends Model<infer TAttribu
 export type MintedModel<T> = T & { url: string };
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends Constructor<infer TInstance> ? TInstance : never;
-export type SolidContainerConstructor<T extends SolidContainer = SolidContainer> = Constructor<T> &
-    Omit<typeof SolidContainer, 'new'>;
+export type SolidContainerConstructor<T extends SolidContainer = SolidContainer> = Constructor<T> & Omit<typeof SolidContainer, 'new'>; // prettier-ignore

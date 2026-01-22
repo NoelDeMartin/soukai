@@ -46,13 +46,13 @@ describe('HasOneRelation', () => {
         expect(user.lastPost).toBeNull();
     });
 
-    it('attaches related models', async () => {
+    it('attaches related models', () => {
         // Arrange
         const movie = new Movie({ title: 'Spiderman' });
         const action = new WatchAction({ startTime: new Date() });
 
         // Act
-        await movie.relatedAction.attach(action);
+        movie.relatedAction.attach(action);
 
         // Assert
         expect(movie.action).toBe(action);

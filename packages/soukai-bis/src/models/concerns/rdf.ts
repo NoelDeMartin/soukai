@@ -41,7 +41,7 @@ export function serializeToRDF(models: Model[]): Quad[] {
     const statements: Quad[] = [];
 
     for (const model of models) {
-        const { fields, rdfDefaultResourceHash, rdfClasses, rdfFieldProperties } = model.static().schema;
+        const { fields, rdfDefaultResourceHash, rdfClasses, rdfFieldProperties } = model.static('schema');
         const subject = new RDFNamedNode(model.url ?? `#${rdfDefaultResourceHash}`);
 
         for (const rdfClass of rdfClasses) {

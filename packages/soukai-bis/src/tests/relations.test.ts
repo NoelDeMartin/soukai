@@ -104,7 +104,7 @@ describe('Relations', () => {
 
         // Act
         const alice = await User.create({ url: aliceUrl, name: 'Alice' });
-        const bob = await alice.relatedFriends.attach({ url: bobUrl, name: 'Bob' });
+        const bob = alice.relatedFriends.attach({ url: bobUrl, name: 'Bob' });
 
         await alice.save();
         await bob.save();
@@ -297,7 +297,7 @@ describe('Relations', () => {
 
         // Act
         const movie = await Movie.create({ url: movieUrl, title: 'Spiderman' });
-        const action = await movie.relatedAction.attach({ url: actionUrl });
+        const action = movie.relatedAction.attach({ url: actionUrl });
 
         await action.save();
 
@@ -319,7 +319,7 @@ describe('Relations', () => {
 
         // Act
         const movie = new Movie({ url: movieUrl, title: 'Spiderman' });
-        const action = await movie.relatedAction.attach({});
+        const action = movie.relatedAction.attach({});
 
         await movie.save();
 

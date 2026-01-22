@@ -6,8 +6,7 @@ import ContainsRelation from './ContainsRelation';
 import HasManyRelation from './HasManyRelation';
 import HasOneRelation from './HasOneRelation';
 import IsContainedByRelation from './IsContainedByRelation';
-import type MultiModelRelation from './MultiModelRelation';
-import type { RelationConstructor } from './types';
+import type { AnyMultiModelRelation, RelationConstructor } from './types';
 
 export class SchemaRelationDefinition<
     TRelated extends RelatedModelDefinition = RelatedModelDefinition,
@@ -40,7 +39,7 @@ export type RelatedSolidContainerDefinition<TRelated extends SolidContainerConst
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
 export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = {
-    [K in keyof T]?: InstanceType<T[K]['relationClass']> extends MultiModelRelation
+    [K in keyof T]?: InstanceType<T[K]['relationClass']> extends AnyMultiModelRelation
         ? GetRelatedModel<T[K]>[]
         : GetRelatedModel<T[K]>;
 } & {

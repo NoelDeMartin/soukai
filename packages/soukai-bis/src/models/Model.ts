@@ -39,8 +39,8 @@ export interface MintUrlOptions {
 export default class Model<
     Attributes extends Record<string, unknown> = Record<string, unknown>,
     Relations extends Record<string, unknown> = Record<string, unknown>,
-    FieldName extends string = Exclude<keyof Attributes, number | symbol>,
-    RelationName extends string = Exclude<keyof Relations, number | symbol>,
+    FieldName extends string = string & keyof Attributes,
+    RelationName extends string = string & keyof Relations,
 > extends MagicObject {
 
     public static schema: Schema;
@@ -115,6 +115,18 @@ export default class Model<
         ...args: ConstructorParameters<ModelConstructor<T>>
     ): Promise<MintedModel<T>> {
         const model = new this(...args);
+
+        return model.save();
+    }
+
+    public static async createAt<T extends Model>(
+        this: ModelConstructor<T>,
+        containerUrl: string,
+        ...args: ConstructorParameters<ModelConstructor<T>>
+    ): Promise<MintedModel<T>> {
+        const model = new this(...args);
+
+        model.mintUrl({ containerUrl });
 
         return model.save();
     }
@@ -222,7 +234,7 @@ export default class Model<
     }
 
     public setAttributes(attributes: Partial<Attributes>): void {
-        const updateSchemas = objectOnly(this.static().schema.fields.def.shape, Object.keys(attributes));
+        const updateSchemas = objectOnly(this.static('schema').fields.def.shape, Object.keys(attributes));
         const parsedAttributes = Object.fromEntries(
             Object.entries(updateSchemas).map(([field, fieldSchema]) => [field, fieldSchema.parse(attributes[field])]),
         );
@@ -234,7 +246,7 @@ export default class Model<
     public getRelation(name: RelationName): Relation {
         if (!(name in this.__relations)) {
             const relation = required(
-                this.static().schema.relations[name],
+                this.static('schema').relations[name],
                 `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
             );
 
@@ -257,6 +269,18 @@ export default class Model<
 
     public async loadRelation(name: RelationName): Promise<void> {
         await this.getRelation(name).load();
+    }
+
+    public isRelationLoaded(name: RelationName): boolean {
+        return this.getRelation(name).loaded;
+    }
+
+    public async loadRelationIfUnloaded(name: RelationName): Promise<void> {
+        if (this.isRelationLoaded(name)) {
+            return;
+        }
+
+        await this.loadRelation(name);
     }
 
     public mintUrl(options: MintUrlOptions = {}): void {
@@ -340,12 +364,12 @@ export default class Model<
         return this;
     }
 
-    public async save(): Promise<MintedModel<this>> {
+    public async save(containerUrl?: string): Promise<MintedModel<this>> {
         if (this.exists() && !this.isDirty()) {
             return this;
         }
 
-        await this.beforeSave();
+        await this.beforeSave({ containerUrl });
         await this.performSave();
         await this.afterSave();
 
@@ -367,19 +391,23 @@ export default class Model<
     }
 
     protected __get(property: string): unknown {
-        if (property in this.__relations) {
-            return this.__relations[property]?.related;
+        if (property in this.__attributes) {
+            return this.__attributes[property];
         }
 
-        if (property.startsWith('related') && property !== 'related') {
+        if (property in this.static('schema').relations) {
+            return this._proxy.instance.getRelation(property as RelationName)?.related;
+        }
+
+        if (property.startsWith('related')) {
             const relation = stringToCamelCase(property.slice(7)) as RelationName;
 
-            if (relation in this.static().schema.relations) {
-                return this.getRelation(relation);
+            if (relation in this.static('schema').relations) {
+                return this._proxy.instance.getRelation(relation);
             }
         }
 
-        return this.__attributes[property];
+        return super.__get(property);
     }
 
     protected __set(property: string, value: unknown): void {
@@ -410,8 +438,8 @@ export default class Model<
         return (slugFieldValue && stringToSlug(slugFieldValue)) ?? null;
     }
 
-    protected async beforeSave(): Promise<void> {
-        this.mintUrl();
+    protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
+        this.mintUrl(options);
 
         const documentUrl = this.requireDocumentUrl();
         const documentExists = this.__documentExists;
@@ -456,11 +484,11 @@ export default class Model<
     }
 
     private parseAttributes(values: unknown): Attributes {
-        return this.static().schema.fields.parse(values) as Attributes;
+        return this.static('schema').fields.parse(values) as Attributes;
     }
 
     private isField(property: string): property is FieldName {
-        return property in this.static().schema.fields.def.shape;
+        return property in this.static('schema').fields.def.shape;
     }
 
     private populateDocumentModels(documentModels: Set<Model>): void {
