@@ -20,6 +20,7 @@ export type Schema<
     rdfClasses: NamedNode[];
     rdfDefaultResourceHash: string;
     rdfFieldProperties: Record<keyof TFields, NamedNode>;
+    slugField?: string & keyof TFields;
 };
 
 export type SchemaModelInput<T extends SchemaFields = SchemaFields> = z.input<ZodObject<T>> & { url?: string };
@@ -101,6 +102,9 @@ export function defineSchema<
             relations: { ...baseSchema?.relations, ...config.relations },
             rdfContext,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
+            slugField:
+                Object.entries(config.fields).find(([_, definition]) => definition.deepMeta('rdfSlug'))?.[0] ??
+                baseSchema?.slugField,
             rdfClasses: [
                 ...(baseSchema?.rdfClasses ?? []),
                 ...(config.rdfClass

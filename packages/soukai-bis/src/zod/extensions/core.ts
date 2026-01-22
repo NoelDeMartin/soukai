@@ -20,17 +20,29 @@ function getDeepMeta<T extends keyof CustomMeta>(type: ZodType, key: T): CustomM
 }
 
 export interface CustomMeta {
+    rdfSlug?: boolean;
     rdfProperty?: string;
+}
+
+export function deepMeta<T extends ZodType, TKey extends keyof CustomMeta>(
+    this: T,
+    key: TKey,
+): CustomMeta[TKey] | undefined {
+    return getDeepMeta(this, key);
 }
 
 export function rdfProperty<T extends ZodType>(this: T): string | undefined;
 export function rdfProperty<T extends ZodType>(this: T, value: string): T;
 export function rdfProperty<T extends ZodType>(this: T, value?: string): T | string | undefined {
     if (typeof value !== 'string') {
-        return getDeepMeta(this, 'rdfProperty');
+        return this.deepMeta('rdfProperty');
     }
 
     return this.meta({ rdfProperty: value });
+}
+
+export function useAsSlug<T extends ZodType>(this: T): T {
+    return this.meta({ rdfSlug: true });
 }
 
 declare module 'zod' {

@@ -7,6 +7,7 @@ import {
     objectOnly,
     required,
     stringToCamelCase,
+    stringToSlug,
     urlResolve,
     urlRoute,
     uuid,
@@ -27,6 +28,13 @@ import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 
 import type Relation from './relations/Relation';
 import type { Schema } from './schema';
 import type { BootedModelClass, MintedModel, ModelConstructor } from './types';
+
+export interface MintUrlOptions {
+    containerUrl?: string;
+    documentUrl?: string;
+    documentExists?: boolean;
+    resourceHash?: string;
+}
 
 export default class Model<
     Attributes extends Record<string, unknown> = Record<string, unknown>,
@@ -251,11 +259,11 @@ export default class Model<
         await this.getRelation(name).load();
     }
 
-    public mintUrl(documentUrl?: string, documentExists?: boolean, resourceHash?: string): void {
-        this.url ??= this.newUrl(documentUrl, resourceHash);
+    public mintUrl(options: MintUrlOptions = {}): void {
+        this.url ??= this.newUrl(options);
 
-        if (documentUrl) {
-            this.__documentExists = documentExists ?? true;
+        if (options.documentUrl) {
+            this.__documentExists = options.documentExists ?? true;
         }
     }
 
@@ -382,11 +390,24 @@ export default class Model<
         this.setAttribute(property, value);
     }
 
-    protected newUrl(documentUrl?: string, resourceHash?: string | null): string {
-        documentUrl = documentUrl ?? urlResolve(this.static('defaultContainerUrl'), uuid());
-        resourceHash = resourceHash ?? 'it';
+    protected newUrl(options: MintUrlOptions = {}): string {
+        const documentUrl = options.documentUrl ?? this.newUrlDocumentUrl(options);
+        const resourceHash = options.resourceHash ?? this.static('schema').rdfDefaultResourceHash;
 
-        return `${documentUrl}#${resourceHash}`;
+        return resourceHash ? `${documentUrl}#${resourceHash}` : documentUrl;
+    }
+
+    protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
+        const slug = this.newUrlDocumentUrlSlug() ?? uuid();
+
+        return urlResolve(options.containerUrl ?? this.static('defaultContainerUrl'), slug);
+    }
+
+    protected newUrlDocumentUrlSlug(): string | null {
+        const slugField = this.static('schema').slugField as FieldName;
+        const slugFieldValue = slugField && String(this.getAttribute(slugField));
+
+        return (slugFieldValue && stringToSlug(slugFieldValue)) ?? null;
     }
 
     protected async beforeSave(): Promise<void> {
@@ -401,7 +422,7 @@ export default class Model<
                 continue;
             }
 
-            documentModel.mintUrl(documentUrl, documentExists, uuid());
+            documentModel.mintUrl({ documentUrl, documentExists, resourceHash: uuid() });
         }
 
         for (const documentModel of documentModels) {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
 
+import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 import { SetPropertyOperation } from 'soukai-bis/models/crdts';
@@ -16,7 +17,7 @@ describe('Model', () => {
         engine = new InMemoryEngine();
 
         setEngine(engine);
-        bootModels({ User }, true);
+        bootModels({ User, Post }, true);
     });
 
     it('boots models', () => {
@@ -218,6 +219,12 @@ describe('Model', () => {
 
         expect(user.exists()).toBe(false);
         expect(engine.documents[user.url]).toBeUndefined();
+    });
+
+    it('mints urls using the slug field', async () => {
+        const post = await Post.create({ title: 'Hello World' });
+
+        expect(post.url).toBe('solid://posts/hello-world#it');
     });
 
     it('infers attribute types', () => {
