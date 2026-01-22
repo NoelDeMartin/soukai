@@ -28,16 +28,15 @@ describe('CRUD', () => {
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
-        const url = FakeServer.fetchSpy.mock.calls[1]?.[0] as string;
-        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body;
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 
-        expect(body).toEqualTurtle(`
-            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-
-            <${url}#it>
-                a foaf:Person ;
-                foaf:name "${name}" ;
-                foaf:age ${age} .
+                <#it>
+                    a foaf:Person ;
+                    foaf:name "${name}" ;
+                    foaf:age ${age} .
+            }
         `);
     });
 
@@ -70,7 +69,7 @@ describe('CRUD', () => {
         expect(user.name).toBe(newName);
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
-        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <${documentUrl}#it> <http://xmlns.com/foaf/0.1/name> "${name}" .
             } ;

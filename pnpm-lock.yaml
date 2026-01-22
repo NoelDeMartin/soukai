@@ -17,7 +17,7 @@ catalogs:
       version: 0.4.0-next.2da6eab8f3c6dbb77ce708fac551334bddd474db
     '@noeldemartin/solid-utils':
       specifier: next
-      version: 0.6.1-next.81bc7db765d11fc17e9d1086925bdd856ef9990d
+      version: 0.6.1-next.4f0347e89b024d316fd4c7063d505ce1232b54af
     '@noeldemartin/testing':
       specifier: next
       version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19
@@ -71,6 +71,9 @@ importers:
       '@typescript-eslint/eslint-plugin':
         specifier: ^5.0.0
         version: 5.62.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
+      core-js:
+        specifier: ^3.48.0
+        version: 3.48.0
       eslint:
         specifier: 'catalog:'
         version: 8.57.1
@@ -140,7 +143,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.81bc7db765d11fc17e9d1086925bdd856ef9990d(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.4f0347e89b024d316fd4c7063d505ce1232b54af(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
@@ -210,7 +213,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.81bc7db765d11fc17e9d1086925bdd856ef9990d(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.4f0347e89b024d316fd4c7063d505ce1232b54af(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.c584dda9e7c91f8770e15bc456376b6ee6168fe5
@@ -1016,8 +1019,8 @@ packages:
     resolution: {integrity: sha512-g5Ltn/WVPV8Op/ESMCrTAx2TaA05zlyntjxj+pgp8B+OYlP+xJrnFtjTC0q4tnEy15Qf52tOLVp2q39t0KPbbg==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.1-next.81bc7db765d11fc17e9d1086925bdd856ef9990d':
-    resolution: {integrity: sha512-y2us91WjAhe2+CplCOvwB6lR0KeXJrc0YStwg6HPo6zSX/SLvMpxdhqvN3MM6eKk1OGA4A1/aCRsyq93jGSecQ==}
+  '@noeldemartin/solid-utils@0.6.1-next.4f0347e89b024d316fd4c7063d505ce1232b54af':
+    resolution: {integrity: sha512-TO5fEQWcwCbpTOSMdgdDllP/3Njym7eM8kglnRD6zrpa64i8/pq67CSt4EDY+uovGU0f7UjunTzS++tlfOdZcg==}
 
   '@noeldemartin/testing@0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19':
     resolution: {integrity: sha512-5moMGAYgqCnHWfbxgkgNjoaYhc6nvtqN7etPP+B76fyZVWWRLK+BOKKcwCXUd2ctD2N7lu9baa7M9qoN8oHEKg==}
@@ -4329,7 +4332,7 @@ snapshots:
 
   '@noeldemartin/scripts@0.4.0-next.2da6eab8f3c6dbb77ce708fac551334bddd474db': {}
 
-  '@noeldemartin/solid-utils@0.6.1-next.81bc7db765d11fc17e9d1086925bdd856ef9990d(web-streams-polyfill@3.3.3)':
+  '@noeldemartin/solid-utils@0.6.1-next.4f0347e89b024d316fd4c7063d505ce1232b54af(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.7.3
       '@rdfjs/types': 2.0.1

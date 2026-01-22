@@ -1,4 +1,4 @@
-import type { ModelConstructor, ModelInstanceType, SolidContainerConstructor } from 'soukai-bis/models/types';
+import type { ContainerConstructor, ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
 
 import BelongsToManyRelation from './BelongsToManyRelation';
 import BelongsToOneRelation from './BelongsToOneRelation';
@@ -33,7 +33,7 @@ export class SchemaRelationDefinition<
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> = TRelated | (() => any);
-export type RelatedSolidContainerDefinition<TRelated extends SolidContainerConstructor = SolidContainerConstructor> =
+export type RelatedContainerDefinition<TRelated extends ContainerConstructor = ContainerConstructor> =
     | TRelated
     | (() => any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -74,6 +74,6 @@ export function hasOne<T extends RelatedModelDefinition>(relatedClass: T, foreig
     });
 }
 
-export function isContainedBy<T extends RelatedSolidContainerDefinition>(relatedClass: T) {
+export function isContainedBy<T extends RelatedContainerDefinition>(relatedClass: T) {
     return new SchemaRelationDefinition(relatedClass, IsContainedByRelation);
 }

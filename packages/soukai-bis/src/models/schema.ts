@@ -71,26 +71,26 @@ export type SchemaModelClass<
 
 export type SchemaFields = Record<string, ZodType>;
 
-export interface SchemaConfig<TFields extends SchemaFields, TRelations extends SchemaRelations = SchemaRelations> {
+export interface SchemaConfig<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}> {
     crdts?: boolean;
     rdfContext?: string;
     rdfClass?: string;
     rdfDefaultResourceHash?: string;
-    fields: TFields;
+    fields?: TFields;
     relations?: TRelations;
 }
 
 export function defineSchema<
-    TFields extends SchemaFields,
-    TRelations extends SchemaRelations,
+    TFields extends SchemaFields = {},
+    TRelations extends SchemaRelations = {},
     TBaseClass extends ModelConstructor = typeof Model,
 >(baseClass: TBaseClass, config?: SchemaConfig<TFields, TRelations>): SchemaModelClass<TFields, TRelations, TBaseClass>;
-export function defineSchema<TFields extends SchemaFields, TRelations extends SchemaRelations>(
+export function defineSchema<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}>(
     config: SchemaConfig<TFields, TRelations>
 ): SchemaModelClass<TFields, TRelations>;
 export function defineSchema<
-    TFields extends SchemaFields,
-    TRelations extends SchemaRelations,
+    TFields extends SchemaFields = {},
+    TRelations extends SchemaRelations = {},
     TBaseClass extends ModelConstructor = typeof Model,
 >(
     baseClassOrConfig: TBaseClass | SchemaConfig<TFields, TRelations>,
@@ -101,6 +101,7 @@ export function defineSchema<
     const config = isModelClass(baseClassOrConfig)
         ? (configArg ?? ({ fields: {} } as SchemaConfig<TFields, TRelations>))
         : baseClassOrConfig;
+    const fields = config.fields ?? ({} as TFields);
     const rdfContext = {
         default: 'solid',
         ...baseSchema?.rdfContext,
@@ -111,12 +112,12 @@ export function defineSchema<
     return class extends (baseClass ?? Model) {
 
         public static schema = {
-            fields: baseSchema?.fields.extend(config.fields) ?? object(config.fields).extend({ url: url().optional() }),
+            fields: baseSchema?.fields.extend(fields) ?? object(fields).extend({ url: url().optional() }),
             relations: { ...baseSchema?.relations, ...config.relations },
             rdfContext,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
             slugField:
-                Object.entries(config.fields).find(([_, definition]) => definition.deepMeta('rdfSlug'))?.[0] ??
+                Object.entries(fields).find(([_, definition]) => definition.deepMeta('rdfSlug'))?.[0] ??
                 baseSchema?.slugField,
             rdfClasses: [
                 ...(baseSchema?.rdfClasses ?? []),
@@ -134,7 +135,7 @@ export function defineSchema<
             rdfFieldProperties: {
                 ...baseSchema?.rdfFieldProperties,
                 ...Object.fromEntries(
-                    Object.entries(config.fields).map(([field, definition]) => [
+                    Object.entries(fields).map(([field, definition]) => [
                         field,
                         new RDFNamedNode(
                             expandIRI(definition.rdfProperty() ?? field, {

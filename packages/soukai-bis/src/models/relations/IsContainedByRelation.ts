@@ -1,21 +1,21 @@
 import { requireUrlParentDirectory } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { isSolidContainerClass } from 'soukai-bis/models/utils-containers';
+import { isContainerClass } from 'soukai-bis/models/utils-containers';
 import type Model from 'soukai-bis/models/Model';
-import type SolidContainer from 'soukai-bis/models/SolidContainer';
+import type Container from 'soukai-bis/models/Container';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import SingleModelRelation from './SingleModelRelation';
 
 export default class IsContainedByRelation<
     Parent extends Model = Model,
-    Related extends SolidContainer = SolidContainer,
+    Related extends Container = Container,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends SingleModelRelation<Parent, Related, RelatedClass> {
 
     public static validateRelatedClass(parent: Model, relatedClass: unknown): void {
-        if (isSolidContainerClass(relatedClass)) {
+        if (isContainerClass(relatedClass)) {
             return;
         }
 

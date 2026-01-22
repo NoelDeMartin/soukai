@@ -10,6 +10,7 @@ import type { Fetch, JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import {
     LDP_BASIC_CONTAINER_OBJECT,
     LDP_CONTAINER_OBJECT,
@@ -33,13 +34,29 @@ export default class SolidEngine implements Engine {
             throw new DocumentAlreadyExists(url);
         }
 
-        const quads = await jsonldToQuads(graph);
-        const body = quadsToTurtle(quads);
+        const allQuads = await jsonldToQuads(graph);
+        const filteredQuads = url.endsWith('/')
+            ? allQuads.filter(
+                (quad) => !quad.predicate.equals(LDP_CONTAINS_PREDICATE) && !quad.object.equals(LDP_CONTAINER_OBJECT),
+            )
+            : allQuads;
+        const body = quadsToTurtle(filteredQuads);
 
-        await this.client.create(url, body);
+        await this.client.create(url, body, { method: url.endsWith('/') ? 'PUT' : 'PATCH' });
     }
 
     public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+        operations = url.endsWith('/')
+            ? operations.filter(
+                (operation) =>
+                    !(operation instanceof PropertyOperation) || !operation.hasPredicate(LDP_CONTAINS_PREDICATE),
+            )
+            : operations;
+
+        if (operations.length === 0) {
+            return;
+        }
+
         const document = await this.client.readIfFound(url);
 
         if (!document) {

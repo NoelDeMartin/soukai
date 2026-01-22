@@ -44,6 +44,25 @@ export default abstract class MultiModelRelation<
         });
     }
 
+    public async save(model: Related): Promise<Related> {
+        this.assertLoaded('save');
+        this.attach(model);
+
+        if (!this.usingSameDocument) {
+            await model.save();
+
+            this.setForeignAttributes(model);
+        } else if (this.parent.exists()) {
+            await this.parent.save();
+        }
+
+        return model;
+    }
+
+    public async create(attributes: GetModelAttributes<Related>): Promise<Related> {
+        return tap(this.attach(attributes), (model) => this.save(model));
+    }
+
     public isRelated(related: Related): boolean {
         return !!this.related?.includes(related);
     }

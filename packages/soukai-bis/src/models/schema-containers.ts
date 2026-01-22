@@ -1,4 +1,4 @@
-import SolidContainer from './SolidContainer';
+import Container from './Container';
 import { defineSchema } from './schema';
 import type { SchemaRelations } from './relations/schema';
 import type { SchemaConfig, SchemaFields } from './schema';
@@ -7,7 +7,7 @@ import type { SchemaConfig, SchemaFields } from './schema';
 export function defineContainerSchema<TFields extends SchemaFields, TRelations extends SchemaRelations>(
     config: Partial<SchemaConfig<TFields, TRelations>>,
 ) {
-    return defineSchema(SolidContainer, {
+    return defineSchema(Container, {
         ...config,
         fields: config.fields ?? {},
     } as SchemaConfig<TFields, TRelations>);

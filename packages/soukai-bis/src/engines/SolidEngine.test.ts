@@ -42,16 +42,59 @@ describe('SolidEngine', () => {
                 },
             }),
         );
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.objectContaining({ method: 'PUT' }));
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.objectContaining({ method: 'PATCH' }));
 
-        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body;
-        expect(body).toEqualTurtle(`
-            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-            @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
-            <${documentUrl}>
-                rdf:type foaf:Person ;
-                foaf:name "${name}" .
+                <${documentUrl}>
+                    rdf:type foaf:Person ;
+                    foaf:name "${name}" .
+            }
+        `);
+    });
+
+    it('creates containers (ignoring native triples)', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const containedUrl = fakeDocumentUrl({ containerUrl });
+
+        FakeServer.respondOnce(containerUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(containerUrl, FakeResponse.created());
+        FakeServer.respondOnce(`${containerUrl}.meta`, FakeResponse.success());
+
+        // Act
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': 'http://www.w3.org/ns/ldp#Container',
+            'http://www.w3.org/ns/ldp#label': 'My Container',
+            'http://www.w3.org/ns/ldp#contains': { '@id': containedUrl },
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            2,
+            containerUrl,
+            expect.objectContaining({
+                method: 'PUT',
+            }),
+        );
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            3,
+            `${containerUrl}.meta`,
+            expect.objectContaining({
+                method: 'PATCH',
+                body: expect.stringContaining('My Container'),
+            }),
+        );
+
+        await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                <${containerUrl}> <http://www.w3.org/ns/ldp#label> "My Container" .
+            }
         `);
     });
 
@@ -124,9 +167,7 @@ describe('SolidEngine', () => {
             }),
         );
 
-        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body;
-
-        expect(body).toEqualSparql(`
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
             } ;

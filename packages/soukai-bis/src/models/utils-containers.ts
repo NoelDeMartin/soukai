@@ -1,9 +1,9 @@
 import { isSubclassOf } from '@noeldemartin/utils';
 
-import SolidContainer from './SolidContainer';
+import Container from './Container';
 import { isModelClass } from './utils';
-import type { SolidContainerConstructor } from './types';
+import type { ContainerConstructor } from './types';
 
-export function isSolidContainerClass(value: unknown): value is SolidContainerConstructor {
-    return isModelClass(value) && isSubclassOf(value, SolidContainer);
+export function isContainerClass(value: unknown): value is ContainerConstructor {
+    return isModelClass(value) && isSubclassOf(value, Container);
 }

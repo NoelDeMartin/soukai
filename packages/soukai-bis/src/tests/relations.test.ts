@@ -331,18 +331,18 @@ describe('Relations', () => {
 
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
-        const body = FakeServer.fetchSpy.mock.calls[1]?.[1]?.body;
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix schema: <https://schema.org/> .
 
-        expect(body).toEqualTurtle(`
-            @prefix schema: <https://schema.org/> .
+                <#it>
+                    a schema:Movie ;
+                    schema:name "Spiderman" .
 
-            <${movieUrl}>
-                a schema:Movie ;
-                schema:name "Spiderman" .
-
-            <${documentUrl}#[[%uuid%]]>
-                a schema:WatchAction ;
-                schema:object <${movieUrl}> .
+                <#[[%uuid%]]>
+                    a schema:WatchAction ;
+                    schema:object <#it> .
+            }
         `);
     });
 

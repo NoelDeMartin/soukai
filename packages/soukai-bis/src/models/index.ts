@@ -1,8 +1,14 @@
+export * from './Container';
 export * from './Model';
+export * from './TypeIndex';
+export * from './TypeRegistration';
 export * from './relations';
 export * from './schema-containers';
 export * from './schema';
 export * from './types';
 export * from './utils-containers';
 export * from './utils';
+export { default as Container } from './Container';
 export { default as Model } from './Model';
+export { default as TypeIndex } from './TypeIndex';
+export { default as TypeRegistration } from './TypeRegistration';

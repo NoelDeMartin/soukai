@@ -11,6 +11,10 @@ export default abstract class PropertyOperation extends Operation {
         super(resource);
     }
 
+    public hasPredicate(property: Quad_Predicate): boolean {
+        return this.property.equals(property);
+    }
+
     protected filterQuads(quads: Quad[]): Quad[] {
         return quads.filter((q) => !this.resource.equals(q.subject) || !this.property.equals(q.predicate));
     }

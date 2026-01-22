@@ -291,6 +291,10 @@ export default class Model<
         }
     }
 
+    public requireUrl(): string {
+        return this.url ?? fail(SoukaiError, 'Failed getting required url');
+    }
+
     public getDocumentUrl(): string | null {
         return this.url ? urlRoute(this.url) : null;
     }
