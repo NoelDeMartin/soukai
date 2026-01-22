@@ -38,7 +38,8 @@
         "eslint": "catalog:",
         "fake-indexeddb": "catalog:",
         "prettier-eslint-cli": "^8.0.1",
-        "publint": "catalog:"
+        "publint": "catalog:",
+        "vitest": "catalog:"
     },
     "eslintConfig": {
         "extends": [

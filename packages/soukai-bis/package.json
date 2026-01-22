@@ -23,7 +23,7 @@
     "author": "Noel De Martin",
     "repository": "github:NoelDeMartin/soukai",
     "scripts": {
-        "build": "vite build",
+        "build": "vite build && ./scripts/fix-types.sh",
         "docs:dev": "vitepress dev",
         "lint": "noeldemartin-lint src",
         "test": "vitest --run",
@@ -56,6 +56,7 @@
         "publint": "catalog:",
         "vitepress": "2.0.0-alpha.15",
         "vitepress-plugin-mermaid": "^2.0.17",
+        "vitest": "catalog:",
         "zod": "^4.3.4"
     },
     "eslintConfig": {

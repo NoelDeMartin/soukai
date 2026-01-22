@@ -38,7 +38,8 @@
         "fake-indexeddb": "catalog:",
         "prettier-eslint-cli": "^8.0.1",
         "publint": "catalog:",
-        "soukai": "workspace:*"
+        "soukai": "workspace:*",
+        "vitest": "catalog:"
     },
     "eslintConfig": {
         "extends": [

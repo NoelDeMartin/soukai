@@ -31,7 +31,7 @@
         "unplugin-dts": "1.0.0-beta.6",
         "vite": "^6.2.2",
         "vitepress": "^1.6.3",
-        "vitest": "^3.0.9"
+        "vitest": "catalog:"
     },
     "eslintConfig": {
         "extends": [
