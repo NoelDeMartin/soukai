@@ -324,11 +324,7 @@ describe('SolidEngine', () => {
 
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
-            1,
-            documentUrl,
-            expect.objectContaining({ method: 'DELETE' }),
-        );
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, documentUrl, expect.objectContaining({ method: 'DELETE' }));
     });
 
 });
