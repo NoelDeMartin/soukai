@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
+import { RDFLiteral, RDFNamedNode, expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import { SetPropertyOperation } from 'soukai-bis/models/crdts';
-import { RDFLiteral, RDFNamedNode } from '@noeldemartin/solid-utils';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import InMemoryEngine from './InMemoryEngine';
 
@@ -22,13 +23,52 @@ describe('InMemoryEngine', () => {
         const name = faker.name.firstName();
         const document: JsonLD = {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         };
 
         await engine.createDocument(documentUrl, document);
 
         expect(engine.documents[documentUrl]).toEqual(document);
+    });
+
+    it('creates containers', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+
+        // Act
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
+        });
+
+        // Assert
+        expect(engine.documents[containerUrl]).toEqual({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+    });
+
+    it('creates containers with meta', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const name = faker.name.firstName();
+
+        // Act
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
+        });
+
+        // Assert
+        expect(engine.documents[containerUrl]).toEqual({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+        });
     });
 
     it('fails creating documents when they already exist', async () => {
@@ -46,73 +86,123 @@ describe('InMemoryEngine', () => {
 
         await engine.createDocument(documentUrl, {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
         await engine.updateDocument(documentUrl, [
             new SetPropertyOperation(
                 new RDFNamedNode(`${documentUrl}#it`),
-                new RDFNamedNode('http://xmlns.com/foaf/0.1/name'),
+                new RDFNamedNode(expandIRI('foaf:name')),
                 new RDFLiteral(newName),
             ),
         ]);
 
         await expect(engine.documents[documentUrl]).toEqualJsonLD({
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': newName,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: newName,
         });
     });
 
-    it('reads many documents', async () => {
+    it('updates containers', async () => {
+        // Arrange
         const containerUrl = fakeContainerUrl();
-        const firstDocumentUrl = fakeDocumentUrl({ containerUrl });
-        const secondDocumentUrl = fakeDocumentUrl({ containerUrl });
-        const firstName = faker.name.firstName();
-        const secondName = faker.name.firstName();
+        const documentUrl = fakeDocumentUrl();
 
-        await engine.createDocument(firstDocumentUrl, {
-            '@id': `${firstDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': firstName,
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
         });
 
-        await engine.createDocument(secondDocumentUrl, {
-            '@id': `${secondDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': secondName,
-        });
+        // Act
+        await engine.updateDocument(containerUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                LDP_CONTAINS_PREDICATE,
+                new RDFNamedNode(documentUrl),
+            ),
+        ]);
 
-        const documents = await engine.readManyDocuments(containerUrl);
-
-        expect(Object.keys(documents)).toHaveLength(2);
-        expect(documents[firstDocumentUrl]).toEqual({
-            '@id': `${firstDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': firstName,
-        });
-        expect(documents[secondDocumentUrl]).toEqual({
-            '@id': `${secondDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': secondName,
+        // Assert
+        await expect(engine.documents[containerUrl]).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
         });
     });
 
-    it('reads one document', async () => {
+    it('updates containers meta', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl();
+        const name = faker.name.firstName();
+
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: faker.name.firstName(),
+        });
+
+        // Act
+        await engine.updateDocument(containerUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                LDP_CONTAINS_PREDICATE,
+                new RDFNamedNode(documentUrl),
+            ),
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                new RDFNamedNode(expandIRI('rdfs:label')),
+                new RDFLiteral(name),
+            ),
+        ]);
+
+        // Assert
+        await expect(engine.documents[containerUrl]).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+        });
+    });
+
+    it('reads documents', async () => {
+        // Arrange
         const documentUrl = fakeDocumentUrl();
         const name = faker.name.firstName();
         const document: JsonLD = {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         };
 
-        await engine.createDocument(documentUrl, document);
+        engine.documents[documentUrl] = document;
 
-        const readDocument = await engine.readOneDocument(documentUrl);
+        // Act
+        const readDocument = await engine.readDocument(documentUrl);
 
-        expect(readDocument).toEqual(document);
+        // Assert
+        await expect(await quadsToJsonLD(readDocument.getQuads())).toEqualJsonLD(document);
+    });
+
+    it('reads containers', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        engine.documents[containerUrl] = { '@id': containerUrl, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] };
+        engine.documents[documentUrl] = { '@id': documentUrl };
+
+        // Act
+        const container = await engine.readDocument(containerUrl);
+
+        // Assert
+        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: {
+                '@id': documentUrl,
+            },
+        });
     });
 
     it('deletes documents', async () => {
@@ -120,8 +210,8 @@ describe('InMemoryEngine', () => {
         const name = faker.name.firstName();
         const document: JsonLD = {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         };
 
         await engine.createDocument(documentUrl, document);

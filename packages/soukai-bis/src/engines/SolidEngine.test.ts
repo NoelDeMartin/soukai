@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { RDFLiteral, RDFNamedNode } from '@noeldemartin/solid-utils';
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { RDFLiteral, RDFNamedNode, expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { faker } from '@noeldemartin/faker';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import { LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import SolidEngine from './SolidEngine';
 
@@ -27,8 +28,8 @@ describe('SolidEngine', () => {
         // Act
         await engine.createDocument(documentUrl, {
             '@id': documentUrl,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
         // Assert
@@ -47,19 +48,55 @@ describe('SolidEngine', () => {
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
                 <${documentUrl}>
-                    rdf:type foaf:Person ;
+                    a foaf:Person ;
                     foaf:name "${name}" .
             }
         `);
     });
 
-    it('creates containers (ignoring native triples)', async () => {
+    it('creates containers', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
-        const containedUrl = fakeDocumentUrl({ containerUrl });
+
+        FakeServer.respondOnce(containerUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(containerUrl, FakeResponse.created());
+
+        // Act
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': LDP_CONTAINER,
+            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            1,
+            containerUrl,
+            expect.objectContaining({
+                headers: {
+                    Accept: 'text/turtle',
+                },
+            }),
+        );
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            2,
+            containerUrl,
+            expect.objectContaining({
+                method: 'PUT',
+                headers: expect.objectContaining({
+                    'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                    'If-None-Match': '*',
+                }),
+            }),
+        );
+    });
+
+    it('creates containers with meta', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
 
         FakeServer.respondOnce(containerUrl, FakeResponse.notFound());
         FakeServer.respondOnce(containerUrl, FakeResponse.created());
@@ -68,9 +105,9 @@ describe('SolidEngine', () => {
         // Act
         await engine.createDocument(containerUrl, {
             '@id': containerUrl,
-            '@type': 'http://www.w3.org/ns/ldp#Container',
-            'http://www.w3.org/ns/ldp#label': 'My Container',
-            'http://www.w3.org/ns/ldp#contains': { '@id': containedUrl },
+            '@type': LDP_CONTAINER,
+            [expandIRI('rdfs:label')]: 'My Container',
+            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
         });
 
         // Assert
@@ -93,12 +130,12 @@ describe('SolidEngine', () => {
 
         await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
-                <${containerUrl}> <http://www.w3.org/ns/ldp#label> "My Container" .
+                <${containerUrl}> <http://www.w3.org/2000/01/rdf-schema#label> "My Container" .
             }
         `);
     });
 
-    it('fails when document already exists', async () => {
+    it('fails creating documents when they already exist', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
         const name = faker.name.firstName();
@@ -109,8 +146,8 @@ describe('SolidEngine', () => {
         const createDocument = () =>
             engine.createDocument(documentUrl, {
                 '@id': documentUrl,
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                'http://xmlns.com/foaf/0.1/name': name,
+                '@type': expandIRI('foaf:Person'),
+                [expandIRI('foaf:name')]: name,
             });
 
         // Assert
@@ -134,16 +171,15 @@ describe('SolidEngine', () => {
         const resourceUrl = `${documentUrl}#it`;
         const oldName = faker.name.firstName();
         const name = faker.name.firstName();
-        const property = 'http://xmlns.com/foaf/0.1/name';
+        const property = expandIRI('foaf:name');
 
         FakeServer.respondOnce(
             documentUrl,
             `
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
                 <${resourceUrl}>
-                    rdf:type foaf:Person ;
+                    a foaf:Person ;
                     foaf:name "${oldName}" .
             `,
         );
@@ -177,84 +213,80 @@ describe('SolidEngine', () => {
         `);
     });
 
-    it('reads many documents', async () => {
+    it('updates containers', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
-        const firstDocumentUrl = fakeDocumentUrl();
-        const firstDocumentResource = fakeResourceUrl({ documentUrl: firstDocumentUrl });
-        const secondDocumentUrl = fakeDocumentUrl();
-        const secondDocumentResource = fakeResourceUrl({ documentUrl: secondDocumentUrl });
-        const containerDocumentUrl = fakeContainerUrl();
-        const firstName = faker.name.firstName();
-        const secondName = faker.name.firstName();
-
-        FakeServer.respond(
-            containerUrl,
-            `
-                @prefix ldp: <http://www.w3.org/ns/ldp#> .
-
-                <${containerUrl}>
-                    ldp:contains <${firstDocumentUrl}>, <${secondDocumentUrl}>, <${containerDocumentUrl}> .
-            `,
-        );
-
-        FakeServer.respond(
-            firstDocumentUrl,
-            `
-                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-                <${firstDocumentResource}>
-                    rdf:type foaf:Person ;
-                    foaf:name "${firstName}" .
-            `,
-        );
-
-        FakeServer.respond(
-            secondDocumentUrl,
-            `
-                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-                <${secondDocumentResource}>
-                    rdf:type foaf:Person ;
-                    foaf:name "${secondName}" .
-            `,
-        );
-
-        FakeServer.respond(
-            containerDocumentUrl,
-            `
-                @prefix ldp: <http://www.w3.org/ns/ldp#> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-                <${containerDocumentUrl}>
-                    rdf:type ldp:Container .
-            `,
-        );
 
         // Act
-        const documents = await engine.readManyDocuments(containerUrl);
+        await engine.updateDocument(containerUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                LDP_CONTAINS_PREDICATE,
+                new RDFNamedNode(fakeDocumentUrl()),
+            ),
+        ]);
 
         // Assert
-        expect(Object.keys(documents)).toHaveLength(2);
-        expect(documents).toHaveProperty(firstDocumentUrl);
-        expect(documents).toHaveProperty(secondDocumentUrl);
-
-        await expect(documents[firstDocumentUrl]).toEqualJsonLD({
-            '@id': firstDocumentResource,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': firstName,
-        });
-
-        await expect(documents[secondDocumentUrl]).toEqualJsonLD({
-            '@id': secondDocumentResource,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': secondName,
-        });
+        expect(FakeServer.fetch).not.toHaveBeenCalled();
     });
 
-    it('reads one document', async () => {
+    it('updates containers meta', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const oldName = faker.name.firstName();
+        const name = faker.name.firstName();
+        const property = expandIRI('rdfs:label');
+
+        FakeServer.respondOnce(
+            containerUrl,
+            FakeResponse.success(
+                `
+                    @prefix ldp: <http://www.w3.org/ns/ldp#> .
+                    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+                    <${containerUrl}>
+                        a ldp:Container, ldp:BasicContainer ;
+                        rdfs:label "${oldName}" .
+                `,
+                { Link: `<${containerUrl}.custom-meta>; rel="describedBy"` },
+            ),
+        );
+        FakeServer.respondOnce(`${containerUrl}.custom-meta`, FakeResponse.success());
+
+        // Act
+        await engine.updateDocument(containerUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                LDP_CONTAINS_PREDICATE,
+                new RDFNamedNode(fakeDocumentUrl()),
+            ),
+            new SetPropertyOperation(new RDFNamedNode(containerUrl), new RDFNamedNode(property), new RDFLiteral(name)),
+        ]);
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            2,
+            `${containerUrl}.custom-meta`,
+            expect.objectContaining({
+                method: 'PATCH',
+                headers: expect.objectContaining({
+                    'Content-Type': 'application/sparql-update',
+                }),
+            }),
+        );
+
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+            DELETE DATA {
+                <${containerUrl}> <http://www.w3.org/2000/01/rdf-schema#label> "${oldName}" .
+            } ;
+            INSERT DATA {
+                <${containerUrl}> <http://www.w3.org/2000/01/rdf-schema#label> "${name}" .
+            }
+        `);
+    });
+
+    it('reads documents', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
         const name = faker.name.firstName();
@@ -263,23 +295,40 @@ describe('SolidEngine', () => {
             documentUrl,
             `
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
                 <${documentUrl}>
-                    rdf:type foaf:Person ;
+                    a foaf:Person ;
                     foaf:name "${name}" .
             `,
         );
 
         // Act
-        const document = await engine.readOneDocument(documentUrl);
+        const document = await engine.readDocument(documentUrl);
 
         // Assert
-        await expect(document).toEqualJsonLD({
+        await expect(await quadsToJsonLD(document.getQuads())).toEqualJsonLD({
             '@id': documentUrl,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
+    });
+
+    it('deletes documents', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        // Act
+        await engine.deleteDocument(documentUrl);
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            1,
+            documentUrl,
+            expect.objectContaining({ method: 'DELETE' }),
+        );
     });
 
 });

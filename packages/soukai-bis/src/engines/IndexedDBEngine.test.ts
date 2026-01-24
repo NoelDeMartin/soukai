@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
+import { RDFLiteral, RDFNamedNode, expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
@@ -8,6 +8,7 @@ import type { IDBPDatabase, IDBPTransaction } from 'idb';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import IndexedDBEngine from './IndexedDBEngine';
 
@@ -40,8 +41,8 @@ describe('IndexedDBEngine', () => {
 
         await engine.createDocument(documentUrl, {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
         const documents = await getDatabaseDocuments(containerUrl);
@@ -51,8 +52,61 @@ describe('IndexedDBEngine', () => {
             url: documentUrl,
             graph: {
                 '@id': `${documentUrl}#it`,
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                'http://xmlns.com/foaf/0.1/name': name,
+                '@type': expandIRI('foaf:Person'),
+                [expandIRI('foaf:name')]: name,
+            },
+        });
+    });
+
+    it('creates containers', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+
+        // Act
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
+        });
+
+        // Assert
+        const documents = await getDatabaseDocuments(parentUrl);
+
+        expect(documents).toHaveLength(1);
+        expect(documents[0]).toEqual({
+            url: containerUrl,
+            graph: {
+                '@id': containerUrl,
+                '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            },
+        });
+    });
+
+    it('creates containers with meta', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const name = faker.name.firstName();
+
+        // Act
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
+        });
+
+        // Assert
+        const documents = await getDatabaseDocuments(parentUrl);
+
+        expect(documents).toHaveLength(1);
+        expect(documents[0]).toEqual({
+            url: containerUrl,
+            graph: {
+                '@id': containerUrl,
+                '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+                [expandIRI('rdfs:label')]: name,
             },
         });
     });
@@ -65,16 +119,16 @@ describe('IndexedDBEngine', () => {
 
         await setDatabaseDocument(containerUrl, documentUrl, {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
         // Act
         const createDocument = () =>
             engine.createDocument(documentUrl, {
                 '@id': `${documentUrl}#it`,
-                '@type': 'http://xmlns.com/foaf/0.1/Person',
-                'http://xmlns.com/foaf/0.1/name': name,
+                '@type': expandIRI('foaf:Person'),
+                [expandIRI('foaf:name')]: name,
             });
 
         // Assert
@@ -89,8 +143,8 @@ describe('IndexedDBEngine', () => {
 
         await setDatabaseDocument(containerUrl, documentUrl, {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
         await engine.updateDocument(documentUrl, [
@@ -108,62 +162,140 @@ describe('IndexedDBEngine', () => {
 
         await expect(documents[0]?.graph).toEqualJsonLD({
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': newName,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: newName,
         });
     });
 
-    it('reads many documents', async () => {
-        const containerUrl = fakeContainerUrl();
-        const firstDocumentUrl = fakeDocumentUrl({ containerUrl });
-        const secondDocumentUrl = fakeDocumentUrl({ containerUrl });
-        const firstName = faker.name.firstName();
-        const secondName = faker.name.firstName();
+    it('updates containers', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const documentUrl = fakeDocumentUrl();
 
-        await setDatabaseDocument(containerUrl, firstDocumentUrl, {
-            '@id': `${firstDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': firstName,
+        await setDatabaseDocument(parentUrl, containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
         });
 
-        await setDatabaseDocument(containerUrl, secondDocumentUrl, {
-            '@id': `${secondDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': secondName,
-        });
+        // Act
+        await engine.updateDocument(containerUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                LDP_CONTAINS_PREDICATE,
+                new RDFNamedNode(documentUrl),
+            ),
+        ]);
 
-        const documents = await engine.readManyDocuments(containerUrl);
+        // Assert
+        const documents = await getDatabaseDocuments(parentUrl);
 
-        expect(Object.keys(documents)).toHaveLength(2);
-        expect(documents[firstDocumentUrl]).toEqual({
-            '@id': `${firstDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': firstName,
-        });
-        expect(documents[secondDocumentUrl]).toEqual({
-            '@id': `${secondDocumentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': secondName,
+        expect(documents).toHaveLength(1);
+        await expect(documents[0]?.graph).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
         });
     });
 
-    it('reads one document', async () => {
+    it('updates containers meta', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const documentUrl = fakeDocumentUrl();
+        const name = faker.name.firstName();
+
+        await setDatabaseDocument(parentUrl, containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: faker.name.firstName(),
+        });
+
+        // Act
+        await engine.updateDocument(containerUrl, [
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                LDP_CONTAINS_PREDICATE,
+                new RDFNamedNode(documentUrl),
+            ),
+            new SetPropertyOperation(
+                new RDFNamedNode(containerUrl),
+                new RDFNamedNode(expandIRI('rdfs:label')),
+                new RDFLiteral(name),
+            ),
+        ]);
+
+        // Assert
+        const documents = await getDatabaseDocuments(parentUrl);
+
+        expect(documents).toHaveLength(1);
+        await expect(documents[0]?.graph).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+        });
+    });
+
+    it('reads documents', async () => {
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const name = faker.name.firstName();
 
         await setDatabaseDocument(containerUrl, documentUrl, {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
-        const document = await engine.readOneDocument(documentUrl);
+        const document = await engine.readDocument(documentUrl);
 
-        expect(document).toEqual({
+        await expect(await quadsToJsonLD(document.getQuads())).toEqualJsonLD({
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
+        });
+    });
+
+    it('reads containers', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl });
+
+        // Act
+        const container = await engine.readDocument(containerUrl);
+
+        // Assert
+        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: { '@id': documentUrl },
+        });
+    });
+
+    it('reads containers with meta', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const name = faker.name.firstName();
+
+        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl });
+        await setDatabaseDocument(parentUrl, containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+        });
+
+        // Act
+        const container = await engine.readDocument(containerUrl);
+
+        // Assert
+        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [expandIRI('rdfs:label')]: name,
+            [LDP_CONTAINS]: { '@id': documentUrl },
         });
     });
 
@@ -174,8 +306,8 @@ describe('IndexedDBEngine', () => {
 
         await setDatabaseDocument(containerUrl, documentUrl, {
             '@id': `${documentUrl}#it`,
-            '@type': 'http://xmlns.com/foaf/0.1/Person',
-            'http://xmlns.com/foaf/0.1/name': name,
+            '@type': expandIRI('foaf:Person'),
+            [expandIRI('foaf:name')]: name,
         });
 
         await engine.deleteDocument(documentUrl);

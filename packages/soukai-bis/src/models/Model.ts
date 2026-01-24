@@ -13,13 +13,18 @@ import {
     uuid,
 } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
-import type { JsonLD } from '@noeldemartin/solid-utils';
-import type { NamedNode, Quad } from '@rdfjs/types';
+import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { requireEngine } from 'soukai-bis/engines/state';
-import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import {
+    LDP_BASIC_CONTAINER_OBJECT,
+    LDP_CONTAINER_OBJECT,
+    LDP_CONTAINS_PREDICATE,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/utils/rdf';
 
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
@@ -85,9 +90,9 @@ export default class Model<
     public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<MintedModel<T> | null> {
         try {
             const engine = requireEngine();
-            const document = await engine.readOneDocument(urlRoute(url));
+            const document = await engine.readDocument(urlRoute(url));
 
-            return this.createFromJsonLD(document, { url });
+            return this.createFromDocument(document, { url });
         } catch (error) {
             if (!isInstanceOf(error, DocumentNotFound)) {
                 throw error;
@@ -101,13 +106,44 @@ export default class Model<
         this: ModelConstructor<T>,
         containerUrl?: string,
     ): Promise<MintedModel<T>[]> {
-        const engine = requireEngine();
-        const documents = await engine.readManyDocuments(containerUrl ?? this.defaultContainerUrl);
-        const models = await Promise.all(
-            Object.values(documents).map(async (document) => this.createManyFromJsonLD(document)),
-        );
+        containerUrl ??= this.defaultContainerUrl;
 
-        return models.flat();
+        try {
+            const engine = requireEngine();
+            const container = await engine.readDocument(containerUrl);
+            const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
+            const documents: Record<string, SolidDocument> = {};
+
+            await Promise.all(
+                containsQuads.map(async (quad) => {
+                    const url = quad.object.value;
+                    const subject = quad.object.termType === 'Literal' ? quad.object.value : quad.object;
+                    const document = await engine.readDocument(url);
+
+                    if (
+                        !document ||
+                        document.contains(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT) ||
+                        document.contains(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT)
+                    ) {
+                        return;
+                    }
+
+                    documents[url] = document;
+                }),
+            );
+
+            const models = await Promise.all(
+                Object.values(documents).map(async (document) => this.createManyFromDocument(document)),
+            );
+
+            return models.flat();
+        } catch (error) {
+            if (!isInstanceOf(error, DocumentNotFound)) {
+                throw error;
+            }
+
+            return [];
+        }
     }
 
     public static async create<T extends Model>(
@@ -138,12 +174,11 @@ export default class Model<
     ): Promise<MintedModel<T> | null> {
         const url = options.url;
         const subject = new RDFNamedNode(url);
-        const isType = (rdfClass: NamedNode) =>
-            quads.some(
-                (q) => subject.equals(q.subject) && RDF_TYPE_PREDICATE.equals(q.predicate) && rdfClass.equals(q.object),
-            );
+        const isType = quads
+            .filter((q) => subject.equals(q.subject) && RDF_TYPE_PREDICATE.equals(q.predicate))
+            .some((q) => this.schema.rdfClasses.some((rdfClass) => rdfClass.equals(q.object)));
 
-        if (!this.schema.rdfClasses.some(isType)) {
+        if (!isType) {
             return null;
         }
 
@@ -161,13 +196,23 @@ export default class Model<
         return this.createFromRDF(quads, { url });
     }
 
-    public static async createManyFromJsonLD<T extends Model>(
+    public static async createFromDocument<T extends Model>(
         this: ModelConstructor<T>,
-        json: JsonLD,
+        document: SolidDocument,
+        options: { url?: string } = {},
+    ): Promise<MintedModel<T> | null> {
+        const url = options.url ?? document.url;
+
+        return this.createFromRDF(document.statements(), { url });
+    }
+
+    public static async createManyFromDocument<T extends Model>(
+        this: ModelConstructor<T>,
+        document: SolidDocument,
     ): Promise<MintedModel<T>[]> {
-        const quads = await jsonldToQuads(json);
         const matchingResourceUrls = arrayUnique(
-            quads
+            document
+                .statements()
                 .filter(
                     (q) =>
                         RDF_TYPE_PREDICATE.equals(q.predicate) &&
@@ -176,7 +221,7 @@ export default class Model<
                 .map((q) => q.subject.value),
         );
         const models = await Promise.all(
-            matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl })),
+            matchingResourceUrls.map((resourceUrl) => this.createFromDocument(document, { url: resourceUrl })),
         );
 
         return models.filter(isTruthy);

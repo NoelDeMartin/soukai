@@ -85,9 +85,9 @@ export default class ContainsRelation<
         const models = await Promise.all(
             documentUrls.map(async (documentUrl) => {
                 try {
-                    const document = await engine.readOneDocument(documentUrl);
+                    const document = await engine.readDocument(documentUrl);
 
-                    return this.relatedClass.createManyFromJsonLD(document);
+                    return this.relatedClass.createManyFromDocument(document);
                 } catch (error) {
                     if (!isInstanceOf(error, DocumentNotFound)) {
                         throw error;

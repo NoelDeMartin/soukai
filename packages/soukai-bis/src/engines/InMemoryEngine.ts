@@ -1,14 +1,17 @@
-import { fail } from '@noeldemartin/utils';
-import { jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { fail, urlParentDirectory } from '@noeldemartin/utils';
+import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
+import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import { safeContainerUrl } from 'soukai-bis/utils/urls';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
-import type Engine from './Engine';
+import Engine from './Engine';
 
-export default class InMemoryEngine implements Engine {
+export default class InMemoryEngine extends Engine {
 
     public documents: Record<string, JsonLD> = {};
 
@@ -17,10 +20,40 @@ export default class InMemoryEngine implements Engine {
             throw new DocumentAlreadyExists(url);
         }
 
+        if (url.endsWith('/')) {
+            this.removeContainerProperties(graph, { keepTypes: true });
+        }
+
         this.documents[url] = graph;
+
+        let containerUrl: string | null = url;
+
+        while ((containerUrl = safeContainerUrl(containerUrl)) !== null) {
+            this.documents[containerUrl] ??= {
+                '@id': containerUrl,
+                '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            };
+        }
+    }
+
+    public async readDocument(url: string): Promise<SolidDocument> {
+        const jsonld = this.documents[url] ?? fail<JsonLD>(DocumentNotFound, url);
+        const document = new SolidDocument(url, await jsonldToQuads(jsonld));
+
+        if (url.endsWith('/')) {
+            this.populateContainer(document);
+        }
+
+        return document;
     }
 
     public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+        operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
+
+        if (operations.length === 0) {
+            return;
+        }
+
         const document = this.documents[url];
 
         if (!document) {
@@ -36,26 +69,25 @@ export default class InMemoryEngine implements Engine {
         this.documents[url] = await quadsToJsonLD(quads);
     }
 
-    public async readOneDocument(url: string): Promise<JsonLD> {
-        return this.documents[url] ?? fail(DocumentNotFound, url);
+    public async deleteDocument(url: string): Promise<void> {
+        delete this.documents[url];
     }
 
-    public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {
-        const documents: Record<string, JsonLD> = {};
+    private async populateContainer(document: SolidDocument): Promise<void> {
+        const quads: Quad[] = [];
+        const subject = new RDFNamedNode(document.url);
 
-        for (const [url, graph] of Object.entries(this.documents)) {
-            if (!url.startsWith(containerUrl)) {
+        for (const url of Object.keys(this.documents)) {
+            const parentUrl = urlParentDirectory(url);
+
+            if (!parentUrl || parentUrl !== document.url) {
                 continue;
             }
 
-            documents[url] = graph;
+            quads.push(new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(url)));
         }
 
-        return documents;
-    }
-
-    public async deleteDocument(url: string): Promise<void> {
-        delete this.documents[url];
+        document.addQuads(quads);
     }
 
 }

@@ -1,6 +1,6 @@
 import { object, url } from 'zod';
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
-import type { JsonLD } from '@noeldemartin/solid-utils';
+import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { NamedNode, Quad } from '@rdfjs/types';
 import type { Override } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
@@ -65,7 +65,10 @@ export type SchemaModelClass<
             quads: Quad[],
             options?: { url?: string }
         ): Promise<MintedModel<ModelInstanceType<This>> | null>;
-        createManyFromJsonLD<This>(this: This, json: JsonLD): Promise<MintedModel<ModelInstanceType<This>>[]>;
+        createManyFromDocument<This>(
+            this: This,
+            document: SolidDocument
+        ): Promise<MintedModel<ModelInstanceType<This>>[]>;
     }
 >;
 

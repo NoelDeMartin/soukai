@@ -1,14 +1,17 @@
 import { openDB } from 'idb';
-import { jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import { Semaphore, reduceBy, requireUrlParentDirectory } from '@noeldemartin/utils';
+import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { Semaphore } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
-import type Engine from './Engine';
+import Engine from './Engine';
 
 export interface LocalDocument {
     url: string;
@@ -31,7 +34,7 @@ interface MetadataSchema extends DBSchema {
     };
 }
 
-export default class IndexedDBEngine implements Engine {
+export default class IndexedDBEngine extends Engine {
 
     private database: string;
     private metadataConnection: Promise<IDBPDatabase<MetadataSchema>> | null = null;
@@ -39,17 +42,23 @@ export default class IndexedDBEngine implements Engine {
     private lock: Semaphore;
 
     public constructor(database: string = 'soukai-bis') {
+        super();
+
         this.database = database;
         this.lock = new Semaphore();
     }
 
     public async createDocument(url: string, graph: JsonLD): Promise<void> {
         await this.lock.run(async () => {
-            const containerUrl = requireUrlParentDirectory(url);
+            const containerUrl = requireSafeContainerUrl(url);
 
             await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                 if (await transaction.store.get(url)) {
                     throw new DocumentAlreadyExists(url);
+                }
+
+                if (url.endsWith('/')) {
+                    this.removeContainerProperties(graph, { keepTypes: true });
                 }
 
                 return transaction.store.add({ url, graph });
@@ -57,9 +66,40 @@ export default class IndexedDBEngine implements Engine {
         });
     }
 
+    public async readDocument(url: string): Promise<SolidDocument> {
+        return this.lock.run(async () => {
+            if (url.endsWith('/')) {
+                return this.readContainerDocument(url);
+            }
+
+            const containerUrl = requireSafeContainerUrl(url);
+            const containerExists = await this.collectionExists(containerUrl);
+
+            if (!containerExists) {
+                throw new DocumentNotFound(url);
+            }
+
+            const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+                return transaction.store.get(url);
+            });
+
+            if (!document) {
+                throw new DocumentNotFound(url);
+            }
+
+            return new SolidDocument(url, await jsonldToQuads(document.graph));
+        });
+    }
+
     public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+        operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
+
+        if (operations.length === 0) {
+            return;
+        }
+
         await this.lock.run(async () => {
-            const containerUrl = requireUrlParentDirectory(url);
+            const containerUrl = requireSafeContainerUrl(url);
 
             if (!(await this.collectionExists(containerUrl))) {
                 throw new DocumentNotFound(url);
@@ -83,43 +123,9 @@ export default class IndexedDBEngine implements Engine {
         });
     }
 
-    public async readOneDocument(url: string): Promise<JsonLD> {
-        return this.lock.run(async () => {
-            const containerUrl = requireUrlParentDirectory(url);
-
-            if (!(await this.collectionExists(containerUrl))) {
-                throw new DocumentNotFound(url);
-            }
-
-            const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                return transaction.store.get(url);
-            });
-
-            if (!document) {
-                throw new DocumentNotFound(url);
-            }
-
-            return document.graph;
-        });
-    }
-
-    public async readManyDocuments(containerUrl: string): Promise<Record<string, JsonLD>> {
-        return this.lock.run(async () => {
-            if (!(await this.collectionExists(containerUrl))) {
-                return {};
-            }
-
-            const documents = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                return transaction.store.getAll();
-            });
-
-            return reduceBy(documents, 'url', (document) => document.graph);
-        });
-    }
-
     public async deleteDocument(url: string): Promise<void> {
         await this.lock.run(async () => {
-            const containerUrl = requireUrlParentDirectory(url);
+            const containerUrl = requireSafeContainerUrl(url);
 
             if (!(await this.collectionExists(containerUrl))) {
                 return;
@@ -141,6 +147,44 @@ export default class IndexedDBEngine implements Engine {
             (await this.documentsConnection).close();
             this.documentsConnection = null;
         }
+    }
+
+    private async readContainerDocument(url: string): Promise<SolidDocument> {
+        if (!(await this.collectionExists(url))) {
+            throw new DocumentNotFound(url);
+        }
+
+        const document = await this.readContainerDocumentMeta(url);
+        const subject = new RDFNamedNode(document.url);
+        const children = await this.withDocumentsTransaction(document.url, 'readonly', (transaction) => {
+            return transaction.store.getAllKeys();
+        });
+
+        document.addQuads(
+            children.map((child) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(child))),
+        );
+
+        return document;
+    }
+
+    private async readContainerDocumentMeta(url: string): Promise<SolidDocument> {
+        const containerUrl = requireSafeContainerUrl(url);
+
+        if (!(await this.collectionExists(containerUrl))) {
+            return new SolidDocument(
+                url,
+                await jsonldToQuads({ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
+            );
+        }
+
+        const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+            return transaction.store.get(url);
+        });
+
+        return new SolidDocument(
+            url,
+            await jsonldToQuads(document?.graph ?? { '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
+        );
     }
 
     private async createCollection(collection: string): Promise<void> {
@@ -182,7 +226,11 @@ export default class IndexedDBEngine implements Engine {
         mode: TMode,
         operation: (transaction: IDBPTransaction<DocumentsSchema, ['[containerUrl]'], TMode>) => Promise<TResult>,
     ): Promise<TResult> {
-        if (mode === 'readwrite' && !(await this.collectionExists(collection))) {
+        if (!(await this.collectionExists(collection))) {
+            if (mode !== 'readwrite') {
+                throw new SoukaiError(`[IndexedDBEngine] Can't read collection '${collection}', does not exist`);
+            }
+
             await this.createCollection(collection);
         }
 

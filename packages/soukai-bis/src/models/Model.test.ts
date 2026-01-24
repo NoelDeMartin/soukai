@@ -169,7 +169,7 @@ describe('Model', () => {
         await User.create({ name: 'John Doe' });
         await User.create({ name: 'Jane Doe' });
 
-        const users = await User.all('solid://users/');
+        const users = await User.all();
 
         expect(users).toHaveLength(2);
         expect(users[0]).toBeInstanceOf(User);
