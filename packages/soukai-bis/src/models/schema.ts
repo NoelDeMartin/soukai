@@ -29,8 +29,12 @@ export type Schema<
     slugField?: string & keyof TFields;
 };
 
-export type SchemaModelInput<T extends SchemaFields = SchemaFields> = z.input<ZodObject<T>> & { url?: string };
-export type SchemaModelAttributes<T extends SchemaFields = SchemaFields> = z.infer<ZodObject<T>> & { url?: string };
+export type SchemaModelInput<T extends SchemaFields = SchemaFields> = keyof T extends never
+    ? { url?: string }
+    : z.input<ZodObject<T>> & { url?: string };
+export type SchemaModelAttributes<T extends SchemaFields = SchemaFields> = keyof T extends never
+    ? { url?: string }
+    : z.infer<ZodObject<T>> & { url?: string };
 
 export type SchemaModel<
     TFields extends SchemaFields = SchemaFields,
