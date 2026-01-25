@@ -5,6 +5,7 @@ import { defineSchema } from './schema';
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/solid/terms#',
     rdfClass: 'TypeIndex',
+    timestamps: false,
     relations: {
         registrations: belongsToMany(TypeRegistration, 'registrationUrls'),
     },

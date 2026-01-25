@@ -350,10 +350,19 @@ export default class Model<
     }
 
     public mintUrl(options: MintUrlOptions = {}): void {
-        this.url ??= this.newUrl(options);
+        if (this.url) {
+            return;
+        }
+
+        this.url = this.newUrl(options);
 
         if (options.documentUrl) {
             this.__documentExists = options.documentExists ?? true;
+        }
+
+        if (this.hasTimestamps()) {
+            this.metadata.setAttribute('resourceUrl', this.url);
+            this.metadata.mintUrl(options);
         }
     }
 
@@ -528,19 +537,15 @@ export default class Model<
         const documentModels = this.getDocumentModels();
 
         for (const documentModel of documentModels) {
+            documentModel.mintUrl({ documentUrl, documentExists, resourceHash: uuid() });
+        }
+
+        for (const documentModel of documentModels) {
             documentModel.touch();
 
             for (const relation of Object.values(documentModel.__relations)) {
                 relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
             }
-        }
-
-        for (const documentModel of documentModels) {
-            if (documentModel.url) {
-                continue;
-            }
-
-            documentModel.mintUrl({ documentUrl, documentExists, resourceHash: uuid() });
         }
     }
 
