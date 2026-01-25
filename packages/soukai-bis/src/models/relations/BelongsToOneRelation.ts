@@ -1,5 +1,5 @@
-import type { ModelConstructor } from 'soukai-bis/models/types';
 import type Model from 'soukai-bis/models/Model';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import SingleModelRelation from './SingleModelRelation';
 

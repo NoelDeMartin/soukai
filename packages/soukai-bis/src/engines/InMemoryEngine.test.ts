@@ -5,7 +5,7 @@ import { RDFLiteral, RDFNamedNode, expandIRI, quadsToJsonLD } from '@noeldemarti
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
-import { SetPropertyOperation } from 'soukai-bis/models/crdts';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import InMemoryEngine from './InMemoryEngine';

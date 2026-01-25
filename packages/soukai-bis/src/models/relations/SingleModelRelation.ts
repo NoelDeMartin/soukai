@@ -1,11 +1,11 @@
 import { type Nullable, tap } from '@noeldemartin/utils';
 
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { classMarker } from 'soukai-bis/models/relations/helpers';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelAttributes, ModelConstructor } from 'soukai-bis/models/types';
 
 import Relation from './Relation';
-import { SoukaiError } from 'soukai-bis/errors';
-import { classMarker } from 'soukai-bis/models/relations/helpers';
 
 export default abstract class SingleModelRelation<
     Parent extends Model = Model,

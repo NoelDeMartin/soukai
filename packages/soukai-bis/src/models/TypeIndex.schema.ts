@@ -1,5 +1,5 @@
 import TypeRegistration from './TypeRegistration';
-import { belongsToMany } from './relations/schema';
+import { belongsToMany } from './relations/fluent';
 import { defineSchema } from './schema';
 
 export default defineSchema({

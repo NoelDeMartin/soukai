@@ -4,7 +4,7 @@ import { faker } from '@noeldemartin/faker';
 
 import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { bootModels } from 'soukai-bis/models/utils';
+import { bootModels } from 'soukai-bis/models/registry';
 import { setEngine } from 'soukai-bis/engines';
 
 describe('CRUD', () => {
@@ -23,19 +23,31 @@ describe('CRUD', () => {
         FakeServer.respondOnce('*', FakeResponse.created()); // Create document
 
         // Act
-        await User.create({ name, age });
+        const user = await User.create({ name, age });
 
         // Assert
+        expect(user.metadata).not.toBeNull();
+        expect(user.createdAt).toBeInstanceOf(Date);
+        expect(user.updatedAt).toBeInstanceOf(Date);
+
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <#it>
                     a foaf:Person ;
                     foaf:name "${name}" ;
                     foaf:age ${age} .
+
+                <#it-metadata>
+                    a crdt:Metadata ;
+                    crdt:resource <#it> ;
+                    crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+                    crdt:updatedAt "[[.*]]"^^xsd:dateTime .
             }
         `);
     });
@@ -46,18 +58,32 @@ describe('CRUD', () => {
         const newName = faker.name.firstName();
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
+        const createdAt = new Date(Date.now() - 1000);
         const user = new User({ url: `${documentUrl}#it`, name, age }, true);
+
+        user.metadata?.setAttribute('url', `${documentUrl}#it-metadata`);
+        user.metadata?.setAttribute('createdAt', createdAt);
+        user.metadata?.setAttribute('updatedAt', createdAt);
+        user.metadata?.setExists(true);
+        user.metadata?.cleanDirty();
 
         FakeServer.respondOnce(
             documentUrl,
             `
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <#it>
                     a foaf:Person ;
                     foaf:name "${name}" ;
                     foaf:age ${age} .
+
+                <#it-metadata>
+                    a crdt:Metadata ;
+                    crdt:resource <#it> ;
+                    crdt:createdAt "${user.createdAt?.toISOString()}"^^xsd:dateTime ;
+                    crdt:updatedAt "${user.updatedAt?.toISOString()}"^^xsd:dateTime .
             `,
         ); // GET document for update (SolidEngine reads it first to diff)
         FakeServer.respondOnce(documentUrl, FakeResponse.success()); // PATCH document
@@ -72,9 +98,13 @@ describe('CRUD', () => {
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <${documentUrl}#it> <http://xmlns.com/foaf/0.1/name> "${name}" .
+                <${documentUrl}#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
+                    "${createdAt?.toISOString()}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
             } ;
             INSERT DATA {
                 <${documentUrl}#it> <http://xmlns.com/foaf/0.1/name> "${newName}" .
+                <${documentUrl}#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
+                    "[[.*]]"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
             }
         `);
     });

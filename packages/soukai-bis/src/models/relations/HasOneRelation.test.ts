@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
-import { bootModels } from 'soukai-bis/models/utils';
+import { bootModels } from 'soukai-bis/models/registry';
+import { setEngine } from 'soukai-bis/engines/state';
 
 describe('HasOneRelation', () => {
 

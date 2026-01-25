@@ -5,7 +5,7 @@ import type { Quad } from '@rdfjs/types';
 import { castToJavaScript, castToRDF, getFinalType } from 'soukai-bis/zod/utils';
 import { RDF_TYPE } from 'soukai-bis/utils/rdf';
 import type Model from 'soukai-bis/models/Model';
-import type { MintedModel, ModelConstructor } from 'soukai-bis/models/types';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { Relation } from 'soukai-bis/models/relations';
 
 export function isUsingSameDocument(documentUrl: string | null, relation: Relation, model: Model): boolean {
@@ -16,7 +16,7 @@ export function createFromRDF<T extends Model>(
     modelClass: ModelConstructor<T>,
     url: string,
     quads: Quad[],
-): MintedModel<T> {
+): ModelWithUrl<T> {
     const { fields, rdfFieldProperties } = modelClass.schema;
     const subject = new RDFNamedNode(url);
     const attributes: Record<string, unknown> = {};
@@ -34,7 +34,7 @@ export function createFromRDF<T extends Model>(
         attributes[field] = castToJavaScript(objects, fieldType);
     }
 
-    return modelClass.newInstance({ url, ...attributes }, true) as MintedModel<T>;
+    return modelClass.newInstance({ url, ...attributes }, true) as ModelWithUrl<T>;
 }
 
 export function serializeToRDF(models: Model[]): Quad[] {

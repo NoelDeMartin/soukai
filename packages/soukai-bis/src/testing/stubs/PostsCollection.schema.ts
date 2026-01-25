@@ -1,5 +1,5 @@
 import { defineContainerSchema } from 'soukai-bis/models/schema-containers';
-import { contains } from 'soukai-bis/models/relations/schema';
+import { contains } from 'soukai-bis/models/relations/fluent';
 
 import Post from './Post';
 

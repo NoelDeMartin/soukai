@@ -7,5 +7,6 @@ export { default as IsContainedByRelation } from './IsContainedByRelation';
 export { default as MultiModelRelation } from './MultiModelRelation';
 export { default as Relation } from './Relation';
 export * from './Relation';
+export * from './fluent';
 export * from './schema';
 export * from './types';

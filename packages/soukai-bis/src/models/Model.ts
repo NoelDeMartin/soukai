@@ -1,10 +1,10 @@
 import {
     MagicObject,
     arrayUnique,
+    deepEquals,
     fail,
     isInstanceOf,
     isTruthy,
-    objectOnly,
     required,
     stringToCamelCase,
     stringToSlug,
@@ -30,9 +30,11 @@ import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/r
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { isModelClass } from './utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
+import type Metadata from 'soukai-bis/models/crdts/Metadata';
 import type Relation from './relations/Relation';
 import type { Schema } from './schema';
-import type { BootedModelClass, MintedModel, ModelConstructor } from './types';
+import type { BootedModelClass, ModelConstructor, ModelWithTimestamps, ModelWithUrl } from './types';
+import type { HasOneRelation } from 'soukai-bis/models/relations';
 
 export interface MintUrlOptions {
     containerUrl?: string;
@@ -87,7 +89,7 @@ export default class Model<
         return new this(attributes, exists);
     }
 
-    public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<MintedModel<T> | null> {
+    public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<ModelWithUrl<T> | null> {
         try {
             const engine = requireEngine();
             const document = await engine.readDocument(urlRoute(url));
@@ -105,7 +107,7 @@ export default class Model<
     public static async all<T extends Model>(
         this: ModelConstructor<T>,
         containerUrl?: string,
-    ): Promise<MintedModel<T>[]> {
+    ): Promise<ModelWithUrl<T>[]> {
         containerUrl ??= this.defaultContainerUrl;
 
         try {
@@ -149,7 +151,7 @@ export default class Model<
     public static async create<T extends Model>(
         this: ModelConstructor<T>,
         ...args: ConstructorParameters<ModelConstructor<T>>
-    ): Promise<MintedModel<T>> {
+    ): Promise<ModelWithUrl<T>> {
         const model = new this(...args);
 
         return model.save();
@@ -159,7 +161,7 @@ export default class Model<
         this: ModelConstructor<T>,
         containerUrl: string,
         ...args: ConstructorParameters<ModelConstructor<T>>
-    ): Promise<MintedModel<T>> {
+    ): Promise<ModelWithUrl<T>> {
         const model = new this(...args);
 
         model.mintUrl({ containerUrl });
@@ -171,7 +173,7 @@ export default class Model<
         this: ModelConstructor<T>,
         quads: Quad[],
         options: { url: string },
-    ): Promise<MintedModel<T> | null> {
+    ): Promise<ModelWithUrl<T> | null> {
         const url = options.url;
         const subject = new RDFNamedNode(url);
         const isType = quads
@@ -189,7 +191,7 @@ export default class Model<
         this: ModelConstructor<T>,
         json: JsonLD,
         options: { url?: string } = {},
-    ): Promise<MintedModel<T> | null> {
+    ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? json['@id'] ?? fail<string>('JsonLD is missing @id');
         const quads = await jsonldToQuads(json);
 
@@ -200,7 +202,7 @@ export default class Model<
         this: ModelConstructor<T>,
         document: SolidDocument,
         options: { url?: string } = {},
-    ): Promise<MintedModel<T> | null> {
+    ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? document.url;
 
         return this.createFromRDF(document.statements(), { url });
@@ -209,7 +211,7 @@ export default class Model<
     public static async createManyFromDocument<T extends Model>(
         this: ModelConstructor<T>,
         document: SolidDocument,
-    ): Promise<MintedModel<T>[]> {
+    ): Promise<ModelWithUrl<T>[]> {
         const matchingResourceUrls = arrayUnique(
             document
                 .statements()
@@ -244,6 +246,11 @@ export default class Model<
     }
 
     declare public url?: string;
+    declare public createdAt?: Date;
+    declare public updatedAt?: Date;
+    declare public metadata?: Metadata;
+    declare public relatedMetadata?: HasOneRelation<this, Metadata, typeof Metadata>;
+
     private __exists: boolean = false;
     private __documentExists: boolean = false;
     private __attributes: Attributes;
@@ -264,6 +271,8 @@ export default class Model<
         this.__documentExists = exists;
         this.__attributes = this.parseAttributes(attributes);
         this.__dirtyAttributes = exists ? new Set() : new Set(Object.keys(this.__attributes) as FieldName[]);
+
+        this.initializeMetadata();
     }
 
     public getAttribute(field: FieldName): unknown {
@@ -279,13 +288,25 @@ export default class Model<
     }
 
     public setAttributes(attributes: Partial<Attributes>): void {
-        const updateSchemas = objectOnly(this.static('schema').fields.def.shape, Object.keys(attributes));
-        const parsedAttributes = Object.fromEntries(
-            Object.entries(updateSchemas).map(([field, fieldSchema]) => [field, fieldSchema.parse(attributes[field])]),
-        );
+        const newAttributes: Record<string, unknown> = {};
+        const shape = this.static('schema').fields.def.shape;
 
-        Object.assign(this.__attributes, parsedAttributes);
-        Object.keys(parsedAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
+        for (const [field, value] of Object.entries(attributes)) {
+            if (!(field in shape)) {
+                continue;
+            }
+
+            const parsedValue = shape[field]?.parse(value);
+
+            if (!this.attributeValueChanged(this.__attributes[field], parsedValue)) {
+                continue;
+            }
+
+            newAttributes[field] = parsedValue;
+        }
+
+        Object.assign(this.__attributes, newAttributes);
+        Object.keys(newAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
     }
 
     public getRelation(name: RelationName): Relation {
@@ -382,7 +403,11 @@ export default class Model<
         this.__dirtyAttributes.clear();
     }
 
-    public exists(): this is MintedModel<this> {
+    public hasTimestamps(): this is ModelWithTimestamps<this> {
+        return this.static('schema').timestamps;
+    }
+
+    public exists(): this is ModelWithUrl<this> {
         return this.__exists;
     }
 
@@ -391,7 +416,7 @@ export default class Model<
         this.__documentExists = exists;
     }
 
-    public documentExists(): this is MintedModel<this> {
+    public documentExists(): this is ModelWithUrl<this> {
         return this.__documentExists;
     }
 
@@ -413,7 +438,7 @@ export default class Model<
         return this;
     }
 
-    public async save(containerUrl?: string): Promise<MintedModel<this>> {
+    public async save(containerUrl?: string): Promise<ModelWithUrl<this>> {
         if (this.exists() && !this.isDirty()) {
             return this;
         }
@@ -422,10 +447,10 @@ export default class Model<
         await this.performSave();
         await this.afterSave();
 
-        return this as MintedModel<this>;
+        return this as ModelWithUrl<this>;
     }
 
-    public update(attributes: Partial<Attributes>): Promise<MintedModel<this>> {
+    public update(attributes: Partial<Attributes>): Promise<ModelWithUrl<this>> {
         this.setAttributes(attributes);
 
         return this.save();
@@ -442,6 +467,10 @@ export default class Model<
     protected __get(property: string): unknown {
         if (property in this.__attributes) {
             return this.__attributes[property];
+        }
+
+        if (this.static('schema').timestamps && (property === 'createdAt' || property === 'updatedAt')) {
+            return (this.__relations.metadata?.related as Metadata)?.__attributes[property];
         }
 
         if (property in this.static('schema').relations) {
@@ -465,6 +494,10 @@ export default class Model<
         }
 
         this.setAttribute(property, value);
+    }
+
+    protected attributeValueChanged(originalValue: unknown, newValue: unknown): boolean {
+        return !deepEquals(originalValue, newValue);
     }
 
     protected newUrl(options: MintUrlOptions = {}): string {
@@ -495,17 +528,19 @@ export default class Model<
         const documentModels = this.getDocumentModels();
 
         for (const documentModel of documentModels) {
+            documentModel.touch();
+
+            for (const relation of Object.values(documentModel.__relations)) {
+                relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
+            }
+        }
+
+        for (const documentModel of documentModels) {
             if (documentModel.url) {
                 continue;
             }
 
             documentModel.mintUrl({ documentUrl, documentExists, resourceHash: uuid() });
-        }
-
-        for (const documentModel of documentModels) {
-            for (const relation of Object.values(documentModel.__relations)) {
-                relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
-            }
         }
     }
 
@@ -530,6 +565,26 @@ export default class Model<
             modelDocument.setDocumentExists(true);
             modelDocument.cleanDirty();
         }
+    }
+
+    protected initializeMetadata(): void {
+        if (!this.hasTimestamps()) {
+            return;
+        }
+
+        this.relatedMetadata.attach({
+            resourceUrl: this.url,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+    }
+
+    protected touch(): void {
+        if (!this.hasTimestamps()) {
+            return;
+        }
+
+        this.metadata.setAttribute('updatedAt', new Date());
     }
 
     private parseAttributes(values: unknown): Attributes {

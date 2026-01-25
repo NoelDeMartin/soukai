@@ -1,10 +1,11 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
-import { SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models/crdts';
-import type { Operation } from 'soukai-bis/models/crdts';
 
-import type Model from 'soukai-bis/models/Model';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 import { castToRDF } from 'soukai-bis/zod/utils';
 import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+import type Model from 'soukai-bis/models/Model';
 
 export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
     const operations: Operation[] = [];

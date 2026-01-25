@@ -1,7 +1,7 @@
-import { defineSchema } from 'soukai-bis/models';
 import { array, email, number, string, url } from 'zod';
 
-import { belongsToMany, hasMany, hasOne } from 'soukai-bis/models/relations/schema';
+import { defineSchema } from 'soukai-bis/models/schema';
+import { belongsToMany, hasMany, hasOne } from 'soukai-bis/models/relations/fluent';
 
 import Post from './Post';
 import User from './User';

@@ -7,7 +7,7 @@ import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { bootModels } from 'soukai-bis/models/utils';
+import { bootModels } from 'soukai-bis/models/registry';
 import { setEngine } from 'soukai-bis/engines';
 
 describe('Relations', () => {
@@ -319,7 +319,7 @@ describe('Relations', () => {
 
         // Act
         const movie = new Movie({ url: movieUrl, title: 'Spiderman' });
-        const action = movie.relatedAction.attach({});
+        const action = movie.relatedAction.attach({ url: `${documentUrl}#action` });
 
         await movie.save();
 
@@ -334,14 +334,28 @@ describe('Relations', () => {
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 @prefix schema: <https://schema.org/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <#it>
                     a schema:Movie ;
                     schema:name "Spiderman" .
 
-                <#[[%uuid%]]>
+                <#it-metadata>
+                    a crdt:Metadata ;
+                    crdt:resource <#it> ;
+                    crdt:updatedAt "[[.*]]"^^xsd:dateTime ;
+                    crdt:createdAt "[[.*]]"^^xsd:dateTime .
+
+                <#action>
                     a schema:WatchAction ;
                     schema:object <#it> .
+
+                <#action-metadata>
+                    a crdt:Metadata ;
+                    crdt:resource <#action> ;
+                    crdt:updatedAt "[[.*]]"^^xsd:dateTime ;
+                    crdt:createdAt "[[.*]]"^^xsd:dateTime .
             }
         `);
     });

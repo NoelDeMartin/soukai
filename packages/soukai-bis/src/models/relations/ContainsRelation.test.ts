@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
-import { bootModels } from 'soukai-bis/models/utils';
+import { bootModels } from 'soukai-bis/models/registry';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 
 describe('ContainsRelation', () => {

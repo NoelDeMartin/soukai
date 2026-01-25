@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
 
 import Post from 'soukai-bis/testing/stubs/Post';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import User from 'soukai-bis/testing/stubs/User';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
-import { SetPropertyOperation } from 'soukai-bis/models/crdts';
-import { bootModels } from 'soukai-bis/models/utils';
-import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { bootModels } from 'soukai-bis/models/registry';
+import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 
 describe('Model', () => {
 
@@ -44,27 +45,52 @@ describe('Model', () => {
     });
 
     it('serializes to JsonLD', async () => {
-        const user = new User({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const user = await User.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
 
         await expect(await user.toJsonLD()).toEqualJsonLD({
-            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
-            '@id': '#it',
+            '@context': {
+                '@vocab': 'http://xmlns.com/foaf/0.1/',
+                'crdt': 'https://vocab.noeldemartin.com/crdt/',
+                'metadata': { '@reverse': 'crdt:resource' },
+            },
+            '@id': user.url,
             '@type': 'Person',
             'name': 'John Doe',
             'knows': [{ '@id': 'https://example.pod/alice#me' }],
+            'metadata': {
+                '@id': user.url + '-metadata',
+                '@type': 'crdt:Metadata',
+                'crdt:createdAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.createdAt?.toISOString(),
+                },
+                'crdt:updatedAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.updatedAt?.toISOString(),
+                },
+            },
         });
     });
 
     it('serializes to Turtle', async () => {
-        const user = new User({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const user = await User.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const documentUrl = user.requireDocumentUrl();
 
         expect(await user.toTurtle()).toEqualTurtle(`
             @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-            <#it>
+            <${documentUrl}#it>
                 a foaf:Person ;
                 foaf:name "John Doe" ;
                 foaf:knows <https://example.pod/alice#me> .
+
+            <${documentUrl}#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <${documentUrl}#it> ;
+                crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+                crdt:updatedAt "[[.*]]"^^xsd:dateTime .
         `);
     });
 
@@ -82,10 +108,26 @@ describe('Model', () => {
         expect(mintedUser.url).not.toBeUndefined();
 
         await expect(engine.documents[mintedUser.requireDocumentUrl()]).toEqualJsonLD({
-            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
+            '@context': {
+                '@vocab': 'http://xmlns.com/foaf/0.1/',
+                'crdt': 'https://vocab.noeldemartin.com/crdt/',
+                'metadata': { '@reverse': 'crdt:resource' },
+            },
             '@id': user.url,
             '@type': 'Person',
             'name': 'John Doe',
+            'metadata': {
+                '@id': user.url + '-metadata',
+                '@type': 'crdt:Metadata',
+                'crdt:createdAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.createdAt?.toISOString(),
+                },
+                'crdt:updatedAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.updatedAt?.toISOString(),
+                },
+            },
         });
     });
 
@@ -101,11 +143,27 @@ describe('Model', () => {
         expect(user.name).toBe('Jane Doe');
 
         await expect(engine.documents[user.requireDocumentUrl()]).toEqualJsonLD({
-            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
+            '@context': {
+                '@vocab': 'http://xmlns.com/foaf/0.1/',
+                'crdt': 'https://vocab.noeldemartin.com/crdt/',
+                'metadata': { '@reverse': 'crdt:resource' },
+            },
             '@id': user.url,
             '@type': 'Person',
             'name': 'Jane Doe',
             'age': 30,
+            'metadata': {
+                '@id': user.url + '-metadata',
+                '@type': 'crdt:Metadata',
+                'crdt:createdAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.createdAt?.toISOString(),
+                },
+                'crdt:updatedAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.updatedAt?.toISOString(),
+                },
+            },
         });
 
         expect(updateDocumentSpy).toHaveBeenCalledWith(
@@ -158,10 +216,26 @@ describe('Model', () => {
         expect(user.url).not.toBeUndefined();
 
         await expect(engine.documents[user.requireDocumentUrl()]).toEqualJsonLD({
-            '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
+            '@context': {
+                '@vocab': 'http://xmlns.com/foaf/0.1/',
+                'crdt': 'https://vocab.noeldemartin.com/crdt/',
+                'metadata': { '@reverse': 'crdt:resource' },
+            },
             '@id': user.url,
             '@type': 'Person',
             'name': 'John Doe',
+            'metadata': {
+                '@id': user.url + '-metadata',
+                '@type': 'crdt:Metadata',
+                'crdt:createdAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.createdAt?.toISOString(),
+                },
+                'crdt:updatedAt': {
+                    '@type': XSD_DATE_TIME,
+                    '@value': user.updatedAt?.toISOString(),
+                },
+            },
         });
     });
 

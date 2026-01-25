@@ -5,9 +5,12 @@ import type { NamedNode, Quad } from '@rdfjs/types';
 import type { Override } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
 
+import HasOneRelation from './relations/HasOneRelation';
 import Model from './Model';
+import { SchemaRelationDefinition } from './relations/schema';
 import { isModelClass } from './utils';
-import type { MintedModel, ModelConstructor, ModelInstanceType } from './types';
+import { requireBootedModel } from './registry';
+import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
 import type { SchemaModelRelations, SchemaRelations } from './relations/schema';
 
 export type Schema<
@@ -16,6 +19,7 @@ export type Schema<
 > = {
     fields: ZodObject<TFields>;
     relations: TRelations;
+    timestamps: boolean;
     rdfContext: { default: string } & Record<string, string>;
     rdfClasses: NamedNode[];
     rdfDefaultResourceHash: string;
@@ -49,26 +53,29 @@ export type SchemaModelClass<
             attributes?: SchemaModelInput<TFields>,
             exists?: boolean
         ): ModelInstanceType<This>;
-        create<This>(this: This, attributes?: SchemaModelInput<TFields>): Promise<MintedModel<ModelInstanceType<This>>>;
+        create<This>(
+            this: This,
+            attributes?: SchemaModelInput<TFields>
+        ): Promise<ModelWithUrl<ModelInstanceType<This>>>;
         createAt<This>(
             this: This,
             containerUrl: string,
             attributes?: SchemaModelInput<TFields>
-        ): Promise<MintedModel<ModelInstanceType<This>>>;
+        ): Promise<ModelWithUrl<ModelInstanceType<This>>>;
         createFromJsonLD<This>(
             this: This,
             json: JsonLD,
             options?: { url?: string }
-        ): Promise<MintedModel<ModelInstanceType<This>> | null>;
+        ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createFromRDF<This>(
             this: This,
             quads: Quad[],
             options?: { url?: string }
-        ): Promise<MintedModel<ModelInstanceType<This>> | null>;
+        ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createManyFromDocument<This>(
             this: This,
             document: SolidDocument
-        ): Promise<MintedModel<ModelInstanceType<This>>[]>;
+        ): Promise<ModelWithUrl<ModelInstanceType<This>>[]>;
     }
 >;
 
@@ -76,6 +83,7 @@ export type SchemaFields = Record<string, ZodType>;
 
 export interface SchemaConfig<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}> {
     crdts?: boolean;
+    timestamps?: boolean;
     rdfContext?: string;
     rdfClass?: string;
     rdfDefaultResourceHash?: string;
@@ -111,12 +119,21 @@ export function defineSchema<
         ...(config.rdfContext ? { default: config.rdfContext } : {}),
     };
     const { default: defaultPrefix, ...extraContext } = rdfContext;
+    const relations = { ...baseSchema?.relations, ...config.relations };
+    const timestamps = config.timestamps ?? baseSchema?.timestamps ?? true;
+
+    if (timestamps) {
+        relations.metadata = new SchemaRelationDefinition(() => requireBootedModel('Metadata'), HasOneRelation, {
+            foreignKey: 'resourceUrl',
+        }).usingSameDocument();
+    }
 
     return class extends (baseClass ?? Model) {
 
         public static schema = {
             fields: baseSchema?.fields.extend(fields) ?? object(fields).extend({ url: url().optional() }),
-            relations: { ...baseSchema?.relations, ...config.relations },
+            relations,
+            timestamps,
             rdfContext,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
             slugField:

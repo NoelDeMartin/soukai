@@ -1,0 +1,31 @@
+import { fail } from '@noeldemartin/utils';
+
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+
+import type Model from './Model';
+import type { ModelConstructor } from './types';
+
+const bootedModels: Map<string, ModelConstructor> = new Map();
+
+export interface ModelsRegistry {}
+
+export function requireBootedModel<T extends keyof ModelsRegistry>(name: T): ModelsRegistry[T];
+export function requireBootedModel<T extends ModelConstructor<Model> = ModelConstructor<Model>>(name: string): T;
+export function requireBootedModel(name: string): ModelConstructor {
+    return (
+        bootedModels.get(name) ??
+        fail(SoukaiError, `Could not find Model with name '${name}', are you sure it's booted?`)
+    );
+}
+
+export function bootModels(
+    models: Record<string, { boot(name: string): unknown; reset(): void }>,
+    reset: boolean = false,
+): void {
+    for (const [modelName, modelClass] of Object.entries(models)) {
+        reset && modelClass.reset();
+
+        modelClass.boot(modelName);
+        bootedModels.set(modelName, modelClass as ModelConstructor);
+    }
+}

@@ -1,7 +1,7 @@
-import { defineSchema } from 'soukai-bis/models';
 import { date, url } from 'zod';
 
-import { belongsToOne } from 'soukai-bis/models/relations/schema';
+import { defineSchema } from 'soukai-bis/models/schema';
+import { belongsToOne } from 'soukai-bis/models/relations/fluent';
 
 import Movie from './Movie';
 
