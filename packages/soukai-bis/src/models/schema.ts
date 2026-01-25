@@ -5,6 +5,8 @@ import type { NamedNode, Quad } from '@rdfjs/types';
 import type { Override } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
 
+import type { SafeInferObject } from 'soukai-bis/zod/types';
+
 import HasOneRelation from './relations/HasOneRelation';
 import Model from './Model';
 import { SchemaRelationDefinition } from './relations/schema';
@@ -37,7 +39,7 @@ export type SchemaModel<
 > = (typeof Model extends TBaseClass
     ? Model<SchemaModelAttributes<TFields>, TRelations>
     : InstanceType<TBaseClass> & Model<SchemaModelAttributes<TFields>, TRelations>) &
-    z.infer<ZodObject<TFields>> &
+    SafeInferObject<TFields> &
     SchemaModelRelations<TRelations>;
 
 export type SchemaModelClass<
@@ -81,7 +83,7 @@ export type SchemaModelClass<
 
 export type SchemaFields = Record<string, ZodType>;
 
-export interface SchemaConfig<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}> {
+export interface SchemaConfig<TFields extends SchemaFields = SchemaFields, TRelations extends SchemaRelations = {}> {
     crdts?: boolean;
     timestamps?: boolean;
     rdfContext?: string;
