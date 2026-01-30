@@ -5,17 +5,12 @@ import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import User from 'soukai-bis/testing/stubs/User';
-import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { bootModels } from 'soukai-bis/models/registry';
+import Person from 'soukai-bis/testing/stubs/Person';
 import { setEngine } from 'soukai-bis/engines';
 
 describe('Relations', () => {
 
-    beforeEach(() => {
-        setEngine(new SolidEngine(FakeServer.fetch));
-        bootModels({ User, Post, PostsCollection, Movie, WatchAction }, true);
-    });
+    beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
 
     it('belongsToOne', async () => {
         // Arrange
@@ -38,7 +33,7 @@ describe('Relations', () => {
         await post.loadRelation('author');
 
         // Assert
-        expect(post.author).toBeInstanceOf(User);
+        expect(post.author).toBeInstanceOf(Person);
         expect(post.author?.url).toEqual(userUrl);
         expect(post.author?.name).toEqual('Alice');
     });
@@ -51,7 +46,7 @@ describe('Relations', () => {
         const bobUrl = fakeResourceUrl({ documentUrl: bobDocumentUrl });
         const charlieDocumentUrl = fakeDocumentUrl();
         const charlieUrl = fakeResourceUrl({ documentUrl: charlieDocumentUrl });
-        const alice = new User({
+        const alice = new Person({
             url: aliceUrl,
             name: 'Alice',
             friendUrls: [bobUrl, charlieUrl],
@@ -84,7 +79,7 @@ describe('Relations', () => {
 
         // Assert
         expect(alice.friends).toHaveLength(2);
-        expect(alice.friends?.[0]).toBeInstanceOf(User);
+        expect(alice.friends?.[0]).toBeInstanceOf(Person);
         expect(alice.friends?.map(({ name }) => name).sort()).toEqual(['Bob', 'Charlie']);
     });
 
@@ -103,7 +98,7 @@ describe('Relations', () => {
         FakeServer.respondOnce(bobDocumentUrl, FakeResponse.success());
 
         // Act
-        const alice = await User.create({ url: aliceUrl, name: 'Alice' });
+        const alice = await Person.create({ url: aliceUrl, name: 'Alice' });
         const bob = alice.relatedFriends.attach({ url: bobUrl, name: 'Bob' });
 
         await alice.save();
@@ -124,7 +119,7 @@ describe('Relations', () => {
         const postDocumentUrl = fakeDocumentUrl({ containerUrl: postsContainerUrl });
         const postUrl = fakeResourceUrl({ documentUrl: postDocumentUrl });
         const userUrl = fakeResourceUrl();
-        const user = new User({ url: userUrl, name: 'Alice' });
+        const user = new Person({ url: userUrl, name: 'Alice' });
 
         Post.defaultContainerUrl = postsContainerUrl;
         FakeServer.respondOnce(postsContainerUrl, `<> <http://www.w3.org/ns/ldp#contains> <${postDocumentUrl}> .`);
@@ -158,7 +153,7 @@ describe('Relations', () => {
         const firstPostUrl = fakeResourceUrl({ documentUrl: firstDocumentUrl });
         const secondPostUrl = fakeResourceUrl({ documentUrl: secondDocumentUrl });
         const userUrl = fakeResourceUrl();
-        const user = new User({ url: userUrl, name: 'Alice' });
+        const user = new Person({ url: userUrl, name: 'Alice' });
 
         Post.defaultContainerUrl = postsContainerUrl;
 

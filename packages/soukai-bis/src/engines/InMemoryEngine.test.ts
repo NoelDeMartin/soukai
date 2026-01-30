@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
-import { RDFLiteral, RDFNamedNode, expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -91,11 +91,12 @@ describe('InMemoryEngine', () => {
         });
 
         await engine.updateDocument(documentUrl, [
-            new SetPropertyOperation(
-                new RDFNamedNode(`${documentUrl}#it`),
-                new RDFNamedNode(expandIRI('foaf:name')),
-                new RDFLiteral(newName),
-            ),
+            new SetPropertyOperation({
+                resourceUrl: `${documentUrl}#it`,
+                property: expandIRI('foaf:name'),
+                value: [newName],
+                date: new Date(),
+            }),
         ]);
 
         await expect(engine.documents[documentUrl]).toEqualJsonLD({
@@ -117,11 +118,12 @@ describe('InMemoryEngine', () => {
 
         // Act
         await engine.updateDocument(containerUrl, [
-            new SetPropertyOperation(
-                new RDFNamedNode(containerUrl),
-                LDP_CONTAINS_PREDICATE,
-                new RDFNamedNode(documentUrl),
-            ),
+            new SetPropertyOperation({
+                resourceUrl: containerUrl,
+                property: LDP_CONTAINS_PREDICATE.value,
+                value: [documentUrl],
+                date: new Date(),
+            }).setNamedNode(true),
         ]);
 
         // Assert
@@ -145,16 +147,18 @@ describe('InMemoryEngine', () => {
 
         // Act
         await engine.updateDocument(containerUrl, [
-            new SetPropertyOperation(
-                new RDFNamedNode(containerUrl),
-                LDP_CONTAINS_PREDICATE,
-                new RDFNamedNode(documentUrl),
-            ),
-            new SetPropertyOperation(
-                new RDFNamedNode(containerUrl),
-                new RDFNamedNode(expandIRI('rdfs:label')),
-                new RDFLiteral(name),
-            ),
+            new SetPropertyOperation({
+                resourceUrl: containerUrl,
+                property: LDP_CONTAINS_PREDICATE.value,
+                value: [documentUrl],
+                date: new Date(),
+            }).setNamedNode(true),
+            new SetPropertyOperation({
+                resourceUrl: containerUrl,
+                property: expandIRI('rdfs:label'),
+                value: [name],
+                date: new Date(),
+            }),
         ]);
 
         // Assert

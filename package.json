@@ -11,7 +11,7 @@
         "test:ci": "pnpm run -r test:ci",
         "verify": "pnpm run -r verify"
     },
-    "packageManager": "pnpm@10.27.0",
+    "packageManager": "pnpm@10.28.2",
     "devDependencies": {
         "@microsoft/api-extractor": "^7.55.2",
         "@noeldemartin/eslint-config-typescript": "^0.1.2",

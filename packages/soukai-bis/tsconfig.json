@@ -3,6 +3,7 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
+            "soukai-bis": ["./src/index.ts"],
             "soukai-bis/*": ["./src/*"]
         }
     },

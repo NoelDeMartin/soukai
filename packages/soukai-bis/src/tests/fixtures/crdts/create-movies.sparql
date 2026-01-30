@@ -1,0 +1,14 @@
+INSERT DATA {
+    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <> rdfs:label "Movies" .
+
+    <#metadata>
+        a crdt:Metadata ;
+        crdt:resource <> ;
+        crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+        crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+
+}

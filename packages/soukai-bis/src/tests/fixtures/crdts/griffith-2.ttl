@@ -1,0 +1,35 @@
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<#it>
+    a foaf:Person ;
+    foaf:name "Femto" ;
+    foaf:givenName "Wings of Darkness" .
+
+<#it-metadata>
+    a crdt:Metadata ;
+    crdt:resource <#it> ;
+    crdt:createdAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "1991-01-11T00:00:00.000Z"^^xsd:dateTime .
+
+<#it-operation-1>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1991-01-11T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:name ;
+    crdt:value "Griffith" .
+
+<#it-operation-2>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1996-08-09T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:name ;
+    crdt:value "Femto" .
+
+<#it-operation-3>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <#it> ;
+    crdt:date "1996-08-09T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:property foaf:givenName ;
+    crdt:value "Wings of Darkness" .

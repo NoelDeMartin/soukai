@@ -1,6 +1,7 @@
+import { belongsToMany } from 'soukai-bis/models/relations/fluent';
+import { defineSchema } from 'soukai-bis/models/schema';
+
 import TypeRegistration from './TypeRegistration';
-import { belongsToMany } from './relations/fluent';
-import { defineSchema } from './schema';
 
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/solid/terms#',

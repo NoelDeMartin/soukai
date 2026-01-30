@@ -1,7 +1,7 @@
-import type HasOneRelation from 'soukai-bis/models/relations/HasOneRelation';
-import type WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import type { HasOneRelation } from 'soukai-bis';
 
 import Model from './Movie.schema';
+import type WatchAction from './WatchAction';
 
 export default class Movie extends Model {
 

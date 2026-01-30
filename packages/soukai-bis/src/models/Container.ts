@@ -1,8 +1,8 @@
 import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 
 import Model from './Container.schema';
-import TypeRegistration from './TypeRegistration';
-import type TypeIndex from './TypeIndex';
+import TypeRegistration from './interop/TypeRegistration';
+import type TypeIndex from './interop/TypeIndex';
 import type { ModelConstructor } from './types';
 import type { MintUrlOptions } from './Model';
 

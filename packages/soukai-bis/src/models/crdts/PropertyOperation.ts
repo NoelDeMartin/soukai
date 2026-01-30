@@ -1,22 +1,50 @@
-import type { Quad, Quad_Predicate, Quad_Subject } from '@rdfjs/types';
+import { RDFNamedNode } from '@noeldemartin/solid-utils';
+import type { Quad, Quad_Predicate } from '@rdfjs/types';
 
-import Operation from './Operation';
+import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/utils/rdf';
+import { requireBootedModel } from 'soukai-bis/models/registry';
 
-export default abstract class PropertyOperation extends Operation {
+import Model from './PropertyOperation.schema';
+import type Operation from './Operation';
 
-    public constructor(
-        resource: Quad_Subject,
-        protected property: Quad_Predicate,
-    ) {
-        super(resource);
+export default class PropertyOperation extends Model {
+
+    private _predicate: Quad_Predicate | null = null;
+
+    public get predicate(): Quad_Predicate {
+        this._predicate ??= new RDFNamedNode(this.property);
+
+        return this._predicate;
     }
 
-    public hasPredicate(property: Quad_Predicate): boolean {
-        return this.property.equals(property);
+    public setPredicate(predicate: Quad_Predicate): this {
+        this._predicate = predicate;
+
+        return this;
+    }
+
+    public hasPredicate(predicate: Quad_Predicate): boolean {
+        return this.predicate.equals(predicate);
+    }
+
+    public createDocumentOperations(): Operation[] {
+        const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
+
+        return [
+            ...super.createDocumentOperations(),
+            new SetPropertyOperation({
+                resourceUrl: this.requireUrl(),
+                property: CRDT_PROPERTY,
+                value: [this.property],
+                date: this.date,
+            })
+                .setPredicate(CRDT_PROPERTY_PREDICATE)
+                .setNamedNode(true),
+        ];
     }
 
     protected filterQuads(quads: Quad[]): Quad[] {
-        return quads.filter((q) => !this.resource.equals(q.subject) || !this.property.equals(q.predicate));
+        return quads.filter((q) => !this.subject.equals(q.subject) || !this.predicate.equals(q.predicate));
     }
 
 }

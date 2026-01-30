@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { RDFLiteral, RDFNamedNode, expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { faker } from '@noeldemartin/faker';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -187,7 +187,12 @@ describe('SolidEngine', () => {
 
         // Act
         await engine.updateDocument(documentUrl, [
-            new SetPropertyOperation(new RDFNamedNode(resourceUrl), new RDFNamedNode(property), new RDFLiteral(name)),
+            new SetPropertyOperation({
+                resourceUrl,
+                property,
+                value: [name],
+                date: new Date(),
+            }),
         ]);
 
         // Assert
@@ -205,10 +210,10 @@ describe('SolidEngine', () => {
 
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
-                <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
+                <#it> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
             } ;
             INSERT DATA {
-                <${resourceUrl}> <http://xmlns.com/foaf/0.1/name> "${name}" .
+                <#it> <http://xmlns.com/foaf/0.1/name> "${name}" .
             }
         `);
     });
@@ -219,11 +224,12 @@ describe('SolidEngine', () => {
 
         // Act
         await engine.updateDocument(containerUrl, [
-            new SetPropertyOperation(
-                new RDFNamedNode(containerUrl),
-                LDP_CONTAINS_PREDICATE,
-                new RDFNamedNode(fakeDocumentUrl()),
-            ),
+            new SetPropertyOperation({
+                resourceUrl: containerUrl,
+                property: LDP_CONTAINS_PREDICATE.value,
+                value: [fakeDocumentUrl()],
+                date: new Date(),
+            }).setNamedNode(true),
         ]);
 
         // Assert
@@ -255,12 +261,18 @@ describe('SolidEngine', () => {
 
         // Act
         await engine.updateDocument(containerUrl, [
-            new SetPropertyOperation(
-                new RDFNamedNode(containerUrl),
-                LDP_CONTAINS_PREDICATE,
-                new RDFNamedNode(fakeDocumentUrl()),
-            ),
-            new SetPropertyOperation(new RDFNamedNode(containerUrl), new RDFNamedNode(property), new RDFLiteral(name)),
+            new SetPropertyOperation({
+                resourceUrl: containerUrl,
+                property: LDP_CONTAINS_PREDICATE.value,
+                value: [fakeDocumentUrl()],
+                date: new Date(),
+            }).setNamedNode(true),
+            new SetPropertyOperation({
+                resourceUrl: containerUrl,
+                property,
+                value: [name],
+                date: new Date(),
+            }),
         ]);
 
         // Assert

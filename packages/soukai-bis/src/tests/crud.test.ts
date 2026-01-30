@@ -2,17 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
 
-import User from 'soukai-bis/testing/stubs/User';
+import Person from 'soukai-bis/testing/stubs/Person';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { bootModels } from 'soukai-bis/models/registry';
 import { setEngine } from 'soukai-bis/engines';
 
 describe('CRUD', () => {
 
-    beforeEach(() => {
-        setEngine(new SolidEngine(FakeServer.fetch));
-        bootModels({ User }, true);
-    });
+    beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
 
     it('Creates models', async () => {
         // Arrange
@@ -23,7 +19,7 @@ describe('CRUD', () => {
         FakeServer.respondOnce('*', FakeResponse.created()); // Create document
 
         // Act
-        const user = await User.create({ name, age });
+        const user = await Person.create({ name, age });
 
         // Assert
         expect(user.metadata).not.toBeNull();
@@ -59,7 +55,7 @@ describe('CRUD', () => {
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
         const createdAt = new Date(Date.now() - 1000);
-        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new Person({ url: `${documentUrl}#it`, name, age }, true);
 
         user.metadata?.setAttribute('url', `${documentUrl}#it-metadata`);
         user.metadata?.setAttribute('createdAt', createdAt);
@@ -97,13 +93,13 @@ describe('CRUD', () => {
 
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
-                <${documentUrl}#it> <http://xmlns.com/foaf/0.1/name> "${name}" .
-                <${documentUrl}#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
+                <#it> <http://xmlns.com/foaf/0.1/name> "${name}" .
+                <#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
                     "${createdAt?.toISOString()}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
             } ;
             INSERT DATA {
-                <${documentUrl}#it> <http://xmlns.com/foaf/0.1/name> "${newName}" .
-                <${documentUrl}#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
+                <#it> <http://xmlns.com/foaf/0.1/name> "${newName}" .
+                <#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
                     "[[.*]]"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
             }
         `);
@@ -129,10 +125,10 @@ describe('CRUD', () => {
         );
 
         // Act
-        const user = await User.find(`${documentUrl}#it`);
+        const user = await Person.find(`${documentUrl}#it`);
 
         // Assert
-        expect(user).toBeInstanceOf(User);
+        expect(user).toBeInstanceOf(Person);
         expect(user?.url).toEqual(`${documentUrl}#it`);
         expect(user?.name).toEqual(name);
         expect(user?.age).toEqual(age);
@@ -143,7 +139,7 @@ describe('CRUD', () => {
         const name = faker.name.firstName();
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
-        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new Person({ url: `${documentUrl}#it`, name, age }, true);
 
         FakeServer.respondOnce(documentUrl, FakeResponse.success()); // DELETE document
 

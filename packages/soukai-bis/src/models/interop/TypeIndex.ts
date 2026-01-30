@@ -1,8 +1,9 @@
 import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
 
+import Container from 'soukai-bis/models/Container';
+import type { ContainerConstructor, ModelConstructor } from 'soukai-bis/models/types';
+
 import Model from './TypeIndex.schema';
-import Container from './Container';
-import type { ContainerConstructor, ModelConstructor } from './types';
 
 export default class TypeIndex extends Model {
 

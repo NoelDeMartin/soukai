@@ -1,20 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
-import { bootModels } from 'soukai-bis/models/registry';
-import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 
 describe('ContainsRelation', () => {
-
-    let engine: InMemoryEngine;
-
-    beforeEach(() => {
-        engine = new InMemoryEngine();
-
-        setEngine(engine);
-        bootModels({ PostsCollection, Post }, true);
-    });
 
     it('creates related model', async () => {
         // Arrange

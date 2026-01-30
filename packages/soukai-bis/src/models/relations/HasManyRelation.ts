@@ -1,3 +1,4 @@
+import { requireEngine } from 'soukai-bis/engines/state';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -42,6 +43,20 @@ export default class HasManyRelation<
 
         if (!localKey) {
             return [];
+        }
+
+        if (this.usingSameDocument) {
+            const documentUrl = this.parent.getDocumentUrl();
+
+            if (!documentUrl) {
+                return [];
+            }
+
+            const engine = requireEngine();
+            const document = await engine.readDocument(documentUrl);
+            const relatedModels = await this.relatedClass.createManyFromDocument(document);
+
+            return relatedModels.filter((model) => model.getAttribute(this.foreignKeyName) === localKey);
         }
 
         const relatedModels = await this.relatedClass.all();

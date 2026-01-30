@@ -1,7 +1,5 @@
 import { string } from 'zod';
-
-import { defineSchema } from 'soukai-bis/models/schema';
-import { hasOne } from 'soukai-bis/models/relations/fluent';
+import { defineSchema, hasOne } from 'soukai-bis';
 
 import WatchAction from './WatchAction';
 

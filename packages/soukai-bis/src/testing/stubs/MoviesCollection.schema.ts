@@ -1,9 +1,9 @@
 import { contains, defineContainerSchema } from 'soukai-bis';
 
-import Post from './Post';
+import Movie from './Movie';
 
 export default defineContainerSchema({
     relations: {
-        posts: contains(() => Post),
+        movies: contains(() => Movie),
     },
 });

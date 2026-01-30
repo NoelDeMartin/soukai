@@ -1,20 +1,22 @@
-import type { Quad, Quad_Predicate, Quad_Subject } from '@rdfjs/types';
+import type { Quad, Quad_Object } from '@rdfjs/types';
 import type { SparqlUpdate } from '@noeldemartin/solid-utils';
 
-import PropertyOperation from './PropertyOperation';
+import { CRDT_UNSET_PROPERTY_OPERATION_OBJECT } from 'soukai-bis/utils/rdf';
 
-export default class UnsetPropertyOperation extends PropertyOperation {
+import Model from './UnsetPropertyOperation.schema';
 
-    public constructor(resource: Quad_Subject, property: Quad_Predicate) {
-        super(resource, property);
-    }
+export default class UnsetPropertyOperation extends Model {
 
     public applyToQuads(quads: Quad[]): Quad[] {
         return this.filterQuads(quads);
     }
 
     public applyToSparql(sparql: SparqlUpdate): void {
-        sparql.delete(this.resource, this.property);
+        sparql.delete(this.subject, this.predicate);
+    }
+
+    protected getTypeQuads(): Quad_Object[] {
+        return [CRDT_UNSET_PROPERTY_OPERATION_OBJECT];
     }
 
 }

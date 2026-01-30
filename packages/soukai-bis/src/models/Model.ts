@@ -5,6 +5,7 @@ import {
     fail,
     isInstanceOf,
     isTruthy,
+    objectDeepClone,
     required,
     stringToCamelCase,
     stringToSlug,
@@ -30,11 +31,13 @@ import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/r
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { isModelClass } from './utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
-import type Metadata from 'soukai-bis/models/crdts/Metadata';
+import type HasManyRelation from './relations/HasManyRelation';
+import type HasOneRelation from './relations/HasOneRelation';
+import type Metadata from './crdts/Metadata';
+import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type { Schema } from './schema';
-import type { BootedModelClass, ModelConstructor, ModelWithTimestamps, ModelWithUrl } from './types';
-import type { HasOneRelation } from 'soukai-bis/models/relations';
+import type { BootedModelClass, ModelConstructor, ModelWithHistory, ModelWithTimestamps, ModelWithUrl } from './types';
 
 export interface MintUrlOptions {
     containerUrl?: string;
@@ -250,10 +253,13 @@ export default class Model<
     declare public updatedAt?: Date;
     declare public metadata?: Metadata;
     declare public relatedMetadata?: HasOneRelation<this, Metadata, typeof Metadata>;
+    declare public operations?: Operation[];
+    declare public relatedOperations?: HasManyRelation<this, Operation, typeof Operation>;
 
     private __exists: boolean = false;
     private __documentExists: boolean = false;
     private __attributes: Attributes;
+    private __originalAttributes: Attributes;
     private __dirtyAttributes: Set<FieldName>;
     private __relations: Record<string, Relation> = {};
 
@@ -262,6 +268,7 @@ export default class Model<
 
         if (this.static().isConjuring()) {
             this.__attributes = {} as unknown as Attributes;
+            this.__originalAttributes = {} as unknown as Attributes;
             this.__dirtyAttributes = new Set();
 
             return;
@@ -270,6 +277,7 @@ export default class Model<
         this.__exists = exists;
         this.__documentExists = exists;
         this.__attributes = this.parseAttributes(attributes);
+        this.__originalAttributes = (exists ? objectDeepClone(this.__attributes) : {}) as Attributes;
         this.__dirtyAttributes = exists ? new Set() : new Set(Object.keys(this.__attributes) as FieldName[]);
 
         this.initializeMetadata();
@@ -307,6 +315,14 @@ export default class Model<
 
         Object.assign(this.__attributes, newAttributes);
         Object.keys(newAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
+    }
+
+    public getOriginalAttributes(): Attributes {
+        return this.__originalAttributes;
+    }
+
+    public getOriginalAttribute(field: FieldName): unknown {
+        return this.__originalAttributes[field];
     }
 
     public getRelation(name: RelationName): Relation {
@@ -349,21 +365,21 @@ export default class Model<
         await this.loadRelation(name);
     }
 
-    public mintUrl(options: MintUrlOptions = {}): void {
-        if (this.url) {
-            return;
+    public mintUrl(options: MintUrlOptions = {}): string {
+        if (!this.url) {
+            this.url = this.newUrl(options);
+
+            if (options.documentUrl) {
+                this.__documentExists = options.documentExists ?? true;
+            }
+
+            if (this.hasTimestamps()) {
+                this.metadata.setAttribute('resourceUrl', this.url);
+                this.metadata.mintUrl(options);
+            }
         }
 
-        this.url = this.newUrl(options);
-
-        if (options.documentUrl) {
-            this.__documentExists = options.documentExists ?? true;
-        }
-
-        if (this.hasTimestamps()) {
-            this.metadata.setAttribute('resourceUrl', this.url);
-            this.metadata.mintUrl(options);
-        }
+        return this.url;
     }
 
     public requireUrl(): string {
@@ -410,10 +426,15 @@ export default class Model<
 
     public cleanDirty(): void {
         this.__dirtyAttributes.clear();
+        this.__originalAttributes = objectDeepClone(this.__attributes);
     }
 
     public hasTimestamps(): this is ModelWithTimestamps<this> {
         return this.static('schema').timestamps;
+    }
+
+    public tracksChanges(): this is ModelWithHistory<this> {
+        return this.static('schema').history;
     }
 
     public exists(): this is ModelWithUrl<this> {
@@ -506,7 +527,7 @@ export default class Model<
     }
 
     protected attributeValueChanged(originalValue: unknown, newValue: unknown): boolean {
-        return !deepEquals(originalValue, newValue);
+        return !deepEquals(originalValue ?? null, newValue ?? null);
     }
 
     protected newUrl(options: MintUrlOptions = {}): string {
@@ -532,6 +553,7 @@ export default class Model<
     protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
         this.mintUrl(options);
 
+        const now = new Date();
         const documentUrl = this.requireDocumentUrl();
         const documentExists = this.__documentExists;
         const documentModels = this.getDocumentModels();
@@ -541,7 +563,7 @@ export default class Model<
         }
 
         for (const documentModel of documentModels) {
-            documentModel.touch();
+            documentModel.touch(now);
 
             for (const relation of Object.values(documentModel.__relations)) {
                 relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
@@ -577,19 +599,22 @@ export default class Model<
             return;
         }
 
-        this.relatedMetadata.attach({
+        const metadata = this.relatedMetadata.attach({
             resourceUrl: this.url,
             createdAt: new Date(),
             updatedAt: new Date(),
         });
+
+        this.url && metadata.mintUrl();
     }
 
-    protected touch(): void {
+    protected touch(now: Date): void {
         if (!this.hasTimestamps()) {
             return;
         }
 
-        this.metadata.setAttribute('updatedAt', new Date());
+        this.exists() || this.metadata.setAttribute('createdAt', now ?? new Date());
+        this.metadata.setAttribute('updatedAt', now ?? new Date());
     }
 
     private parseAttributes(values: unknown): Attributes {
