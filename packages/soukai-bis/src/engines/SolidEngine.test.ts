@@ -49,7 +49,7 @@ describe('SolidEngine', () => {
             INSERT DATA {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 
-                <${documentUrl}>
+                <>
                     a foaf:Person ;
                     foaf:name "${name}" .
             }
@@ -130,7 +130,7 @@ describe('SolidEngine', () => {
 
         await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
-                <${containerUrl}> <http://www.w3.org/2000/01/rdf-schema#label> "My Container" .
+                <> <http://www.w3.org/2000/01/rdf-schema#label> "My Container" .
             }
         `);
     });
@@ -290,10 +290,10 @@ describe('SolidEngine', () => {
 
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
-                <${containerUrl}> <http://www.w3.org/2000/01/rdf-schema#label> "${oldName}" .
+                <> <http://www.w3.org/2000/01/rdf-schema#label> "${oldName}" .
             } ;
             INSERT DATA {
-                <${containerUrl}> <http://www.w3.org/2000/01/rdf-schema#label> "${name}" .
+                <> <http://www.w3.org/2000/01/rdf-schema#label> "${name}" .
             }
         `);
     });

@@ -48,7 +48,9 @@ export default class SolidEngine extends Engine {
             operation.applyToSparql(sparql);
         }
 
-        await this.client.update(url.endsWith('/') ? document.getDescriptionUrl() : url, sparql);
+        await this.client.update(url.endsWith('/') ? document.getDescriptionUrl() : url, sparql, {
+            base: url,
+        });
     }
 
     public async readDocument(url: string): Promise<SolidDocument> {

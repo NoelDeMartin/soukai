@@ -49,6 +49,12 @@ export default class Container extends Model {
         await typeIndex.relatedRegistrations.save(typeRegistration);
     }
 
+    public setAttributes(attributes: Partial<Record<string, unknown>>): void {
+        super.setAttributes(attributes);
+
+        this._dirtyAttributes.delete('resourceUrls');
+    }
+
     protected newUrl(options: MintUrlOptions = {}): string {
         return urlResolveDirectory(this.newUrlDocumentUrl(options));
     }

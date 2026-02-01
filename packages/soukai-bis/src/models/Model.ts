@@ -256,39 +256,39 @@ export default class Model<
     declare public operations?: Operation[];
     declare public relatedOperations?: HasManyRelation<this, Operation, typeof Operation>;
 
-    private __exists: boolean = false;
-    private __documentExists: boolean = false;
-    private __attributes: Attributes;
-    private __originalAttributes: Attributes;
-    private __dirtyAttributes: Set<FieldName>;
-    private __relations: Record<string, Relation> = {};
+    protected _exists: boolean = false;
+    protected _documentExists: boolean = false;
+    protected _attributes: Attributes;
+    protected _originalAttributes: Attributes;
+    protected _dirtyAttributes: Set<FieldName>;
+    protected _relations: Record<string, Relation> = {};
 
     public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
         super();
 
         if (this.static().isConjuring()) {
-            this.__attributes = {} as unknown as Attributes;
-            this.__originalAttributes = {} as unknown as Attributes;
-            this.__dirtyAttributes = new Set();
+            this._attributes = {} as unknown as Attributes;
+            this._originalAttributes = {} as unknown as Attributes;
+            this._dirtyAttributes = new Set();
 
             return;
         }
 
-        this.__exists = exists;
-        this.__documentExists = exists;
-        this.__attributes = this.parseAttributes(attributes);
-        this.__originalAttributes = (exists ? objectDeepClone(this.__attributes) : {}) as Attributes;
-        this.__dirtyAttributes = exists ? new Set() : new Set(Object.keys(this.__attributes) as FieldName[]);
+        this._exists = exists;
+        this._documentExists = exists;
+        this._attributes = this.parseAttributes(attributes);
+        this._originalAttributes = (exists ? objectDeepClone(this._attributes) : {}) as Attributes;
+        this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
 
         this.initializeMetadata();
     }
 
     public getAttribute(field: FieldName): unknown {
-        return this.__attributes[field];
+        return this._attributes[field];
     }
 
     public getAttributes(): Attributes {
-        return this.__attributes;
+        return this._attributes;
     }
 
     public setAttribute(field: FieldName, value: unknown): void {
@@ -306,27 +306,27 @@ export default class Model<
 
             const parsedValue = shape[field]?.parse(value);
 
-            if (!this.attributeValueChanged(this.__attributes[field], parsedValue)) {
+            if (!this.attributeValueChanged(this._attributes[field], parsedValue)) {
                 continue;
             }
 
             newAttributes[field] = parsedValue;
         }
 
-        Object.assign(this.__attributes, newAttributes);
-        Object.keys(newAttributes).forEach((field) => this.__dirtyAttributes.add(field as FieldName));
+        Object.assign(this._attributes, newAttributes);
+        Object.keys(newAttributes).forEach((field) => this._dirtyAttributes.add(field as FieldName));
     }
 
     public getOriginalAttributes(): Attributes {
-        return this.__originalAttributes;
+        return this._originalAttributes;
     }
 
     public getOriginalAttribute(field: FieldName): unknown {
-        return this.__originalAttributes[field];
+        return this._originalAttributes[field];
     }
 
     public getRelation(name: RelationName): Relation {
-        if (!(name in this.__relations)) {
+        if (!(name in this._relations)) {
             const relation = required(
                 this.static('schema').relations[name],
                 `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
@@ -339,14 +339,14 @@ export default class Model<
                 relation.relatedClass = relatedClass;
             }
 
-            this.__relations[name] = relation.relationClass.newInstance(this, relation.relatedClass, {
+            this._relations[name] = relation.relationClass.newInstance(this, relation.relatedClass, {
                 foreignKeyName: relation.options.foreignKey,
                 localKeyName: relation.options.localKey,
                 usingSameDocument: relation.options.usingSameDocument,
             });
         }
 
-        return this.__relations[name] as Relation;
+        return this._relations[name] as Relation;
     }
 
     public async loadRelation(name: RelationName): Promise<void> {
@@ -370,7 +370,7 @@ export default class Model<
             this.url = this.newUrl(options);
 
             if (options.documentUrl) {
-                this.__documentExists = options.documentExists ?? true;
+                this._documentExists = options.documentExists ?? true;
             }
 
             if (this.hasTimestamps()) {
@@ -395,7 +395,7 @@ export default class Model<
     }
 
     public getDirtyAttributes(): FieldName[] {
-        return Array.from(this.__dirtyAttributes);
+        return Array.from(this._dirtyAttributes);
     }
 
     public getDocumentModels(): Model[] {
@@ -412,11 +412,11 @@ export default class Model<
 
     public isDirty(field?: FieldName, ignoreRelations?: boolean): boolean {
         if (field) {
-            return this.__dirtyAttributes.has(field);
+            return this._dirtyAttributes.has(field);
         }
 
         if (ignoreRelations) {
-            return this.__dirtyAttributes.size > 0;
+            return this._dirtyAttributes.size > 0;
         }
 
         const dirtyDocumentModels = this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
@@ -425,8 +425,8 @@ export default class Model<
     }
 
     public cleanDirty(): void {
-        this.__dirtyAttributes.clear();
-        this.__originalAttributes = objectDeepClone(this.__attributes);
+        this._dirtyAttributes.clear();
+        this._originalAttributes = objectDeepClone(this._attributes);
     }
 
     public hasTimestamps(): this is ModelWithTimestamps<this> {
@@ -438,20 +438,20 @@ export default class Model<
     }
 
     public exists(): this is ModelWithUrl<this> {
-        return this.__exists;
+        return this._exists;
     }
 
     public setExists(exists: boolean): void {
-        this.__exists = exists;
-        this.__documentExists = exists;
+        this._exists = exists;
+        this._documentExists = exists;
     }
 
     public documentExists(): this is ModelWithUrl<this> {
-        return this.__documentExists;
+        return this._documentExists;
     }
 
     public setDocumentExists(documentExists: boolean): void {
-        this.__documentExists = documentExists;
+        this._documentExists = documentExists;
     }
 
     public async delete(): Promise<this> {
@@ -495,12 +495,12 @@ export default class Model<
     }
 
     protected __get(property: string): unknown {
-        if (property in this.__attributes) {
-            return this.__attributes[property];
+        if (property in this._attributes) {
+            return this._attributes[property];
         }
 
         if (this.static('schema').timestamps && (property === 'createdAt' || property === 'updatedAt')) {
-            return (this.__relations.metadata?.related as Metadata)?.__attributes[property];
+            return (this._relations.metadata?.related as Metadata)?._attributes[property];
         }
 
         if (property in this.static('schema').relations) {
@@ -555,7 +555,7 @@ export default class Model<
 
         const now = new Date();
         const documentUrl = this.requireDocumentUrl();
-        const documentExists = this.__documentExists;
+        const documentExists = this._documentExists;
         const documentModels = this.getDocumentModels();
 
         for (const documentModel of documentModels) {
@@ -563,9 +563,13 @@ export default class Model<
         }
 
         for (const documentModel of documentModels) {
+            if (!documentModel.isDirty()) {
+                continue;
+            }
+
             documentModel.touch(now);
 
-            for (const relation of Object.values(documentModel.__relations)) {
+            for (const relation of Object.values(documentModel._relations)) {
                 relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
             }
         }
@@ -574,7 +578,7 @@ export default class Model<
     protected async performSave(): Promise<void> {
         const engine = requireEngine();
 
-        if (this.__documentExists) {
+        if (this._documentExists) {
             await engine.updateDocument(
                 this.requireDocumentUrl(),
                 getDirtyDocumentsUpdates(this.getDirtyDocumentModels()),
@@ -634,7 +638,7 @@ export default class Model<
 
         documentModels.add(this);
 
-        for (const relation of Object.values(this.__relations)) {
+        for (const relation of Object.values(this._relations)) {
             if (!relation.loaded) {
                 continue;
             }
