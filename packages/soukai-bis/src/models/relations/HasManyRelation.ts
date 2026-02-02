@@ -1,4 +1,3 @@
-import { requireEngine } from 'soukai-bis/engines/state';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -52,7 +51,7 @@ export default class HasManyRelation<
                 return [];
             }
 
-            const engine = requireEngine();
+            const engine = this.relatedClass.requireEngine();
             const document = await engine.readDocument(documentUrl);
             const relatedModels = await this.relatedClass.createManyFromDocument(document);
 

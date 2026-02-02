@@ -3,7 +3,6 @@ import { isInstanceOf, tap } from '@noeldemartin/utils';
 import Container from 'soukai-bis/models/Container';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { requireEngine } from 'soukai-bis/engines/state';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -83,7 +82,7 @@ export default class ContainsRelation<
             return [];
         }
 
-        const engine = requireEngine();
+        const engine = this.relatedClass.requireEngine();
         const models = await Promise.all(
             documentUrls.map(async (documentUrl) => {
                 try {

@@ -19,13 +19,14 @@ import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { requireEngine } from 'soukai-bis/engines/state';
 import {
     LDP_BASIC_CONTAINER_OBJECT,
     LDP_CONTAINER_OBJECT,
     LDP_CONTAINS_PREDICATE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/utils/rdf';
+import { getEngine, requireEngine } from 'soukai-bis/engines/state';
+import type Engine from 'soukai-bis/engines/Engine';
 
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
@@ -56,6 +57,7 @@ export default class Model<
     public static schema: Schema;
     protected static _defaultContainerUrl?: string;
     protected static _modelName?: string;
+    private static __engine: Engine | null = null;
     private static __booted: boolean = false;
 
     public static get defaultContainerUrl(): string {
@@ -92,9 +94,21 @@ export default class Model<
         return new this(attributes, exists);
     }
 
+    public static getEngine(): Engine | undefined {
+        return this.__engine ?? getEngine();
+    }
+
+    public static requireEngine(): Engine {
+        return this.__engine ?? requireEngine();
+    }
+
+    public static setEngine(engine?: Engine): void {
+        this.__engine = engine ?? null;
+    }
+
     public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<ModelWithUrl<T> | null> {
         try {
-            const engine = requireEngine();
+            const engine = this.requireEngine();
             const document = await engine.readDocument(urlRoute(url));
 
             return this.createFromDocument(document, { url });
@@ -114,7 +128,7 @@ export default class Model<
         containerUrl ??= this.defaultContainerUrl;
 
         try {
-            const engine = requireEngine();
+            const engine = this.requireEngine();
             const container = await engine.readDocument(containerUrl);
             const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
             const documents: Record<string, SolidDocument> = {};
@@ -459,7 +473,7 @@ export default class Model<
             return this;
         }
 
-        const engine = requireEngine();
+        const engine = this.static().requireEngine();
 
         await engine.deleteDocument(this.requireDocumentUrl());
 
@@ -576,7 +590,7 @@ export default class Model<
     }
 
     protected async performSave(): Promise<void> {
-        const engine = requireEngine();
+        const engine = this.static().requireEngine();
 
         if (this._documentExists) {
             await engine.updateDocument(

@@ -369,4 +369,25 @@ describe('Model', () => {
         () => new Person({ name: 'John Doe', foo: 'bar' });
     });
 
+    it('uses class engines', async () => {
+        const engine1 = new InMemoryEngine();
+        const engine2 = new InMemoryEngine();
+
+        Person.setEngine(engine1);
+        Post.setEngine(engine2);
+
+        const person = await Person.create({ name: 'John Doe' });
+        const post = await Post.create({ title: 'Hello World' });
+
+        expect(person.exists()).toBe(true);
+        expect(post.exists()).toBe(true);
+        expect(engine1.documents[person.requireDocumentUrl()]).not.toBeUndefined();
+        expect(engine1.documents[post.requireDocumentUrl()]).toBeUndefined();
+        expect(engine2.documents[person.requireDocumentUrl()]).toBeUndefined();
+        expect(engine2.documents[post.requireDocumentUrl()]).not.toBeUndefined();
+
+        Person.setEngine(undefined);
+        Post.setEngine(undefined);
+    });
+
 });
