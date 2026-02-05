@@ -1,6 +1,8 @@
+import { isInstanceOf } from '@noeldemartin/utils';
 import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import {
     LDP_BASIC_CONTAINER,
@@ -14,10 +16,24 @@ import type Operation from 'soukai-bis/models/crdts/Operation';
 
 export default abstract class Engine {
 
-    public abstract createDocument(url: string, graph: JsonLD): Promise<void>;
+    public abstract createDocument(url: string, contents: JsonLD | Quad[]): Promise<void>;
     public abstract readDocument(url: string): Promise<SolidDocument>;
     public abstract updateDocument(url: string, operations: Operation[]): Promise<void>;
     public abstract deleteDocument(url: string): Promise<void>;
+
+    public async readDocumentIfExists(url: string): Promise<SolidDocument | null> {
+        try {
+            const document = await this.readDocument(url);
+
+            return document;
+        } catch (error) {
+            if (!isInstanceOf(error, DocumentNotFound)) {
+                throw error;
+            }
+
+            return null;
+        }
+    }
 
     protected filterContainerQuads(quads: Quad[], options: { keepTypes?: boolean } = {}): Quad[] {
         return quads.filter(

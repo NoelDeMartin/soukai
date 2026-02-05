@@ -3,6 +3,7 @@ import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } fr
 import { Semaphore } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
+import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
@@ -48,7 +49,7 @@ export default class IndexedDBEngine extends Engine {
         this.lock = new Semaphore();
     }
 
-    public async createDocument(url: string, graph: JsonLD): Promise<void> {
+    public async createDocument(url: string, contents: JsonLD | Quad[]): Promise<void> {
         await this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
 
@@ -56,6 +57,8 @@ export default class IndexedDBEngine extends Engine {
                 if (await transaction.store.get(url)) {
                     throw new DocumentAlreadyExists(url);
                 }
+
+                const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
 
                 if (url.endsWith('/')) {
                     this.removeContainerProperties(graph, { keepTypes: true });

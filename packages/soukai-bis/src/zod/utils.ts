@@ -1,6 +1,6 @@
 import { RDFLiteral, RDFNamedNode } from '@noeldemartin/solid-utils';
 import { ZodArray, ZodDate, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
-import { isDevelopment } from '@noeldemartin/utils';
+import { isDevelopment, isTesting } from '@noeldemartin/utils';
 import type { Quad_Object } from '@rdfjs/types';
 import type { SomeType } from 'zod/v4/core';
 
@@ -33,7 +33,7 @@ export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], defin
         // eslint-disable-next-line no-console
         console.warn('Multiple objects found for single value', { definition, objects });
 
-        if (isDevelopment()) {
+        if (isDevelopment() || isTesting()) {
             throw new SoukaiError('Cannot cast multiple objects to a single value');
         }
     }

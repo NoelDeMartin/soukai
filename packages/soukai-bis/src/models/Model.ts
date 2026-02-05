@@ -598,7 +598,7 @@ export default class Model<
                 getDirtyDocumentsUpdates(this.getDirtyDocumentModels()),
             );
         } else {
-            await engine.createDocument(this.requireDocumentUrl(), await this.toJsonLD());
+            await engine.createDocument(this.requireDocumentUrl(), serializeToRDF(this.getDocumentModels()));
         }
     }
 

@@ -13,3 +13,13 @@ export function metadataJsonLD(model: ModelWithTimestamps & ModelWithUrl): JsonL
         [expandIRI('crdt:updatedAt')]: { '@type': XSD_DATE_TIME, '@value': model.updatedAt.toISOString() },
     };
 }
+
+export function containerTurtle(documentUrls: string[]): string {
+    return `
+        @prefix ldp: <http://www.w3.org/ns/ldp#> .
+
+        <>
+            a ldp:Container ;
+            ldp:contains ${documentUrls.map((url) => `<${url}>`).join(', ')} .
+    `;
+}

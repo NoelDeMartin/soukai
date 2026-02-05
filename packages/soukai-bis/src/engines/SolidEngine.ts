@@ -1,5 +1,6 @@
 import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
@@ -17,12 +18,12 @@ export default class SolidEngine extends Engine {
         this.client = new SolidClient({ fetch });
     }
 
-    public async createDocument(url: string, graph: JsonLD): Promise<void> {
+    public async createDocument(url: string, contents: JsonLD | Quad[]): Promise<void> {
         if (await this.client.exists(url)) {
             throw new DocumentAlreadyExists(url);
         }
 
-        const originalQuads = await jsonldToQuads(graph);
+        const originalQuads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
         const quads = url.endsWith('/') ? this.filterContainerQuads(originalQuads) : originalQuads;
         const body = quadsToTurtle(quads);
 

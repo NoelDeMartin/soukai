@@ -15,10 +15,12 @@ export default class InMemoryEngine extends Engine {
 
     public documents: Record<string, JsonLD> = {};
 
-    public async createDocument(url: string, graph: JsonLD): Promise<void> {
+    public async createDocument(url: string, contents: JsonLD | Quad[]): Promise<void> {
         if (url in this.documents) {
             throw new DocumentAlreadyExists(url);
         }
+
+        const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
 
         if (url.endsWith('/')) {
             this.removeContainerProperties(graph, { keepTypes: true });
