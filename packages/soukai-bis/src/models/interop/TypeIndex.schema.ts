@@ -8,6 +8,6 @@ export default defineSchema({
     rdfClass: 'TypeIndex',
     timestamps: false,
     relations: {
-        registrations: belongsToMany(TypeRegistration, 'registrationUrls'),
+        registrations: belongsToMany(TypeRegistration, 'registrationUrls').usingSameDocument(),
     },
 });

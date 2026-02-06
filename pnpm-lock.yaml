@@ -17,7 +17,7 @@ catalogs:
       version: 0.4.0-next.2da6eab8f3c6dbb77ce708fac551334bddd474db
     '@noeldemartin/solid-utils':
       specifier: next
-      version: 0.6.1-next.36f4617fc54602d0c29dbcc5e936bb76e4fd839f
+      version: 0.6.1-next.1553f43b2aa04a742457a6bd9f8a27569eee73f0
     '@noeldemartin/testing':
       specifier: next
       version: 0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19
@@ -85,10 +85,10 @@ importers:
         version: 0.28.16(typescript@5.9.3)
       typedoc-plugin-frontmatter:
         specifier: ^1.3.0
-        version: 1.3.1(typedoc-plugin-markdown@4.9.0(typedoc@0.28.16(typescript@5.9.3)))
+        version: 1.3.1(typedoc-plugin-markdown@4.10.0(typedoc@0.28.16(typescript@5.9.3)))
       typedoc-plugin-markdown:
         specifier: ^4.6.0
-        version: 4.9.0(typedoc@0.28.16(typescript@5.9.3))
+        version: 4.10.0(typedoc@0.28.16(typescript@5.9.3))
       typescript:
         specifier: ^5.8.2
         version: 5.9.3
@@ -143,7 +143,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.36f4617fc54602d0c29dbcc5e936bb76e4fd839f(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.1553f43b2aa04a742457a6bd9f8a27569eee73f0(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.88d9967421b545c8b25cdfd24755f390521f2d41
@@ -213,7 +213,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.36f4617fc54602d0c29dbcc5e936bb76e4fd839f(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.1553f43b2aa04a742457a6bd9f8a27569eee73f0(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.88d9967421b545c8b25cdfd24755f390521f2d41
@@ -1022,8 +1022,8 @@ packages:
     resolution: {integrity: sha512-g5Ltn/WVPV8Op/ESMCrTAx2TaA05zlyntjxj+pgp8B+OYlP+xJrnFtjTC0q4tnEy15Qf52tOLVp2q39t0KPbbg==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.1-next.36f4617fc54602d0c29dbcc5e936bb76e4fd839f':
-    resolution: {integrity: sha512-CJhZ8hzrDCLG5QJ3iojSm183hDccHGcLpIeHrY1FRZ0XR/ruzJP5uyDUjIu/JDcPkUnpgY0VA/RaraOzl2oTLw==}
+  '@noeldemartin/solid-utils@0.6.1-next.1553f43b2aa04a742457a6bd9f8a27569eee73f0':
+    resolution: {integrity: sha512-uQg7cCmydo0TQ/Og3aqXzUU+hXpJmW+fW0SN2WUyoA0SXVcCo5rUWx3ujYUH9suBZ1xRTzv6RjmImySVZ9f0bw==}
 
   '@noeldemartin/testing@0.0.0-next.2d44364d125aabe764d3cf01d20b66e0923a7a19':
     resolution: {integrity: sha512-5moMGAYgqCnHWfbxgkgNjoaYhc6nvtqN7etPP+B76fyZVWWRLK+BOKKcwCXUd2ctD2N7lu9baa7M9qoN8oHEKg==}
@@ -2117,8 +2117,8 @@ packages:
   confbox@0.1.8:
     resolution: {integrity: sha512-RMtmw0iFkeR4YV+fUOSucriAQNb9g8zFR52MWCtl+cCZOFRNL6zeB395vPzFhEjjn4fMxXudmELnl/KF/WrK6w==}
 
-  confbox@0.2.2:
-    resolution: {integrity: sha512-1NB+BKqhtNipMsov4xI/NnhCKp9XG9NamYp5PVm9klAT0fsrNPjaFICsCFhNhwZJKNh7zB/3q8qXz0E9oaMNtQ==}
+  confbox@0.2.4:
+    resolution: {integrity: sha512-ysOGlgTFbN2/Y6Cg3Iye8YKulHw+R2fNXHrgSmXISQdMnomY6eNDprVdW9R5xBguEqI954+S6709UyiO7B+6OQ==}
 
   copy-anything@4.0.5:
     resolution: {integrity: sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA==}
@@ -3458,8 +3458,8 @@ packages:
     peerDependencies:
       typedoc-plugin-markdown: '>=4.9.0'
 
-  typedoc-plugin-markdown@4.9.0:
-    resolution: {integrity: sha512-9Uu4WR9L7ZBgAl60N/h+jqmPxxvnC9nQAlnnO/OujtG2ubjnKTVUFY1XDhcMY+pCqlX3N2HsQM2QTYZIU9tJuw==}
+  typedoc-plugin-markdown@4.10.0:
+    resolution: {integrity: sha512-psrg8Rtnv4HPWCsoxId+MzEN8TVK5jeKCnTbnGAbTBqcDapR9hM41bJT/9eAyKn9C2MDG9Qjh3MkltAYuLDoXg==}
     engines: {node: '>= 18'}
     peerDependencies:
       typedoc: 0.28.x
@@ -4512,7 +4512,7 @@ snapshots:
 
   '@noeldemartin/scripts@0.4.0-next.2da6eab8f3c6dbb77ce708fac551334bddd474db': {}
 
-  '@noeldemartin/solid-utils@0.6.1-next.36f4617fc54602d0c29dbcc5e936bb76e4fd839f(web-streams-polyfill@3.3.3)':
+  '@noeldemartin/solid-utils@0.6.1-next.1553f43b2aa04a742457a6bd9f8a27569eee73f0(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.7.3
       '@rdfjs/types': 2.0.1
@@ -5599,7 +5599,7 @@ snapshots:
 
   confbox@0.1.8: {}
 
-  confbox@0.2.2: {}
+  confbox@0.2.4: {}
 
   copy-anything@4.0.5:
     dependencies:
@@ -6641,7 +6641,7 @@ snapshots:
 
   pkg-types@2.3.0:
     dependencies:
-      confbox: 0.2.2
+      confbox: 0.2.4
       exsolve: 1.0.8
       pathe: 2.0.3
 
@@ -7067,12 +7067,12 @@ snapshots:
 
   type-fest@4.41.0: {}
 
-  typedoc-plugin-frontmatter@1.3.1(typedoc-plugin-markdown@4.9.0(typedoc@0.28.16(typescript@5.9.3))):
+  typedoc-plugin-frontmatter@1.3.1(typedoc-plugin-markdown@4.10.0(typedoc@0.28.16(typescript@5.9.3))):
     dependencies:
-      typedoc-plugin-markdown: 4.9.0(typedoc@0.28.16(typescript@5.9.3))
+      typedoc-plugin-markdown: 4.10.0(typedoc@0.28.16(typescript@5.9.3))
       yaml: 2.8.2
 
-  typedoc-plugin-markdown@4.9.0(typedoc@0.28.16(typescript@5.9.3)):
+  typedoc-plugin-markdown@4.10.0(typedoc@0.28.16(typescript@5.9.3)):
     dependencies:
       typedoc: 0.28.16(typescript@5.9.3)
 

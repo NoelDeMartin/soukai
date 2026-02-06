@@ -3,7 +3,9 @@ import {
     arrayUnique,
     deepEquals,
     fail,
+    isDevelopment,
     isInstanceOf,
+    isTesting,
     isTruthy,
     objectDeepClone,
     required,
@@ -14,7 +16,7 @@ import {
     uuid,
 } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
-import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -33,6 +35,7 @@ import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { isModelClass } from './utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
+import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import type Metadata from './crdts/Metadata';
@@ -98,6 +101,23 @@ export default class Model<
         this.__engine = engine ?? null;
     }
 
+    public static requireFetch(): Fetch {
+        const engine = this.requireEngine();
+
+        if (!isSolidEngine(engine)) {
+            const message = `Tried to get fetch from model using a non-Solid engine (${this.modelName})`;
+
+            if (isDevelopment() || isTesting()) {
+                throw new SoukaiError(message);
+            }
+
+            // eslint-disable-next-line no-console
+            console.warn(message);
+        }
+
+        return (isSolidEngine(engine) ? engine.getFetch() : null) ?? globalThis.fetch.bind(globalThis);
+    }
+
     public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<ModelWithUrl<T> | null> {
         try {
             const engine = this.requireEngine();
@@ -111,6 +131,12 @@ export default class Model<
 
             return null;
         }
+    }
+
+    public static async findOrFail<T extends Model>(this: ModelConstructor<T>, url: string): Promise<ModelWithUrl<T>> {
+        const instance = await this.find(url);
+
+        return instance ?? fail(`Failed getting required model ${url}`);
     }
 
     public static async all<T extends Model>(

@@ -7,8 +7,11 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import Engine from './Engine';
+import { classMarker } from './utils';
 
 export default class SolidEngine extends Engine {
+
+    public static [classMarker] = 'SolidEngine';
 
     private client: SolidClient;
 
@@ -16,6 +19,10 @@ export default class SolidEngine extends Engine {
         super();
 
         this.client = new SolidClient({ fetch });
+    }
+
+    public getFetch(): Fetch | null {
+        return this.client.getFetch();
     }
 
     public async createDocument(url: string, contents: JsonLD | Quad[]): Promise<void> {

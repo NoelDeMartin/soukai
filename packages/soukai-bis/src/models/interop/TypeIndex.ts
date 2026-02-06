@@ -1,4 +1,6 @@
 import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
+import { createPrivateTypeIndex } from '@noeldemartin/solid-utils';
+import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/Container';
 import type { ContainerConstructor, ModelConstructor } from 'soukai-bis/models/types';
@@ -28,6 +30,16 @@ export default class TypeIndex extends Model {
             registration?.instanceContainer
                 ? ((containerClass ?? Container).find(registration.instanceContainer) as Promise<T>)
                 : null);
+    }
+
+    public static async createPrivate<T extends TypeIndex>(
+        this: ModelConstructor<T>,
+        user: SolidUserProfile,
+    ): Promise<T> {
+        const url = await createPrivateTypeIndex(user, TypeIndex.requireFetch());
+        const instance = await this.findOrFail(url);
+
+        return instance;
     }
 
 }

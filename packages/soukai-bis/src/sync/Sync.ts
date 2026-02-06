@@ -1,22 +1,26 @@
+import { arrayGroupBy, isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
+import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
+
 import Container from 'soukai-bis/models/Container';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
-import type Engine from 'soukai-bis/engines/Engine';
-import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
-import type { SolidDocument } from '@noeldemartin/solid-utils';
+import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import { expandIRI } from '@noeldemartin/solid-utils';
-import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
-import type { Operation } from 'soukai-bis/models';
 import { PropertyOperation, SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
-import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
+import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import { safeContainerUrl } from 'soukai-bis/utils/urls';
+import type Engine from 'soukai-bis/engines/Engine';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 
 export interface SyncConfig {
+    userProfile: SolidUserProfile;
     localEngine: Engine;
-    remoteEngine: Engine;
-    storageUrl: string;
+    remoteEngine: SolidEngine;
     typeIndexes: TypeIndex[];
-    registeredModels: ModelConstructor[];
+    applicationModels: ModelConstructor[];
+    onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
 }
 
 export default class Sync {
@@ -28,41 +32,13 @@ export default class Sync {
     }
 
     private visitedDocumentUrls = new Set<string>();
+    private registeredContainers = new Map<string, Set<ModelConstructor>>();
 
     private constructor(private config: SyncConfig) {}
 
     private async sync(): Promise<void> {
         await this.pullChanges();
         await this.pushChanges();
-    }
-
-    private async getMatchingContainers(): Promise<Map<string, Set<ModelConstructor>>> {
-        const matchingContainers = new Map<string, Set<ModelConstructor>>();
-
-        for (const typeIndex of this.config.typeIndexes) {
-            const registrations = typeIndex.registrations ?? [];
-
-            for (const registration of registrations) {
-                if (!registration.instanceContainer) {
-                    continue;
-                }
-
-                const containerRegisteredModels = this.config.registeredModels.filter((model) => {
-                    return model.schema.rdfClasses.some((rdfClass) => registration.forClass.includes(rdfClass.value));
-                });
-
-                if (containerRegisteredModels.length === 0) {
-                    continue;
-                }
-
-                const containerRegistrations = matchingContainers.get(registration.instanceContainer) ?? new Set();
-
-                containerRegisteredModels.forEach((model) => containerRegistrations.add(model));
-                matchingContainers.set(registration.instanceContainer, containerRegistrations);
-            }
-        }
-
-        return matchingContainers;
     }
 
     private async getDocumentOperations(
@@ -143,15 +119,42 @@ export default class Sync {
     }
 
     private async pullChanges(): Promise<void> {
-        const containers = await this.getMatchingContainers();
+        await this.initializeMatchingContainers();
 
-        for (const [containerUrl, models] of containers) {
+        for (const [containerUrl, models] of this.registeredContainers) {
             await this.syncDocument(containerUrl, models);
         }
     }
 
     private async pushChanges(): Promise<void> {
-        await this.pushContainer(this.config.storageUrl);
+        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0]);
+    }
+
+    private async initializeMatchingContainers(): Promise<void> {
+        for (const typeIndex of this.config.typeIndexes) {
+            const registrations = typeIndex.registrations ?? [];
+
+            for (const registration of registrations) {
+                if (!registration.instanceContainer) {
+                    continue;
+                }
+
+                const containerRegisteredModels = this.config.applicationModels.filter((model) => {
+                    return model.schema.rdfClasses.some((rdfClass) => registration.forClass.includes(rdfClass.value));
+                });
+
+                if (containerRegisteredModels.length === 0) {
+                    continue;
+                }
+
+                const containerRegistrations =
+                    this.registeredContainers.get(registration.instanceContainer) ?? new Set();
+
+                containerRegisteredModels.forEach((model) => containerRegistrations.add(model));
+
+                this.registeredContainers.set(registration.instanceContainer, containerRegistrations);
+            }
+        }
     }
 
     private async syncDocument(documentUrl: string, models: Set<ModelConstructor>): Promise<void> {
@@ -189,7 +192,7 @@ export default class Sync {
         }
     }
 
-    private async pushContainer(url: string): Promise<void> {
+    private async pushContainerDocuments(url: string): Promise<void> {
         const document = await this.config.localEngine.readDocumentIfExists(url);
         const container = document && (await Container.createFromDocument(document, { url }));
 
@@ -197,21 +200,66 @@ export default class Sync {
             return;
         }
 
-        for (const childDocumentUrl of container.resourceUrls) {
-            if (childDocumentUrl.endsWith('/')) {
-                await this.pushContainer(childDocumentUrl);
+        const { containerChildren, documentChildren } = arrayGroupBy(container.resourceUrls, (childUrl) => {
+            return childUrl.endsWith('/') ? 'containerChildren' : 'documentChildren';
+        });
 
-                continue;
-            }
+        const pushedModels = await this.pushContainerChildrenDocuments(documentChildren ?? []);
 
-            if (this.visitedDocumentUrls.has(childDocumentUrl)) {
-                continue;
-            }
+        await this.syncContainerRegistration(container, pushedModels);
 
-            const localDocument = await this.config.localEngine.readDocument(childDocumentUrl);
+        for (const containerUrl of containerChildren ?? []) {
+            await this.pushContainerDocuments(containerUrl);
 
-            await this.config.remoteEngine.createDocument(childDocumentUrl, localDocument.getQuads());
+            continue;
         }
+    }
+
+    private async pushContainerChildrenDocuments(urls: string[] = []): Promise<Set<ModelConstructor>> {
+        const rdfClasses = new Set<string>();
+
+        for (const documentUrl of urls) {
+            if (this.visitedDocumentUrls.has(documentUrl)) {
+                continue;
+            }
+
+            const localDocument = await this.config.localEngine.readDocument(documentUrl);
+
+            await this.config.remoteEngine.createDocument(documentUrl, localDocument.getQuads());
+
+            localDocument
+                .statements(undefined, RDF_TYPE_PREDICATE)
+                .map((quad) => quad.object.value)
+                .forEach((rdfClass) => rdfClasses.add(rdfClass));
+        }
+
+        return new Set(
+            this.config.applicationModels.filter((model) => {
+                return model.schema.rdfClasses.some((rdfClass) => rdfClasses.has(rdfClass.value));
+            }),
+        );
+    }
+
+    private async syncContainerRegistration(
+        container: ModelWithUrl<Container>,
+        models: Set<ModelConstructor>,
+    ): Promise<void> {
+        let containerUrl: string | null = container.url;
+
+        while (containerUrl) {
+            this.registeredContainers.get(containerUrl)?.forEach((model) => models.delete(model));
+
+            containerUrl = safeContainerUrl(containerUrl);
+
+            if (models.size === 0) {
+                return;
+            }
+        }
+
+        const typeIndex = this.config.typeIndexes[0] ?? (await TypeIndex.createPrivate(this.config.userProfile));
+
+        await container.register(typeIndex, Array.from(models));
+        await this.config.onModelsRegistered?.(typeIndex, Array.from(models));
     }
 
     private async syncDocumentOperations(

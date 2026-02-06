@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
+import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import Movie from 'soukai-bis/testing/stubs/Movie';
@@ -10,6 +11,7 @@ import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import Sync from './Sync';
 import type { SyncConfig } from './Sync';
@@ -22,22 +24,33 @@ describe('Sync', () => {
     let localEngine: InMemoryEngine;
     let remoteEngine: SolidEngine;
     let typeIndex: TypeIndex;
-    let config: Pick<SyncConfig, 'localEngine' | 'remoteEngine' | 'typeIndexes'>;
+    let config: Pick<SyncConfig, 'userProfile' | 'localEngine' | 'remoteEngine' | 'typeIndexes'>;
+
+    const userProfile = {
+        webId: 'https://myprofile.com/profile#me',
+        storageUrls: ['https://my-pod.com/'],
+        cloaked: false,
+        writableProfileUrl: 'https://myprofile.com/profile',
+    } satisfies SolidUserProfile;
 
     beforeEach(() => {
         localEngine = new InMemoryEngine();
         remoteEngine = new SolidEngine(FakeServer.fetch);
         typeIndex = new TypeIndex();
         config = {
+            userProfile,
             localEngine,
             remoteEngine,
             typeIndexes: [typeIndex],
         };
+
+        TypeIndex.setEngine(remoteEngine);
+        TypeRegistration.setEngine(remoteEngine);
     });
 
     it('uses type indexes', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const personContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const firstMoviesContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const secondMoviesContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
@@ -69,8 +82,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person, Movie],
+            applicationModels: [Person, Movie],
         });
 
         // Assert
@@ -82,7 +94,7 @@ describe('Sync', () => {
 
     it('reads nested containers', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const nestedContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl: storageUrl });
         const nestedDocumentUrl = fakeDocumentUrl({ containerUrl: nestedContainerUrl });
@@ -100,8 +112,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person],
+            applicationModels: [Person],
         });
 
         // Assert
@@ -114,7 +125,7 @@ describe('Sync', () => {
 
     it('syncs new operations', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const remoteDocument = fixture('person-missing-second-name.ttl');
@@ -137,8 +148,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person],
+            applicationModels: [Person],
         });
 
         // Assert
@@ -153,7 +163,7 @@ describe('Sync', () => {
 
     it('syncs old operations', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const remoteDocument = fixture('person-missing-third-name.ttl');
@@ -176,8 +186,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person],
+            applicationModels: [Person],
         });
 
         // Assert
@@ -192,7 +201,7 @@ describe('Sync', () => {
 
     it('syncs remote and local operations', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const remoteDocument = fixture('person-missing-third-name.ttl');
@@ -217,8 +226,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person],
+            applicationModels: [Person],
         });
 
         // Assert
@@ -238,36 +246,60 @@ describe('Sync', () => {
 
     it('handles missing remote documents', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const localDocument = await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl })));
+        const typeIndexUrl = `${storageUrl}settings/privateTypeIndex`;
+        const registeredModels: ModelConstructor[] = [];
 
         FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
+        FakeServer.respondOnce(typeIndexUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(typeIndexUrl, FakeResponse.success());
+        FakeServer.respondOnce(typeIndexUrl, fixture('type-index.ttl'));
+        FakeServer.respondOnce(typeIndexUrl, fixture('type-index.ttl'));
+        FakeServer.respondOnce(typeIndexUrl, FakeResponse.success());
+        FakeServer.respondOnce(userProfile.writableProfileUrl, FakeResponse.success());
 
         await localEngine.createDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person],
+            typeIndexes: [],
+            applicationModels: [Person],
+            onModelsRegistered(_, models) {
+                registeredModels.push(...models);
+            },
         });
 
         // Assert
-        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(registeredModels).toEqual([Person]);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(8);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, documentUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
 
         await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA { ${fixture('person.ttl')} }
         `);
+
+        await expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix solid: <http://www.w3.org/ns/solid/terms#> .
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <#[[.*]]> a solid:TypeRegistration;
+                    solid:forClass foaf:Person;
+                    solid:instanceContainer <${containerUrl}> .
+            }
+        `);
     });
 
     it('handles missing local documents', async () => {
         // Arrange
-        const storageUrl = fakeContainerUrl();
+        const storageUrl = config.userProfile.storageUrls[0];
         const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
 
@@ -284,8 +316,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            storageUrl,
-            registeredModels: [Person],
+            applicationModels: [Person],
         });
 
         // Assert
