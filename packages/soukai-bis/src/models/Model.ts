@@ -30,6 +30,7 @@ import type Engine from 'soukai-bis/engines/Engine';
 
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
+import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { isModelClass } from './utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
 import type HasManyRelation from './relations/HasManyRelation';
@@ -38,7 +39,7 @@ import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type { Schema } from './schema';
-import type { BootedModelClass, ModelConstructor, ModelWithHistory, ModelWithTimestamps, ModelWithUrl } from './types';
+import type { ModelConstructor, ModelWithHistory, ModelWithTimestamps, ModelWithUrl } from './types';
 
 export interface MintUrlOptions {
     containerUrl?: string;
@@ -55,35 +56,26 @@ export default class Model<
 > extends MagicObject {
 
     public static schema: Schema;
-    protected static _defaultContainerUrl?: string;
-    protected static _modelName?: string;
     private static __engine: Engine | null = null;
-    private static __booted: boolean = false;
 
     public static get defaultContainerUrl(): string {
-        return this._defaultContainerUrl ?? this.booted()._defaultContainerUrl;
+        return getMeta(this, 'defaultContainerUrl');
     }
 
     public static set defaultContainerUrl(value: string) {
-        this._defaultContainerUrl = value;
+        setMeta(this, 'defaultContainerUrl', value);
     }
 
     public static get modelName(): string {
-        return this._modelName ?? this.booted()._modelName;
+        return getMeta(this, 'modelName');
     }
 
     public static boot<T extends typeof Model>(this: T, name?: string): void {
-        if (this.__booted) {
-            throw new SoukaiError(`${this.name} model already booted`);
-        }
-
-        this._modelName ??= name ?? this.name;
-        this._defaultContainerUrl ??= `solid://${stringToCamelCase(this._modelName)}s/`;
-        this.__booted = true;
+        boot(this, name);
     }
 
     public static reset(): void {
-        this.__booted = false;
+        reset(this);
     }
 
     public static newInstance<T extends Model>(
@@ -250,16 +242,6 @@ export default class Model<
     public static<T extends typeof Model, K extends keyof T>(property: K): T[K];
     public static<T extends typeof Model, K extends keyof T>(property?: K): T | T[K] {
         return super.static<T, K>(property as K);
-    }
-
-    private static booted<T extends typeof Model>(this: T): BootedModelClass<T> {
-        if (!this.__booted) {
-            this._modelName ??= this.name;
-            this._defaultContainerUrl ??= `solid://${stringToCamelCase(this._modelName)}s/`;
-            this.__booted = true;
-        }
-
-        return this as BootedModelClass<T>;
     }
 
     declare public url?: string;

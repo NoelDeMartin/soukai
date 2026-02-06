@@ -7,7 +7,6 @@ import type Metadata from './crdts/Metadata';
 import type Model from './Model';
 import type Operation from './crdts/Operation';
 
-export type BootedModelClass<T extends typeof Model> = T & { _defaultContainerUrl: string; _modelName: string };
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;

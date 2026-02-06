@@ -4,14 +4,17 @@ import { expandIRI } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
 
 import Post from 'soukai-bis/testing/stubs/Post';
-import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import Person from 'soukai-bis/testing/stubs/Person';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
-import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
+
+import SetPropertyOperation from './crdts/SetPropertyOperation';
+import { defineSchema } from './schema';
+import { bootModels } from './registry';
+import type { ModelWithTimestamps, ModelWithUrl } from './types';
 
 describe('Model', () => {
 
@@ -22,6 +25,16 @@ describe('Model', () => {
     it('boots models', () => {
         expect(Person.defaultContainerUrl).toBe('solid://persons/');
         expect(Person.modelName).toBe('Person');
+    });
+
+    it('boots extended models', () => {
+        const A = defineSchema({});
+        const B = defineSchema(A, {});
+
+        bootModels({ A, B });
+
+        expect(A.modelName).toBe('A');
+        expect(B.modelName).toBe('B');
     });
 
     it('creates instances', () => {
