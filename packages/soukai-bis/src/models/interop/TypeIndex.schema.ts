@@ -1,4 +1,4 @@
-import { belongsToMany } from 'soukai-bis/models/relations/fluent';
+import { documentContainsMany } from 'soukai-bis/models/relations/fluent';
 import { defineSchema } from 'soukai-bis/models/schema';
 
 import TypeRegistration from './TypeRegistration';
@@ -8,6 +8,6 @@ export default defineSchema({
     rdfClass: 'TypeIndex',
     timestamps: false,
     relations: {
-        registrations: belongsToMany(TypeRegistration, 'registrationUrls').usingSameDocument(),
+        registrations: documentContainsMany(TypeRegistration),
     },
 });

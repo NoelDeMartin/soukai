@@ -22,10 +22,11 @@ export default class HasManyRelation<
             return;
         }
 
-        const foreignValue = related.getAttribute(this.foreignKeyName);
+        const foreignKeyName = this.requireForeignKeyName();
+        const foreignValue = related.getAttribute(foreignKeyName);
 
         if (!Array.isArray(foreignValue)) {
-            related.setAttribute(this.foreignKeyName, foreignKey);
+            related.setAttribute(foreignKeyName, foreignKey);
 
             return;
         }
@@ -34,11 +35,12 @@ export default class HasManyRelation<
             return;
         }
 
-        related.setAttribute(this.foreignKeyName, foreignValue.concat([foreignKey]));
+        related.setAttribute(foreignKeyName, foreignValue.concat([foreignKey]));
     }
 
     private async loadRelatedModels(): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
+        const foreignKeyName = this.requireForeignKeyName();
 
         if (!localKey) {
             return [];
@@ -55,12 +57,12 @@ export default class HasManyRelation<
             const document = await engine.readDocument(documentUrl);
             const relatedModels = await this.relatedClass.createManyFromDocument(document);
 
-            return relatedModels.filter((model) => model.getAttribute(this.foreignKeyName) === localKey);
+            return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
         }
 
         const relatedModels = await this.relatedClass.all();
 
-        return relatedModels.filter((model) => model.getAttribute(this.foreignKeyName) === localKey);
+        return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
     }
 
 }

@@ -1,6 +1,7 @@
 import BelongsToManyRelation from './BelongsToManyRelation';
 import BelongsToOneRelation from './BelongsToOneRelation';
 import ContainsRelation from './ContainsRelation';
+import DocumentContainsManyRelation from './DocumentContainsManyRelation';
 import HasManyRelation from './HasManyRelation';
 import HasOneRelation from './HasOneRelation';
 import IsContainedByRelation from './IsContainedByRelation';
@@ -19,6 +20,10 @@ export function belongsToOne<T extends RelatedModelDefinition>(relatedClass: T, 
 
 export function contains<T extends RelatedModelDefinition>(relatedClass: T) {
     return new SchemaRelationDefinition(relatedClass, ContainsRelation);
+}
+
+export function documentContainsMany<T extends RelatedModelDefinition>(relatedClass: T) {
+    return new SchemaRelationDefinition(relatedClass, DocumentContainsManyRelation).usingSameDocument();
 }
 
 export function hasMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {

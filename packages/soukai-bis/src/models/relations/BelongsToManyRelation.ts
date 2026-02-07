@@ -22,16 +22,17 @@ export default class BelongsToManyRelation<
             return;
         }
 
-        const foreignValue = this.parent.getAttribute(this.foreignKeyName);
+        const foreignKeyName = this.requireForeignKeyName();
+        const foreignValue = this.parent.getAttribute(foreignKeyName);
         const foreignValues = Array.isArray(foreignValue) ? foreignValue : [foreignValue];
 
         if (!foreignValues.includes(foreignKey)) {
-            this.parent.setAttribute(this.foreignKeyName, foreignValues.concat([foreignKey]));
+            this.parent.setAttribute(foreignKeyName, foreignValues.concat([foreignKey]));
         }
     }
 
     private async loadRelatedModels(): Promise<Related[]> {
-        const foreignKeyValue = this.parent.getAttribute(this.foreignKeyName);
+        const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
         const foreignKeys = Array.isArray(foreignKeyValue) ? foreignKeyValue : [foreignKeyValue];
 
         if (foreignKeys.length === 0) {

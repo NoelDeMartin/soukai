@@ -22,11 +22,11 @@ export default class BelongsToOneRelation<
             return;
         }
 
-        this.parent.setAttribute(this.foreignKeyName, foreignKey);
+        this.parent.setAttribute(this.requireForeignKeyName(), foreignKey);
     }
 
     private async loadRelatedModel(): Promise<Related | null> {
-        const foreignKey = this.parent.getAttribute(this.foreignKeyName);
+        const foreignKey = this.parent.getAttribute(this.requireForeignKeyName());
 
         if (!foreignKey) {
             return null;

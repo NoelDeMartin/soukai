@@ -30,11 +30,16 @@ import {
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import type Engine from 'soukai-bis/engines/Engine';
 
+import {
+    isContainsRelation,
+    isDocumentContainsManyRelation,
+    isMultiModelRelation,
+    isSingleModelRelation,
+} from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { isModelClass } from './utils';
-import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
@@ -219,7 +224,19 @@ export default class Model<
             return null;
         }
 
-        return createFromRDF<T>(this, url, quads);
+        const instance = createFromRDF<T>(this, url, quads);
+
+        for (const relationName of Object.keys(this.schema.relations)) {
+            const relation = instance.getRelation(relationName);
+
+            if (!isDocumentContainsManyRelation(relation)) {
+                continue;
+            }
+
+            await relation.loadFromRDF(quads);
+        }
+
+        return instance;
     }
 
     public static async createFromJsonLD<T extends Model>(
@@ -243,13 +260,12 @@ export default class Model<
         return this.createFromRDF(document.statements(), { url });
     }
 
-    public static async createManyFromDocument<T extends Model>(
+    public static async createManyFromRDF<T extends Model>(
         this: ModelConstructor<T>,
-        document: SolidDocument,
+        quads: Quad[],
     ): Promise<ModelWithUrl<T>[]> {
         const matchingResourceUrls = arrayUnique(
-            document
-                .statements()
+            quads
                 .filter(
                     (q) =>
                         RDF_TYPE_PREDICATE.equals(q.predicate) &&
@@ -258,10 +274,17 @@ export default class Model<
                 .map((q) => q.subject.value),
         );
         const models = await Promise.all(
-            matchingResourceUrls.map((resourceUrl) => this.createFromDocument(document, { url: resourceUrl })),
+            matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl })),
         );
 
         return models.filter(isTruthy);
+    }
+
+    public static async createManyFromDocument<T extends Model>(
+        this: ModelConstructor<T>,
+        document: SolidDocument,
+    ): Promise<ModelWithUrl<T>[]> {
+        return this.createManyFromRDF(document.getQuads());
     }
 
     public static<T extends typeof Model>(): T;

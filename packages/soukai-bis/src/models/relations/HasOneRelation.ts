@@ -16,7 +16,7 @@ export default class HasOneRelation<
     }
 
     public setForeignAttributes(related: Related): void {
-        related.setAttribute(this.foreignKeyName, this.parent.getAttribute(this.localKeyName));
+        related.setAttribute(this.requireForeignKeyName(), this.parent.getAttribute(this.localKeyName));
     }
 
     private async loadRelatedModel(): Promise<Related | null> {
@@ -26,9 +26,10 @@ export default class HasOneRelation<
             return null;
         }
 
+        const foreignKeyName = this.requireForeignKeyName();
         const relatedModels = await this.relatedClass.all();
 
-        return relatedModels.find((model) => model.getAttribute(this.foreignKeyName) === localKey) ?? null;
+        return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;
     }
 
 }

@@ -36,7 +36,7 @@ export default abstract class Relation<
 
     public parent: Parent;
     public relatedClass: RelatedClass;
-    public foreignKeyName: string;
+    public foreignKeyName: string | null;
     public localKeyName: string;
     public usingSameDocument: boolean = false;
     protected _related: Nullable<Related | Related[]> = null;
@@ -48,10 +48,12 @@ export default abstract class Relation<
     ) {
         this.parent = parent;
         this.relatedClass = relatedClass;
-        this.foreignKeyName = required(
-            options.foreignKeyName,
-            `foreignKeyName missing from relation in ${parent.static().modelName} for ${relatedClass.modelName}.`,
-        );
+        this.foreignKeyName = this.requiresForeignKey()
+            ? required(
+                options.foreignKeyName,
+                `foreignKeyName missing from relation in ${parent.static().modelName} for ${relatedClass.modelName}.`,
+            )
+            : (options.foreignKeyName ?? null);
         this.localKeyName = options.localKeyName ?? 'url';
         this.usingSameDocument = options.usingSameDocument ?? false;
     }
@@ -72,11 +74,19 @@ export default abstract class Relation<
         return this.related ? (arrayFrom(this.related) as Related[]) : [];
     }
 
+    public requireForeignKeyName(): string {
+        return required(this.foreignKeyName);
+    }
+
     public unload(): void {
         this.related = null;
     }
 
     public abstract load(): Promise<Related | Related[] | null>;
     public abstract setForeignAttributes(related: Related): void;
+
+    protected requiresForeignKey(): boolean {
+        return true;
+    }
 
 }
