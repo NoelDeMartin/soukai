@@ -17,7 +17,7 @@ describe('IndexedDBEngine', () => {
     let databaseName: string;
     let engine: IndexedDBEngine;
     let metadataConnection: IDBPDatabase | null = null;
-    let collectionsConnection: IDBPDatabase | null = null;
+    let containersConnection: IDBPDatabase | null = null;
 
     beforeEach(async () => {
         databaseName = faker.random.word();
@@ -277,6 +277,25 @@ describe('IndexedDBEngine', () => {
         });
     });
 
+    it('reads parent containers', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const childContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl: childContainerUrl });
+
+        await setDatabaseDocument(childContainerUrl, documentUrl, { '@id': documentUrl });
+
+        // Act
+        const container = await engine.readDocument(containerUrl);
+
+        // Assert
+        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: { '@id': childContainerUrl },
+        });
+    });
+
     it('reads containers with meta', async () => {
         // Arrange
         const parentUrl = fakeContainerUrl();
@@ -331,7 +350,7 @@ describe('IndexedDBEngine', () => {
         }
 
         metadataConnection = await openDB(`${databaseName}-meta`, 1, {
-            upgrade: (database) => database.createObjectStore('collections', { keyPath: 'name' }),
+            upgrade: (database) => database.createObjectStore('containers', { keyPath: 'url' }),
         });
     }
 
@@ -340,12 +359,12 @@ describe('IndexedDBEngine', () => {
             metadataConnection.close();
         }
 
-        if (collectionsConnection) {
-            collectionsConnection.close();
+        if (containersConnection) {
+            containersConnection.close();
         }
 
         metadataConnection = null;
-        collectionsConnection = null;
+        containersConnection = null;
     }
 
     async function dropDatabases(): Promise<void> {
@@ -353,59 +372,63 @@ describe('IndexedDBEngine', () => {
         await deleteDB(`${databaseName}`);
     }
 
-    async function getDatabaseDocuments(collection: string): Promise<Record<string, unknown>[]> {
-        const transaction = await getCollectionTransaction(collection, 'readonly');
+    async function getDatabaseDocuments(containers: string): Promise<Record<string, unknown>[]> {
+        const transaction = await getContainerTransaction(containers, 'readonly');
 
         return transaction.store.getAll();
     }
 
-    async function setDatabaseDocument(collection: string, url: string, graph: Record<string, unknown>): Promise<void> {
-        const transaction = await getCollectionTransaction(collection, 'readwrite');
+    async function setDatabaseDocument(
+        containerUrl: string,
+        url: string,
+        graph: Record<string, unknown>,
+    ): Promise<void> {
+        const transaction = await getContainerTransaction(containerUrl, 'readwrite');
 
         transaction.store.put({ url, graph });
 
         await transaction.done;
     }
 
-    async function getCollectionTransaction<T extends IDBTransactionMode>(
-        collection: string,
+    async function getContainerTransaction<T extends IDBTransactionMode>(
+        containerUrl: string,
         mode: T,
     ): Promise<IDBPTransaction<unknown, [string], T>> {
-        if (collectionsConnection && !collectionsConnection.objectStoreNames.contains(collection)) {
-            collectionsConnection.close();
-            collectionsConnection = null;
+        if (containersConnection && !containersConnection.objectStoreNames.contains(containerUrl)) {
+            containersConnection.close();
+            containersConnection = null;
         }
 
-        if (!collectionsConnection) {
+        if (!containersConnection) {
             if (metadataConnection) {
-                const transaction = metadataConnection.transaction('collections', 'readwrite');
-                const existing = await transaction.store.get(collection);
+                const transaction = metadataConnection.transaction('containers', 'readwrite');
+                const existing = await transaction.store.get(containerUrl);
 
                 if (!existing) {
-                    await transaction.store.add({ name: collection });
+                    await transaction.store.add({ url: containerUrl });
                 }
 
                 await transaction.done;
             }
 
             const meta = await openDB(`${databaseName}-meta`);
-            const collections = await meta.getAll('collections');
-            const version = collections.length + 1;
+            const containers = await meta.getAll('containers');
+            const version = containers.length + 1;
 
             meta.close();
 
-            collectionsConnection = await openDB(databaseName, version, {
+            containersConnection = await openDB(databaseName, version, {
                 upgrade: (database) => {
-                    for (const c of collections) {
-                        if (!database.objectStoreNames.contains(c.name)) {
-                            database.createObjectStore(c.name, { keyPath: 'url' });
+                    for (const c of containers) {
+                        if (!database.objectStoreNames.contains(c.url)) {
+                            database.createObjectStore(c.url, { keyPath: 'url' });
                         }
                     }
                 },
             });
         }
 
-        return (collectionsConnection as IDBPDatabase).transaction(collection, mode);
+        return (containersConnection as IDBPDatabase).transaction(containerUrl, mode);
     }
 
 });

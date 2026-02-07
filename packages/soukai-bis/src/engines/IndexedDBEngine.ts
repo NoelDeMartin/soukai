@@ -8,7 +8,7 @@ import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
+import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
@@ -27,10 +27,10 @@ interface DocumentsSchema extends DBSchema {
 }
 
 interface MetadataSchema extends DBSchema {
-    collections: {
+    containers: {
         key: string;
         value: {
-            name: string;
+            url: string;
         };
     };
 }
@@ -76,7 +76,7 @@ export default class IndexedDBEngine extends Engine {
             }
 
             const containerUrl = requireSafeContainerUrl(url);
-            const containerExists = await this.collectionExists(containerUrl);
+            const containerExists = await this.containerExists(containerUrl);
 
             if (!containerExists) {
                 throw new DocumentNotFound(url);
@@ -104,7 +104,7 @@ export default class IndexedDBEngine extends Engine {
         await this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
 
-            if (!(await this.collectionExists(containerUrl))) {
+            if (!(await this.containerExists(containerUrl))) {
                 throw new DocumentNotFound(url);
             }
 
@@ -130,7 +130,7 @@ export default class IndexedDBEngine extends Engine {
         await this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
 
-            if (!(await this.collectionExists(containerUrl))) {
+            if (!(await this.containerExists(containerUrl))) {
                 return;
             }
 
@@ -153,18 +153,26 @@ export default class IndexedDBEngine extends Engine {
     }
 
     private async readContainerDocument(url: string): Promise<SolidDocument> {
-        if (!(await this.collectionExists(url))) {
+        const containerUrls = await this.getContainerUrls();
+        const exists = containerUrls.includes(url);
+        const childContainerUrls = containerUrls.filter((containerUrl) => safeContainerUrl(containerUrl) === url);
+
+        if (!exists && childContainerUrls.length === 0) {
             throw new DocumentNotFound(url);
         }
 
         const document = await this.readContainerDocumentMeta(url);
         const subject = new RDFNamedNode(document.url);
-        const children = await this.withDocumentsTransaction(document.url, 'readonly', (transaction) => {
-            return transaction.store.getAllKeys();
-        });
+        const childrenUrls = exists
+            ? await this.withDocumentsTransaction(document.url, 'readonly', (transaction) => {
+                return transaction.store.getAllKeys();
+            })
+            : [];
+
+        childrenUrls.push(...childContainerUrls);
 
         document.addQuads(
-            children.map((child) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(child))),
+            childrenUrls.map((child) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(child))),
         );
 
         return document;
@@ -173,7 +181,7 @@ export default class IndexedDBEngine extends Engine {
     private async readContainerDocumentMeta(url: string): Promise<SolidDocument> {
         const containerUrl = requireSafeContainerUrl(url);
 
-        if (!(await this.collectionExists(containerUrl))) {
+        if (!(await this.containerExists(containerUrl))) {
             return new SolidDocument(
                 url,
                 await jsonldToQuads({ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
@@ -190,55 +198,55 @@ export default class IndexedDBEngine extends Engine {
         );
     }
 
-    private async createCollection(collection: string): Promise<void> {
-        if (await this.collectionExists(collection)) {
+    private async createContainer(url: string): Promise<void> {
+        if (await this.containerExists(url)) {
             return;
         }
 
         await this.withMetadataTransaction('readwrite', (transaction) => {
-            return transaction.store.add({ name: collection });
+            return transaction.store.add({ url });
         });
     }
 
-    private async collectionExists(collection: string): Promise<boolean> {
-        const collections = await this.getCollections();
+    private async containerExists(url: string): Promise<boolean> {
+        const containerUrls = await this.getContainerUrls();
 
-        return collections.includes(collection);
+        return containerUrls.includes(url);
     }
 
-    private async getCollections(): Promise<string[]> {
+    private async getContainerUrls(): Promise<string[]> {
         const documents = await this.withMetadataTransaction('readonly', (transaction) => {
             return transaction.store.getAll();
         });
 
-        return documents.map((document) => document.name);
+        return documents.map((document) => document.url);
     }
 
     private async withMetadataTransaction<TResult, TMode extends IDBTransactionMode>(
         mode: TMode,
-        operation: (transaction: IDBPTransaction<MetadataSchema, ['collections'], TMode>) => Promise<TResult>,
+        operation: (transaction: IDBPTransaction<MetadataSchema, ['containers'], TMode>) => Promise<TResult>,
     ): Promise<TResult> {
         const connection = await this.getMetadataConnection();
-        const transaction = connection.transaction('collections', mode);
+        const transaction = connection.transaction('containers', mode);
 
         return operation(transaction);
     }
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
-        collection: string,
+        containerUrl: string,
         mode: TMode,
         operation: (transaction: IDBPTransaction<DocumentsSchema, ['[containerUrl]'], TMode>) => Promise<TResult>,
     ): Promise<TResult> {
-        if (!(await this.collectionExists(collection))) {
+        if (!(await this.containerExists(containerUrl))) {
             if (mode !== 'readwrite') {
-                throw new SoukaiError(`[IndexedDBEngine] Can't read collection '${collection}', does not exist`);
+                throw new SoukaiError(`[IndexedDBEngine] Can't read container '${containerUrl}', does not exist`);
             }
 
-            await this.createCollection(collection);
+            await this.createContainer(containerUrl);
         }
 
         const connection = await this.getDocumentsConnection();
-        const transaction = connection.transaction(collection as '[containerUrl]', mode);
+        const transaction = connection.transaction(containerUrl as '[containerUrl]', mode);
 
         return operation(transaction);
     }
@@ -250,11 +258,11 @@ export default class IndexedDBEngine extends Engine {
 
         return (this.metadataConnection = openDB<MetadataSchema>(`${this.database}-meta`, 1, {
             upgrade(db) {
-                if (db.objectStoreNames.contains('collections')) {
+                if (db.objectStoreNames.contains('containers')) {
                     return;
                 }
 
-                db.createObjectStore('collections', { keyPath: 'name' });
+                db.createObjectStore('containers', { keyPath: 'url' });
             },
         }));
     }
@@ -264,16 +272,16 @@ export default class IndexedDBEngine extends Engine {
             return this.documentsConnection;
         }
 
-        const collections = await this.getCollections();
+        const containerUrls = await this.getContainerUrls();
 
-        return (this.documentsConnection = openDB<DocumentsSchema>(this.database, collections.length + 1, {
+        return (this.documentsConnection = openDB<DocumentsSchema>(this.database, containerUrls.length + 1, {
             upgrade(database) {
-                for (const collection of collections) {
-                    if (database.objectStoreNames.contains(collection as '[containerUrl]')) {
+                for (const containerUrl of containerUrls) {
+                    if (database.objectStoreNames.contains(containerUrl as '[containerUrl]')) {
                         continue;
                     }
 
-                    database.createObjectStore(collection as '[containerUrl]', { keyPath: 'url' });
+                    database.createObjectStore(containerUrl as '[containerUrl]', { keyPath: 'url' });
                 }
             },
         }));
