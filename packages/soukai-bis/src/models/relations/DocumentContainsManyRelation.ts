@@ -20,10 +20,10 @@ export default class DocumentContainsManyRelation<
         return this.related;
     }
 
-    public async loadFromRDF(quads: Quad[]): Promise<Related[]> {
-        this.related = await this.relatedClass.createManyFromRDF(quads);
-
-        return this.related;
+    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: Map<string, Model> } = {}): Promise<void> {
+        this.related = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
+        this.documentModelsLoaded = true;
+        this.__modelsInSameDocument = this.related;
     }
 
     public setForeignAttributes(): void {

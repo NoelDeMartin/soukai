@@ -30,12 +30,7 @@ import {
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import type Engine from 'soukai-bis/engines/Engine';
 
-import {
-    isContainsRelation,
-    isDocumentContainsManyRelation,
-    isMultiModelRelation,
-    isSingleModelRelation,
-} from './relations/helpers';
+import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
@@ -212,8 +207,9 @@ export default class Model<
     public static async createFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: { url: string },
+        options: { url: string; modelsCache?: Map<string, Model> },
     ): Promise<ModelWithUrl<T> | null> {
+        const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
         const subject = new RDFNamedNode(url);
         const isType = quads
@@ -224,16 +220,18 @@ export default class Model<
             return null;
         }
 
+        if (modelsCache.has(url)) {
+            return modelsCache.get(url) as ModelWithUrl<T>;
+        }
+
         const instance = createFromRDF<T>(this, url, quads);
+
+        modelsCache.set(url, instance);
 
         for (const relationName of Object.keys(this.schema.relations)) {
             const relation = instance.getRelation(relationName);
 
-            if (!isDocumentContainsManyRelation(relation)) {
-                continue;
-            }
-
-            await relation.loadFromRDF(quads);
+            await relation.loadFromDocumentRDF(quads, { modelsCache });
         }
 
         return instance;
@@ -263,7 +261,9 @@ export default class Model<
     public static async createManyFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
+        options: { modelsCache?: Map<string, Model> } = {},
     ): Promise<ModelWithUrl<T>[]> {
+        const modelsCache = options.modelsCache ?? new Map();
         const matchingResourceUrls = arrayUnique(
             quads
                 .filter(
@@ -274,7 +274,7 @@ export default class Model<
                 .map((q) => q.subject.value),
         );
         const models = await Promise.all(
-            matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl })),
+            matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl, modelsCache })),
         );
 
         return models.filter(isTruthy);

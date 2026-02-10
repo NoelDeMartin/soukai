@@ -1,4 +1,6 @@
-import { type Nullable, arrayFrom, required } from '@noeldemartin/utils';
+import { arrayFrom, required } from '@noeldemartin/utils';
+import type { Quad } from '@rdfjs/types';
+import type { Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isModelClass } from 'soukai-bis/models/utils';
@@ -39,7 +41,8 @@ export default abstract class Relation<
     public foreignKeyName: string | null;
     public localKeyName: string;
     public usingSameDocument: boolean = false;
-    protected _related: Nullable<Related | Related[]> = null;
+    public documentModelsLoaded: boolean = false;
+    protected _related: Nullable<Related | Related[]> = undefined;
 
     public constructor(
         parent: Parent,
@@ -79,11 +82,13 @@ export default abstract class Relation<
     }
 
     public unload(): void {
-        this.related = null;
+        this.related = undefined;
     }
 
     public abstract load(): Promise<Related | Related[] | null>;
+    public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: Map<string, Model> }): Promise<void>;
     public abstract setForeignAttributes(related: Related): void;
+    public abstract isEmpty(): boolean | null;
 
     protected requiresForeignKey(): boolean {
         return true;

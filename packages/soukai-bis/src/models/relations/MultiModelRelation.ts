@@ -17,6 +17,8 @@ export default abstract class MultiModelRelation<
     public static [classMarker] = ['MultiModelRelation'];
 
     declare public __newModels?: Related[];
+    declare public __modelsInSameDocument?: Related[];
+    declare public __modelsInOtherDocumentIds?: string[];
 
     public get related(): Nullable<Related[]> {
         return this._related as Nullable<Related[]>;
@@ -63,6 +65,20 @@ export default abstract class MultiModelRelation<
         return tap(this.attach(attributes), (model) => this.save(model));
     }
 
+    public isEmpty(): boolean | null {
+        if (!this.documentModelsLoaded && this.parent.exists()) {
+            return null;
+        }
+
+        const modelsCount =
+            (this.__modelsInSameDocument?.length ?? 0) +
+            (this.__modelsInOtherDocumentIds?.length ?? 0) +
+            (this.__newModels?.length ?? 0) +
+            (this.related?.length ?? 0);
+
+        return modelsCount === 0;
+    }
+
     public isRelated(related: Related): boolean {
         return !!this.related?.includes(related);
     }
@@ -86,7 +102,7 @@ export default abstract class MultiModelRelation<
             return true;
         }
 
-        if (!this.parent.exists()) {
+        if (!this.parent.exists() || this.isEmpty()) {
             this.related = [];
 
             return true;

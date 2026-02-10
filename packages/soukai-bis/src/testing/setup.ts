@@ -1,7 +1,6 @@
 import 'soukai-bis/patch-zod';
 
 import { beforeEach, vi } from 'vitest';
-import { defineIRIPrefix } from '@noeldemartin/solid-utils';
 import { FakeServer } from '@noeldemartin/testing';
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 
@@ -33,5 +32,4 @@ beforeEach(() => {
     vi.resetAllMocks();
 });
 
-defineIRIPrefix('crdt', 'https://vocab.noeldemartin.com/crdt/');
 installVitestSolidMatchers();

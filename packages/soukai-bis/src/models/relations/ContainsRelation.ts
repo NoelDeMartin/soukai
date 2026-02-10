@@ -43,6 +43,14 @@ export default class ContainsRelation<
         return this.related;
     }
 
+    public async loadFromDocumentRDF(): Promise<void> {
+        // Nothing to do here
+    }
+
+    public isEmpty(): boolean {
+        return this.parent.resourceUrls.length === 0;
+    }
+
     public async create(attributes: Record<string, unknown> = {}): Promise<Related> {
         this.assertParentExists();
 

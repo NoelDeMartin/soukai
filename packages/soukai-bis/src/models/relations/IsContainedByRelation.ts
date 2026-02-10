@@ -41,6 +41,14 @@ export default class IsContainedByRelation<
         return this.related;
     }
 
+    public async loadFromDocumentRDF(): Promise<void> {
+        // Nothing to do here
+    }
+
+    public isEmpty(): false {
+        return false;
+    }
+
     public setForeignAttributes(related: Related): void {
         const parentDocumentUrl = this.parent.getDocumentUrl();
 

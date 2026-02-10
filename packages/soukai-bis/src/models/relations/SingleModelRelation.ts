@@ -16,6 +16,8 @@ export default abstract class SingleModelRelation<
     public static [classMarker] = ['SingleModelRelation'];
 
     declare public __newModel?: Related;
+    declare public __modelInSameDocument?: Related;
+    declare public __modelInOtherDocumentId?: string;
 
     public get related(): Nullable<Related> {
         return this._related as Nullable<Related>;
@@ -44,6 +46,14 @@ export default abstract class SingleModelRelation<
             this.setRelated(model);
             this.setForeignAttributes(model);
         });
+    }
+
+    public isEmpty(): boolean | null {
+        if (!this.documentModelsLoaded && this.parent.exists()) {
+            return null;
+        }
+
+        return !(this.__modelInSameDocument || this.__modelInOtherDocumentId || this.__newModel || this.related);
     }
 
     public isRelated(related: Related): boolean {

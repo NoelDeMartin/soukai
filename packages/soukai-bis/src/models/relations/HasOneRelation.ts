@@ -1,3 +1,5 @@
+import type { Quad } from '@rdfjs/types';
+
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -13,6 +15,19 @@ export default class HasOneRelation<
         this.related = await this.loadRelatedModel();
 
         return this.related;
+    }
+
+    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: Map<string, Model> } = {}): Promise<void> {
+        const localKey = this.parent.getAttribute(this.localKeyName);
+        const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
+        const related = allRelated.find((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
+
+        this.related = related;
+        this.documentModelsLoaded = true;
+
+        if (related) {
+            this.__modelInSameDocument = related;
+        }
     }
 
     public setForeignAttributes(related: Related): void {

@@ -37,7 +37,7 @@ function createInceptionOperations(model: Model, now: Date): Operation[] {
             property: property.value,
             value: Array.isArray(value) ? value : [value],
             date: model.createdAt ?? now,
-        });
+        }).setPredicate(property);
 
         if (isNamedNode) {
             operation.setNamedNode(true);
@@ -72,7 +72,9 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                     property: RDF_TYPE_PREDICATE.value,
                     value: schema.rdfClasses.map(({ value }) => value),
                     date: model.updatedAt ?? now,
-                }).setNamedNode(true),
+                })
+                    .setNamedNode(true)
+                    .setPredicate(RDF_TYPE_PREDICATE),
             );
 
         for (const attribute of model.getDirtyAttributes()) {
@@ -91,7 +93,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                             resourceUrl: model.url,
                             property: property.value,
                             date: model.updatedAt ?? now,
-                        }),
+                        }).setPredicate(property),
                     );
 
                 continue;
@@ -103,7 +105,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                 property: property.value,
                 value: Array.isArray(value) ? value : [value],
                 date: model.updatedAt ?? now,
-            });
+            }).setPredicate(property);
 
             if (
                 fieldType instanceof ZodURL ||
