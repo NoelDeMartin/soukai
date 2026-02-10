@@ -206,6 +206,13 @@ export default class IndexedDBEngine extends Engine {
         await this.withMetadataTransaction('readwrite', (transaction) => {
             return transaction.store.add({ url });
         });
+
+        if (this.documentsConnection) {
+            const connection = await this.documentsConnection;
+
+            connection.close();
+            this.documentsConnection = null;
+        }
     }
 
     private async containerExists(url: string): Promise<boolean> {
