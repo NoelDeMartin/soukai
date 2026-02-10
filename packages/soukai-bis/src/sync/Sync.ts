@@ -5,21 +5,23 @@ import Container from 'soukai-bis/models/Container';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import { expandIRI } from '@noeldemartin/solid-utils';
 import { PropertyOperation, SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
-import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import { CRDT_UPDATED_AT, CRDT_UPDATED_AT_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 export interface SyncConfig {
     userProfile: SolidUserProfile;
     localEngine: Engine;
     remoteEngine: SolidEngine;
     typeIndexes: TypeIndex[];
-    applicationModels: ModelConstructor[];
+    applicationModels: {
+        model: ModelConstructor;
+        registered: boolean;
+    }[];
     onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
 }
 
@@ -140,7 +142,10 @@ export default class Sync {
                 }
 
                 const containerRegisteredModels = this.config.applicationModels.filter((model) => {
-                    return model.schema.rdfClasses.some((rdfClass) => registration.forClass.includes(rdfClass.value));
+                    return (
+                        model.registered &&
+                        model.model.schema.rdfClasses.some((rdfClass) => registration.forClass.includes(rdfClass.value))
+                    );
                 });
 
                 if (containerRegisteredModels.length === 0) {
@@ -150,7 +155,7 @@ export default class Sync {
                 const containerRegistrations =
                     this.registeredContainers.get(registration.instanceContainer) ?? new Set();
 
-                containerRegisteredModels.forEach((model) => containerRegistrations.add(model));
+                containerRegisteredModels.forEach((model) => containerRegistrations.add(model.model));
 
                 this.registeredContainers.set(registration.instanceContainer, containerRegistrations);
             }
@@ -182,7 +187,7 @@ export default class Sync {
                 return;
             }
 
-            await this.syncDocumentOperations(localDocument, remoteDocument, models);
+            await this.syncDocumentOperations(localDocument, remoteDocument);
         } catch (error) {
             if (error instanceof DocumentNotFound) {
                 return;
@@ -234,9 +239,14 @@ export default class Sync {
         }
 
         return new Set(
-            this.config.applicationModels.filter((model) => {
-                return model.schema.rdfClasses.some((rdfClass) => rdfClasses.has(rdfClass.value));
-            }),
+            this.config.applicationModels
+                .filter((model) => {
+                    return (
+                        model.registered &&
+                        model.model.schema.rdfClasses.some((rdfClass) => rdfClasses.has(rdfClass.value))
+                    );
+                })
+                .map((model) => model.model),
         );
     }
 
@@ -262,13 +272,9 @@ export default class Sync {
         await this.config.onModelsRegistered?.(typeIndex, Array.from(models));
     }
 
-    private async syncDocumentOperations(
-        localDocument: SolidDocument,
-        remoteDocument: SolidDocument,
-        models: Set<ModelConstructor>,
-    ): Promise<void> {
-        const modelClasses = Array.from(models)
-            .map((model) => model.schema.rdfClasses.map((rdfClass) => rdfClass.value))
+    private async syncDocumentOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
+        const modelClasses = Array.from(this.config.applicationModels)
+            .map((model) => model.model.schema.rdfClasses.map((rdfClass) => rdfClass.value))
             .flat();
         const resourceUrls = remoteDocument
             .getQuads()
@@ -318,10 +324,10 @@ export default class Sync {
             documentOperations.push(
                 new SetPropertyOperation({
                     resourceUrl,
-                    property: expandIRI('crdt:updatedAt'),
+                    property: CRDT_UPDATED_AT,
                     value: [date],
                     date,
-                }),
+                }).setPredicate(CRDT_UPDATED_AT_PREDICATE),
             );
         }
 

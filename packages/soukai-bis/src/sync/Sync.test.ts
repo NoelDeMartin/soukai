@@ -82,7 +82,10 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [Person, Movie],
+            applicationModels: [
+                { model: Person, registered: true },
+                { model: Movie, registered: true },
+            ],
         });
 
         // Assert
@@ -112,7 +115,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [Person],
+            applicationModels: [{ model: Person, registered: true }],
         });
 
         // Assert
@@ -148,7 +151,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [Person],
+            applicationModels: [{ model: Person, registered: true }],
         });
 
         // Assert
@@ -186,7 +189,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [Person],
+            applicationModels: [{ model: Person, registered: true }],
         });
 
         // Assert
@@ -226,7 +229,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [Person],
+            applicationModels: [{ model: Person, registered: true }],
         });
 
         // Assert
@@ -268,7 +271,7 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             typeIndexes: [],
-            applicationModels: [Person],
+            applicationModels: [{ model: Person, registered: true }],
             onModelsRegistered(_, models) {
                 registeredModels.push(...models);
             },
@@ -316,7 +319,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [Person],
+            applicationModels: [{ model: Person, registered: true }],
         });
 
         // Assert
