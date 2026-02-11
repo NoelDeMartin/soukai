@@ -1,0 +1,22 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
+@prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<{{ containerUrl ?? '' }}>
+    a ldp:Container, ldp:BasicContainer ;
+    rdfs:label "Movies" ;
+    ldp:contains <{{ documentUrl ?? './movie' }}> .
+
+<{{ containerUrl ?? '' }}#metadata>
+    a crdt:Metadata ;
+    crdt:resource <{{ containerUrl ?? '' }}> ;
+    crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+<{{ containerUrl ?? '' }}#operation-1>
+    a crdt:SetPropertyOperation ;
+    crdt:resource <{{ containerUrl ?? '' }}> ;
+    crdt:property rdfs:label ;
+    crdt:value "Movies" ;
+    crdt:date "2021-01-01T00:00:00.000Z"^^xsd:dateTime .

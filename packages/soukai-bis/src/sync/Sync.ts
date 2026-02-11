@@ -6,7 +6,19 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import { PropertyOperation, SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
-import { CRDT_UPDATED_AT, CRDT_UPDATED_AT_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import {
+    CRDT_CREATED_AT,
+    CRDT_CREATED_AT_PREDICATE,
+    CRDT_METADATA,
+    CRDT_METADATA_OBJECT,
+    CRDT_RESOURCE,
+    CRDT_RESOURCE_PREDICATE,
+    CRDT_UPDATED_AT,
+    CRDT_UPDATED_AT_PREDICATE,
+    LDP_CONTAINS_PREDICATE,
+    RDF_TYPE,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/utils/rdf';
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
@@ -35,8 +47,17 @@ export default class Sync {
 
     private visitedDocumentUrls = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
+    private syncRdfClasses: Set<string>;
 
-    private constructor(private config: SyncConfig) {}
+    private constructor(private config: SyncConfig) {
+        this.syncRdfClasses = new Set(
+            Array.from(this.config.applicationModels)
+                .map((model) => model.model)
+                .concat([Container])
+                .map((model) => model.schema.rdfClasses.map((rdfClass) => rdfClass.value))
+                .flat(),
+        );
+    }
 
     private async sync(): Promise<void> {
         await this.pullChanges();
@@ -90,41 +111,91 @@ export default class Sync {
         return operations;
     }
 
-    private async getMetadataUpdates(
-        document: SolidDocument,
-        newOperations: Operation[],
-    ): Promise<Record<string, Date>> {
+    private async getMetadataUpdates({
+        document,
+        otherDocument,
+        newOperations,
+    }: {
+        document: SolidDocument;
+        otherDocument: SolidDocument;
+        newOperations: Operation[];
+    }): Promise<Record<string, { exists: boolean; url: string; createdAt: Date; updatedAt: Date }>> {
         const metadataInstances = await Metadata.createManyFromDocument(document);
+        const otherMetadataInstances = await Metadata.createManyFromDocument(otherDocument);
+        const otherMetadataByResource = objectFromEntries(
+            otherMetadataInstances.map((instance) => [required(instance.resourceUrl), instance]),
+        );
         const metadataUpdates = new Map(
             metadataInstances.map((instance) => [
                 required(instance.resourceUrl),
-                { metadataUrl: instance.url, date: required(instance.updatedAt), updated: false },
+                {
+                    exists: true,
+                    updated: false,
+                    url: instance.url,
+                    resourceUrl: required(instance.resourceUrl),
+                    createdAt: required(instance.createdAt),
+                    updatedAt: required(instance.updatedAt),
+                },
             ]),
         );
 
         for (const operation of newOperations) {
             const metadata = metadataUpdates.get(operation.resourceUrl);
 
-            if (!metadata || operation.date <= metadata.date) {
+            if (!metadata) {
+                const otherMetadata = otherMetadataByResource[operation.resourceUrl];
+
+                if (otherMetadata) {
+                    metadataUpdates.set(operation.resourceUrl, {
+                        exists: false,
+                        updated: true,
+                        url: otherMetadata.url,
+                        resourceUrl: operation.resourceUrl,
+                        createdAt: operation.date,
+                        updatedAt: operation.date,
+                    });
+                }
+
                 continue;
             }
 
-            metadata.date = operation.date;
-            metadata.updated = true;
+            if (operation.date < metadata.createdAt) {
+                metadata.createdAt = operation.date;
+                metadata.updated = true;
+            }
+
+            if (operation.date > metadata.updatedAt) {
+                metadata.updatedAt = operation.date;
+                metadata.updated = true;
+            }
         }
 
         return objectFromEntries(
             Array.from(metadataUpdates.values())
                 .filter(({ updated }) => updated)
-                .map(({ metadataUrl, date }) => [metadataUrl, date]),
+                .map(({ exists, url, resourceUrl, createdAt, updatedAt }) => {
+                    return [resourceUrl, { exists, url, createdAt, updatedAt }];
+                }),
+        );
+    }
+
+    private shouldPullDocument(document: SolidDocument): boolean {
+        return (
+            !document.url.endsWith('/') ||
+            document
+                .getQuads()
+                .some(
+                    (quad) =>
+                        !quad.predicate.equals(RDF_TYPE_PREDICATE) && !quad.predicate.equals(LDP_CONTAINS_PREDICATE),
+                )
         );
     }
 
     private async pullChanges(): Promise<void> {
         await this.initializeMatchingContainers();
 
-        for (const [containerUrl, models] of this.registeredContainers) {
-            await this.syncDocument(containerUrl, models);
+        for (const containerUrl of this.registeredContainers.keys()) {
+            await this.syncDocument(containerUrl);
         }
     }
 
@@ -162,22 +233,18 @@ export default class Sync {
         }
     }
 
-    private async syncDocument(documentUrl: string, models: Set<ModelConstructor>): Promise<void> {
+    private async syncDocument(documentUrl: string): Promise<void> {
         this.visitedDocumentUrls.add(documentUrl);
 
         try {
-            const remoteDocument = await this.config.remoteEngine.readDocumentIfExists(documentUrl);
+            const remoteDocument = await this.syncRemoteChildren(documentUrl);
             const localDocument = await this.config.localEngine.readDocumentIfExists(documentUrl);
 
-            if (remoteDocument && documentUrl.endsWith('/')) {
-                const container = await Container.createFromDocument(remoteDocument, { url: documentUrl });
-
-                for (const childDocumentUrl of container?.resourceUrls ?? []) {
-                    await this.syncDocument(childDocumentUrl, models);
+            if (!localDocument && remoteDocument) {
+                if (!this.shouldPullDocument(remoteDocument)) {
+                    return;
                 }
-            }
 
-            if (!localDocument && remoteDocument && !documentUrl.endsWith('/')) {
                 await this.config.localEngine.createDocument(documentUrl, remoteDocument.getQuads());
 
                 return;
@@ -195,6 +262,20 @@ export default class Sync {
 
             throw error;
         }
+    }
+
+    private async syncRemoteChildren(documentUrl: string): Promise<SolidDocument | null> {
+        const remoteDocument = await this.config.remoteEngine.readDocumentIfExists(documentUrl);
+
+        if (remoteDocument && documentUrl.endsWith('/')) {
+            const container = await Container.createFromDocument(remoteDocument, { url: documentUrl });
+
+            for (const childDocumentUrl of container?.resourceUrls ?? []) {
+                await this.syncDocument(childDocumentUrl);
+            }
+        }
+
+        return remoteDocument;
     }
 
     private async pushContainerDocuments(url: string): Promise<void> {
@@ -273,18 +354,16 @@ export default class Sync {
     }
 
     private async syncDocumentOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
-        const modelClasses = Array.from(this.config.applicationModels)
-            .map((model) => model.model.schema.rdfClasses.map((rdfClass) => rdfClass.value))
-            .flat();
         const resourceUrls = remoteDocument
             .getQuads()
-            .filter((quad) => quad.predicate.equals(RDF_TYPE_PREDICATE) && modelClasses.includes(quad.object.value))
+            .filter((quad) => quad.predicate.equals(RDF_TYPE_PREDICATE) && this.syncRdfClasses.has(quad.object.value))
             .map((quad) => quad.subject.value);
         const localOperations = await this.getDocumentOperations(localDocument, resourceUrls);
         const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
 
         await this.updateDocument({
             document: localDocument,
+            otherDocument: remoteDocument,
             engine: this.config.localEngine,
             existingOperations: Array.from(localOperations.values()),
             newOperations: Array.from(remoteOperations.values()).filter(
@@ -294,6 +373,7 @@ export default class Sync {
 
         await this.updateDocument({
             document: remoteDocument,
+            otherDocument: localDocument,
             engine: this.config.remoteEngine,
             existingOperations: Array.from(remoteOperations.values()),
             newOperations: Array.from(localOperations.values()).filter(
@@ -304,11 +384,13 @@ export default class Sync {
 
     private async updateDocument({
         document,
+        otherDocument,
         engine,
         existingOperations,
         newOperations,
     }: {
         document: SolidDocument;
+        otherDocument: SolidDocument;
         engine: Engine;
         existingOperations: Operation[];
         newOperations: Operation[];
@@ -318,15 +400,57 @@ export default class Sync {
         }
 
         const documentOperations = this.getDocumentUpdateOperations({ existingOperations, newOperations });
-        const metadataUpdates = await this.getMetadataUpdates(document, newOperations);
+        const metadataUpdates = await this.getMetadataUpdates({ document, otherDocument, newOperations });
 
-        for (const [resourceUrl, date] of Object.entries(metadataUpdates)) {
+        for (const [resourceUrl, metadata] of Object.entries(metadataUpdates)) {
+            if (!metadata.exists) {
+                documentOperations.push(
+                    new SetPropertyOperation({
+                        resourceUrl: metadata.url,
+                        property: RDF_TYPE,
+                        value: [CRDT_METADATA],
+                        date: metadata.updatedAt,
+                    })
+                        .setNamedNode(true)
+                        .setPredicate(RDF_TYPE_PREDICATE)
+                        .setValues([CRDT_METADATA_OBJECT]),
+                );
+                documentOperations.push(
+                    new SetPropertyOperation({
+                        resourceUrl: metadata.url,
+                        property: CRDT_RESOURCE,
+                        value: [resourceUrl],
+                        date: metadata.updatedAt,
+                    })
+                        .setNamedNode(true)
+                        .setPredicate(CRDT_RESOURCE_PREDICATE),
+                );
+                documentOperations.push(
+                    new SetPropertyOperation({
+                        resourceUrl: metadata.url,
+                        property: CRDT_CREATED_AT,
+                        value: [metadata.updatedAt],
+                        date: metadata.updatedAt,
+                    }).setPredicate(CRDT_CREATED_AT_PREDICATE),
+                );
+                documentOperations.push(
+                    new SetPropertyOperation({
+                        resourceUrl: metadata.url,
+                        property: CRDT_UPDATED_AT,
+                        value: [metadata.updatedAt],
+                        date: metadata.updatedAt,
+                    }).setPredicate(CRDT_UPDATED_AT_PREDICATE),
+                );
+
+                continue;
+            }
+
             documentOperations.push(
                 new SetPropertyOperation({
-                    resourceUrl,
+                    resourceUrl: metadata.url,
                     property: CRDT_UPDATED_AT,
-                    value: [date],
-                    date,
+                    value: [metadata.updatedAt],
+                    date: metadata.updatedAt,
                 }).setPredicate(CRDT_UPDATED_AT_PREDICATE),
             );
         }

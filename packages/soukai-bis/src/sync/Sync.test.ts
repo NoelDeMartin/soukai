@@ -334,4 +334,40 @@ describe('Sync', () => {
         await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
     });
 
+    it('pulls containers with metadata', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:Movie')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, fixture('movies-container.ttl', { containerUrl, documentUrl }));
+        FakeServer.respondOnce(documentUrl, fixture('movie.ttl', { documentUrl }));
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: Movie, registered: true }],
+        });
+
+        // Assert
+        const localDocument = await localEngine.readDocument(containerUrl);
+        const expectedLocalDocument = await quadsToJsonLD(
+            turtleToQuadsSync(fixture('movies-container.ttl', { containerUrl, documentUrl })),
+        );
+        const actualLocalDocument = await quadsToJsonLD(localDocument.getQuads());
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
+
+        await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
+    });
+
 });
