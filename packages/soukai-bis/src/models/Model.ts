@@ -141,9 +141,9 @@ export default class Model<
 
     public static async all<T extends Model>(
         this: ModelConstructor<T>,
-        containerUrl?: string,
+        options: { from?: string; deep?: boolean } = {},
     ): Promise<ModelWithUrl<T>[]> {
-        containerUrl ??= this.defaultContainerUrl;
+        const containerUrl = options.from ?? this.defaultContainerUrl;
 
         try {
             const engine = this.requireEngine();
@@ -172,6 +172,18 @@ export default class Model<
             const models = await Promise.all(
                 Object.values(documents).map(async (document) => this.createManyFromDocument(document)),
             );
+
+            if (options.deep) {
+                for (const document of Object.values(documents)) {
+                    if (!document.url.endsWith('/')) {
+                        continue;
+                    }
+
+                    const deepModels = await this.all({ from: document.url, deep: true });
+
+                    models.push(deepModels);
+                }
+            }
 
             return models.flat();
         } catch (error) {
