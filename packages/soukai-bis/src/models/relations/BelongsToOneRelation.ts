@@ -26,11 +26,11 @@ export default class BelongsToOneRelation<
             })
             : null;
 
-        this.related = related;
         this.documentModelsLoaded = true;
 
         if (related) {
             this.__modelInSameDocument = related;
+            this.related = related;
         } else if (foreignKey) {
             this.__modelInOtherDocumentId = String(foreignKey);
         }

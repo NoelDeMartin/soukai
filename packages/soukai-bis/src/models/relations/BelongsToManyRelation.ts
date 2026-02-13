@@ -24,10 +24,13 @@ export default class BelongsToManyRelation<
         const related = allRelated.filter((model) => foreignKeys.includes(model.getAttribute(this.localKeyName)));
         const relatedKeys = related.map((model) => model.getAttribute(this.localKeyName));
 
-        this.related = related;
-        this.__modelsInSameDocument = this.related;
+        this.__modelsInSameDocument = related;
         this.__modelsInOtherDocumentIds = foreignKeys.filter((key) => !relatedKeys.includes(key));
         this.documentModelsLoaded = true;
+
+        if (this.__modelsInOtherDocumentIds.length === 0) {
+            this.related = related;
+        }
     }
 
     public isEmpty(): boolean {
