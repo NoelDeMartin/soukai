@@ -1,10 +1,11 @@
 import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 
+import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { MintUrlOptions } from 'soukai-bis/models/Model';
+
 import Model from './Container.schema';
-import TypeRegistration from './interop/TypeRegistration';
-import type TypeIndex from './interop/TypeIndex';
-import type { ModelConstructor } from './types';
-import type { MintUrlOptions } from './Model';
 
 export default class Container extends Model {
 

@@ -1,9 +1,11 @@
 import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
+import { isDevelopment, isTesting } from '@noeldemartin/utils';
 import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import Engine from './Engine';
@@ -25,7 +27,18 @@ export default class SolidEngine extends Engine {
         return this.client.getFetch();
     }
 
-    public async createDocument(url: string, contents: JsonLD | Quad[]): Promise<void> {
+    public async createDocument(url: string, contents: JsonLD | Quad[], metadata?: unknown): Promise<SolidDocument> {
+        if (metadata) {
+            const message = 'SolidEngine does not support metadata creation (it will be handled by the Solid Server)';
+
+            if (isDevelopment() || isTesting()) {
+                throw new SoukaiError(message);
+            }
+
+            // eslint-disable-next-line no-console
+            console.warn(message);
+        }
+
         if (await this.client.exists(url)) {
             throw new DocumentAlreadyExists(url);
         }
@@ -34,10 +47,21 @@ export default class SolidEngine extends Engine {
         const quads = url.endsWith('/') ? this.filterContainerQuads(originalQuads) : originalQuads;
         const body = quadsToTurtle(quads);
 
-        await this.client.create(url, body, { method: url.endsWith('/') ? 'PUT' : 'PATCH' });
+        return this.client.create(url, body, { method: url.endsWith('/') ? 'PUT' : 'PATCH' });
     }
 
-    public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+    public async updateDocument(url: string, operations: Operation[], metadata?: unknown): Promise<void> {
+        if (metadata) {
+            const message = 'SolidEngine does not support metadata updates (they will be handled by the Solid Server)';
+
+            if (isDevelopment() || isTesting()) {
+                throw new SoukaiError(message);
+            }
+
+            // eslint-disable-next-line no-console
+            console.warn(message);
+        }
+
         operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
 
         if (operations.length === 0) {

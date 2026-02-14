@@ -14,12 +14,29 @@ export function metadataJsonLD(model: ModelWithTimestamps & ModelWithUrl): JsonL
     };
 }
 
-export function containerTurtle(documentUrls: string[]): string {
+export function containerTurtle(documents: string[] | Record<string, { lastModifiedAt: Date }>): string {
+    const documentUrls = Array.isArray(documents) ? documents : Object.keys(documents);
+    const documentMetadatas = Array.isArray(documents)
+        ? []
+        : Object.entries(documents).map(([url, metadata]) => ({ url, ...metadata }));
+
     return `
         @prefix ldp: <http://www.w3.org/ns/ldp#> .
+        @prefix purl: <http://purl.org/dc/terms/> .
+        @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
         <>
             a ldp:Container ;
             ldp:contains ${documentUrls.map((url) => `<${url}>`).join(', ')} .
+
+        ${documentMetadatas
+        .map(
+            (metadata) => `
+            <${metadata.url}>
+                a ldp:Resource ;
+                purl:modified "${metadata.lastModifiedAt.toISOString()}"^^xsd:dateTime .
+        `,
+        )
+        .join('\n')}
     `;
 }

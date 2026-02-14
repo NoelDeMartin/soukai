@@ -1,6 +1,6 @@
 import type { Constructor } from '@noeldemartin/utils';
 
-import type Container from './Container';
+import type Container from './ldp/Container';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import type Metadata from './crdts/Metadata';

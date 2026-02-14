@@ -1,7 +1,7 @@
 import Container from './Container';
-import { defineSchema } from './schema';
-import type { SchemaRelations } from './relations/schema';
-import type { SchemaConfig, SchemaFields } from './schema';
+import { defineSchema } from '../schema';
+import type { SchemaRelations } from '../relations/schema';
+import type { SchemaConfig, SchemaFields } from '../schema';
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function defineContainerSchema<TFields extends SchemaFields, TRelations extends SchemaRelations>(

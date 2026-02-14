@@ -305,6 +305,7 @@ describe('Sync', () => {
         const storageUrl = config.userProfile.storageUrls[0];
         const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
 
         typeIndex.relatedRegistrations.related = [
             new TypeRegistration({
@@ -313,16 +314,19 @@ describe('Sync', () => {
             }),
         ];
 
-        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
-        FakeServer.respondOnce(documentUrl, fixture('person.ttl'));
+        FakeServer.respond(containerUrl, containerTurtle({ [documentUrl]: { lastModifiedAt } }));
+        FakeServer.respond(
+            documentUrl,
+            FakeResponse.success(fixture('person.ttl'), { 'Last-Modified': lastModifiedAt.toUTCString() }),
+        );
 
-        // Act
+        // Act - First sync
         await Sync.run({
             ...config,
             applicationModels: [{ model: Person, registered: true }],
         });
 
-        // Assert
+        // Assert - First sync
         const updatedLocalDocument = await localEngine.readDocument(documentUrl);
         const expectedLocalDocument = await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl })));
         const actualLocalDocument = await quadsToJsonLD(updatedLocalDocument.getQuads());
@@ -330,8 +334,19 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
+        expect(updatedLocalDocument.getLastModified()).toEqual(lastModifiedAt);
 
         await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
+
+        // Act - Subsequent sync
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: Person, registered: true }],
+        });
+
+        // Assert - Subsequent sync
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, containerUrl, expect.anything());
     });
 
     it('pulls containers with metadata', async () => {

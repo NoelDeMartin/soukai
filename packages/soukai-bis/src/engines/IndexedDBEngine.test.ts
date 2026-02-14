@@ -5,6 +5,7 @@ import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
+import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
@@ -340,6 +341,72 @@ describe('IndexedDBEngine', () => {
         expect(documents).toHaveLength(0);
     });
 
+    it('creates documents with metadata', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+        const document: JsonLD = { '@id': documentUrl };
+
+        // Act
+        await engine.createDocument(documentUrl, document, { lastModifiedAt });
+
+        // Assert
+        const documents = await getDatabaseDocuments(containerUrl);
+
+        expect(documents).toHaveLength(1);
+        expect(documents[0]).toEqual({
+            url: documentUrl,
+            graph: document,
+            lastModifiedAt,
+        });
+    });
+
+    it('reads documents with metadata', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+
+        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl }, { lastModifiedAt });
+
+        // Act
+        const document = await engine.readDocument(documentUrl);
+
+        // Assert
+        expect(document.headers.get('Last-Modified')).toEqual(lastModifiedAt.toUTCString());
+    });
+
+    it('updates documents with metadata', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+        const newLastModifiedAt = new Date('2023-02-01T00:00:00.000Z');
+
+        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl }, { lastModifiedAt });
+
+        // Act
+        await engine.updateDocument(
+            documentUrl,
+            [
+                new SetPropertyOperation({
+                    resourceUrl: documentUrl,
+                    property: expandIRI('rdfs:label'),
+                    value: ['Updated'],
+                    date: new Date(),
+                }),
+            ],
+            { lastModifiedAt: newLastModifiedAt },
+        );
+
+        // Assert
+        const documents = await getDatabaseDocuments(containerUrl);
+
+        expect(documents).toHaveLength(1);
+        expect(documents[0]?.lastModifiedAt).toEqual(newLastModifiedAt);
+    });
+
     async function resetDatabase(): Promise<void> {
         await initMetaDatabase();
     }
@@ -382,10 +449,11 @@ describe('IndexedDBEngine', () => {
         containerUrl: string,
         url: string,
         graph: Record<string, unknown>,
+        metadata?: { lastModifiedAt?: Date },
     ): Promise<void> {
         const transaction = await getContainerTransaction(containerUrl, 'readwrite');
 
-        transaction.store.put({ url, graph });
+        transaction.store.put({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
 
         await transaction.done;
     }

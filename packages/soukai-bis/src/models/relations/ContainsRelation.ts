@@ -1,6 +1,6 @@
 import { isInstanceOf, tap } from '@noeldemartin/utils';
 
-import Container from 'soukai-bis/models/Container';
+import Container from 'soukai-bis/models/ldp/Container';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import type Model from 'soukai-bis/models/Model';

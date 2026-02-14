@@ -118,7 +118,7 @@ describe('Model', () => {
 
         expect(mintedUser.url).not.toBeUndefined();
 
-        await expect(engine.documents[mintedUser.requireDocumentUrl()]).toEqualJsonLD({
+        await expect(engine.documents[mintedUser.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
                 'crdt': 'https://vocab.noeldemartin.com/crdt/',
@@ -154,7 +154,7 @@ describe('Model', () => {
         // Assert
         expect(user.name).toBe('Jane Doe');
 
-        await expect(engine.documents[user.requireDocumentUrl()]).toEqualJsonLD({
+        await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
                 'crdt': 'https://vocab.noeldemartin.com/crdt/',
@@ -207,7 +207,7 @@ describe('Model', () => {
         const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
         const createDocumentSpy = vi.spyOn(engine, 'createDocument');
 
-        engine.documents[documentUrl] = await firstUser.toJsonLD();
+        engine.documents[documentUrl] = { graph: await firstUser.toJsonLD() };
 
         secondUser.setDocumentExists(true);
 
@@ -217,7 +217,7 @@ describe('Model', () => {
         // Assert
         expect(secondUser.createdAt).toEqual(secondUser.updatedAt);
 
-        await expect(engine.documents[documentUrl]).toEqualJsonLD({
+        await expect(engine.documents[documentUrl]?.graph).toEqualJsonLD({
             '@graph': [
                 {
                     '@id': firstUser.url,
@@ -288,7 +288,7 @@ describe('Model', () => {
 
         expect(user.url).not.toBeUndefined();
 
-        await expect(engine.documents[user.requireDocumentUrl()]).toEqualJsonLD({
+        await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
                 'crdt': 'https://vocab.noeldemartin.com/crdt/',

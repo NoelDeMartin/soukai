@@ -1,5 +1,6 @@
 import { isInstanceOf } from '@noeldemartin/utils';
 import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
@@ -16,9 +17,20 @@ import type Operation from 'soukai-bis/models/crdts/Operation';
 
 export default abstract class Engine {
 
-    public abstract createDocument(url: string, contents: JsonLD | Quad[]): Promise<void>;
+    public abstract createDocument(
+        url: string,
+        contents: JsonLD | Quad[],
+        metadata?: { lastModifiedAt?: Nullable<Date> }
+    ): Promise<SolidDocument>;
+
     public abstract readDocument(url: string): Promise<SolidDocument>;
-    public abstract updateDocument(url: string, operations: Operation[]): Promise<void>;
+
+    public abstract updateDocument(
+        url: string,
+        operations: Operation[],
+        metadata?: { lastModifiedAt?: Nullable<Date> }
+    ): Promise<void>;
+
     public abstract deleteDocument(url: string): Promise<void>;
 
     public async readDocumentIfExists(url: string): Promise<SolidDocument | null> {

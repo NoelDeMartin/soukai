@@ -3,6 +3,7 @@ import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } fr
 import { Semaphore } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
+import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -17,6 +18,7 @@ import Engine from './Engine';
 export interface LocalDocument {
     url: string;
     graph: JsonLD;
+    lastModifiedAt?: Nullable<Date>;
 }
 
 interface DocumentsSchema extends DBSchema {
@@ -49,22 +51,33 @@ export default class IndexedDBEngine extends Engine {
         this.lock = new Semaphore();
     }
 
-    public async createDocument(url: string, contents: JsonLD | Quad[]): Promise<void> {
-        await this.lock.run(async () => {
+    public async createDocument(
+        url: string,
+        contents: JsonLD | Quad[],
+        metadata?: { lastModifiedAt?: Nullable<Date> },
+    ): Promise<SolidDocument> {
+        return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
 
-            await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+            return this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                 if (await transaction.store.get(url)) {
                     throw new DocumentAlreadyExists(url);
                 }
 
+                const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
                 const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
 
                 if (url.endsWith('/')) {
                     this.removeContainerProperties(graph, { keepTypes: true });
                 }
 
-                return transaction.store.add({ url, graph });
+                await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
+
+                return new SolidDocument(
+                    url,
+                    quads,
+                    metadata?.lastModifiedAt ? new Headers({ Date: metadata.lastModifiedAt.toUTCString() }) : undefined,
+                );
             });
         });
     }
@@ -82,22 +95,32 @@ export default class IndexedDBEngine extends Engine {
                 throw new DocumentNotFound(url);
             }
 
-            const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+            const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
                 return transaction.store.get(url);
             });
 
-            if (!document) {
+            if (!localDocument) {
                 throw new DocumentNotFound(url);
             }
 
-            return new SolidDocument(url, await jsonldToQuads(document.graph));
+            const document = new SolidDocument(url, await jsonldToQuads(localDocument.graph));
+
+            if (localDocument.lastModifiedAt) {
+                document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
+            }
+
+            return document;
         });
     }
 
-    public async updateDocument(url: string, operations: Operation[]): Promise<void> {
+    public async updateDocument(
+        url: string,
+        operations: Operation[],
+        metadata?: { lastModifiedAt?: Nullable<Date> },
+    ): Promise<void> {
         operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
 
-        if (operations.length === 0) {
+        if (operations.length === 0 && !metadata?.lastModifiedAt) {
             return;
         }
 
@@ -121,7 +144,11 @@ export default class IndexedDBEngine extends Engine {
                     quads = operation.applyToQuads(quads);
                 }
 
-                return transaction.store.put({ url, graph: await quadsToJsonLD(quads) });
+                return transaction.store.put({
+                    url,
+                    graph: await quadsToJsonLD(quads),
+                    lastModifiedAt: metadata?.lastModifiedAt ?? document.lastModifiedAt,
+                });
             });
         });
     }
@@ -188,14 +215,20 @@ export default class IndexedDBEngine extends Engine {
             );
         }
 
-        const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+        const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
             return transaction.store.get(url);
         });
 
-        return new SolidDocument(
+        const document = new SolidDocument(
             url,
-            await jsonldToQuads(document?.graph ?? { '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
+            await jsonldToQuads(localDocument?.graph ?? { '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
         );
+
+        if (localDocument?.lastModifiedAt) {
+            document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
+        }
+
+        return document;
     }
 
     private async createContainer(url: string): Promise<void> {

@@ -29,7 +29,7 @@ describe('InMemoryEngine', () => {
 
         await engine.createDocument(documentUrl, document);
 
-        expect(engine.documents[documentUrl]).toEqual(document);
+        expect(engine.documents[documentUrl]?.graph).toEqual(document);
     });
 
     it('creates containers', async () => {
@@ -44,7 +44,7 @@ describe('InMemoryEngine', () => {
         });
 
         // Assert
-        expect(engine.documents[containerUrl]).toEqual({
+        expect(engine.documents[containerUrl]?.graph).toEqual({
             '@id': containerUrl,
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
         });
@@ -64,7 +64,7 @@ describe('InMemoryEngine', () => {
         });
 
         // Assert
-        expect(engine.documents[containerUrl]).toEqual({
+        expect(engine.documents[containerUrl]?.graph).toEqual({
             '@id': containerUrl,
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
             [expandIRI('rdfs:label')]: name,
@@ -99,7 +99,7 @@ describe('InMemoryEngine', () => {
             }),
         ]);
 
-        await expect(engine.documents[documentUrl]).toEqualJsonLD({
+        await expect(engine.documents[documentUrl]?.graph).toEqualJsonLD({
             '@id': `${documentUrl}#it`,
             '@type': expandIRI('foaf:Person'),
             [expandIRI('foaf:name')]: newName,
@@ -127,7 +127,7 @@ describe('InMemoryEngine', () => {
         ]);
 
         // Assert
-        await expect(engine.documents[containerUrl]).toEqualJsonLD({
+        await expect(engine.documents[containerUrl]?.graph).toEqualJsonLD({
             '@id': containerUrl,
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
         });
@@ -162,7 +162,7 @@ describe('InMemoryEngine', () => {
         ]);
 
         // Assert
-        await expect(engine.documents[containerUrl]).toEqualJsonLD({
+        await expect(engine.documents[containerUrl]?.graph).toEqualJsonLD({
             '@id': containerUrl,
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
             [expandIRI('rdfs:label')]: name,
@@ -179,7 +179,7 @@ describe('InMemoryEngine', () => {
             [expandIRI('foaf:name')]: name,
         };
 
-        engine.documents[documentUrl] = document;
+        engine.documents[documentUrl] = { graph: document };
 
         // Act
         const readDocument = await engine.readDocument(documentUrl);
@@ -193,8 +193,10 @@ describe('InMemoryEngine', () => {
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
 
-        engine.documents[containerUrl] = { '@id': containerUrl, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] };
-        engine.documents[documentUrl] = { '@id': documentUrl };
+        engine.documents[containerUrl] = {
+            graph: { '@id': containerUrl, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] },
+        };
+        engine.documents[documentUrl] = { graph: { '@id': documentUrl } };
 
         // Act
         const container = await engine.readDocument(containerUrl);
@@ -223,6 +225,60 @@ describe('InMemoryEngine', () => {
         await engine.deleteDocument(documentUrl);
 
         expect(engine.documents[documentUrl]).toBeUndefined();
+    });
+
+    it('creates documents with metadata', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+        const document: JsonLD = { '@id': documentUrl };
+
+        // Act
+        await engine.createDocument(documentUrl, document, { lastModifiedAt });
+
+        // Assert
+        expect(engine.documents[documentUrl]?.lastModifiedAt).toEqual(lastModifiedAt);
+    });
+
+    it('reads documents with metadata', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+
+        await engine.createDocument(documentUrl, { '@id': documentUrl }, { lastModifiedAt });
+
+        // Act
+        const document = await engine.readDocument(documentUrl);
+
+        // Assert
+        expect(document.headers.get('Last-Modified')).toEqual(lastModifiedAt.toUTCString());
+    });
+
+    it('updates documents with metadata', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+        const newLastModifiedAt = new Date('2023-02-01T00:00:00.000Z');
+        const document: JsonLD = { '@id': documentUrl };
+
+        await engine.createDocument(documentUrl, document, { lastModifiedAt });
+
+        // Act
+        await engine.updateDocument(
+            documentUrl,
+            [
+                new SetPropertyOperation({
+                    resourceUrl: documentUrl,
+                    property: expandIRI('rdfs:label'),
+                    value: ['Updated'],
+                    date: new Date(),
+                }),
+            ],
+            { lastModifiedAt: newLastModifiedAt },
+        );
+
+        // Assert
+        expect(engine.documents[documentUrl]?.lastModifiedAt).toEqual(newLastModifiedAt);
     });
 
 });

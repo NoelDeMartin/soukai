@@ -21,12 +21,7 @@ import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import {
-    LDP_BASIC_CONTAINER_OBJECT,
-    LDP_CONTAINER_OBJECT,
-    LDP_CONTAINS_PREDICATE,
-    RDF_TYPE_PREDICATE,
-} from 'soukai-bis/utils/rdf';
+import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import type Engine from 'soukai-bis/engines/Engine';
 
@@ -154,14 +149,9 @@ export default class Model<
             await Promise.all(
                 containsQuads.map(async (quad) => {
                     const url = quad.object.value;
-                    const subject = quad.object.termType === 'Literal' ? quad.object.value : quad.object;
                     const document = await engine.readDocument(url);
 
-                    if (
-                        !document ||
-                        document.contains(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT) ||
-                        document.contains(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT)
-                    ) {
+                    if (!document) {
                         return;
                     }
 

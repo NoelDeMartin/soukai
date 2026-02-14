@@ -2,7 +2,7 @@ import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
 import { createPrivateTypeIndex } from '@noeldemartin/solid-utils';
 import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 
-import Container from 'soukai-bis/models/Container';
+import Container from 'soukai-bis/models/ldp/Container';
 import type { ContainerConstructor, ModelConstructor } from 'soukai-bis/models/types';
 
 import Model from './TypeIndex.schema';

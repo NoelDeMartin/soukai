@@ -1,7 +1,7 @@
-import { arrayGroupBy, isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
+import { arrayGroupBy, isInstanceOf, objectFromEntries, parseDate, required } from '@noeldemartin/utils';
 import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
 
-import Container from 'soukai-bis/models/Container';
+import Container from 'soukai-bis/models/ldp/Container';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
@@ -20,6 +20,7 @@ import {
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/utils/rdf';
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
+import type Resource from 'soukai-bis/models/ldp/Resource';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
@@ -179,6 +180,16 @@ export default class Sync {
         );
     }
 
+    private async skipDocumentPull(documentUrl: string, remoteUpdatedAt?: Date): Promise<boolean> {
+        const localDocument = await this.config.localEngine.readDocumentIfExists(documentUrl);
+
+        return !!(
+            localDocument &&
+            remoteUpdatedAt &&
+            localDocument.getLastModified()?.getTime() === remoteUpdatedAt.getTime()
+        );
+    }
+
     private shouldPullDocument(document: SolidDocument): boolean {
         return (
             !document.url.endsWith('/') ||
@@ -233,10 +244,14 @@ export default class Sync {
         }
     }
 
-    private async syncDocument(documentUrl: string): Promise<void> {
+    private async syncDocument(documentUrl: string, remoteUpdatedAt?: Date): Promise<void> {
         this.visitedDocumentUrls.add(documentUrl);
 
         try {
+            if (await this.skipDocumentPull(documentUrl, remoteUpdatedAt)) {
+                return;
+            }
+
             const remoteDocument = await this.syncRemoteChildren(documentUrl);
             const localDocument = await this.config.localEngine.readDocumentIfExists(documentUrl);
 
@@ -245,7 +260,9 @@ export default class Sync {
                     return;
                 }
 
-                await this.config.localEngine.createDocument(documentUrl, remoteDocument.getQuads());
+                await this.config.localEngine.createDocument(documentUrl, remoteDocument.getQuads(), {
+                    lastModifiedAt: remoteDocument.getLastModified() ?? undefined,
+                });
 
                 return;
             }
@@ -254,6 +271,7 @@ export default class Sync {
                 return;
             }
 
+            await this.syncDocumentMetadata(localDocument, remoteDocument);
             await this.syncDocumentOperations(localDocument, remoteDocument);
         } catch (error) {
             if (error instanceof DocumentNotFound) {
@@ -269,9 +287,15 @@ export default class Sync {
 
         if (remoteDocument && documentUrl.endsWith('/')) {
             const container = await Container.createFromDocument(remoteDocument, { url: documentUrl });
+            const resources = container?.resources ?? [];
+            const resourcesByUrl = objectFromEntries(
+                resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
+            );
 
             for (const childDocumentUrl of container?.resourceUrls ?? []) {
-                await this.syncDocument(childDocumentUrl);
+                const childResource = resourcesByUrl[childDocumentUrl];
+
+                await this.syncDocument(childDocumentUrl, childResource?.updatedAt);
             }
         }
 
@@ -310,8 +334,14 @@ export default class Sync {
             }
 
             const localDocument = await this.config.localEngine.readDocument(documentUrl);
+            const remoteDocument = await this.config.remoteEngine.createDocument(documentUrl, localDocument.getQuads());
+            const lastModifiedAt = parseDate(
+                remoteDocument.headers.get('Date') || remoteDocument.headers.get('Last-Modified'),
+            );
 
-            await this.config.remoteEngine.createDocument(documentUrl, localDocument.getQuads());
+            if (lastModifiedAt) {
+                await this.config.localEngine.updateDocument(documentUrl, [], { lastModifiedAt });
+            }
 
             localDocument
                 .statements(undefined, RDF_TYPE_PREDICATE)
@@ -351,6 +381,16 @@ export default class Sync {
 
         await container.register(typeIndex, Array.from(models));
         await this.config.onModelsRegistered?.(typeIndex, Array.from(models));
+    }
+
+    private async syncDocumentMetadata(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
+        const lastModifiedAt = remoteDocument.getLastModified();
+
+        if (!lastModifiedAt) {
+            return;
+        }
+
+        await this.config.localEngine.updateDocument(localDocument.url, [], { lastModifiedAt });
     }
 
     private async syncDocumentOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
@@ -455,7 +495,13 @@ export default class Sync {
             );
         }
 
-        await engine.updateDocument(document.url, documentOperations);
+        await engine.updateDocument(
+            document.url,
+            documentOperations,
+            engine === this.config.localEngine
+                ? { lastModifiedAt: otherDocument.getLastModified() ?? undefined }
+                : undefined,
+        );
     }
 
 }

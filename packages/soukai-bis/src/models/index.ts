@@ -1,14 +1,11 @@
-export * from './Container';
 export * from './core';
 export * from './crdts';
 export * from './interop';
+export * from './ldp';
 export * from './Model';
 export * from './registry';
 export * from './relations';
-export * from './schema-containers';
 export * from './schema';
 export * from './types';
-export * from './utils-containers';
 export * from './utils';
-export { default as Container } from './Container';
 export { default as Model } from './Model';

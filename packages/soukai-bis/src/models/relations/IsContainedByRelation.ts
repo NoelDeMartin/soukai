@@ -1,9 +1,9 @@
 import { requireUrlParentDirectory } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { isContainerClass } from 'soukai-bis/models/utils-containers';
+import { isContainerClass } from 'soukai-bis/models/ldp/utils';
 import type Model from 'soukai-bis/models/Model';
-import type Container from 'soukai-bis/models/Container';
+import type Container from 'soukai-bis/models/ldp/Container';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import SingleModelRelation from './SingleModelRelation';

@@ -1,6 +1,9 @@
 import { array, string, url } from 'zod';
 
-import { defineSchema } from './schema';
+import { belongsToMany } from 'soukai-bis/models/relations/fluent';
+import { defineSchema } from 'soukai-bis/models/schema';
+
+import Resource from './Resource';
 
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/ldp#',
@@ -9,5 +12,8 @@ export default defineSchema({
     fields: {
         name: string().rdfProperty('rdfs:label').useAsSlug().optional(),
         resourceUrls: array(url()).rdfProperty('ldp:contains').default([]),
+    },
+    relations: {
+        resources: belongsToMany(Resource, 'resourceUrls').usingSameDocument(),
     },
 });
