@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { expandIRI } from '@noeldemartin/solid-utils';
+import { expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
 
 import Post from 'soukai-bis/testing/stubs/Post';
@@ -344,6 +344,33 @@ describe('Model', () => {
         expect(user?.age).toBe(30);
         expect(user?.friendUrls).toEqual(['https://example.com/bob#me', 'https://example.com/charlie#me']);
         expect(user?.exists()).toBe(true);
+    });
+
+    it('does not duplicate metadata models when loading from documents', async () => {
+        // Arrange
+        const url = fakeResourceUrl();
+        const rdf = await turtleToQuads(`
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <${url}>
+                a foaf:Person ;
+                foaf:name "Alice" .
+
+            <${url}-metadata>
+                a crdt:Metadata ;
+                crdt:resource <${url}> ;
+                crdt:createdAt "2021-01-30T11:47:24Z"^^xsd:dateTime ;
+                crdt:updatedAt "2021-01-30T11:47:24Z"^^xsd:dateTime .
+        `);
+
+        // Act
+        const person = await Person.createFromRDF(rdf, { url });
+
+        // Assert
+        expect(person).toBeInstanceOf(Person);
+        expect(person?.getDocumentModels()).toHaveLength(2);
     });
 
     it('returns null when creating instances from mismatched JsonLD', async () => {
