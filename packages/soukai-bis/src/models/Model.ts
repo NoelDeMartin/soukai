@@ -20,6 +20,7 @@ import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
@@ -637,7 +638,17 @@ export default class Model<
                 getDirtyDocumentsUpdates(this.getDirtyDocumentModels()),
             );
         } else {
-            await engine.createDocument(this.requireDocumentUrl(), serializeToRDF(this.getDocumentModels()));
+            try {
+                await engine.createDocument(this.requireDocumentUrl(), serializeToRDF(this.getDocumentModels()));
+            } catch (error) {
+                if (!isInstanceOf(error, DocumentAlreadyExists)) {
+                    throw error;
+                }
+
+                this._documentExists = true;
+
+                await this.performSave();
+            }
         }
     }
 

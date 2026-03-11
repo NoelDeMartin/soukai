@@ -311,6 +311,43 @@ describe('Model', () => {
         ]);
     });
 
+    it('retries saving as update when document already exists', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+        const createDocumentSpy = vi.spyOn(engine, 'createDocument');
+
+        engine.documents[documentUrl] = {
+            graph: {
+                '@id': documentUrl,
+                '@type': 'http://www.w3.org/ns/ldp#Document',
+            },
+        };
+
+        // Act
+        const person = await Person.create({ url: `${documentUrl}#it`, name: 'Jane Doe' });
+
+        // Assert
+        await expect(engine.documents[documentUrl]?.graph).toEqualJsonLD({
+            '@graph': [
+                {
+                    '@id': documentUrl,
+                    '@type': 'http://www.w3.org/ns/ldp#Document',
+                },
+                {
+                    '@id': person.url,
+                    '@type': 'http://xmlns.com/foaf/0.1/Person',
+                    'http://xmlns.com/foaf/0.1/name': 'Jane Doe',
+                    'http://xmlns.com/foaf/0.1/knows': [],
+                },
+                metadataJsonLD(person as ModelWithTimestamps & ModelWithUrl<Person>),
+            ],
+        });
+
+        expect(createDocumentSpy).toHaveBeenCalledTimes(1);
+        expect(updateDocumentSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('creates instances statically', async () => {
         const user = await Person.create({ name: 'John Doe' });
 
