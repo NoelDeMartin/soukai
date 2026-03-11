@@ -85,7 +85,7 @@ export type SchemaModelClass<
         createFromRDF<This>(
             this: This,
             quads: Quad[],
-            options?: { url?: string }
+            options: { url: string; modelsCache?: Map<string, Model> }
         ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createManyFromDocument<This>(
             this: This,
