@@ -100,6 +100,7 @@ export interface SchemaConfig<TFields extends SchemaFields = SchemaFields, TRela
     history?: boolean;
     timestamps?: boolean;
     rdfContext?: string;
+    rdfContexts?: Record<string, string>;
     rdfClass?: string;
     rdfDefaultResourceHash?: string;
     fields?: TFields;
@@ -132,6 +133,7 @@ export function defineSchema<
         default: 'solid',
         ...baseSchema?.rdfContext,
         ...(config.rdfContext ? { default: config.rdfContext } : {}),
+        ...(config.rdfContexts ? config.rdfContexts : {}),
     };
     const { default: defaultPrefix, ...extraContext } = rdfContext;
     const relations = { ...baseSchema?.relations, ...config.relations };

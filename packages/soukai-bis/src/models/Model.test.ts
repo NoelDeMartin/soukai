@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
-import { ZodError } from 'zod';
+import z, { ZodError } from 'zod';
 
 import Post from 'soukai-bis/testing/stubs/Post';
 import Person from 'soukai-bis/testing/stubs/Person';
@@ -35,6 +35,34 @@ describe('Model', () => {
 
         expect(A.modelName).toBe('A');
         expect(B.modelName).toBe('B');
+    });
+
+    it('defines models with multiple rdf contexts', async () => {
+        // Arrange
+        const A = defineSchema({
+            rdfContexts: {
+                default: 'http://vocabs.noeldemartin.com/example-1/',
+                example2: 'http://vocabs.noeldemartin.com/example-2/',
+            },
+            rdfClass: 'Person',
+            timestamps: false,
+            fields: {
+                name: z.string().rdfProperty('example2:name'),
+            },
+        });
+
+        // Act
+        const instance = new A({ url: fakeResourceUrl(), name: 'John Doe' });
+
+        // Assert
+        await expect(await instance.toTurtle()).toEqualTurtle(`
+            @prefix example1: <http://vocabs.noeldemartin.com/example-1/> .
+            @prefix example2: <http://vocabs.noeldemartin.com/example-2/> .
+
+            <${instance.url}>
+                a example1:Person ;
+                example2:name "John Doe" .
+        `);
     });
 
     it('creates instances', () => {
