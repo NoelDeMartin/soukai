@@ -357,6 +357,12 @@ export default class Model<
                 continue;
             }
 
+            if (parsedValue === undefined) {
+                delete this._attributes[field];
+                this._dirtyAttributes.add(field as FieldName);
+                continue;
+            }
+
             newAttributes[field] = parsedValue;
         }
 
@@ -669,7 +675,17 @@ export default class Model<
     }
 
     private parseAttributes(values: unknown): Attributes {
-        return this.static('schema').fields.parse(values) as Attributes;
+        const attributes = this.static('schema').fields.parse(values) as Attributes;
+
+        for (const [field, value] of Object.entries(attributes)) {
+            if (value !== undefined) {
+                continue;
+            }
+
+            delete attributes[field];
+        }
+
+        return attributes;
     }
 
     private isField(property: string): property is FieldName {

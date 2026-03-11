@@ -55,7 +55,7 @@ describe('Model', () => {
         const instance = new A({ url: fakeResourceUrl(), name: 'John Doe' });
 
         // Assert
-        await expect(await instance.toTurtle()).toEqualTurtle(`
+        expect(await instance.toTurtle()).toEqualTurtle(`
             @prefix example1: <http://vocabs.noeldemartin.com/example-1/> .
             @prefix example2: <http://vocabs.noeldemartin.com/example-2/> .
 
@@ -456,6 +456,24 @@ describe('Model', () => {
 
         Person.setEngine(undefined);
         Post.setEngine(undefined);
+    });
+
+    it('ignores undefined fields on constructor', async () => {
+        const person = new Person({ name: 'John Doe', email: undefined });
+
+        expect(person.email).toBeUndefined();
+        expect(person.getAttributes()).not.toHaveProperty('email');
+        expect(person.getDirtyAttributes()).not.toContain('email');
+    });
+
+    it('ignores undefined fields on updates', async () => {
+        const person = new Person({ name: 'John Doe' });
+
+        person.setAttribute('email', undefined);
+
+        expect(person.email).toBeUndefined();
+        expect(person.getAttributes()).not.toHaveProperty('email');
+        expect(person.getDirtyAttributes()).not.toContain('email');
     });
 
 });
