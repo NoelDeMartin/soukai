@@ -11,6 +11,7 @@ import {
     required,
     stringToCamelCase,
     stringToSlug,
+    urlParentDirectory,
     urlResolve,
     urlRoute,
     uuid,
@@ -450,6 +451,16 @@ export default class Model<
 
     public requireDocumentUrl(): string {
         return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
+    }
+
+    public getContainerUrl(): string | null {
+        const documentUrl = this.getDocumentUrl();
+
+        return documentUrl ? urlParentDirectory(documentUrl) : null;
+    }
+
+    public requireContainerUrl(): string {
+        return this.getContainerUrl() ?? fail(SoukaiError, 'Failed getting required container url');
     }
 
     public getDirtyAttributes(): FieldName[] {
