@@ -389,6 +389,37 @@ describe('Model', () => {
         expect(users.map((user) => user.name)).toEqual(expect.arrayContaining(['John Doe', 'Jane Doe']));
     });
 
+    it('reads all instances recursively with depth limit', async () => {
+        const rootContainer = Person.defaultContainerUrl;
+
+        await Person.createAt(rootContainer, { name: 'Root Person' });
+        await Person.createAt(`${rootContainer}sub1/`, { name: 'Sub 1 Person' });
+        await Person.createAt(`${rootContainer}sub1/sub2/`, { name: 'Sub 2 Person' });
+        await Person.createAt(`${rootContainer}sub1/sub2/sub3/`, { name: 'Sub 3 Person' });
+        await Person.createAt(`${rootContainer}sub1/sub2/sub3/sub4/`, { name: 'Sub 4 Person' });
+
+        const shallowUsers = await Person.all();
+        const usersAtDepth1 = await Person.all({ depth: 1 });
+        const usersAtDepth2 = await Person.all({ depth: 2 });
+        const allUsers = await Person.all({ deep: true });
+
+        expect(shallowUsers).toHaveLength(1);
+        expect(shallowUsers.map((user) => user.name)).toEqual(['Root Person']);
+
+        expect(usersAtDepth1).toHaveLength(2);
+        expect(usersAtDepth1.map((user) => user.name)).toEqual(expect.arrayContaining(['Root Person', 'Sub 1 Person']));
+
+        expect(usersAtDepth2).toHaveLength(3);
+        expect(usersAtDepth2.map((user) => user.name)).toEqual(
+            expect.arrayContaining(['Root Person', 'Sub 1 Person', 'Sub 2 Person']),
+        );
+
+        expect(allUsers).toHaveLength(5);
+        expect(allUsers.map((user) => user.name)).toEqual(
+            expect.arrayContaining(['Root Person', 'Sub 1 Person', 'Sub 2 Person', 'Sub 3 Person', 'Sub 4 Person']),
+        );
+    });
+
     it('creates instances from JsonLD', async () => {
         const jsonld = {
             '@id': fakeResourceUrl(),

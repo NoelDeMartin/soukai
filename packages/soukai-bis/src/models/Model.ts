@@ -137,7 +137,7 @@ export default class Model<
 
     public static async all<T extends Model>(
         this: ModelConstructor<T>,
-        options: { from?: string; deep?: boolean } = {},
+        options: { from?: string; deep?: boolean; depth?: number } = {},
     ): Promise<ModelWithUrl<T>[]> {
         const containerUrl = options.from ?? this.defaultContainerUrl;
 
@@ -164,13 +164,17 @@ export default class Model<
                 Object.values(documents).map(async (document) => this.createManyFromDocument(document)),
             );
 
-            if (options.deep) {
+            if (options.deep || (options.depth ?? 0) > 0) {
                 for (const document of Object.values(documents)) {
                     if (!document.url.endsWith('/')) {
                         continue;
                     }
 
-                    const deepModels = await this.all({ from: document.url, deep: true });
+                    const deepModels = await this.all({
+                        from: document.url,
+                        deep: options.deep,
+                        depth: options.depth ? options.depth - 1 : undefined,
+                    });
 
                     models.push(deepModels);
                 }
