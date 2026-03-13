@@ -1,5 +1,6 @@
 export * from './core';
 export * from './crdts';
+export * from './identity';
 export * from './interop';
 export * from './ldp';
 export * from './Model';

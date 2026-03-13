@@ -1,6 +1,7 @@
 import Container from './ldp/Container';
 import Metadata from './crdts/Metadata';
 import Operation from './crdts/Operation';
+import Person from './identity/Person';
 import Resource from './ldp/Resource';
 import SetPropertyOperation from './crdts/SetPropertyOperation';
 import TypeIndex from './interop/TypeIndex';
@@ -14,6 +15,7 @@ export function bootCoreModels(reset: boolean = false): void {
             Container,
             Metadata,
             Operation,
+            Person,
             Resource,
             SetPropertyOperation,
             TypeIndex,
