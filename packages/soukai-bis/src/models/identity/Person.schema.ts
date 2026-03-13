@@ -1,5 +1,6 @@
-import { defineSchema } from 'soukai-bis';
 import z from 'zod';
+
+import { defineSchema } from 'soukai-bis/models/schema';
 
 export default defineSchema({
     rdfContexts: {

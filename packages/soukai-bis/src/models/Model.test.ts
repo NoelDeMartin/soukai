@@ -4,7 +4,7 @@ import { expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
 import z, { ZodError } from 'zod';
 
 import Post from 'soukai-bis/testing/stubs/Post';
-import Person from 'soukai-bis/testing/stubs/Person';
+import User from 'soukai-bis/testing/stubs/User';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
@@ -23,8 +23,8 @@ describe('Model', () => {
     beforeEach(() => setEngine((engine = new InMemoryEngine())));
 
     it('boots models', () => {
-        expect(Person.defaultContainerUrl).toBe('solid://persons/');
-        expect(Person.modelName).toBe('Person');
+        expect(User.defaultContainerUrl).toBe('solid://users/');
+        expect(User.modelName).toBe('User');
     });
 
     it('boots extended models', () => {
@@ -66,25 +66,25 @@ describe('Model', () => {
     });
 
     it('creates instances', () => {
-        const user = new Person({ name: 'John Doe' });
+        const user = new User({ name: 'John Doe' });
 
         expect(user.name).toEqual('John Doe');
         expectTypeOf(user).toExtend<{ name: string; email?: string; age?: number; friendUrls: string[] }>();
     });
 
     it('validates attributes in constructor', () => {
-        expect(() => new Person({ name: 'John Doe', email: 'invalid-email' })).toThrow(ZodError);
+        expect(() => new User({ name: 'John Doe', email: 'invalid-email' })).toThrow(ZodError);
     });
 
     it('sets url in constructor', () => {
-        const user = new Person({ url: 'https://example.com/alice', name: 'Alice' });
+        const user = new User({ url: 'https://example.com/alice', name: 'Alice' });
 
         expect(user.url).toBe('https://example.com/alice');
         expect(user.name).toBe('Alice');
     });
 
     it('serializes to JsonLD', async () => {
-        const user = await Person.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const user = await User.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
 
         await expect(await user.toJsonLD()).toEqualJsonLD({
             '@context': {
@@ -112,7 +112,7 @@ describe('Model', () => {
     });
 
     it('serializes to Turtle', async () => {
-        const user = await Person.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const user = await User.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
         const documentUrl = user.requireDocumentUrl();
 
         expect(await user.toTurtle()).toEqualTurtle(`
@@ -134,14 +134,14 @@ describe('Model', () => {
     });
 
     it('has typed constructors', () => {
-        expectTypeOf(Person).toBeConstructibleWith({ name: 'John' });
-        expectTypeOf(Person).toBeConstructibleWith({ name: 'John', age: 30 });
-        expectTypeOf({ name: 123 }).not.toExtend<ConstructorParameters<typeof Person>[0]>();
-        expectTypeOf({ undefinedField: true }).not.toExtend<ConstructorParameters<typeof Person>[0]>();
+        expectTypeOf(User).toBeConstructibleWith({ name: 'John' });
+        expectTypeOf(User).toBeConstructibleWith({ name: 'John', age: 30 });
+        expectTypeOf({ name: 123 }).not.toExtend<ConstructorParameters<typeof User>[0]>();
+        expectTypeOf({ undefinedField: true }).not.toExtend<ConstructorParameters<typeof User>[0]>();
     });
 
     it('saves instances', async () => {
-        const user = new Person({ name: 'John Doe' });
+        const user = new User({ name: 'John Doe' });
         const mintedUser = await user.save();
 
         expect(mintedUser.url).not.toBeUndefined();
@@ -172,8 +172,8 @@ describe('Model', () => {
 
     it('updates instances with dirty attributes', async () => {
         // Arrange
-        const user = (await Person.create({ name: 'John Doe', age: 30 })) as ModelWithTimestamps<Person> &
-            ModelWithUrl<Person>;
+        const user = (await User.create({ name: 'John Doe', age: 30 })) as ModelWithTimestamps<User> &
+            ModelWithUrl<User>;
         const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
 
         // Act
@@ -226,12 +226,12 @@ describe('Model', () => {
     it('saves instances when document exists', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
-        const firstUser = new Person({ url: `${documentUrl}#first`, name: 'John Doe' }) as ModelWithTimestamps<Person> &
-            ModelWithUrl<Person>;
-        const secondUser = new Person({
+        const firstUser = new User({ url: `${documentUrl}#first`, name: 'John Doe' }) as ModelWithTimestamps<User> &
+            ModelWithUrl<User>;
+        const secondUser = new User({
             url: `${documentUrl}#second`,
             name: 'Jane Doe',
-        }) as ModelWithTimestamps<Person> & ModelWithUrl<Person>;
+        }) as ModelWithTimestamps<User> & ModelWithUrl<User>;
         const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
         const createDocumentSpy = vi.spyOn(engine, 'createDocument');
 
@@ -325,7 +325,7 @@ describe('Model', () => {
         };
 
         // Act
-        const person = await Person.create({ url: `${documentUrl}#it`, name: 'Jane Doe' });
+        const user = await User.create({ url: `${documentUrl}#it`, name: 'Jane Doe' });
 
         // Assert
         await expect(engine.documents[documentUrl]?.graph).toEqualJsonLD({
@@ -335,12 +335,12 @@ describe('Model', () => {
                     '@type': 'http://www.w3.org/ns/ldp#Document',
                 },
                 {
-                    '@id': person.url,
+                    '@id': user.url,
                     '@type': 'http://xmlns.com/foaf/0.1/Person',
                     'http://xmlns.com/foaf/0.1/name': 'Jane Doe',
                     'http://xmlns.com/foaf/0.1/knows': [],
                 },
-                metadataJsonLD(person as ModelWithTimestamps & ModelWithUrl<Person>),
+                metadataJsonLD(user as ModelWithTimestamps & ModelWithUrl<User>),
             ],
         });
 
@@ -349,7 +349,7 @@ describe('Model', () => {
     });
 
     it('creates instances statically', async () => {
-        const user = await Person.create({ name: 'John Doe' });
+        const user = await User.create({ name: 'John Doe' });
 
         expect(user.url).not.toBeUndefined();
 
@@ -378,30 +378,30 @@ describe('Model', () => {
     });
 
     it('reads all instances', async () => {
-        await Person.create({ name: 'John Doe' });
-        await Person.create({ name: 'Jane Doe' });
+        await User.create({ name: 'John Doe' });
+        await User.create({ name: 'Jane Doe' });
 
-        const users = await Person.all();
+        const users = await User.all();
 
         expect(users).toHaveLength(2);
-        expect(users[0]).toBeInstanceOf(Person);
-        expect(users[1]).toBeInstanceOf(Person);
+        expect(users[0]).toBeInstanceOf(User);
+        expect(users[1]).toBeInstanceOf(User);
         expect(users.map((user) => user.name)).toEqual(expect.arrayContaining(['John Doe', 'Jane Doe']));
     });
 
     it('reads all instances recursively with depth limit', async () => {
-        const rootContainer = Person.defaultContainerUrl;
+        const rootContainer = User.defaultContainerUrl;
 
-        await Person.createAt(rootContainer, { name: 'Root Person' });
-        await Person.createAt(`${rootContainer}sub1/`, { name: 'Sub 1 Person' });
-        await Person.createAt(`${rootContainer}sub1/sub2/`, { name: 'Sub 2 Person' });
-        await Person.createAt(`${rootContainer}sub1/sub2/sub3/`, { name: 'Sub 3 Person' });
-        await Person.createAt(`${rootContainer}sub1/sub2/sub3/sub4/`, { name: 'Sub 4 Person' });
+        await User.createAt(rootContainer, { name: 'Root Person' });
+        await User.createAt(`${rootContainer}sub1/`, { name: 'Sub 1 Person' });
+        await User.createAt(`${rootContainer}sub1/sub2/`, { name: 'Sub 2 Person' });
+        await User.createAt(`${rootContainer}sub1/sub2/sub3/`, { name: 'Sub 3 Person' });
+        await User.createAt(`${rootContainer}sub1/sub2/sub3/sub4/`, { name: 'Sub 4 Person' });
 
-        const shallowUsers = await Person.all();
-        const usersAtDepth1 = await Person.all({ depth: 1 });
-        const usersAtDepth2 = await Person.all({ depth: 2 });
-        const allUsers = await Person.all({ deep: true });
+        const shallowUsers = await User.all();
+        const usersAtDepth1 = await User.all({ depth: 1 });
+        const usersAtDepth2 = await User.all({ depth: 2 });
+        const allUsers = await User.all({ deep: true });
 
         expect(shallowUsers).toHaveLength(1);
         expect(shallowUsers.map((user) => user.name)).toEqual(['Root Person']);
@@ -432,9 +432,9 @@ describe('Model', () => {
             ],
         };
 
-        const user = await Person.createFromJsonLD(jsonld);
+        const user = await User.createFromJsonLD(jsonld);
 
-        expect(user).toBeInstanceOf(Person);
+        expect(user).toBeInstanceOf(User);
         expect(user?.url).toBe(jsonld['@id']);
         expect(user?.name).toBe('Alice');
         expect(user?.age).toBe(30);
@@ -462,11 +462,11 @@ describe('Model', () => {
         `);
 
         // Act
-        const person = await Person.createFromRDF(rdf, { url });
+        const user = await User.createFromRDF(rdf, { url });
 
         // Assert
-        expect(person).toBeInstanceOf(Person);
-        expect(person?.getDocumentModels()).toHaveLength(2);
+        expect(user).toBeInstanceOf(User);
+        expect(user?.getDocumentModels()).toHaveLength(2);
     });
 
     it('returns null when creating instances from mismatched JsonLD', async () => {
@@ -477,13 +477,13 @@ describe('Model', () => {
             'http://xmlns.com/foaf/0.1/name': 'A Post',
         };
 
-        const user = await Person.createFromJsonLD(jsonld);
+        const user = await User.createFromJsonLD(jsonld);
 
         expect(user).toBeNull();
     });
 
     it('deletes instances', async () => {
-        const user = await Person.create({ name: 'John Doe' });
+        const user = await User.create({ name: 'John Doe' });
 
         await user.delete();
 
@@ -499,49 +499,49 @@ describe('Model', () => {
 
     it('infers attribute types', () => {
         // @ts-expect-error - name is missing
-        () => new Person({});
+        () => new User({});
 
         // @ts-expect-error - foo is not a valid attribute
-        () => new Person({ name: 'John Doe', foo: 'bar' });
+        () => new User({ name: 'John Doe', foo: 'bar' });
     });
 
     it('uses class engines', async () => {
         const engine1 = new InMemoryEngine();
         const engine2 = new InMemoryEngine();
 
-        Person.setEngine(engine1);
+        User.setEngine(engine1);
         Post.setEngine(engine2);
 
-        const person = await Person.create({ name: 'John Doe' });
+        const user = await User.create({ name: 'John Doe' });
         const post = await Post.create({ title: 'Hello World' });
 
-        expect(person.exists()).toBe(true);
+        expect(user.exists()).toBe(true);
         expect(post.exists()).toBe(true);
-        expect(engine1.documents[person.requireDocumentUrl()]).not.toBeUndefined();
+        expect(engine1.documents[user.requireDocumentUrl()]).not.toBeUndefined();
         expect(engine1.documents[post.requireDocumentUrl()]).toBeUndefined();
-        expect(engine2.documents[person.requireDocumentUrl()]).toBeUndefined();
+        expect(engine2.documents[user.requireDocumentUrl()]).toBeUndefined();
         expect(engine2.documents[post.requireDocumentUrl()]).not.toBeUndefined();
 
-        Person.setEngine(undefined);
+        User.setEngine(undefined);
         Post.setEngine(undefined);
     });
 
     it('ignores undefined fields on constructor', async () => {
-        const person = new Person({ name: 'John Doe', email: undefined });
+        const user = new User({ name: 'John Doe', email: undefined });
 
-        expect(person.email).toBeUndefined();
-        expect(person.getAttributes()).not.toHaveProperty('email');
-        expect(person.getDirtyAttributes()).not.toContain('email');
+        expect(user.email).toBeUndefined();
+        expect(user.getAttributes()).not.toHaveProperty('email');
+        expect(user.getDirtyAttributes()).not.toContain('email');
     });
 
     it('ignores undefined fields on updates', async () => {
-        const person = new Person({ name: 'John Doe' });
+        const user = new User({ name: 'John Doe' });
 
-        person.setAttribute('email', undefined);
+        user.setAttribute('email', undefined);
 
-        expect(person.email).toBeUndefined();
-        expect(person.getAttributes()).not.toHaveProperty('email');
-        expect(person.getDirtyAttributes()).not.toContain('email');
+        expect(user.email).toBeUndefined();
+        expect(user.getAttributes()).not.toHaveProperty('email');
+        expect(user.getDirtyAttributes()).not.toContain('email');
     });
 
 });

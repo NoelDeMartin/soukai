@@ -2,7 +2,7 @@ import { array, email, number, string, url } from 'zod';
 import { belongsToMany, defineSchema, hasMany, hasOne } from 'soukai-bis';
 
 import Post from './Post';
-import Person from './Person';
+import User from './User';
 
 export default defineSchema({
     rdfContext: 'http://xmlns.com/foaf/0.1/',
@@ -17,7 +17,7 @@ export default defineSchema({
     },
     relations: {
         posts: hasMany(() => Post, 'authorUrl'),
-        friends: belongsToMany(() => Person, 'friendUrls'),
+        friends: belongsToMany(() => User, 'friendUrls'),
         lastPost: hasOne(() => Post, 'authorUrl'),
     },
 });

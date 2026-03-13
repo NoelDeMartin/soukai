@@ -5,7 +5,7 @@ import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import Movie from 'soukai-bis/testing/stubs/Movie';
-import Person from 'soukai-bis/testing/stubs/Person';
+import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
@@ -51,7 +51,7 @@ describe('Sync', () => {
     it('uses type indexes', async () => {
         // Arrange
         const storageUrl = config.userProfile.storageUrls[0];
-        const personContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const userContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const firstMoviesContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const secondMoviesContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
         const postsContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
@@ -59,11 +59,11 @@ describe('Sync', () => {
         typeIndex.relatedRegistrations.related = [
             new TypeRegistration({
                 forClass: [expandIRI('schema:Person')],
-                instanceContainer: personContainerUrl,
+                instanceContainer: userContainerUrl,
             }),
             new TypeRegistration({
                 forClass: [expandIRI('foaf:Person')],
-                instanceContainer: personContainerUrl,
+                instanceContainer: userContainerUrl,
             }),
             new TypeRegistration({
                 forClass: [expandIRI('schema:Movie')],
@@ -83,14 +83,14 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             applicationModels: [
-                { model: Person, registered: true },
+                { model: User, registered: true },
                 { model: Movie, registered: true },
             ],
         });
 
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
-        expect(FakeServer.fetch).toHaveBeenCalledWith(personContainerUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenCalledWith(userContainerUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenCalledWith(firstMoviesContainerUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenCalledWith(secondMoviesContainerUrl, expect.anything());
     });
@@ -115,7 +115,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
         });
 
         // Assert
@@ -151,7 +151,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
         });
 
         // Assert
@@ -189,7 +189,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
         });
 
         // Assert
@@ -229,7 +229,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
         });
 
         // Assert
@@ -271,14 +271,14 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             typeIndexes: [],
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
             onModelsRegistered(_, models) {
                 registeredModels.push(...models);
             },
         });
 
         // Assert
-        expect(registeredModels).toEqual([Person]);
+        expect(registeredModels).toEqual([User]);
 
         expect(FakeServer.fetch).toHaveBeenCalledTimes(8);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, documentUrl, expect.anything());
@@ -323,7 +323,7 @@ describe('Sync', () => {
         // Act - First sync
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
         });
 
         // Assert - First sync
@@ -341,7 +341,7 @@ describe('Sync', () => {
         // Act - Subsequent sync
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Person, registered: true }],
+            applicationModels: [{ model: User, registered: true }],
         });
 
         // Assert - Subsequent sync

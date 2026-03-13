@@ -1,7 +1,7 @@
 import { string, url } from 'zod';
 import { belongsToOne, defineSchema, isContainedBy } from 'soukai-bis';
 
-import Person from './Person';
+import User from './User';
 import PostsCollection from './PostsCollection';
 
 export default defineSchema({
@@ -12,7 +12,7 @@ export default defineSchema({
         authorUrl: url().rdfProperty('author').optional(),
     },
     relations: {
-        author: belongsToOne(() => Person, 'authorUrl'),
+        author: belongsToOne(() => User, 'authorUrl'),
         collection: isContainedBy(PostsCollection),
     },
 });

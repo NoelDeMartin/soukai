@@ -1,34 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
-import Person from 'soukai-bis/testing/stubs/Person';
+import User from 'soukai-bis/testing/stubs/User';
 
 describe('BelongsToManyRelation', () => {
 
     it('initializes empty relations', async () => {
         // Arrange
-        const bob = await Person.create({ name: 'Bob', friendUrls: [] });
+        const bob = await User.create({ name: 'Bob', friendUrls: [] });
 
         // Act
-        const person = await Person.find(bob.url);
+        const user = await User.find(bob.url);
 
         // Assert
-        expect(person?.relatedFriends.loaded).toBe(true);
-        expect(person?.relatedFriends.isEmpty()).toBe(true);
-        expect(person?.friends).toHaveLength(0);
+        expect(user?.relatedFriends.loaded).toBe(true);
+        expect(user?.relatedFriends.isEmpty()).toBe(true);
+        expect(user?.friends).toHaveLength(0);
     });
 
     it('doesn\'t initialize non-empty relations', async () => {
         // Arrange
-        const alice = await Person.create({ name: 'Bob', friendUrls: [] });
-        const bob = await Person.create({ name: 'Bob', friendUrls: [alice.url] });
+        const alice = await User.create({ name: 'Bob', friendUrls: [] });
+        const bob = await User.create({ name: 'Bob', friendUrls: [alice.url] });
 
         // Act
-        const person = await Person.find(bob.url);
+        const user = await User.find(bob.url);
 
         // Assert
-        expect(person?.relatedFriends.loaded).toBe(false);
-        expect(person?.relatedFriends.isEmpty()).toBe(false);
-        expect(person?.friends).toBeUndefined();
+        expect(user?.relatedFriends.loaded).toBe(false);
+        expect(user?.relatedFriends.isEmpty()).toBe(false);
+        expect(user?.friends).toBeUndefined();
     });
 
 });

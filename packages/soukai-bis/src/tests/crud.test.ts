@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
 
-import Person from 'soukai-bis/testing/stubs/Person';
+import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines';
 
@@ -19,7 +19,7 @@ describe('CRUD', () => {
         FakeServer.respondOnce('*', FakeResponse.created()); // Create document
 
         // Act
-        const user = await Person.create({ name, age });
+        const user = await User.create({ name, age });
 
         // Assert
         expect(user.metadata).not.toBeNull();
@@ -55,7 +55,7 @@ describe('CRUD', () => {
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
         const createdAt = new Date(Date.now() - 1000);
-        const user = new Person({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
 
         user.metadata?.setAttribute('url', `${documentUrl}#it-metadata`);
         user.metadata?.setAttribute('createdAt', createdAt);
@@ -125,10 +125,10 @@ describe('CRUD', () => {
         );
 
         // Act
-        const user = await Person.find(`${documentUrl}#it`);
+        const user = await User.find(`${documentUrl}#it`);
 
         // Assert
-        expect(user).toBeInstanceOf(Person);
+        expect(user).toBeInstanceOf(User);
         expect(user?.url).toEqual(`${documentUrl}#it`);
         expect(user?.name).toEqual(name);
         expect(user?.age).toEqual(age);
@@ -139,7 +139,7 @@ describe('CRUD', () => {
         const name = faker.name.firstName();
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
-        const user = new Person({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
 
         FakeServer.respondOnce(documentUrl, FakeResponse.success()); // DELETE document
 

@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
-import Person from 'soukai-bis/testing/stubs/Person';
+import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 
 describe('HasOneRelation', () => {
 
     it('loads related model', async () => {
         // Arrange
-        const user = await Person.create({ name: 'Alice' });
+        const user = await User.create({ name: 'Alice' });
         const post = await Post.create({
             title: 'Hello World',
             authorUrl: user.url,
@@ -26,7 +26,7 @@ describe('HasOneRelation', () => {
 
     it('returns null when related model is missing', async () => {
         // Arrange
-        const user = await Person.create({ name: 'Bob' });
+        const user = await User.create({ name: 'Bob' });
 
         // Act
         await user.loadRelation('lastPost');

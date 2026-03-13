@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 
 import BaseMoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
-import BasePerson from 'soukai-bis/testing/stubs/Person';
+import BaseUser from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
@@ -10,7 +10,7 @@ import { setEngine } from 'soukai-bis/engines';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 
 const fixture = <T = string>(name: string) => loadFixture<T>(`crdts/${name}`);
-const Person = defineSchema(BasePerson, { history: true });
+const User = defineSchema(BaseUser, { history: true });
 const MoviesCollection = defineSchema(BaseMoviesCollection, {
     history: true,
     timestamps: true,
@@ -20,7 +20,7 @@ describe('CRDTs', () => {
 
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
-        bootModels({ Person, MoviesCollection }, true);
+        bootModels({ User, MoviesCollection }, true);
     });
 
     it('Updates metadata and creates operations', async () => {
@@ -37,7 +37,7 @@ describe('CRDTs', () => {
         FakeServer.respondOnce('*', FakeResponse.success());
 
         // Act
-        const griffith = await Person.create({ name: 'Griffith' });
+        const griffith = await User.create({ name: 'Griffith' });
 
         await griffith.update({ name: 'Femto', givenName: 'Wings of Darkness', lastName: null });
         await griffith.update({ name: 'Griffith', givenName: 'Falcon of Light' });
