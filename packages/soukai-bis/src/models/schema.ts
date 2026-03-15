@@ -193,6 +193,6 @@ export function defineSchema<
                 ),
             },
         };
-
+    
     } as unknown as SchemaModelClass<TFields, TRelations, TBaseClass>;
 }
