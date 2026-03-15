@@ -1,6 +1,7 @@
 import z from 'zod';
 
 import { defineSchema } from 'soukai-bis/models/schema';
+import { rdfProperty } from 'soukai-bis/zod/soukai';
 
 export default defineSchema({
     rdfContexts: {
@@ -12,10 +13,10 @@ export default defineSchema({
     rdfClass: 'Person',
     fields: {
         name: z.string().optional(),
-        storageUrls: z.array(z.url()).rdfProperty('pim:storage').default([]),
-        avatarUrl: z.url().rdfProperty('vcard:hasPhoto').optional(),
-        oidcIssuerUrl: z.url().rdfProperty('solid:oidcIssuer').optional(),
-        publicTypeIndexUrls: z.array(z.url()).rdfProperty('solid:publicTypeIndex').default([]),
-        privateTypeIndexUrls: z.array(z.url()).rdfProperty('solid:privateTypeIndex').default([]),
+        storageUrls: rdfProperty(z.array(z.url()), 'pim:storage').default([]),
+        avatarUrl: rdfProperty(z.url(), 'vcard:hasPhoto').optional(),
+        oidcIssuerUrl: rdfProperty(z.url(), 'solid:oidcIssuer').optional(),
+        publicTypeIndexUrls: rdfProperty(z.array(z.url()), 'solid:publicTypeIndex').default([]),
+        privateTypeIndexUrls: rdfProperty(z.array(z.url()), 'solid:privateTypeIndex').default([]),
     },
 });

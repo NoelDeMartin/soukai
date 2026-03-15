@@ -5,6 +5,7 @@ import type { NamedNode, Quad } from '@rdfjs/types';
 import type { Override } from '@noeldemartin/utils';
 import type { ZodObject, ZodType, z } from 'zod';
 
+import { deepMeta, rdfProperty } from 'soukai-bis/zod/soukai';
 import type { SafeInferObject } from 'soukai-bis/zod/types';
 
 import HasOneRelation from './relations/HasOneRelation';
@@ -162,7 +163,7 @@ export function defineSchema<
             rdfContext,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
             slugField:
-                Object.entries(fields).find(([_, definition]) => definition.deepMeta('rdfSlug'))?.[0] ??
+                Object.entries(fields).find(([_, definition]) => deepMeta(definition, 'rdfSlug'))?.[0] ??
                 baseSchema?.slugField,
             rdfClasses: [
                 ...(baseSchema?.rdfClasses ?? []),
@@ -183,7 +184,7 @@ export function defineSchema<
                     Object.entries(fields).map(([field, definition]) => [
                         field,
                         new RDFNamedNode(
-                            expandIRI(definition.rdfProperty() ?? field, {
+                            expandIRI(rdfProperty(definition) ?? field, {
                                 defaultPrefix,
                                 extraContext,
                             }),
@@ -192,6 +193,6 @@ export function defineSchema<
                 ),
             },
         };
-    
+
     } as unknown as SchemaModelClass<TFields, TRelations, TBaseClass>;
 }

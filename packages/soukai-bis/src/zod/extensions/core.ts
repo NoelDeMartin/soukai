@@ -1,50 +1,21 @@
-import { ZodDefault, ZodOptional } from 'zod';
 import type { ZodType } from 'zod';
 
-function getDeepMeta<T extends keyof CustomMeta>(type: ZodType, key: T): CustomMeta[T] | undefined {
-    const meta = type.meta();
-
-    if (meta && key in meta) {
-        return meta[key];
-    }
-
-    if (type instanceof ZodDefault) {
-        return getDeepMeta(type.def.innerType as ZodType, key);
-    }
-
-    if (type instanceof ZodOptional) {
-        return getDeepMeta(type.def.innerType as ZodType, key);
-    }
-
-    return undefined;
-}
-
-export interface CustomMeta {
-    rdfSlug?: boolean;
-    rdfProperty?: string;
-}
+import type { CustomMeta } from 'soukai-bis/zod/soukai';
+import { deepMeta as _deepMeta, rdfProperty as _rdfProperty, useAsSlug as _useAsSlug } from 'soukai-bis/zod/soukai';
 
 export function deepMeta<T extends ZodType, TKey extends keyof CustomMeta>(
     this: T,
     key: TKey,
 ): CustomMeta[TKey] | undefined {
-    return getDeepMeta(this, key);
+    return _deepMeta(this, key);
 }
 
 export function rdfProperty<T extends ZodType>(this: T): string | undefined;
 export function rdfProperty<T extends ZodType>(this: T, value: string): T;
 export function rdfProperty<T extends ZodType>(this: T, value?: string): T | string | undefined {
-    if (typeof value !== 'string') {
-        return this.deepMeta('rdfProperty');
-    }
-
-    return this.meta({ rdfProperty: value });
+    return _rdfProperty(this, value as string);
 }
 
 export function useAsSlug<T extends ZodType>(this: T): T {
-    return this.meta({ rdfSlug: true });
-}
-
-declare module 'zod' {
-    interface GlobalMeta extends CustomMeta {}
+    return _useAsSlug(this);
 }
