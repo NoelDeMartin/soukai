@@ -1,12 +1,12 @@
 import { ZodDefault, ZodOptional } from 'zod';
 import type { ZodType } from 'zod';
 
-export interface CustomMeta {
+export interface SoukaiZodMeta {
     rdfSlug?: boolean;
     rdfProperty?: string;
 }
 
-export function deepMeta<T extends keyof CustomMeta>(type: ZodType, key: T): CustomMeta[T] | undefined {
+export function deepMeta<T extends keyof SoukaiZodMeta>(type: ZodType, key: T): SoukaiZodMeta[T] | undefined {
     const meta = type.meta();
 
     if (meta && key in meta) {
@@ -39,5 +39,5 @@ export function useAsSlug<T extends ZodType>(type: T): T {
 }
 
 declare module 'zod' {
-    interface GlobalMeta extends CustomMeta {}
+    interface GlobalMeta extends SoukaiZodMeta {}
 }

@@ -4,6 +4,7 @@
 // See https://github.com/colinhacks/zod/pull/3445#issuecomment-2091463120
 
 import { z } from 'zod';
+export * from './soukai';
 import * as coreExtensions from './extensions/core';
 
 export type ZodCoreExtensions = typeof coreExtensions;

@@ -1,12 +1,12 @@
 import type { ZodType } from 'zod';
 
-import type { CustomMeta } from 'soukai-bis/zod/soukai';
+import type { SoukaiZodMeta } from 'soukai-bis/zod/soukai';
 import { deepMeta as _deepMeta, rdfProperty as _rdfProperty, useAsSlug as _useAsSlug } from 'soukai-bis/zod/soukai';
 
-export function deepMeta<T extends ZodType, TKey extends keyof CustomMeta>(
+export function deepMeta<T extends ZodType, TKey extends keyof SoukaiZodMeta>(
     this: T,
     key: TKey,
-): CustomMeta[TKey] | undefined {
+): SoukaiZodMeta[TKey] | undefined {
     return _deepMeta(this, key);
 }
 
