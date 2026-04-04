@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
-import z, { ZodError } from 'zod';
+import z from 'zod';
 
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import { setEngine } from 'soukai-bis/engines/state';
 import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
@@ -73,7 +74,7 @@ describe('Model', () => {
     });
 
     it('validates attributes in constructor', () => {
-        expect(() => new User({ name: 'John Doe', email: 'invalid-email' })).toThrow(ZodError);
+        expect(() => new User({ name: 'John Doe', email: 'invalid-email' })).toThrow(InvalidAttributesError);
     });
 
     it('sets url in constructor', () => {

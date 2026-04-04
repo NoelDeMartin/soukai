@@ -17,12 +17,15 @@ import {
     uuid,
 } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import { ZodError } from 'zod';
 import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import type Engine from 'soukai-bis/engines/Engine';
@@ -357,19 +360,27 @@ export default class Model<
                 continue;
             }
 
-            const parsedValue = shape[field]?.parse(value);
+            try {
+                const parsedValue = shape[field]?.parse(value);
 
-            if (!this.attributeValueChanged(this._attributes[field], parsedValue)) {
-                continue;
+                if (!this.attributeValueChanged(this._attributes[field], parsedValue)) {
+                    continue;
+                }
+
+                if (parsedValue === undefined) {
+                    delete this._attributes[field];
+                    this._dirtyAttributes.add(field as FieldName);
+                    continue;
+                }
+
+                newAttributes[field] = parsedValue;
+            } catch (error) {
+                if (error instanceof ZodError) {
+                    throw new InvalidAttributeError(this.static('modelName'), field, error);
+                }
+
+                throw error;
             }
-
-            if (parsedValue === undefined) {
-                delete this._attributes[field];
-                this._dirtyAttributes.add(field as FieldName);
-                continue;
-            }
-
-            newAttributes[field] = parsedValue;
         }
 
         Object.assign(this._attributes, newAttributes);
@@ -701,17 +712,25 @@ export default class Model<
     }
 
     private parseAttributes(values: unknown): Attributes {
-        const attributes = this.static('schema').fields.parse(values) as Attributes;
+        try {
+            const attributes = this.static('schema').fields.parse(values) as Attributes;
 
-        for (const [field, value] of Object.entries(attributes)) {
-            if (value !== undefined) {
-                continue;
+            for (const [field, value] of Object.entries(attributes)) {
+                if (value !== undefined) {
+                    continue;
+                }
+
+                delete attributes[field];
             }
 
-            delete attributes[field];
-        }
+            return attributes;
+        } catch (error) {
+            if (error instanceof ZodError) {
+                throw new InvalidAttributesError(this.static('modelName'), error);
+            }
 
-        return attributes;
+            throw error;
+        }
     }
 
     private isField(property: string): property is FieldName {
