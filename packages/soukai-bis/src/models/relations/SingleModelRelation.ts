@@ -3,7 +3,7 @@ import { type Nullable, tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { classMarker } from 'soukai-bis/models/relations/helpers';
 import type Model from 'soukai-bis/models/Model';
-import type { GetModelAttributes, ModelConstructor } from 'soukai-bis/models/types';
+import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import Relation from './Relation';
 
@@ -28,8 +28,8 @@ export default abstract class SingleModelRelation<
     }
 
     public attach(model: Related): Related;
-    public attach(attributes: GetModelAttributes<Related>): Related;
-    public attach(modelOrAttributes: Related | GetModelAttributes<Related>): Related {
+    public attach(attributes: GetModelInput<RelatedClass>): Related;
+    public attach(modelOrAttributes: Related | GetModelInput<RelatedClass>): Related {
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)

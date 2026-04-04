@@ -14,7 +14,7 @@ describe('BelongsToManyRelation', () => {
 
     it('initializes empty relations', async () => {
         // Arrange
-        const bob = await User.create({ name: 'Bob', friendUrls: [] });
+        const bob = await User.create({ name: 'Bob' });
 
         // Act
         const user = await User.find(bob.url);
@@ -27,7 +27,7 @@ describe('BelongsToManyRelation', () => {
 
     it('doesn\'t initialize non-empty relations', async () => {
         // Arrange
-        const alice = await User.create({ name: 'Bob', friendUrls: [] });
+        const alice = await User.create({ name: 'Bob' });
         const bob = await User.create({ name: 'Bob', friendUrls: [alice.url] });
 
         // Act

@@ -3,7 +3,7 @@ import type { Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
-import type { GetModelAttributes, ModelConstructor } from 'soukai-bis/models/types';
+import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import Relation from './Relation';
 import { classMarker } from './helpers';
@@ -29,8 +29,8 @@ export default abstract class MultiModelRelation<
     }
 
     public attach(model: Related): Related;
-    public attach(attributes: GetModelAttributes<Related>): Related;
-    public attach(modelOrAttributes: Related | GetModelAttributes<Related>): Related {
+    public attach(attributes: GetModelInput<RelatedClass>): Related;
+    public attach(modelOrAttributes: Related | GetModelInput<RelatedClass>): Related {
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)
@@ -63,7 +63,7 @@ export default abstract class MultiModelRelation<
         return model;
     }
 
-    public async create(attributes: GetModelAttributes<Related>): Promise<Related> {
+    public async create(attributes: GetModelInput<RelatedClass>): Promise<Related> {
         return tap(this.attach(attributes), (model) => this.save(model));
     }
 
