@@ -32,6 +32,7 @@ import type Engine from 'soukai-bis/engines/Engine';
 
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
+import { emitModelEvent, onModelEvent } from './concerns/events';
 import { getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { isModelClass } from './utils';
@@ -43,6 +44,7 @@ import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type { Schema } from './schema';
 import type { ModelConstructor, ModelWithHistory, ModelWithTimestamps, ModelWithUrl } from './types';
+import type { ModelEvent, ModelListener } from './concerns/events';
 
 export interface MintUrlOptions {
     containerUrl?: string;
@@ -298,6 +300,14 @@ export default class Model<
         return this.createManyFromRDF(document.getQuads());
     }
 
+    public static on<T extends Model>(
+        this: ModelConstructor<T>,
+        event: ModelEvent,
+        listener: ModelListener<T>,
+    ): () => void {
+        return onModelEvent(this, event, listener);
+    }
+
     public static<T extends typeof Model>(): T;
     public static<T extends typeof Model, K extends keyof T>(property: K): T[K];
     public static<T extends typeof Model, K extends keyof T>(property?: K): T | T[K] {
@@ -545,6 +555,8 @@ export default class Model<
 
         this.setExists(false);
 
+        await emitModelEvent(this, 'deleted');
+
         return this;
     }
 
@@ -553,9 +565,13 @@ export default class Model<
             return this;
         }
 
+        const existed = this.exists();
+
         await this.beforeSave({ containerUrl });
         await this.performSave();
         await this.afterSave();
+        await emitModelEvent(this, existed ? 'updated' : 'created');
+        await emitModelEvent(this, 'saved');
 
         return this as ModelWithUrl<this>;
     }

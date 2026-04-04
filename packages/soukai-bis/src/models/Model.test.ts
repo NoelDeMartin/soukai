@@ -66,6 +66,32 @@ describe('Model', () => {
         `);
     });
 
+    it('emits events', async () => {
+        // Arrange
+        let createCount = 0;
+        let updateCount = 0;
+        let deleteCount = 0;
+        let saveCount = 0;
+
+        Post.on('created', () => createCount++);
+        Post.on('updated', () => updateCount++);
+        Post.on('deleted', () => deleteCount++);
+        Post.on('saved', () => saveCount++);
+
+        // Act
+        const post = await Post.create({ title: 'Event Test' });
+
+        await post.update({ title: 'Event Test Updated' });
+
+        await post.delete();
+
+        // Assert
+        expect(createCount).toBe(1);
+        expect(updateCount).toBe(1);
+        expect(saveCount).toBe(2);
+        expect(deleteCount).toBe(1);
+    });
+
     it('creates instances', () => {
         const user = new User({ name: 'John Doe' });
 
