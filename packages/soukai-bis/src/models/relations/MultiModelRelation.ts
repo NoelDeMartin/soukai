@@ -54,7 +54,9 @@ export default abstract class MultiModelRelation<
             await model.save();
 
             this.setForeignAttributes(model);
-        } else if (this.parent.exists()) {
+        }
+
+        if (this.parent.exists()) {
             await this.parent.save();
         }
 
