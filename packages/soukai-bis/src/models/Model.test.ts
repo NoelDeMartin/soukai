@@ -70,7 +70,7 @@ describe('Model', () => {
         const user = new User({ name: 'John Doe' });
 
         expect(user.name).toEqual('John Doe');
-        expectTypeOf(user).toExtend<{ name: string; email?: string; age?: number; friendUrls: string[] }>();
+        expectTypeOf(user).toExtend<{ name: string; email?: string; age?: number; friendUrls?: string[] }>();
     });
 
     it('validates attributes in constructor', () => {
@@ -277,12 +277,6 @@ describe('Model', () => {
                 resourceUrl: secondUser.url,
                 property: expandIRI('foaf:name'),
                 value: [secondUser.name],
-                date: secondUser.createdAt,
-            }),
-            new SetPropertyOperation({
-                resourceUrl: secondUser.url,
-                property: expandIRI('foaf:knows'),
-                value: [],
                 date: secondUser.createdAt,
             }),
             new SetPropertyOperation({

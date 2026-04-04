@@ -1,3 +1,4 @@
+import { arrayFrom } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
 import type Model from 'soukai-bis/models/Model';
@@ -19,9 +20,10 @@ export default class BelongsToManyRelation<
 
     public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: Map<string, Model> } = {}): Promise<void> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
-        const foreignKeys = Array.isArray(foreignKeyValue) ? foreignKeyValue : [foreignKeyValue];
+        const foreignKeys = arrayFrom(foreignKeyValue, true).map((value) => String(value));
         const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
-        const related = allRelated.filter((model) => foreignKeys.includes(model.getAttribute(this.localKeyName)));
+        const related = allRelated.filter((model) =>
+            foreignKeys.includes(model.getAttribute(this.localKeyName) as string));
         const relatedKeys = related.map((model) => model.getAttribute(this.localKeyName));
 
         this.__modelsInSameDocument = related;
@@ -36,7 +38,7 @@ export default class BelongsToManyRelation<
     public isEmpty(): boolean {
         const foreignKeyName = this.requireForeignKeyName();
         const foreignValue = this.parent.getAttribute(foreignKeyName);
-        const foreignValues = Array.isArray(foreignValue) ? foreignValue : [foreignValue];
+        const foreignValues = arrayFrom(foreignValue, true);
 
         return foreignValues.length === 0;
     }
@@ -50,7 +52,7 @@ export default class BelongsToManyRelation<
 
         const foreignKeyName = this.requireForeignKeyName();
         const foreignValue = this.parent.getAttribute(foreignKeyName);
-        const foreignValues = Array.isArray(foreignValue) ? foreignValue : [foreignValue];
+        const foreignValues = arrayFrom(foreignValue, true);
 
         if (!foreignValues.includes(foreignKey)) {
             this.parent.setAttribute(foreignKeyName, foreignValues.concat([foreignKey]));
@@ -59,7 +61,7 @@ export default class BelongsToManyRelation<
 
     private async loadRelatedModels(): Promise<Related[]> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
-        const foreignKeys = Array.isArray(foreignKeyValue) ? foreignKeyValue : [foreignKeyValue];
+        const foreignKeys = arrayFrom(foreignKeyValue, true);
 
         if (foreignKeys.length === 0) {
             return [];

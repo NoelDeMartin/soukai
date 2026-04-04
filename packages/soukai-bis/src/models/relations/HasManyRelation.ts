@@ -1,5 +1,8 @@
+import { arrayFrom } from '@noeldemartin/utils';
+import { ZodArray } from 'zod';
 import type { Quad } from '@rdfjs/types';
 
+import { getFinalType } from 'soukai-bis/zod/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -38,7 +41,12 @@ export default class HasManyRelation<
         }
 
         const foreignKeyName = this.requireForeignKeyName();
-        const foreignValue = related.getAttribute(foreignKeyName);
+        const fieldDefinition = related.static().schema.fields.def.shape[foreignKeyName];
+        const fieldType = fieldDefinition && getFinalType(fieldDefinition);
+        const foreignValue =
+            fieldType instanceof ZodArray
+                ? arrayFrom(related.getAttribute(foreignKeyName), true)
+                : related.getAttribute(foreignKeyName);
 
         if (!Array.isArray(foreignValue)) {
             related.setAttribute(foreignKeyName, foreignKey);

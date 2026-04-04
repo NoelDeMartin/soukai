@@ -13,7 +13,7 @@ export default defineSchema({
         lastName: string().rdfProperty('lastName').optional().nullable(),
         email: email().optional(),
         age: number().optional(),
-        friendUrls: array(url()).rdfProperty('knows').default([]),
+        friendUrls: array(url()).rdfProperty('knows').optional(),
     },
     relations: {
         posts: hasMany(() => Post, 'authorUrl'),

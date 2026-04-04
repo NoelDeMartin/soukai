@@ -16,7 +16,7 @@ function createInceptionOperations(model: Model, now: Date): Operation[] {
     delete originalAttributes.url;
 
     for (const [field, value] of Object.entries(originalAttributes)) {
-        if (value === null || (Array.isArray(value) && value.length === 0)) {
+        if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) {
             continue;
         }
 
@@ -86,7 +86,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                 continue;
             }
 
-            if (value === undefined || value === null) {
+            if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
                 exists &&
                     modelOperations.push(
                         new UnsetPropertyOperation({
