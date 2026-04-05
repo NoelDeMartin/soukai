@@ -1,11 +1,11 @@
-import { arrayFrom, required } from '@noeldemartin/utils';
+import { arrayFrom, required, tap } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type { Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isModelClass } from 'soukai-bis/models/utils';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import type { RelationConstructor } from './types';
 
@@ -85,13 +85,50 @@ export default abstract class Relation<
         this.related = undefined;
     }
 
+    public async save(model: Related): Promise<Related> {
+        this.assertLoaded('save');
+        this.attach(model);
+
+        if (!this.usingSameDocument) {
+            await model.save();
+
+            this.setForeignAttributes(model);
+        }
+
+        if (this.parent.exists()) {
+            await this.parent.save();
+        }
+
+        return model;
+    }
+
+    public async create(attributes: GetModelInput<RelatedClass>): Promise<Related> {
+        return tap(this.attach(attributes), (model) => this.save(model));
+    }
+
     public abstract load(): Promise<Related | Related[] | null>;
     public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: Map<string, Model> }): Promise<void>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract isEmpty(): boolean | null;
+    public abstract attach(model: Related): Related;
+    public abstract attach(attributes: GetModelInput<RelatedClass>): Related;
 
     protected requiresForeignKey(): boolean {
         return true;
+    }
+
+    protected assertLoaded(method: string): this is { related: Related[] } {
+        if (this.loaded) {
+            return true;
+        }
+
+        if (!this.parent.exists() || this.isEmpty()) {
+            this.related = [];
+
+            return true;
+        }
+
+        throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);
     }
 
 }

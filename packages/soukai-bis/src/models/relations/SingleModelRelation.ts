@@ -48,6 +48,16 @@ export default abstract class SingleModelRelation<
         });
     }
 
+    public async delete(): Promise<void> {
+        if (!this.related) {
+            return;
+        }
+
+        await this.related.delete();
+
+        this.related = null;
+    }
+
     public isEmpty(): boolean | null {
         if (!this.documentModelsLoaded && this.parent.exists()) {
             return null;

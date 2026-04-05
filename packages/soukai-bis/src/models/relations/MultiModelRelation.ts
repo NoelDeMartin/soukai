@@ -1,7 +1,6 @@
 import { tap } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
@@ -46,27 +45,6 @@ export default abstract class MultiModelRelation<
         });
     }
 
-    public async save(model: Related): Promise<Related> {
-        this.assertLoaded('save');
-        this.attach(model);
-
-        if (!this.usingSameDocument) {
-            await model.save();
-
-            this.setForeignAttributes(model);
-        }
-
-        if (this.parent.exists()) {
-            await this.parent.save();
-        }
-
-        return model;
-    }
-
-    public async create(attributes: GetModelInput<RelatedClass>): Promise<Related> {
-        return tap(this.attach(attributes), (model) => this.save(model));
-    }
-
     public isEmpty(): boolean | null {
         if (!this.documentModelsLoaded && this.parent.exists()) {
             return null;
@@ -98,19 +76,5 @@ export default abstract class MultiModelRelation<
     }
 
     public abstract load(): Promise<Related[]>;
-
-    protected assertLoaded(method: string): this is { related: Related[] } {
-        if (this.loaded) {
-            return true;
-        }
-
-        if (!this.parent.exists() || this.isEmpty()) {
-            this.related = [];
-
-            return true;
-        }
-
-        throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);
-    }
 
 }
