@@ -1,4 +1,4 @@
-import { arrayGroupBy, isInstanceOf, objectFromEntries, parseDate, required } from '@noeldemartin/utils';
+import { arrayGroupBy, arrayUnique, isInstanceOf, objectFromEntries, parseDate, required } from '@noeldemartin/utils';
 import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
@@ -271,8 +271,8 @@ export default class Sync {
                 return;
             }
 
-            await this.syncDocumentMetadata(localDocument, remoteDocument);
             await this.syncDocumentOperations(localDocument, remoteDocument);
+            await this.syncDocumentMetadata(localDocument, remoteDocument);
         } catch (error) {
             if (error instanceof DocumentNotFound) {
                 return;
@@ -394,14 +394,21 @@ export default class Sync {
     }
 
     private async syncDocumentOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
-        const resourceUrls = remoteDocument
-            .getQuads()
-            .filter((quad) => quad.predicate.equals(RDF_TYPE_PREDICATE) && this.syncRdfClasses.has(quad.object.value))
-            .map((quad) => quad.subject.value);
+        const resourceUrls = arrayUnique(
+            [remoteDocument, localDocument].flatMap((document) =>
+                document
+                    .getQuads()
+                    .filter(
+                        (quad) =>
+                            quad.predicate.equals(RDF_TYPE_PREDICATE) && this.syncRdfClasses.has(quad.object.value),
+                    )
+                    .map((quad) => quad.subject.value)),
+        );
         const localOperations = await this.getDocumentOperations(localDocument, resourceUrls);
         const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
 
         await this.updateDocument({
+            resourceUrls,
             document: localDocument,
             otherDocument: remoteDocument,
             engine: this.config.localEngine,
@@ -412,6 +419,7 @@ export default class Sync {
         });
 
         await this.updateDocument({
+            resourceUrls,
             document: remoteDocument,
             otherDocument: localDocument,
             engine: this.config.remoteEngine,
@@ -428,14 +436,18 @@ export default class Sync {
         engine,
         existingOperations,
         newOperations,
+        resourceUrls,
     }: {
         document: SolidDocument;
         otherDocument: SolidDocument;
         engine: Engine;
         existingOperations: Operation[];
         newOperations: Operation[];
+        resourceUrls: string[];
     }): Promise<void> {
-        if (newOperations.length === 0) {
+        const newResourceUrls = resourceUrls.filter((url) => !document.contains(url));
+
+        if (newOperations.length === 0 && newResourceUrls.length === 0) {
             return;
         }
 
@@ -493,6 +505,34 @@ export default class Sync {
                     date: metadata.updatedAt,
                 }).setPredicate(CRDT_UPDATED_AT_PREDICATE),
             );
+        }
+
+        for (const resourceUrl of newResourceUrls) {
+            const quads = [
+                ...otherDocument.statements(resourceUrl),
+                ...otherDocument
+                    .statements(undefined, CRDT_RESOURCE_PREDICATE, resourceUrl)
+                    .map((quad) =>
+                        otherDocument.statement(quad.subject.value, RDF_TYPE_PREDICATE, CRDT_METADATA_OBJECT)
+                            ? otherDocument.statements(quad.subject.value)
+                            : [])
+                    .flat(),
+            ];
+
+            for (const quad of quads) {
+                documentOperations.push(
+                    new SetPropertyOperation({
+                        resourceUrl: quad.subject.value,
+                        property: quad.predicate.value,
+                        value: [quad.object.value],
+                        date: new Date(),
+                    })
+                        .setNamedNode(quad.object.termType === 'NamedNode')
+                        .setSubject(quad.subject)
+                        .setPredicate(quad.predicate)
+                        .setValues([quad.object]),
+                );
+            }
         }
 
         await engine.updateDocument(

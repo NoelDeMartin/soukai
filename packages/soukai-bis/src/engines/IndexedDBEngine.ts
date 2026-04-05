@@ -276,7 +276,7 @@ export default class IndexedDBEngine extends Engine {
             }
         }
 
-        return Array.from(virtualContainerUrls.values());
+        return Array.from(virtualContainerUrls);
     }
 
     private async withMetadataTransaction<TResult, TMode extends IDBTransactionMode>(

@@ -9,6 +9,7 @@ import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import type { ModelConstructor } from 'soukai-bis/models/types';
@@ -347,6 +348,55 @@ describe('Sync', () => {
         // Assert - Subsequent sync
         expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, containerUrl, expect.anything());
+    });
+
+    it('syncs new local resources', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const remoteDocument = fixture('movie.ttl', { documentUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:Movie')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        Movie.setEngine(localEngine);
+        WatchAction.setEngine(localEngine);
+
+        await localEngine.createDocument(
+            documentUrl,
+            await quadsToJsonLD([
+                ...turtleToQuadsSync(remoteDocument),
+                ...turtleToQuadsSync(fixture('watch-action.ttl', { documentUrl })),
+            ]),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [
+                { model: Movie, registered: true },
+                { model: WatchAction, registered: false },
+            ],
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
+
+        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-watch-action.sparql'));
     });
 
     it('pulls containers with metadata', async () => {

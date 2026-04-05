@@ -1,0 +1,16 @@
+INSERT DATA {
+    @prefix schema: <https://schema.org/> .
+    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <#action>
+        a schema:WatchAction ;
+        schema:object <#it> ;
+        schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+    <#action-metadata>
+        a crdt:Metadata ;
+        crdt:resource <#action> ;
+        crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+        crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+}
