@@ -147,7 +147,7 @@ export default class IndexedDBEngine extends Engine {
                 return transaction.store.put({
                     url,
                     graph: await quadsToJsonLD(quads),
-                    lastModifiedAt: metadata?.lastModifiedAt ?? document.lastModifiedAt,
+                    lastModifiedAt: metadata?.lastModifiedAt,
                 });
             });
         });

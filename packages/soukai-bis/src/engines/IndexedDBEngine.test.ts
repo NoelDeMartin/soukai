@@ -427,6 +427,31 @@ describe('IndexedDBEngine', () => {
         expect(documents[0]?.lastModifiedAt).toEqual(newLastModifiedAt);
     });
 
+    it('updating documents clears last modified at', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
+
+        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl }, { lastModifiedAt });
+
+        // Act
+        await engine.updateDocument(documentUrl, [
+            new SetPropertyOperation({
+                resourceUrl: documentUrl,
+                property: expandIRI('rdfs:label'),
+                value: ['Updated'],
+                date: new Date(),
+            }),
+        ]);
+
+        // Assert
+        const documents = await getDatabaseDocuments(containerUrl);
+
+        expect(documents).toHaveLength(1);
+        expect(documents[0]?.lastModifiedAt).toBeUndefined();
+    });
+
     async function resetDatabase(): Promise<void> {
         await initMetaDatabase();
     }
