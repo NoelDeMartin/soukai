@@ -278,6 +278,26 @@ describe('IndexedDBEngine', () => {
         });
     });
 
+    it('reads virtual containers', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const childContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
+        const grandchildContainerUrl = fakeContainerUrl({ baseUrl: childContainerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl: grandchildContainerUrl });
+
+        await setDatabaseDocument(grandchildContainerUrl, documentUrl, { '@id': documentUrl });
+
+        // Act
+        const container = await engine.readDocument(containerUrl);
+
+        // Assert
+        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: { '@id': childContainerUrl },
+        });
+    });
+
     it('reads parent containers', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();

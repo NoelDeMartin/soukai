@@ -181,8 +181,11 @@ export default class IndexedDBEngine extends Engine {
 
     private async readContainerDocument(url: string): Promise<SolidDocument> {
         const containerUrls = await this.getContainerUrls();
+        const virtualContainerUrls = this.getVirtualContainerUrls(containerUrls);
         const exists = containerUrls.includes(url);
-        const childContainerUrls = containerUrls.filter((containerUrl) => safeContainerUrl(containerUrl) === url);
+        const childContainerUrls = virtualContainerUrls.filter(
+            (containerUrl) => safeContainerUrl(containerUrl) === url,
+        );
 
         if (!exists && childContainerUrls.length === 0) {
             throw new DocumentNotFound(url);
@@ -260,6 +263,20 @@ export default class IndexedDBEngine extends Engine {
         });
 
         return documents.map((document) => document.url);
+    }
+
+    private getVirtualContainerUrls(containerUrls: string[]): string[] {
+        const virtualContainerUrls = new Set(containerUrls);
+
+        for (const containerUrl of containerUrls) {
+            let url: string | null = containerUrl;
+
+            while ((url = safeContainerUrl(url))) {
+                virtualContainerUrls.add(url);
+            }
+        }
+
+        return Array.from(virtualContainerUrls.values());
     }
 
     private async withMetadataTransaction<TResult, TMode extends IDBTransactionMode>(
