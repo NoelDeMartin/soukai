@@ -300,10 +300,10 @@ export default class Model<
         return this.createManyFromRDF(document.getQuads());
     }
 
-    public static on<T extends Model>(
-        this: ModelConstructor<T>,
-        event: ModelEvent,
-        listener: ModelListener<T>,
+    public static on<TModel extends Model, TEvent extends ModelEvent>(
+        this: ModelConstructor<TModel>,
+        event: TEvent,
+        listener: ModelListener<TModel, TEvent>,
     ): () => void {
         return onModelEvent(this, event, listener);
     }
@@ -364,6 +364,7 @@ export default class Model<
     public setAttributes(attributes: Partial<Attributes>): void {
         const newAttributes: Record<string, unknown> = {};
         const shape = this.static('schema').fields.def.shape;
+        const modifiedFields: string[] = [];
 
         for (const [field, value] of Object.entries(attributes)) {
             if (!(field in shape)) {
@@ -380,10 +381,12 @@ export default class Model<
                 if (parsedValue === undefined) {
                     delete this._attributes[field];
                     this._dirtyAttributes.add(field as FieldName);
+                    modifiedFields.push(field);
                     continue;
                 }
 
                 newAttributes[field] = parsedValue;
+                modifiedFields.push(field);
             } catch (error) {
                 if (error instanceof ZodError) {
                     throw new InvalidAttributeError(this.static('modelName'), field, error);
@@ -395,6 +398,10 @@ export default class Model<
 
         Object.assign(this._attributes, newAttributes);
         Object.keys(newAttributes).forEach((field) => this._dirtyAttributes.add(field as FieldName));
+
+        for (const field of modifiedFields) {
+            emitModelEvent(this, 'modified', field);
+        }
     }
 
     public getOriginalAttributes(): Attributes {
@@ -430,7 +437,10 @@ export default class Model<
     }
 
     public async loadRelation(name: RelationName): Promise<void> {
-        await this.getRelation(name).load();
+        const relation = this.getRelation(name);
+
+        await relation.load();
+        await emitModelEvent(this, 'relation-loaded', relation);
     }
 
     public isRelationLoaded(name: RelationName): boolean {

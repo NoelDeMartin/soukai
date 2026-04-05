@@ -72,11 +72,13 @@ describe('Model', () => {
         let updateCount = 0;
         let deleteCount = 0;
         let saveCount = 0;
+        const modifiedHistory: string[] = [];
 
         Post.on('created', () => createCount++);
         Post.on('updated', () => updateCount++);
         Post.on('deleted', () => deleteCount++);
         Post.on('saved', () => saveCount++);
+        Post.on('modified', (_, field) => modifiedHistory.push(field));
 
         // Act
         const post = await Post.create({ title: 'Event Test' });
@@ -90,6 +92,7 @@ describe('Model', () => {
         expect(updateCount).toBe(1);
         expect(saveCount).toBe(2);
         expect(deleteCount).toBe(1);
+        expect(modifiedHistory).toContain('title');
     });
 
     it('creates instances', () => {
