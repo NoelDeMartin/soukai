@@ -1,18 +1,17 @@
-import { arrayFrom } from '@noeldemartin/utils';
-import { ZodArray } from 'zod';
+import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
-import { getFinalType } from 'soukai-bis/zod/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
+import HasRelation from './HasRelation';
 import MultiModelRelation from './MultiModelRelation';
 
 export default class HasManyRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends MultiModelRelation<Parent, Related, RelatedClass> {
+> extends mixed(MultiModelRelation, [HasRelation])<Parent, Related, RelatedClass> {
 
     public async load(): Promise<Related[]> {
         this.related = await this.loadRelatedModels();
@@ -31,34 +30,6 @@ export default class HasManyRelation<
             this.related = related;
             this.__modelsInSameDocument = related;
         }
-    }
-
-    public setForeignAttributes(related: Related): void {
-        const foreignKey = this.parent.getAttribute(this.localKeyName);
-
-        if (!foreignKey) {
-            return;
-        }
-
-        const foreignKeyName = this.requireForeignKeyName();
-        const fieldDefinition = related.static().schema.fields.def.shape[foreignKeyName];
-        const fieldType = fieldDefinition && getFinalType(fieldDefinition);
-        const foreignValue =
-            fieldType instanceof ZodArray
-                ? arrayFrom(related.getAttribute(foreignKeyName), true)
-                : related.getAttribute(foreignKeyName);
-
-        if (!Array.isArray(foreignValue)) {
-            related.setAttribute(foreignKeyName, foreignKey);
-
-            return;
-        }
-
-        if (foreignValue.includes(foreignKey)) {
-            return;
-        }
-
-        related.setAttribute(foreignKeyName, foreignValue.concat([foreignKey]));
     }
 
     private async loadRelatedModels(): Promise<Related[]> {
