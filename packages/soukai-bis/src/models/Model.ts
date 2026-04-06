@@ -575,13 +575,20 @@ export default class Model<
             return this;
         }
 
-        const existed = this.exists();
+        const dirtyDocumentModels = this.getDirtyDocumentModels();
+        const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
 
         await this.beforeSave({ containerUrl });
         await this.performSave();
         await this.afterSave();
-        await emitModelEvent(this, existed ? 'updated' : 'created');
-        await emitModelEvent(this, 'saved');
+
+        for (let index = 0; index < dirtyDocumentModels.length; index++) {
+            const model = required(dirtyDocumentModels[index]);
+            const existed = dirtyDocumentModelsExisted[index];
+
+            await emitModelEvent(model, existed ? 'updated' : 'created');
+            await emitModelEvent(model, 'saved');
+        }
 
         return this as ModelWithUrl<this>;
     }

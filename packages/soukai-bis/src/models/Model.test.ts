@@ -95,6 +95,32 @@ describe('Model', () => {
         expect(modifiedHistory).toContain('title');
     });
 
+    it('emits events for related models', async () => {
+        // Arrange
+        let createUserCount = 0;
+        let saveUserCount = 0;
+        let createPostCount = 0;
+        let savePostCount = 0;
+
+        User.on('created', () => createUserCount++);
+        User.on('saved', () => saveUserCount++);
+        Post.on('created', () => createPostCount++);
+        Post.on('saved', () => savePostCount++);
+
+        // Act
+        const user = await User.create({ name: 'John Doe' });
+
+        user.relatedPosts.related = [];
+
+        await user.relatedPosts.create({ title: 'Event Test' });
+
+        // Assert
+        expect(createUserCount).toBe(1);
+        expect(saveUserCount).toBe(1);
+        expect(createPostCount).toBe(1);
+        expect(savePostCount).toBe(1);
+    });
+
     it('creates instances', () => {
         const user = new User({ name: 'John Doe' });
 
