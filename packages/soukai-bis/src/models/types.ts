@@ -1,4 +1,4 @@
-import type { Constructor } from '@noeldemartin/utils';
+import type { Constructor, Pretty } from '@noeldemartin/utils';
 
 import type Container from './ldp/Container';
 import type HasManyRelation from './relations/HasManyRelation';
@@ -9,7 +9,7 @@ import type Operation from './crdts/Operation';
 
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
-export type GetModelInput<T extends ModelConstructor> = ConstructorParameters<T>[0];
+export type GetModelInput<T extends ModelConstructor> = Pretty<NonNullable<ConstructorParameters<T>[0]>>;
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;
 export type ModelWithUrl<T extends Model = Model> = T & { url: string };

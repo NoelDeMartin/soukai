@@ -8,7 +8,7 @@ export default defineSchema({
     rdfClass: 'WatchAction',
     fields: {
         startTime: date().optional(),
-        movieUrl: url().rdfProperty('object').optional(),
+        movieUrl: url().rdfProperty('object'),
     },
     relations: {
         movie: belongsToOne(() => Movie, 'movieUrl'),

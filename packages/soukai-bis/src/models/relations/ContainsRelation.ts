@@ -8,23 +8,30 @@ import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import MultiModelRelation from './MultiModelRelation';
 import { classMarker } from './helpers';
+import type { GetRelatedModelInput } from './types';
 
 export default class ContainsRelation<
     Parent extends Container = Container,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends MultiModelRelation<Parent, Related, RelatedClass> {
+> extends MultiModelRelation<Parent, Related, RelatedClass, never> {
 
     public static [classMarker] = ['ContainsRelation', ...MultiModelRelation[classMarker]];
 
     public constructor(parent: Parent, relatedClass: RelatedClass) {
-        super(parent, relatedClass, { foreignKeyName: '__unused__' });
+        super(parent, relatedClass, { foreignKeyName: '__unused__' as never });
 
         if (!isInstanceOf(parent, Container)) {
             throw new SoukaiError(
                 `non-container model initialized for ContainsRelation: ${(parent as Model).static().modelName}`,
             );
         }
+    }
+
+    public addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, never>>(attributes: T): T {
+        // nothing to do here, the related class doesn't have any foreign keys.
+
+        return attributes;
     }
 
     public setForeignAttributes(related: Related): void {
@@ -51,10 +58,12 @@ export default class ContainsRelation<
         return this.parent.resourceUrls.length === 0;
     }
 
-    public async create(attributes: Record<string, unknown> = {}): Promise<Related> {
+    public async create(attributes?: GetRelatedModelInput<RelatedClass, never>): Promise<Related> {
         this.assertParentExists();
 
-        const related = this.relatedClass.newInstance(attributes);
+        const related = this.relatedClass.newInstance(
+            this.addForeignAttributes(attributes ?? ({} as GetRelatedModelInput<RelatedClass, never>)),
+        );
 
         related.url || related.mintUrl({ containerUrl: this.parent.url });
 

@@ -8,12 +8,13 @@ import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
-import type { RelationConstructor } from './types';
+import type { GetRelatedModelInput, RelationConstructor } from './types';
 
 export default abstract class Relation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
+    ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > {
 
     public static inverseHasRelationClasses: Constructor<Relation>[] = [];
@@ -40,8 +41,8 @@ export default abstract class Relation<
         );
     }
 
-    public static(): RelationConstructor<this> {
-        return this.constructor as RelationConstructor<this>;
+    public static(): RelationConstructor {
+        return this.constructor as RelationConstructor;
     }
 
     public parent: Parent;
@@ -110,7 +111,7 @@ export default abstract class Relation<
         return model;
     }
 
-    public async create(attributes: GetModelInput<RelatedClass>): Promise<Related> {
+    public async create(attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>): Promise<Related> {
         return tap(this.attach(attributes), (model) => this.save(model));
     }
 
@@ -119,8 +120,12 @@ export default abstract class Relation<
     public abstract setForeignAttributes(related: Related): void;
     public abstract isEmpty(): boolean | null;
     public abstract attach(model: Related): Related;
-    public abstract attach(attributes: GetModelInput<RelatedClass>): Related;
+    public abstract attach(attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related;
     public abstract isRelated(model: Related): boolean;
+
+    public abstract addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, ForeignKeyName>>(
+        attributes: T
+    ): T;
 
     protected requiresForeignKey(): boolean {
         return true;
@@ -144,7 +149,7 @@ export default abstract class Relation<
         for (const relationName of Object.keys(this.relatedClass.schema.relations)) {
             const relationInstance = model.getRelation(relationName);
 
-            if (!relationInstance.isInverseOf(this)) {
+            if (!relationInstance.isInverseOf(this as Relation)) {
                 continue;
             }
 

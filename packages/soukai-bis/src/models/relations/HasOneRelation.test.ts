@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fakeResourceUrl } from '@noeldemartin/testing';
 
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
@@ -37,8 +38,9 @@ describe('HasOneRelation', () => {
 
     it('attaches related models', () => {
         // Arrange
-        const movie = new Movie({ title: 'Spiderman' });
-        const action = new WatchAction({ startTime: new Date() });
+        const movieUrl = fakeResourceUrl();
+        const movie = new Movie({ url: movieUrl, title: 'Spiderman' });
+        const action = new WatchAction({ startTime: new Date(), movieUrl });
 
         // Act
         movie.relatedAction.attach(action);

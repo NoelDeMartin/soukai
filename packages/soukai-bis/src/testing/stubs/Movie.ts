@@ -5,6 +5,6 @@ import type WatchAction from './WatchAction';
 
 export default class Movie extends Model {
 
-    declare public relatedAction: HasOneRelation<Movie, WatchAction, typeof WatchAction>;
+    declare public relatedAction: HasOneRelation<Movie, WatchAction, typeof WatchAction, 'movieUrl'>;
 
 }

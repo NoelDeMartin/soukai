@@ -6,12 +6,14 @@ import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import Relation from './Relation';
 import { classMarker } from './helpers';
+import type { GetRelatedModelInput } from './types';
 
 export default abstract class MultiModelRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends Relation<Parent, Related, RelatedClass> {
+    ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
+> extends Relation<Parent, Related, RelatedClass, ForeignKeyName> {
 
     public static [classMarker] = ['MultiModelRelation'];
 
@@ -28,12 +30,12 @@ export default abstract class MultiModelRelation<
     }
 
     public attach(model: Related): Related;
-    public attach(attributes: GetModelInput<RelatedClass>): Related;
-    public attach(modelOrAttributes: Related | GetModelInput<RelatedClass>): Related {
+    public attach(attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related;
+    public attach(modelOrAttributes: Related | GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related {
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)
-                : this.relatedClass.newInstance(modelOrAttributes);
+                : this.relatedClass.newInstance(this.addForeignAttributes(modelOrAttributes));
 
         return tap(model, () => {
             if (!this.assertLoaded('attach') || this.isRelated(model)) {

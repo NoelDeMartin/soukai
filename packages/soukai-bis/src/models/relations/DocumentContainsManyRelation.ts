@@ -5,12 +5,13 @@ import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import MultiModelRelation from './MultiModelRelation';
 import { classMarker } from './helpers';
+import type { GetRelatedModelInput } from './types';
 
 export default class DocumentContainsManyRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends MultiModelRelation<Parent, Related, RelatedClass> {
+> extends MultiModelRelation<Parent, Related, RelatedClass, never> {
 
     public static [classMarker] = ['DocumentContainsManyRelation', ...MultiModelRelation[classMarker]];
 
@@ -24,6 +25,12 @@ export default class DocumentContainsManyRelation<
         this.related = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
         this.documentModelsLoaded = true;
         this.__modelsInSameDocument = this.related;
+    }
+
+    public addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, never>>(attributes: T): T {
+        // nothing to do here, the related class doesn't have any foreign keys.
+
+        return attributes;
     }
 
     public setForeignAttributes(): void {

@@ -4,15 +4,16 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isContainerClass } from 'soukai-bis/models/ldp/utils';
 import type Model from 'soukai-bis/models/Model';
 import type Container from 'soukai-bis/models/ldp/Container';
-import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import SingleModelRelation from './SingleModelRelation';
+import type { GetRelatedModelInput } from './types';
 
 export default class IsContainedByRelation<
     Parent extends Model = Model,
     Related extends Container = Container,
-    RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends SingleModelRelation<Parent, Related, RelatedClass> {
+    RelatedClass extends ModelConstructor<Related> & typeof Container = ModelConstructor<Related> & typeof Container,
+> extends SingleModelRelation<Parent, Related, RelatedClass, 'resourceUrls'> {
 
     public static validateRelatedClass(parent: Model, relatedClass: unknown): void {
         if (isContainerClass(relatedClass)) {
@@ -26,7 +27,7 @@ export default class IsContainedByRelation<
     }
 
     public constructor(parent: Parent, relatedClass: RelatedClass) {
-        super(parent, relatedClass, { foreignKeyName: '__unused__' });
+        super(parent, relatedClass, { foreignKeyName: 'resourceUrls' });
     }
 
     public async load(): Promise<Related | null> {
@@ -49,16 +50,25 @@ export default class IsContainedByRelation<
         return false;
     }
 
-    public setForeignAttributes(related: Related): void {
+    public addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, 'resourceUrls'>>(attributes: T): T {
+        const relatedAttributes = attributes as GetModelInput<RelatedClass>;
         const parentDocumentUrl = this.parent.getDocumentUrl();
 
-        if (!parentDocumentUrl || !this.parent.url || related.resourceUrls.includes(parentDocumentUrl)) {
-            return;
+        if (!parentDocumentUrl || !this.parent.url || relatedAttributes.resourceUrls?.includes(parentDocumentUrl)) {
+            return attributes;
         }
 
-        const resourceUrls = related.resourceUrls.concat([parentDocumentUrl]);
+        relatedAttributes.resourceUrls = (relatedAttributes.resourceUrls ?? []).concat([parentDocumentUrl]);
 
-        related.setAttribute('resourceUrls', resourceUrls);
+        return attributes;
+    }
+
+    public setForeignAttributes(related: Related): void {
+        const attributes = related.getAttributes() as GetModelInput<RelatedClass>;
+
+        this.addForeignAttributes(attributes);
+
+        related.setAttribute('resourceUrls', attributes['resourceUrls']);
     }
 
 }

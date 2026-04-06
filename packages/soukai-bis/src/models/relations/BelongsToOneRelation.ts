@@ -1,15 +1,17 @@
+import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
+import BelongsToRelation from './BelongsToRelation';
 import SingleModelRelation from './SingleModelRelation';
 
 export default class BelongsToOneRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
-> extends SingleModelRelation<Parent, Related, RelatedClass> {
+> extends mixed(SingleModelRelation, [BelongsToRelation])<Parent, Related, RelatedClass> {
 
     public async load(): Promise<Related | null> {
         this.related = await this.loadRelatedModel();
