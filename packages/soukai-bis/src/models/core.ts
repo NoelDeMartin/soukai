@@ -8,8 +8,11 @@ import TypeIndex from './interop/TypeIndex';
 import TypeRegistration from './interop/TypeRegistration';
 import UnsetPropertyOperation from './crdts/UnsetPropertyOperation';
 import { bootModels } from './registry';
+import { bootCoreRelations } from './relations/core';
 
 export function bootCoreModels(reset: boolean = false): void {
+    bootCoreRelations();
+
     bootModels(
         {
             Container,

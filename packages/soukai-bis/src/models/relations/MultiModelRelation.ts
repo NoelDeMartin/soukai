@@ -41,6 +41,7 @@ export default abstract class MultiModelRelation<
             }
 
             this.addRelated(model);
+            this.setInverseRelations(model);
             this.setForeignAttributes(model);
         });
     }

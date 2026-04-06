@@ -1,12 +1,13 @@
 import { arrayFrom, required, tap } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-import type { Nullable } from '@noeldemartin/utils';
+import type { Constructor, Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { isModelClass } from 'soukai-bis/models/utils';
+import { isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
+import { isMultiModelRelation, isSingleModelRelation } from './helpers';
 import type { RelationConstructor } from './types';
 
 export default abstract class Relation<
@@ -14,6 +15,9 @@ export default abstract class Relation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > {
+
+    public static inverseHasRelationClasses: Constructor<Relation>[] = [];
+    public static inverseBelongsToRelationClasses: Constructor<Relation>[] = [];
 
     public static newInstance<T extends Relation>(
         this: RelationConstructor<T>,
@@ -34,6 +38,10 @@ export default abstract class Relation<
             `Relation for model ${parent.static().modelName} is not defined correctly, ` +
                 'related value is not a model class.',
         );
+    }
+
+    public static(): RelationConstructor<this> {
+        return this.constructor as RelationConstructor<this>;
     }
 
     public parent: Parent;
@@ -112,6 +120,7 @@ export default abstract class Relation<
     public abstract isEmpty(): boolean | null;
     public abstract attach(model: Related): Related;
     public abstract attach(attributes: GetModelInput<RelatedClass>): Related;
+    public abstract isRelated(model: Related): boolean;
 
     protected requiresForeignKey(): boolean {
         return true;
@@ -129,6 +138,48 @@ export default abstract class Relation<
         }
 
         throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);
+    }
+
+    protected setInverseRelations(model: Related): void {
+        for (const relationName of Object.keys(this.relatedClass.schema.relations)) {
+            const relationInstance = model.getRelation(relationName);
+
+            if (!relationInstance.isInverseOf(this)) {
+                continue;
+            }
+
+            relationInstance.setForeignAttributes(this.parent);
+
+            if (isSingleModelRelation(relationInstance)) {
+                relationInstance.setRelated(this.parent);
+            }
+
+            if (isMultiModelRelation(relationInstance)) {
+                relationInstance.addRelated(this.parent);
+            }
+        }
+    }
+
+    protected isInverseOf(other: Relation): boolean {
+        const isInstanceOf = (inverseClass: Constructor<Relation>) => other instanceof inverseClass;
+
+        if (this.static().inverseBelongsToRelationClasses.some(isInstanceOf)) {
+            return (
+                isModelClassOrSubclass(other.parent.static(), this.relatedClass) &&
+                other.foreignKeyName === this.foreignKeyName &&
+                other.localKeyName === this.localKeyName
+            );
+        }
+
+        if (this.static().inverseHasRelationClasses.some(isInstanceOf)) {
+            return (
+                isModelClassOrSubclass(other.parent.static(), this.relatedClass) &&
+                this.foreignKeyName === other.foreignKeyName &&
+                this.localKeyName === other.localKeyName
+            );
+        }
+
+        return false;
     }
 
 }

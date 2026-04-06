@@ -44,6 +44,7 @@ export default abstract class SingleModelRelation<
             }
 
             this.setRelated(model);
+            this.setInverseRelations(model);
             this.setForeignAttributes(model);
         });
     }
