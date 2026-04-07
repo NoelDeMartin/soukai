@@ -11,9 +11,9 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
-import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import Engine from './Engine';
+import type EngineOperation from './operations/EngineOperation';
 
 export interface LocalDocument {
     url: string;
@@ -115,7 +115,7 @@ export default class IndexedDBEngine extends Engine {
 
     public async updateDocument(
         url: string,
-        operations: Operation[],
+        operations: EngineOperation[],
         metadata?: { lastModifiedAt?: Nullable<Date> },
     ): Promise<void> {
         operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;

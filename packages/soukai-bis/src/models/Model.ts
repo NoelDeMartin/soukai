@@ -1,5 +1,6 @@
 import {
     MagicObject,
+    arrayFilter,
     arrayUnique,
     deepEquals,
     fail,
@@ -22,6 +23,7 @@ import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
@@ -559,9 +561,20 @@ export default class Model<
             return this;
         }
 
+        const resourceUrls = arrayFilter([this.url, this.metadata?.url]);
+        const documentUrl = this.requireDocumentUrl();
         const engine = this.static().requireEngine();
+        const document = await engine.readDocument(documentUrl);
+        const otherQuads = document.getQuads().filter((quad) => !resourceUrls.includes(quad.subject.value));
 
-        await engine.deleteDocument(this.requireDocumentUrl());
+        if (otherQuads.length > 0) {
+            await engine.updateDocument(
+                documentUrl,
+                resourceUrls.map((resourceUrl) => new DeleteResourceOperation(resourceUrl)),
+            );
+        } else {
+            await engine.deleteDocument(documentUrl);
+        }
 
         this.setExists(false);
 

@@ -6,10 +6,10 @@ import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import type Operation from 'soukai-bis/models/crdts/Operation';
 
 import Engine from './Engine';
 import { classMarker } from './utils';
+import type EngineOperation from './operations/EngineOperation';
 
 export default class SolidEngine extends Engine {
 
@@ -50,7 +50,7 @@ export default class SolidEngine extends Engine {
         return this.client.create(url, body, { method: url.endsWith('/') ? 'PUT' : 'PATCH' });
     }
 
-    public async updateDocument(url: string, operations: Operation[], metadata?: unknown): Promise<void> {
+    public async updateDocument(url: string, operations: EngineOperation[], metadata?: unknown): Promise<void> {
         if (metadata) {
             const message = 'SolidEngine does not support metadata updates (they will be handled by the Solid Server)';
 

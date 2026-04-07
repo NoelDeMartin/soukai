@@ -5,9 +5,6 @@ import type { Quad, Quad_Object, Quad_Subject } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { requireBootedModel } from 'soukai-bis/models/registry';
-import type { MintUrlOptions } from 'soukai-bis/models/Model';
-
-import Model from './Operation.schema';
 import {
     CRDT_DATE,
     CRDT_DATE_PREDICATE,
@@ -16,8 +13,12 @@ import {
     RDF_TYPE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/utils/rdf';
+import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
+import type { MintUrlOptions } from 'soukai-bis/models/Model';
 
-export default class Operation extends Model {
+import Model from './Operation.schema';
+
+export default class Operation extends Model implements EngineOperation {
 
     private _subject: Quad_Subject | null = null;
 

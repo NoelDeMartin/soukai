@@ -141,6 +141,7 @@ describe('CRUD', () => {
         const documentUrl = fakeDocumentUrl();
         const user = new User({ url: `${documentUrl}#it`, name, age }, true);
 
+        FakeServer.respondOnce(documentUrl, await user.toTurtle()); // GET document
         FakeServer.respondOnce(documentUrl, FakeResponse.success()); // DELETE document
 
         // Act
@@ -148,8 +149,9 @@ describe('CRUD', () => {
 
         // Assert
         expect(user.exists()).toBe(false);
-        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
-        expect(FakeServer.fetch).toHaveBeenCalledWith(
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            2,
             documentUrl,
             expect.objectContaining({
                 method: 'DELETE',

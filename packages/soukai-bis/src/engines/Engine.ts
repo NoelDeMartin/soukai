@@ -13,7 +13,7 @@ import {
     LDP_CONTAINS,
     LDP_CONTAINS_PREDICATE,
 } from 'soukai-bis/utils/rdf';
-import type Operation from 'soukai-bis/models/crdts/Operation';
+import type EngineOperation from './operations/EngineOperation';
 
 export default abstract class Engine {
 
@@ -27,7 +27,7 @@ export default abstract class Engine {
 
     public abstract updateDocument(
         url: string,
-        operations: Operation[],
+        operations: EngineOperation[],
         metadata?: { lastModifiedAt?: Nullable<Date> }
     ): Promise<void>;
 
@@ -56,7 +56,7 @@ export default abstract class Engine {
         );
     }
 
-    protected filterContainerOperations(operations: Operation[]): Operation[] {
+    protected filterContainerOperations(operations: EngineOperation[]): EngineOperation[] {
         return operations.filter(
             (operation) => !(operation instanceof PropertyOperation) || !operation.hasPredicate(LDP_CONTAINS_PREDICATE),
         );

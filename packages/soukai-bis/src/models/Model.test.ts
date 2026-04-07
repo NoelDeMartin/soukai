@@ -557,7 +557,18 @@ describe('Model', () => {
         await user.delete();
 
         expect(user.exists()).toBe(false);
-        expect(engine.documents[user.url]).toBeUndefined();
+        expect(engine.documents[user.requireDocumentUrl()]).toBeUndefined();
+    });
+
+    it('deletes instances in shared documents', async () => {
+        const documentUrl = fakeDocumentUrl();
+        const alice = await User.create({ url: `${documentUrl}#alice`, name: 'Alice' });
+        const bob = await User.create({ url: `${documentUrl}#bob`, name: 'Bob' });
+
+        await alice.delete();
+
+        expect(alice.exists()).toBe(false);
+        expect(engine.documents[documentUrl]?.graph).toEqualJsonLD(await bob.toJsonLD());
     });
 
     it('mints urls using the slug field', async () => {
