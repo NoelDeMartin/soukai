@@ -4,6 +4,7 @@ import Operation from './crdts/Operation';
 import Person from './identity/Person';
 import Resource from './ldp/Resource';
 import SetPropertyOperation from './crdts/SetPropertyOperation';
+import Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import TypeIndex from './interop/TypeIndex';
 import TypeRegistration from './interop/TypeRegistration';
 import UnsetPropertyOperation from './crdts/UnsetPropertyOperation';
@@ -21,6 +22,7 @@ export function bootCoreModels(reset: boolean = false): void {
             Person,
             Resource,
             SetPropertyOperation,
+            Tombstone,
             TypeIndex,
             TypeRegistration,
             UnsetPropertyOperation,
@@ -36,6 +38,7 @@ declare module './registry' {
         Operation: typeof Operation;
         Resource: typeof Resource;
         SetPropertyOperation: typeof SetPropertyOperation;
+        Tombstone: typeof Tombstone;
         TypeIndex: typeof TypeIndex;
         TypeRegistration: typeof TypeRegistration;
         UnsetPropertyOperation: typeof UnsetPropertyOperation;

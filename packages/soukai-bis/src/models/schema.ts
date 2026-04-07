@@ -151,6 +151,9 @@ export function defineSchema<
         relations.operations = new SchemaRelationDefinition(() => requireBootedModel('Operation'), HasManyRelation, {
             foreignKey: 'resourceUrl',
         }).usingSameDocument();
+        relations.tombstone = new SchemaRelationDefinition(() => requireBootedModel('Tombstone'), HasOneRelation, {
+            foreignKey: 'resourceUrl',
+        }).usingSameDocument();
     }
 
     return class extends (baseClass ?? Model) {

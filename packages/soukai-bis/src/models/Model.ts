@@ -1,6 +1,5 @@
 import {
     MagicObject,
-    arrayFilter,
     arrayUnique,
     deepEquals,
     fail,
@@ -23,7 +22,6 @@ import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
@@ -35,7 +33,7 @@ import type Engine from 'soukai-bis/engines/Engine';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { emitModelEvent, onModelEvent } from './concerns/events';
-import { getDirtyDocumentsUpdates } from './concerns/crdts';
+import { deleteModel, getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { isModelClass } from './utils';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
@@ -44,6 +42,7 @@ import type HasOneRelation from './relations/HasOneRelation';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
+import type Tombstone from './crdts/Tombstone';
 import type { Schema } from './schema';
 import type { ModelConstructor, ModelWithHistory, ModelWithTimestamps, ModelWithUrl } from './types';
 import type { ModelEvent, ModelListener } from './concerns/events';
@@ -323,6 +322,8 @@ export default class Model<
     declare public relatedMetadata?: HasOneRelation<this, Metadata, typeof Metadata>;
     declare public operations?: Operation[];
     declare public relatedOperations?: HasManyRelation<this, Operation, typeof Operation>;
+    declare public tombstone?: Tombstone;
+    declare public relatedTombstone?: HasOneRelation<this, Tombstone, typeof Tombstone>;
 
     protected _exists: boolean = false;
     protected _documentExists: boolean = false;
@@ -561,23 +562,7 @@ export default class Model<
             return this;
         }
 
-        const resourceUrls = arrayFilter([this.url, this.metadata?.url]);
-        const documentUrl = this.requireDocumentUrl();
-        const engine = this.static().requireEngine();
-        const document = await engine.readDocument(documentUrl);
-        const otherQuads = document.getQuads().filter((quad) => !resourceUrls.includes(quad.subject.value));
-
-        if (otherQuads.length > 0) {
-            await engine.updateDocument(
-                documentUrl,
-                resourceUrls.map((resourceUrl) => new DeleteResourceOperation(resourceUrl)),
-            );
-        } else {
-            await engine.deleteDocument(documentUrl);
-        }
-
-        this.setExists(false);
-
+        await this.performDelete();
         await emitModelEvent(this, 'deleted');
 
         return this;
@@ -746,6 +731,27 @@ export default class Model<
             modelDocument.setDocumentExists(true);
             modelDocument.cleanDirty();
         }
+    }
+
+    protected async performDelete(): Promise<void> {
+        if (!this.exists()) {
+            return;
+        }
+
+        const documentUrl = this.requireDocumentUrl();
+        const engine = this.static().requireEngine();
+        const document = await engine.readDocument(documentUrl);
+        const operations = deleteModel(this, document);
+
+        if (operations) {
+            await engine.updateDocument(documentUrl, operations);
+        } else {
+            await engine.deleteDocument(documentUrl);
+
+            this.setDocumentExists(false);
+        }
+
+        this.setExists(false);
     }
 
     protected initializeMetadata(): void {

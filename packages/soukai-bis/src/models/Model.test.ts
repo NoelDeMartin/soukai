@@ -10,7 +10,7 @@ import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import { setEngine } from 'soukai-bis/engines/state';
 import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
-import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
+import { metadataJsonLD, tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
 
 import SetPropertyOperation from './crdts/SetPropertyOperation';
 import { defineSchema } from './schema';
@@ -569,6 +569,21 @@ describe('Model', () => {
 
         expect(alice.exists()).toBe(false);
         expect(engine.documents[documentUrl]?.graph).toEqualJsonLD(await bob.toJsonLD());
+    });
+
+    it('leaves tombstones behind when deleting instances', async () => {
+        class UserWithTombstone extends defineSchema(User, { history: true }) {}
+
+        bootModels({ UserWithTombstone });
+
+        const user = (await UserWithTombstone.create({ name: 'John Doe' })) as ModelWithUrl<UserWithTombstone>;
+
+        await user.delete();
+
+        expect(user.exists()).toBe(false);
+        expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
+            '@graph': [tombstoneJsonLD(user)],
+        });
     });
 
     it('mints urls using the slug field', async () => {

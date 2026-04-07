@@ -1,11 +1,15 @@
-import { objectWithoutEmpty } from '@noeldemartin/utils';
+import { arrayFilter, objectWithoutEmpty, required } from '@noeldemartin/utils';
 import { ZodArray, ZodURL } from 'zod';
+import type { SolidDocument } from '@noeldemartin/solid-utils';
 
+import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getFinalType } from 'soukai-bis/zod/utils';
 import { requireBootedModel } from 'soukai-bis/models/registry';
-import type Operation from 'soukai-bis/models/crdts/Operation';
+import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type Model from 'soukai-bis/models/Model';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+import type { ModelWithUrl } from 'soukai-bis/models/types';
 
 function createInceptionOperations(model: Model, now: Date): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
@@ -139,4 +143,39 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
     }
 
     return Object.values(operations).flat();
+}
+
+export function deleteModel<T extends Model>(
+    model: ModelWithUrl<T>,
+    document: SolidDocument,
+): EngineOperation[] | null {
+    const resourceUrls = arrayFilter([model.url, model.metadata?.url]);
+    const otherQuads = document.getQuads().filter((quad) => !resourceUrls.includes(quad.subject.value));
+
+    if (otherQuads.length === 0 && !model.tracksChanges()) {
+        return null;
+    }
+
+    const operations: EngineOperation[] = resourceUrls.map((resourceUrl) => new DeleteResourceOperation(resourceUrl));
+
+    if (model.tracksChanges()) {
+        const tombstone = required(model.relatedTombstone).attach({ deletedAt: new Date() });
+        const tombstoneUrl = tombstone.mintUrl();
+        const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
+
+        tombstone.cleanDirty();
+        operations.push(
+            new SetPropertyOperation({
+                resourceUrl: tombstoneUrl,
+                property: RDF_TYPE_PREDICATE.value,
+                value: tombstone.static('schema').rdfClasses.map(({ value }) => value),
+                date: tombstone.deletedAt,
+            })
+                .setNamedNode(true)
+                .setPredicate(RDF_TYPE_PREDICATE),
+        );
+        operations.push(...createInceptionOperations(tombstone, tombstone.deletedAt));
+    }
+
+    return operations;
 }

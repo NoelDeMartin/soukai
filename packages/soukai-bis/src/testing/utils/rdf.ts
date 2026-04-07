@@ -1,4 +1,5 @@
 import { expandIRI } from '@noeldemartin/solid-utils';
+import { required } from '@noeldemartin/utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
@@ -11,6 +12,18 @@ export function metadataJsonLD(model: ModelWithTimestamps & ModelWithUrl): JsonL
         [expandIRI('crdt:resource')]: { '@id': model.url },
         [expandIRI('crdt:createdAt')]: { '@type': XSD_DATE_TIME, '@value': model.createdAt.toISOString() },
         [expandIRI('crdt:updatedAt')]: { '@type': XSD_DATE_TIME, '@value': model.updatedAt.toISOString() },
+    };
+}
+
+export function tombstoneJsonLD(model: ModelWithUrl): JsonLD {
+    return {
+        '@id': `${model.url}-tombstone`,
+        '@type': expandIRI('crdt:Tombstone'),
+        [expandIRI('crdt:resource')]: { '@id': model.url },
+        [expandIRI('crdt:deletedAt')]: {
+            '@type': XSD_DATE_TIME,
+            '@value': required(model.tombstone).deletedAt.toISOString(),
+        },
     };
 }
 
