@@ -131,7 +131,7 @@ export function defineSchema<
         : baseClassOrConfig;
     const fields = config.fields ?? ({} as TFields);
     const rdfContext = {
-        default: 'solid',
+        default: 'http://www.w3.org/ns/solid/terms#',
         ...baseSchema?.rdfContext,
         ...(config.rdfContext ? { default: config.rdfContext } : {}),
         ...(config.rdfContexts ? config.rdfContexts : {}),

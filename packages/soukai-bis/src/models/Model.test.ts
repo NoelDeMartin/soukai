@@ -66,6 +66,25 @@ describe('Model', () => {
         `);
     });
 
+    it('defines models with default solid context', async () => {
+        class Stub extends defineSchema({
+            timestamps: false,
+            fields: {
+                name: z.string(),
+            },
+        }) {}
+
+        bootModels({ Stub });
+
+        const instance = await Stub.create({ name: 'John Doe' });
+
+        await expect(await instance.toJsonLD()).toEqualJsonLD({
+            '@id': instance.url,
+            '@type': 'http://www.w3.org/ns/solid/terms#Stub',
+            'http://www.w3.org/ns/solid/terms#name': 'John Doe',
+        });
+    });
+
     it('emits events', async () => {
         // Arrange
         let createCount = 0;

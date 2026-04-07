@@ -354,7 +354,7 @@ export default class Model<
     }
 
     public getAttributes(): Attributes {
-        return this._attributes;
+        return structuredClone(this._attributes);
     }
 
     public setAttribute(field: FieldName, value: unknown): void {
@@ -597,6 +597,20 @@ export default class Model<
         this.setAttributes(attributes);
 
         return this.save();
+    }
+
+    public async fresh(): Promise<this> {
+        if (!this.url) {
+            throw new SoukaiError(`Couldn't get fresh ${this.static('modelName')} instance, url missing.`);
+        }
+
+        const freshInstance = await this.static().find(this.url);
+
+        if (!freshInstance) {
+            throw new SoukaiError(`Couldn't get fresh ${this.static('modelName')} instance with url '${this.url}'.`);
+        }
+
+        return freshInstance as this;
     }
 
     public async toJsonLD(): Promise<JsonLD> {

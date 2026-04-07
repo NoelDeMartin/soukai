@@ -1,3 +1,4 @@
+import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import { stringToCamelCase, tap } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -39,6 +40,10 @@ export function isBooted(model: ModelConstructor): boolean {
 export function boot(model: ModelConstructor, name?: string): void {
     if (isBooted(model)) {
         throw new SoukaiError(`${getMeta(model, 'modelName')} model already booted`);
+    }
+
+    if (model.schema.rdfClasses.length === 0) {
+        model.schema.rdfClasses.push(new RDFNamedNode(`${model.schema.rdfContext.default}${model.modelName}`));
     }
 
     initMeta(model, name);

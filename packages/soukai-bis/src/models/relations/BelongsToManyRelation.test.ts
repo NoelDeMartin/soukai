@@ -91,7 +91,10 @@ describe('BelongsToManyRelation', () => {
         }
 
         class Season extends defineSchema({
-            fields: { name: z.string() },
+            fields: {
+                name: z.string(),
+                episodeUrls: z.array(z.url()).rdfProperty('episodeUrls').default([]),
+            },
             relations: {
                 episodes: belongsToMany(Episode, 'episodeUrls'),
             },
@@ -108,8 +111,13 @@ describe('BelongsToManyRelation', () => {
         const episode = await season.relatedEpisodes.create({ name: 'Episode 1' });
 
         // Assert
+        expect(season.episodeUrls).toEqual([episode.url]);
         expect(episode.season).toBe(season);
         expect(episode.getDocumentUrl()).toBe(season.getDocumentUrl() + '-episode');
+
+        const freshSeason = await season.fresh();
+
+        expect(freshSeason.episodeUrls).toEqual([episode.url]);
     });
 
 });

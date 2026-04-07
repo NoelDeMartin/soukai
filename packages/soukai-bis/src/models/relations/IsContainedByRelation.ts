@@ -1,4 +1,4 @@
-import { requireUrlParentDirectory } from '@noeldemartin/utils';
+import { objectOnly, requireUrlParentDirectory } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isContainerClass } from 'soukai-bis/models/ldp/utils';
@@ -64,7 +64,7 @@ export default class IsContainedByRelation<
     }
 
     public setForeignAttributes(related: Related): void {
-        const attributes = related.getAttributes() as GetModelInput<RelatedClass>;
+        const attributes = objectOnly(related.getAttributes(), ['resourceUrls']) as GetModelInput<RelatedClass>;
 
         this.addForeignAttributes(attributes);
 

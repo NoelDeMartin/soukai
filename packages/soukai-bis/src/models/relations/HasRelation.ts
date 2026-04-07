@@ -1,4 +1,4 @@
-import { arrayFrom } from '@noeldemartin/utils';
+import { arrayFrom, objectOnly } from '@noeldemartin/utils';
 import { ZodArray } from 'zod';
 
 import { getFinalType } from 'soukai-bis/zod/utils';
@@ -43,7 +43,7 @@ export default class HasRelation<
 
     public setForeignAttributes(this: Relation<Parent, Related, RelatedClass, ForeignKeyName>, related: Related): void {
         const foreignKeyName = this.requireForeignKeyName();
-        const attributes = related.getAttributes();
+        const attributes = objectOnly(related.getAttributes(), [foreignKeyName]);
 
         this.addForeignAttributes(attributes as GetRelatedModelInput<RelatedClass, ForeignKeyName>);
 
