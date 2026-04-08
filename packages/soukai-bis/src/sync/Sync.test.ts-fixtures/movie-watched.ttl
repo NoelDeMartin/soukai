@@ -11,3 +11,14 @@
     crdt:resource <{{ documentUrl ?? '' }}#it> ;
     crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
     crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+<{{ documentUrl ?? '' }}#action>
+    a schema:WatchAction ;
+    schema:object <{{ documentUrl ?? '' }}#it> ;
+    schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+<{{ documentUrl ?? '' }}#action-metadata>
+    a crdt:Metadata ;
+    crdt:resource <{{ documentUrl ?? '' }}#action> ;
+    crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .

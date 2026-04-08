@@ -8,10 +8,11 @@ import { getFinalType } from 'soukai-bis/zod/utils';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type Model from 'soukai-bis/models/Model';
+import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 
-function createInceptionOperations(model: Model, now: Date): Operation[] {
+function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const operations: Operation[] = [];
     const schema = model.static('schema');
@@ -40,7 +41,7 @@ function createInceptionOperations(model: Model, now: Date): Operation[] {
             resourceUrl: model.requireUrl(),
             property: property.value,
             value: Array.isArray(value) ? value : [value],
-            date: model.createdAt ?? now,
+            date: model.createdAt ?? createdAt,
         }).setPredicate(property);
 
         if (isNamedNode) {
@@ -145,6 +146,22 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
     return Object.values(operations).flat();
 }
 
+export function createModelInceptionOperations(instance: ModelWithUrl, createdAt: Date): EngineOperation[] {
+    const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
+
+    return [
+        new SetPropertyOperation({
+            resourceUrl: instance.url,
+            property: RDF_TYPE_PREDICATE.value,
+            value: instance.static('schema').rdfClasses.map(({ value }) => value),
+            date: createdAt,
+        })
+            .setNamedNode(true)
+            .setPredicate(RDF_TYPE_PREDICATE),
+        ...createInceptionOperations(instance, createdAt),
+    ];
+}
+
 export function deleteModel<T extends Model>(
     model: ModelWithUrl<T>,
     document: SolidDocument,
@@ -160,21 +177,10 @@ export function deleteModel<T extends Model>(
 
     if (model.tracksChanges()) {
         const tombstone = required(model.relatedTombstone).attach({ deletedAt: new Date() });
-        const tombstoneUrl = tombstone.mintUrl();
-        const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
 
+        tombstone.mintUrl();
         tombstone.cleanDirty();
-        operations.push(
-            new SetPropertyOperation({
-                resourceUrl: tombstoneUrl,
-                property: RDF_TYPE_PREDICATE.value,
-                value: tombstone.static('schema').rdfClasses.map(({ value }) => value),
-                date: tombstone.deletedAt,
-            })
-                .setNamedNode(true)
-                .setPredicate(RDF_TYPE_PREDICATE),
-        );
-        operations.push(...createInceptionOperations(tombstone, tombstone.deletedAt));
+        operations.push(...createModelInceptionOperations(tombstone as ModelWithUrl<Tombstone>, tombstone.deletedAt));
     }
 
     return operations;

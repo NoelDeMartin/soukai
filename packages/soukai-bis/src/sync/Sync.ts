@@ -1,30 +1,19 @@
-import { arrayGroupBy, arrayUnique, isInstanceOf, objectFromEntries, parseDate, required } from '@noeldemartin/utils';
+import { arrayGroupBy, arrayUnique, objectFromEntries, parseDate } from '@noeldemartin/utils';
 import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import Metadata from 'soukai-bis/models/crdts/Metadata';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import { PropertyOperation, SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
-import {
-    CRDT_CREATED_AT,
-    CRDT_CREATED_AT_PREDICATE,
-    CRDT_METADATA,
-    CRDT_METADATA_OBJECT,
-    CRDT_RESOURCE,
-    CRDT_RESOURCE_PREDICATE,
-    CRDT_UPDATED_AT,
-    CRDT_UPDATED_AT_PREDICATE,
-    LDP_CONTAINS_PREDICATE,
-    RDF_TYPE,
-    RDF_TYPE_PREDICATE,
-} from 'soukai-bis/utils/rdf';
+import { SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
+import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
-import type Resource from 'soukai-bis/models/ldp/Resource';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
+import type Resource from 'soukai-bis/models/ldp/Resource';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+
+import { syncDocumentOperations } from './concerns/sync-document-operations';
 
 export interface SyncConfig {
     userProfile: SolidUserProfile;
@@ -77,107 +66,6 @@ export default class Sync {
         const operations = allOperations.flat().filter((operation) => resourceUrls.includes(operation.resourceUrl));
 
         return new Map(operations.map((operation) => [operation.url, operation]));
-    }
-
-    private getDocumentUpdateOperations({
-        existingOperations,
-        newOperations,
-    }: {
-        existingOperations: Operation[];
-        newOperations: Operation[];
-    }): Operation[] {
-        const operations: Operation[] = [];
-        const existingPropertyOperations = existingOperations.filter(
-            (operation) => operation instanceof PropertyOperation,
-        );
-
-        for (const newOperation of newOperations) {
-            operations.push(...newOperation.createDocumentOperations());
-
-            if (
-                isInstanceOf(newOperation, PropertyOperation) &&
-                existingPropertyOperations.some(
-                    (existingOperation) =>
-                        existingOperation.resourceUrl === newOperation.resourceUrl &&
-                        existingOperation.property === newOperation.property &&
-                        existingOperation.date > newOperation.date,
-                )
-            ) {
-                continue;
-            }
-
-            operations.push(newOperation);
-        }
-
-        return operations;
-    }
-
-    private async getMetadataUpdates({
-        document,
-        otherDocument,
-        newOperations,
-    }: {
-        document: SolidDocument;
-        otherDocument: SolidDocument;
-        newOperations: Operation[];
-    }): Promise<Record<string, { exists: boolean; url: string; createdAt: Date; updatedAt: Date }>> {
-        const metadataInstances = await Metadata.createManyFromDocument(document);
-        const otherMetadataInstances = await Metadata.createManyFromDocument(otherDocument);
-        const otherMetadataByResource = objectFromEntries(
-            otherMetadataInstances.map((instance) => [required(instance.resourceUrl), instance]),
-        );
-        const metadataUpdates = new Map(
-            metadataInstances.map((instance) => [
-                required(instance.resourceUrl),
-                {
-                    exists: true,
-                    updated: false,
-                    url: instance.url,
-                    resourceUrl: required(instance.resourceUrl),
-                    createdAt: required(instance.createdAt),
-                    updatedAt: required(instance.updatedAt),
-                },
-            ]),
-        );
-
-        for (const operation of newOperations) {
-            const metadata = metadataUpdates.get(operation.resourceUrl);
-
-            if (!metadata) {
-                const otherMetadata = otherMetadataByResource[operation.resourceUrl];
-
-                if (otherMetadata) {
-                    metadataUpdates.set(operation.resourceUrl, {
-                        exists: false,
-                        updated: true,
-                        url: otherMetadata.url,
-                        resourceUrl: operation.resourceUrl,
-                        createdAt: operation.date,
-                        updatedAt: operation.date,
-                    });
-                }
-
-                continue;
-            }
-
-            if (operation.date < metadata.createdAt) {
-                metadata.createdAt = operation.date;
-                metadata.updated = true;
-            }
-
-            if (operation.date > metadata.updatedAt) {
-                metadata.updatedAt = operation.date;
-                metadata.updated = true;
-            }
-        }
-
-        return objectFromEntries(
-            Array.from(metadataUpdates.values())
-                .filter(({ updated }) => updated)
-                .map(({ exists, url, resourceUrl, createdAt, updatedAt }) => {
-                    return [resourceUrl, { exists, url, createdAt, updatedAt }];
-                }),
-        );
     }
 
     private async skipDocumentPull(documentUrl: string, remoteUpdatedAt?: Date): Promise<boolean> {
@@ -271,7 +159,7 @@ export default class Sync {
                 return;
             }
 
-            await this.syncDocumentOperations(localDocument, remoteDocument);
+            await this.syncDocumentsOperations(localDocument, remoteDocument);
             await this.syncDocumentMetadata(localDocument, remoteDocument);
         } catch (error) {
             if (error instanceof DocumentNotFound) {
@@ -393,7 +281,7 @@ export default class Sync {
         await this.config.localEngine.updateDocument(localDocument.url, [], { lastModifiedAt });
     }
 
-    private async syncDocumentOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
+    private async syncDocumentsOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
         const resourceUrls = arrayUnique(
             [remoteDocument, localDocument].flatMap((document) =>
                 document
@@ -407,7 +295,7 @@ export default class Sync {
         const localOperations = await this.getDocumentOperations(localDocument, resourceUrls);
         const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
 
-        await this.updateDocument({
+        await syncDocumentOperations({
             resourceUrls,
             document: localDocument,
             otherDocument: remoteDocument,
@@ -416,9 +304,10 @@ export default class Sync {
             newOperations: Array.from(remoteOperations.values()).filter(
                 (operation) => !localOperations.has(operation.url),
             ),
+            propagateLastModifiedAt: true,
         });
 
-        await this.updateDocument({
+        await syncDocumentOperations({
             resourceUrls,
             document: remoteDocument,
             otherDocument: localDocument,
@@ -427,121 +316,8 @@ export default class Sync {
             newOperations: Array.from(localOperations.values()).filter(
                 (operation) => !remoteOperations.has(operation.url),
             ),
+            propagateLastModifiedAt: false,
         });
-    }
-
-    private async updateDocument({
-        document,
-        otherDocument,
-        engine,
-        existingOperations,
-        newOperations,
-        resourceUrls,
-    }: {
-        document: SolidDocument;
-        otherDocument: SolidDocument;
-        engine: Engine;
-        existingOperations: Operation[];
-        newOperations: Operation[];
-        resourceUrls: string[];
-    }): Promise<void> {
-        const newResourceUrls = resourceUrls.filter((url) => !document.contains(url));
-
-        if (newOperations.length === 0 && newResourceUrls.length === 0) {
-            return;
-        }
-
-        const documentOperations = this.getDocumentUpdateOperations({ existingOperations, newOperations });
-        const metadataUpdates = await this.getMetadataUpdates({ document, otherDocument, newOperations });
-
-        for (const [resourceUrl, metadata] of Object.entries(metadataUpdates)) {
-            if (!metadata.exists) {
-                documentOperations.push(
-                    new SetPropertyOperation({
-                        resourceUrl: metadata.url,
-                        property: RDF_TYPE,
-                        value: [CRDT_METADATA],
-                        date: metadata.updatedAt,
-                    })
-                        .setNamedNode(true)
-                        .setPredicate(RDF_TYPE_PREDICATE)
-                        .setValues([CRDT_METADATA_OBJECT]),
-                );
-                documentOperations.push(
-                    new SetPropertyOperation({
-                        resourceUrl: metadata.url,
-                        property: CRDT_RESOURCE,
-                        value: [resourceUrl],
-                        date: metadata.updatedAt,
-                    })
-                        .setNamedNode(true)
-                        .setPredicate(CRDT_RESOURCE_PREDICATE),
-                );
-                documentOperations.push(
-                    new SetPropertyOperation({
-                        resourceUrl: metadata.url,
-                        property: CRDT_CREATED_AT,
-                        value: [metadata.updatedAt],
-                        date: metadata.updatedAt,
-                    }).setPredicate(CRDT_CREATED_AT_PREDICATE),
-                );
-                documentOperations.push(
-                    new SetPropertyOperation({
-                        resourceUrl: metadata.url,
-                        property: CRDT_UPDATED_AT,
-                        value: [metadata.updatedAt],
-                        date: metadata.updatedAt,
-                    }).setPredicate(CRDT_UPDATED_AT_PREDICATE),
-                );
-
-                continue;
-            }
-
-            documentOperations.push(
-                new SetPropertyOperation({
-                    resourceUrl: metadata.url,
-                    property: CRDT_UPDATED_AT,
-                    value: [metadata.updatedAt],
-                    date: metadata.updatedAt,
-                }).setPredicate(CRDT_UPDATED_AT_PREDICATE),
-            );
-        }
-
-        for (const resourceUrl of newResourceUrls) {
-            const quads = [
-                ...otherDocument.statements(resourceUrl),
-                ...otherDocument
-                    .statements(undefined, CRDT_RESOURCE_PREDICATE, resourceUrl)
-                    .map((quad) =>
-                        otherDocument.statement(quad.subject.value, RDF_TYPE_PREDICATE, CRDT_METADATA_OBJECT)
-                            ? otherDocument.statements(quad.subject.value)
-                            : [])
-                    .flat(),
-            ];
-
-            for (const quad of quads) {
-                documentOperations.push(
-                    new SetPropertyOperation({
-                        resourceUrl: quad.subject.value,
-                        property: quad.predicate.value,
-                        value: [quad.object.value],
-                        date: new Date(),
-                    })
-                        .setNamedNode(quad.object.termType === 'NamedNode')
-                        .setSubject(quad.subject)
-                        .setPredicate(quad.predicate)
-                        .setValues([quad.object]),
-                );
-            }
-        }
-
-        await engine.updateDocument(
-            document.url,
-            documentOperations,
-            engine === this.config.localEngine
-                ? { lastModifiedAt: otherDocument.getLastModified() ?? undefined }
-                : undefined,
-        );
     }
 
 }

@@ -399,6 +399,63 @@ describe('Sync', () => {
         await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-watch-action.sparql'));
     });
 
+    it('syncs local deletions', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const remoteDocument = fixture('movie-watched.ttl', { documentUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:Movie')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        Movie.setEngine(localEngine);
+        WatchAction.setEngine(localEngine);
+
+        await localEngine.createDocument(
+            documentUrl,
+            await quadsToJsonLD([
+                ...turtleToQuadsSync(fixture('movie.ttl', { documentUrl })),
+                ...turtleToQuadsSync(`
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <${documentUrl}#action-tombstone>
+                        a crdt:Tombstone;
+                        crdt:resource <${documentUrl}#action>;
+                        crdt:deletedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+                `),
+            ]),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [
+                { model: Movie, registered: true },
+                { model: WatchAction, registered: false },
+            ],
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
+
+        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('remove-watch-action.sparql'));
+    });
+
     it('pulls containers with metadata', async () => {
         // Arrange
         const storageUrl = config.userProfile.storageUrls[0];
