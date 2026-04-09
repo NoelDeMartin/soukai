@@ -93,9 +93,9 @@ export default class Sync {
     private async pullChanges(): Promise<void> {
         await this.initializeMatchingContainers();
 
-        for (const containerUrl of this.registeredContainers.keys()) {
-            await this.syncDocument(containerUrl);
-        }
+        await Promise.all(
+            Array.from(this.registeredContainers.keys()).map((containerUrl) => this.syncDocument(containerUrl)),
+        );
     }
 
     private async pushChanges(): Promise<void> {
@@ -180,11 +180,13 @@ export default class Sync {
                 resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
             );
 
-            for (const childDocumentUrl of container?.resourceUrls ?? []) {
-                const childResource = resourcesByUrl[childDocumentUrl];
+            await Promise.all(
+                (container?.resourceUrls ?? []).map((childDocumentUrl) => {
+                    const childResource = resourcesByUrl[childDocumentUrl];
 
-                await this.syncDocument(childDocumentUrl, childResource?.updatedAt);
-            }
+                    return this.syncDocument(childDocumentUrl, childResource?.updatedAt);
+                }),
+            );
         }
 
         return remoteDocument;
@@ -206,36 +208,37 @@ export default class Sync {
 
         await this.syncContainerRegistration(container, pushedModels);
 
-        for (const containerUrl of containerChildren ?? []) {
-            await this.pushContainerDocuments(containerUrl);
-
-            continue;
-        }
+        await Promise.all((containerChildren ?? []).map((containerUrl) => this.pushContainerDocuments(containerUrl)));
     }
 
     private async pushContainerChildrenDocuments(urls: string[] = []): Promise<Set<ModelConstructor>> {
         const rdfClasses = new Set<string>();
 
-        for (const documentUrl of urls) {
-            if (this.visitedDocumentUrls.has(documentUrl)) {
-                continue;
-            }
+        await Promise.all(
+            urls.map(async (documentUrl) => {
+                if (this.visitedDocumentUrls.has(documentUrl)) {
+                    return;
+                }
 
-            const localDocument = await this.config.localEngine.readDocument(documentUrl);
-            const remoteDocument = await this.config.remoteEngine.createDocument(documentUrl, localDocument.getQuads());
-            const lastModifiedAt = parseDate(
-                remoteDocument.headers.get('Date') || remoteDocument.headers.get('Last-Modified'),
-            );
+                const localDocument = await this.config.localEngine.readDocument(documentUrl);
+                const remoteDocument = await this.config.remoteEngine.createDocument(
+                    documentUrl,
+                    localDocument.getQuads(),
+                );
+                const lastModifiedAt = parseDate(
+                    remoteDocument.headers.get('Date') || remoteDocument.headers.get('Last-Modified'),
+                );
 
-            if (lastModifiedAt) {
-                await this.config.localEngine.updateDocument(documentUrl, [], { lastModifiedAt });
-            }
+                if (lastModifiedAt) {
+                    await this.config.localEngine.updateDocument(documentUrl, [], { lastModifiedAt });
+                }
 
-            localDocument
-                .statements(undefined, RDF_TYPE_PREDICATE)
-                .map((quad) => quad.object.value)
-                .forEach((rdfClass) => rdfClasses.add(rdfClass));
-        }
+                localDocument
+                    .statements(undefined, RDF_TYPE_PREDICATE)
+                    .map((quad) => quad.object.value)
+                    .forEach((rdfClass) => rdfClasses.add(rdfClass));
+            }),
+        );
 
         return new Set(
             this.config.applicationModels

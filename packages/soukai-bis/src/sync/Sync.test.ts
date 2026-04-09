@@ -36,7 +36,7 @@ describe('Sync', () => {
 
     beforeEach(() => {
         localEngine = new InMemoryEngine();
-        remoteEngine = new SolidEngine(FakeServer.fetch);
+        remoteEngine = new SolidEngine({ fetch: FakeServer.fetch });
         typeIndex = new TypeIndex();
         config = {
             userProfile,

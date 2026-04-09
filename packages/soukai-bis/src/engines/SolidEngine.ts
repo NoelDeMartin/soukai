@@ -1,5 +1,6 @@
 import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
-import { isDevelopment, isTesting } from '@noeldemartin/utils';
+import { Semaphore, isDevelopment, isTesting } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -11,16 +12,23 @@ import Engine from './Engine';
 import { classMarker } from './utils';
 import type EngineOperation from './operations/EngineOperation';
 
+export interface SolidEngineConfig {
+    fetch?: Nullable<Fetch>;
+    concurrency?: Nullable<number>;
+}
+
 export default class SolidEngine extends Engine {
 
     public static [classMarker] = 'SolidEngine';
 
     private client: SolidClient;
+    private lock: Semaphore;
 
-    public constructor(fetch?: Fetch) {
+    public constructor(config: SolidEngineConfig = {}) {
         super();
 
-        this.client = new SolidClient({ fetch });
+        this.client = new SolidClient({ fetch: config.fetch ?? undefined });
+        this.lock = new Semaphore(config.concurrency ?? 10);
     }
 
     public getFetch(): Fetch | null {
@@ -28,75 +36,83 @@ export default class SolidEngine extends Engine {
     }
 
     public async createDocument(url: string, contents: JsonLD | Quad[], metadata?: unknown): Promise<SolidDocument> {
-        if (metadata) {
-            const message = 'SolidEngine does not support metadata creation (it will be handled by the Solid Server)';
+        return this.lock.run(async () => {
+            if (metadata) {
+                const message =
+                    'SolidEngine does not support metadata creation (it will be handled by the Solid Server)';
 
-            if (isDevelopment() || isTesting()) {
-                throw new SoukaiError(message);
+                if (isDevelopment() || isTesting()) {
+                    throw new SoukaiError(message);
+                }
+
+                // eslint-disable-next-line no-console
+                console.warn(message);
             }
 
-            // eslint-disable-next-line no-console
-            console.warn(message);
-        }
+            if (await this.client.exists(url)) {
+                throw new DocumentAlreadyExists(url);
+            }
 
-        if (await this.client.exists(url)) {
-            throw new DocumentAlreadyExists(url);
-        }
+            const originalQuads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
+            const quads = url.endsWith('/') ? this.filterContainerQuads(originalQuads) : originalQuads;
+            const body = quadsToTurtle(quads);
 
-        const originalQuads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
-        const quads = url.endsWith('/') ? this.filterContainerQuads(originalQuads) : originalQuads;
-        const body = quadsToTurtle(quads);
-
-        return this.client.create(url, body, { method: url.endsWith('/') ? 'PUT' : 'PATCH' });
+            return this.client.create(url, body, { method: url.endsWith('/') ? 'PUT' : 'PATCH' });
+        });
     }
 
     public async updateDocument(url: string, operations: EngineOperation[], metadata?: unknown): Promise<void> {
-        if (metadata) {
-            const message = 'SolidEngine does not support metadata updates (they will be handled by the Solid Server)';
+        await this.lock.run(async () => {
+            if (metadata) {
+                const message =
+                    'SolidEngine does not support metadata updates (they will be handled by the Solid Server)';
 
-            if (isDevelopment() || isTesting()) {
-                throw new SoukaiError(message);
+                if (isDevelopment() || isTesting()) {
+                    throw new SoukaiError(message);
+                }
+
+                // eslint-disable-next-line no-console
+                console.warn(message);
             }
 
-            // eslint-disable-next-line no-console
-            console.warn(message);
-        }
+            operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
 
-        operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
+            if (operations.length === 0) {
+                return;
+            }
 
-        if (operations.length === 0) {
-            return;
-        }
+            const document = await this.client.readIfFound(url);
 
-        const document = await this.client.readIfFound(url);
+            if (!document) {
+                throw new DocumentNotFound(url);
+            }
 
-        if (!document) {
-            throw new DocumentNotFound(url);
-        }
+            const sparql = new SparqlUpdate(document);
 
-        const sparql = new SparqlUpdate(document);
+            for (const operation of operations) {
+                operation.applyToSparql(sparql);
+            }
 
-        for (const operation of operations) {
-            operation.applyToSparql(sparql);
-        }
-
-        await this.client.update(url.endsWith('/') ? document.getDescriptionUrl() : url, sparql, {
-            base: url,
+            await this.client.update(url.endsWith('/') ? document.getDescriptionUrl() : url, sparql, {
+                base: url,
+            });
         });
     }
 
     public async readDocument(url: string): Promise<SolidDocument> {
-        const document = await this.client.readIfFound(url);
+        return this.lock.run(async () => {
+            const document = await this.client.readIfFound(url);
 
-        if (!document) {
-            throw new DocumentNotFound(url);
-        }
+            if (!document) {
+                throw new DocumentNotFound(url);
+            }
 
-        return document;
+            return document;
+        });
     }
 
     public async deleteDocument(url: string): Promise<void> {
-        await this.client.delete(url);
+        await this.lock.run(() => this.client.delete(url));
     }
 
 }

@@ -19,7 +19,7 @@ const MoviesCollection = defineSchema(BaseMoviesCollection, {
 describe('CRDTs', () => {
 
     beforeEach(() => {
-        setEngine(new SolidEngine(FakeServer.fetch));
+        setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
         bootModels({ User, MoviesCollection }, true);
     });
 

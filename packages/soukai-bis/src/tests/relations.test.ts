@@ -10,7 +10,7 @@ import { setEngine } from 'soukai-bis/engines';
 
 describe('Relations', () => {
 
-    beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
+    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('belongsToOne', async () => {
         // Arrange

@@ -16,7 +16,7 @@ describe('SolidEngine', () => {
     let engine: SolidEngine;
 
     beforeEach(() => {
-        engine = new SolidEngine(FakeServer.fetch);
+        engine = new SolidEngine({ fetch: FakeServer.fetch });
     });
 
     it('creates documents', async () => {

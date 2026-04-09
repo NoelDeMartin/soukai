@@ -8,7 +8,7 @@ import { setEngine } from 'soukai-bis/engines';
 
 describe('CRUD', () => {
 
-    beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
+    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('Creates models', async () => {
         // Arrange

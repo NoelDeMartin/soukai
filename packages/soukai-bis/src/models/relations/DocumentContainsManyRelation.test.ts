@@ -7,7 +7,7 @@ import { setEngine } from 'soukai-bis/engines/state';
 
 describe('DocumentContainsManyRelation', () => {
 
-    beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
+    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('loads documents models', async () => {
         // Arrange
