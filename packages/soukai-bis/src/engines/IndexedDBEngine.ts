@@ -1,4 +1,4 @@
-import { openDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { Semaphore } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
@@ -179,6 +179,16 @@ export default class IndexedDBEngine extends Engine {
         }
     }
 
+    public async clear(): Promise<void> {
+        await this.lock.run(async () => {
+            await this.close();
+            await Promise.all([
+                deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() }),
+                deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() }),
+            ]);
+        });
+    }
+
     private async readContainerDocument(url: string): Promise<SolidDocument> {
         const containerUrls = await this.getContainerUrls();
         const virtualContainerUrls = this.getVirtualContainerUrls(containerUrls);
@@ -321,6 +331,7 @@ export default class IndexedDBEngine extends Engine {
 
                 db.createObjectStore('containers', { keyPath: 'url' });
             },
+            blocked: () => this.throwDatabaseBlockedError(),
         }));
     }
 
@@ -341,7 +352,15 @@ export default class IndexedDBEngine extends Engine {
                     database.createObjectStore(containerUrl as '[containerUrl]', { keyPath: 'url' });
                 }
             },
+            blocked: () => this.throwDatabaseBlockedError(),
         }));
+    }
+
+    private throwDatabaseBlockedError(): void {
+        throw new SoukaiError(
+            'An attempt to open an IndexedDB connection has been blocked, ' +
+                'remember to call IndexedDBEngine.close() when necessary. ',
+        );
     }
 
 }
