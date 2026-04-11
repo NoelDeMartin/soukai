@@ -10,3 +10,7 @@ export * from './Relation';
 export * from './fluent';
 export * from './schema';
 export * from './types';
+
+export function isCoreRelation(relation: string): boolean {
+    return ['metadata', 'operations', 'tombstone'].includes(relation);
+}

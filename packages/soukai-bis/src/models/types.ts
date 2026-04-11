@@ -11,6 +11,7 @@ import type Tombstone from './crdts/Tombstone';
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
 export type GetModelInput<T extends ModelConstructor> = Pretty<NonNullable<ConstructorParameters<T>[0]>>;
+export type GetModelRelationName<T extends ModelConstructor> = keyof T['schema']['relations'];
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;
 export type ModelWithUrl<T extends Model = Model> = T & { url: string };
