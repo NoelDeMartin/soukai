@@ -4,7 +4,7 @@ import Operation from './crdts/Operation';
 import Person from './identity/Person';
 import Resource from './ldp/Resource';
 import SetPropertyOperation from './crdts/SetPropertyOperation';
-import Tombstone from 'soukai-bis/models/crdts/Tombstone';
+import Tombstone from './crdts/Tombstone';
 import TypeIndex from './interop/TypeIndex';
 import TypeRegistration from './interop/TypeRegistration';
 import UnsetPropertyOperation from './crdts/UnsetPropertyOperation';

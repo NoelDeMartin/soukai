@@ -6,6 +6,7 @@ import type HasOneRelation from './relations/HasOneRelation';
 import type Metadata from './crdts/Metadata';
 import type Model from './Model';
 import type Operation from './crdts/Operation';
+import type Tombstone from './crdts/Tombstone';
 
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
@@ -24,4 +25,9 @@ export type ModelWithTimestamps<T extends Model = Model> = T & {
 export type ModelWithHistory<T extends Model> = T & {
     operations: Operation[];
     relatedOperations: HasManyRelation<T, Operation, typeof Operation>;
+};
+
+export type ModelWithTombstones<T extends Model> = T & {
+    tombstone: Tombstone;
+    relatedTombstone: HasOneRelation<T, Tombstone, typeof Tombstone>;
 };

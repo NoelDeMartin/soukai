@@ -25,6 +25,7 @@ export type Schema<
     relations: TRelations;
     timestamps: boolean;
     history: boolean;
+    tombstone: boolean;
     rdfContext: { default: string } & Record<string, string>;
     rdfClasses: NamedNode[];
     rdfDefaultResourceHash: string;
@@ -99,6 +100,7 @@ export type SchemaFields = Record<string, ZodType>;
 
 export interface SchemaConfig<TFields extends SchemaFields = SchemaFields, TRelations extends SchemaRelations = {}> {
     history?: boolean;
+    tombstone?: boolean;
     timestamps?: boolean;
     rdfContext?: string;
     rdfContexts?: Record<string, string>;
@@ -140,6 +142,7 @@ export function defineSchema<
     const relations = { ...baseSchema?.relations, ...config.relations };
     const timestamps = config.timestamps ?? baseSchema?.timestamps ?? true;
     const history = config.history ?? baseSchema?.history ?? false;
+    const tombstone = config.tombstone ?? config.history ?? baseSchema?.tombstone ?? false;
 
     if (timestamps) {
         relations.metadata = new SchemaRelationDefinition(() => requireBootedModel('Metadata'), HasOneRelation, {
@@ -151,6 +154,9 @@ export function defineSchema<
         relations.operations = new SchemaRelationDefinition(() => requireBootedModel('Operation'), HasManyRelation, {
             foreignKey: 'resourceUrl',
         }).usingSameDocument();
+    }
+
+    if (tombstone) {
         relations.tombstone = new SchemaRelationDefinition(() => requireBootedModel('Tombstone'), HasOneRelation, {
             foreignKey: 'resourceUrl',
         }).usingSameDocument();
@@ -163,6 +169,7 @@ export function defineSchema<
             relations,
             timestamps,
             history,
+            tombstone,
             rdfContext,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
             slugField:

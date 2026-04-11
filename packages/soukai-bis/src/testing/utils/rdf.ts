@@ -1,5 +1,4 @@
 import { expandIRI } from '@noeldemartin/solid-utils';
-import { required } from '@noeldemartin/utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
@@ -22,7 +21,7 @@ export function tombstoneJsonLD(model: ModelWithUrl): JsonLD {
         [expandIRI('crdt:resource')]: { '@id': model.url },
         [expandIRI('crdt:deletedAt')]: {
             '@type': XSD_DATE_TIME,
-            '@value': required(model.tombstone).deletedAt.toISOString(),
+            '@value': model.tombstone?.deletedAt.toISOString(),
         },
     };
 }

@@ -1,4 +1,4 @@
-import { arrayFilter, objectWithoutEmpty, required } from '@noeldemartin/utils';
+import { arrayFilter, objectWithoutEmpty } from '@noeldemartin/utils';
 import { ZodArray, ZodURL } from 'zod';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
 
@@ -175,8 +175,8 @@ export function deleteModel<T extends Model>(
 
     const operations: EngineOperation[] = resourceUrls.map((resourceUrl) => new DeleteResourceOperation(resourceUrl));
 
-    if (model.tracksChanges()) {
-        const tombstone = required(model.relatedTombstone).attach({ deletedAt: new Date() });
+    if (model.leavesTombstones()) {
+        const tombstone = model.relatedTombstone.attach({ deletedAt: new Date() });
 
         tombstone.mintUrl();
         tombstone.cleanDirty();

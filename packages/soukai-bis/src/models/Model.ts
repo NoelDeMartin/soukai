@@ -37,6 +37,13 @@ import { deleteModel, getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { isModelClass } from './utils';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
+import type {
+    ModelConstructor,
+    ModelWithHistory,
+    ModelWithTimestamps,
+    ModelWithTombstones,
+    ModelWithUrl,
+} from './types';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import type Metadata from './crdts/Metadata';
@@ -44,7 +51,6 @@ import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type Tombstone from './crdts/Tombstone';
 import type { Schema } from './schema';
-import type { ModelConstructor, ModelWithHistory, ModelWithTimestamps, ModelWithUrl } from './types';
 import type { ModelEvent, ModelListener } from './concerns/events';
 
 export interface MintUrlOptions {
@@ -538,6 +544,10 @@ export default class Model<
 
     public tracksChanges(): this is ModelWithHistory<this> {
         return this.static('schema').history;
+    }
+
+    public leavesTombstones(): this is ModelWithTombstones<this> {
+        return this.static('schema').tombstone;
     }
 
     public exists(): this is ModelWithUrl<this> {
