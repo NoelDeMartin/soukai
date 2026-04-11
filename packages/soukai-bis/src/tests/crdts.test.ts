@@ -20,7 +20,7 @@ describe('CRDTs', () => {
 
     beforeEach(() => {
         setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
-        bootModels({ User, MoviesCollection }, true);
+        bootModels({ User, MoviesCollection }, { reset: true });
     });
 
     it('Updates metadata and creates operations', async () => {

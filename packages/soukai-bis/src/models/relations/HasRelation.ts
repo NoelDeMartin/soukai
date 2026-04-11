@@ -29,7 +29,9 @@ export default class HasRelation<
         const fieldDefinition = this.relatedClass.schema.fields.def.shape[String(foreignKeyName)];
         const fieldType = fieldDefinition && getFinalType(fieldDefinition);
         const foreignValue = (
-            fieldType instanceof ZodArray ? arrayFrom(attributes[foreignKeyName], true) : attributes[foreignKeyName]
+            fieldType instanceof ZodArray
+                ? arrayFrom(attributes[foreignKeyName], { ignoreEmptyValues: true })
+                : attributes[foreignKeyName]
         ) as T[ForeignKeyName];
 
         if (!Array.isArray(foreignValue)) {

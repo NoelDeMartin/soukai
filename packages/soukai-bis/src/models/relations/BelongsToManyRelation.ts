@@ -21,7 +21,7 @@ export default class BelongsToManyRelation<
 
     public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: Map<string, Model> } = {}): Promise<void> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
-        const foreignKeys = arrayFrom(foreignKeyValue, true).map((value) => String(value));
+        const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true }).map((value) => String(value));
         const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
         const related = allRelated.filter((model) =>
             foreignKeys.includes(model.getAttribute(this.localKeyName) as string));
@@ -39,7 +39,7 @@ export default class BelongsToManyRelation<
     public isEmpty(): boolean {
         const foreignKeyName = this.requireForeignKeyName();
         const foreignValue = this.parent.getAttribute(foreignKeyName);
-        const foreignValues = arrayFrom(foreignValue, true);
+        const foreignValues = arrayFrom(foreignValue, { ignoreEmptyValues: true });
 
         return foreignValues.length === 0;
     }
@@ -53,7 +53,7 @@ export default class BelongsToManyRelation<
 
         const foreignKeyName = this.requireForeignKeyName();
         const foreignValue = this.parent.getAttribute(foreignKeyName);
-        const foreignValues = arrayFrom(foreignValue, true);
+        const foreignValues = arrayFrom(foreignValue, { ignoreEmptyValues: true });
 
         if (!foreignValues.includes(foreignKey)) {
             this.parent.setAttribute(foreignKeyName, foreignValues.concat([foreignKey]));
@@ -62,7 +62,7 @@ export default class BelongsToManyRelation<
 
     private async loadRelatedModels(): Promise<Related[]> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
-        const foreignKeys = arrayFrom(foreignKeyValue, true);
+        const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true });
 
         if (foreignKeys.length === 0) {
             return [];

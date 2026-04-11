@@ -29,9 +29,9 @@ export function getCoreModels(): ModelConstructor[] {
     return Object.values(coreModels);
 }
 
-export function bootCoreModels(reset: boolean = false): void {
+export function bootCoreModels(options: { reset?: boolean } = {}): void {
     bootCoreRelations();
-    bootModels(coreModels, reset);
+    bootModels(coreModels, options);
 }
 
 declare module './registry' {

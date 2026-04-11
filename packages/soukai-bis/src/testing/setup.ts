@@ -15,7 +15,7 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 
 beforeEach(() => {
     setEngine(new InMemoryEngine());
-    bootCoreModels(true);
+    bootCoreModels({ reset: true });
     bootModels(
         {
             Movie,
@@ -25,7 +25,7 @@ beforeEach(() => {
             PostsCollection,
             WatchAction,
         },
-        true,
+        { reset: true },
     );
 
     FakeServer.reset();

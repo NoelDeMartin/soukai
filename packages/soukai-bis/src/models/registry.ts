@@ -54,10 +54,10 @@ export function getBootedModels(): Map<string, ModelConstructor> {
 
 export function bootModels(
     models: Record<string, { boot(name: string): unknown; reset(): void }>,
-    reset: boolean = false,
+    options: { reset?: boolean } = {},
 ): void {
     for (const [modelName, modelClass] of Object.entries(models)) {
-        reset && modelClass.reset();
+        options.reset && modelClass.reset();
 
         modelClass.boot(modelName);
         bootedModels.set(modelName, modelClass as ModelConstructor);
