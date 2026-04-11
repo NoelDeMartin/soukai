@@ -33,6 +33,7 @@ interface MetadataSchema extends DBSchema {
         key: string;
         value: {
             url: string;
+            dropped?: true;
         };
     };
 }
@@ -153,6 +154,24 @@ export default class IndexedDBEngine extends Engine {
         });
     }
 
+    public async dropContainers(containerUrls: string[]): Promise<void> {
+        await this.lock.run(async () => {
+            await this.withMetadataTransaction('readwrite', async (transaction) => {
+                for (const containerUrl of containerUrls) {
+                    const existingContainer = await transaction.store.get(containerUrl);
+
+                    if (!existingContainer || existingContainer.dropped) {
+                        continue;
+                    }
+
+                    await transaction.store.put({ url: containerUrl, dropped: true });
+                }
+            });
+
+            await this.syncContainerStores();
+        });
+    }
+
     public async deleteDocument(url: string): Promise<void> {
         await this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
@@ -267,12 +286,18 @@ export default class IndexedDBEngine extends Engine {
         return containerUrls.includes(url);
     }
 
-    private async getContainerUrls(): Promise<string[]> {
+    private async getContainersMetadata(): Promise<{ url: string; dropped?: true }[]> {
         const documents = await this.withMetadataTransaction('readonly', (transaction) => {
             return transaction.store.getAll();
         });
 
-        return documents.map((document) => document.url);
+        return documents;
+    }
+
+    private async getContainerUrls(): Promise<string[]> {
+        const documents = await this.getContainersMetadata();
+
+        return documents.filter((document) => !document.dropped).map((document) => document.url);
     }
 
     private getVirtualContainerUrls(containerUrls: string[]): string[] {
@@ -340,20 +365,27 @@ export default class IndexedDBEngine extends Engine {
             return this.documentsConnection;
         }
 
-        const containerUrls = await this.getContainerUrls();
+        const containers = await this.getContainersMetadata();
 
-        return (this.documentsConnection = openDB<DocumentsSchema>(this.database, containerUrls.length + 1, {
+        return (this.documentsConnection = openDB<DocumentsSchema>(this.database, containers.length + 1, {
             upgrade(database) {
-                for (const containerUrl of containerUrls) {
-                    if (database.objectStoreNames.contains(containerUrl as '[containerUrl]')) {
-                        continue;
+                for (const container of containers) {
+                    if (container.dropped && database.objectStoreNames.contains(container.url as '[containerUrl]')) {
+                        database.deleteObjectStore(container.url as '[containerUrl]');
                     }
 
-                    database.createObjectStore(containerUrl as '[containerUrl]', { keyPath: 'url' });
+                    if (!container.dropped && !database.objectStoreNames.contains(container.url as '[containerUrl]')) {
+                        database.createObjectStore(container.url as '[containerUrl]', { keyPath: 'url' });
+                    }
                 }
             },
             blocked: () => this.throwDatabaseBlockedError(),
         }));
+    }
+
+    private async syncContainerStores(): Promise<void> {
+        await this.close();
+        await this.getDocumentsConnection();
     }
 
     private throwDatabaseBlockedError(): void {

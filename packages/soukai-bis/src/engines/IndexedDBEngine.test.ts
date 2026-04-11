@@ -8,6 +8,7 @@ import type { IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
@@ -452,6 +453,39 @@ describe('IndexedDBEngine', () => {
         expect(documents[0]?.lastModifiedAt).toBeUndefined();
     });
 
+    it('drops containers', async () => {
+        // Arrange
+        const containerUrls = [fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl()] as const;
+        const documentUrl = fakeDocumentUrl({ containerUrl: containerUrls[0] });
+
+        await setDatabaseDocument(containerUrls[0], documentUrl, {
+            '@id': documentUrl,
+        });
+
+        closeConnections();
+
+        await engine.createDocument(containerUrls[1], {
+            '@id': containerUrls[1],
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+        await engine.createDocument(containerUrls[2], {
+            '@id': containerUrls[2],
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+        await engine.createDocument(containerUrls[3], {
+            '@id': containerUrls[3],
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        // Act
+        await engine.dropContainers([containerUrls[0], containerUrls[1]]);
+
+        // Assert
+        await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
+
+        await engine.close();
+    });
+
     async function resetDatabase(): Promise<void> {
         await initMetaDatabase();
     }
@@ -484,8 +518,8 @@ describe('IndexedDBEngine', () => {
         await deleteDB(`${databaseName}`);
     }
 
-    async function getDatabaseDocuments(containers: string): Promise<Record<string, unknown>[]> {
-        const transaction = await getContainerTransaction(containers, 'readonly');
+    async function getDatabaseDocuments(containerUrl: string): Promise<Record<string, unknown>[]> {
+        const transaction = await getContainerTransaction(containerUrl, 'readonly');
 
         return transaction.store.getAll();
     }
