@@ -1,5 +1,6 @@
 export * from './core';
 export * from './crdts';
+export * from './events';
 export * from './identity';
 export * from './interop';
 export * from './ldp';

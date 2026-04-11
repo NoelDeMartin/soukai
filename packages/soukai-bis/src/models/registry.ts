@@ -48,6 +48,10 @@ export function requireBootedModel(name: string): ModelConstructor {
     );
 }
 
+export function getBootedModels(): Map<string, ModelConstructor> {
+    return new Map(bootedModels);
+}
+
 export function bootModels(
     models: Record<string, { boot(name: string): unknown; reset(): void }>,
     reset: boolean = false,
