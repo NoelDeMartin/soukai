@@ -10,25 +10,28 @@ import TypeRegistration from './interop/TypeRegistration';
 import UnsetPropertyOperation from './crdts/UnsetPropertyOperation';
 import { bootModels } from './registry';
 import { bootCoreRelations } from './relations/core';
+import type { ModelConstructor } from './types';
+
+const coreModels = {
+    Container,
+    Metadata,
+    Operation,
+    Person,
+    Resource,
+    SetPropertyOperation,
+    Tombstone,
+    TypeIndex,
+    TypeRegistration,
+    UnsetPropertyOperation,
+};
+
+export function getCoreModels(): ModelConstructor[] {
+    return Object.values(coreModels);
+}
 
 export function bootCoreModels(reset: boolean = false): void {
     bootCoreRelations();
-
-    bootModels(
-        {
-            Container,
-            Metadata,
-            Operation,
-            Person,
-            Resource,
-            SetPropertyOperation,
-            Tombstone,
-            TypeIndex,
-            TypeRegistration,
-            UnsetPropertyOperation,
-        },
-        reset,
-    );
+    bootModels(coreModels, reset);
 }
 
 declare module './registry' {
