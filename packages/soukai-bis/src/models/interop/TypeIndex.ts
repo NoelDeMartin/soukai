@@ -3,7 +3,7 @@ import { createPrivateTypeIndex } from '@noeldemartin/solid-utils';
 import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
-import type { ContainerConstructor, ModelConstructor } from 'soukai-bis/models/types';
+import type { ContainerConstructor, ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './TypeIndex.schema';
 
@@ -35,7 +35,7 @@ export default class TypeIndex extends Model {
     public static async createPrivate<T extends TypeIndex>(
         this: ModelConstructor<T>,
         user: SolidUserProfile,
-    ): Promise<T> {
+    ): Promise<ModelWithUrl<T>> {
         const url = await createPrivateTypeIndex(user, TypeIndex.requireFetch());
         const instance = await this.findOrFail(url);
 
