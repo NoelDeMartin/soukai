@@ -4,7 +4,7 @@ import type Model from 'soukai-bis/models/Model';
 import type Relation from 'soukai-bis/models/relations/Relation';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
-const listeners: WeakMap<ModelConstructor, Record<string, ModelListener[]>> = new WeakMap();
+let listeners: WeakMap<ModelConstructor, Record<string, ModelListener[]>> = new WeakMap();
 
 export interface ModelEvents {
     created: void;
@@ -49,4 +49,8 @@ export function onModelEvent<TModel extends Model, TEvent extends ModelEvent>(
     eventListeners.push(listener as ModelListener<TModel, TEvent>);
 
     return () => arrayRemove(eventListeners, listener as ModelListener<TModel, TEvent>);
+}
+
+export function resetModelListeners(): void {
+    listeners = new WeakMap();
 }
