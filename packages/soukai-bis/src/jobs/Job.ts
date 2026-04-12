@@ -12,7 +12,7 @@ export default abstract class Job<
 > {
 
     protected status: Status;
-    protected _listeners: ListenersManager<JobListener>;
+    protected _listeners: ListenersManager<Listener>;
     protected _progress?: number;
     protected _cancelled?: PromisedValue<void>;
     protected _started: PromisedValue<void>;
@@ -136,7 +136,7 @@ export default abstract class Job<
 
         this._progress = progress;
 
-        await this._listeners.emit('onUpdated', progress);
+        await (this._listeners as ListenersManager<JobListener>).emit('onUpdated', progress);
     }
 
     protected serializeStatus(status: Status): SerializedStatus {

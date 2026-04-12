@@ -26,23 +26,33 @@ export interface SyncConfig {
         model: ModelConstructor;
         registered: boolean;
     }[];
-    onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
 }
 
 export interface SyncJobStatus extends JobStatus {
     children: [JobStatus, JobStatus];
 }
 
-export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus> {
+export interface SyncJobListener extends JobListener {
+    onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
+    onFinished?(result: { syncedDocumentUrls: Set<string>; documentsWithErrors: Set<string> }): unknown;
+}
 
-    public static async run(config: SyncConfig): Promise<void> {
+export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobStatus> {
+
+    public static async run(config: SyncConfig & SyncJobListener): Promise<void> {
         const job = new Sync(config);
+
+        job.listeners.add({
+            onModelsRegistered: (typeIndex, models) => config.onModelsRegistered?.(typeIndex, models),
+            onFinished: (result) => config.onFinished?.(result),
+            onUpdated: (progress) => config.onUpdated?.(progress),
+        });
 
         await job.run();
     }
 
     public readonly documentsWithErrors = new Set<string>();
-    private visitedDocumentUrls = new Set<string>();
+    public readonly syncedDocumentUrls = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private syncRdfClasses: Set<string>;
 
@@ -119,6 +129,10 @@ export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus>
     private async pushChanges(): Promise<void> {
         await this.pushContainerDocuments(this.config.userProfile.storageUrls[0]);
         await this.updateProgress((status) => (status.children[0].completed = true));
+        await this._listeners.emit('onFinished', {
+            syncedDocumentUrls: this.syncedDocumentUrls,
+            documentsWithErrors: this.documentsWithErrors,
+        });
     }
 
     private async initializeMatchingContainers(): Promise<void> {
@@ -154,7 +168,7 @@ export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus>
     private async syncDocument(documentUrl: string, remoteUpdatedAt?: Date): Promise<void> {
         this.assertNotCancelled();
 
-        this.visitedDocumentUrls.add(documentUrl);
+        this.syncedDocumentUrls.add(documentUrl);
 
         try {
             if (await this.skipDocumentPull(documentUrl, remoteUpdatedAt)) {
@@ -239,7 +253,7 @@ export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus>
 
         await Promise.all(
             urls.map(async (documentUrl) => {
-                if (this.visitedDocumentUrls.has(documentUrl)) {
+                if (this.syncedDocumentUrls.has(documentUrl)) {
                     return;
                 }
 
@@ -294,7 +308,7 @@ export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus>
         const typeIndex = this.config.typeIndexes[0] ?? (await TypeIndex.createPrivate(this.config.userProfile));
 
         await container.register(typeIndex, Array.from(models));
-        await this.config.onModelsRegistered?.(typeIndex, Array.from(models));
+        await this._listeners.emit('onModelsRegistered', typeIndex, Array.from(models));
     }
 
     private async syncDocumentMetadata(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
