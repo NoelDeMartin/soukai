@@ -16,7 +16,7 @@ export default class Container extends Model {
         this: ModelConstructor<T>,
         typeIndex: string | ModelWithUrl<TypeIndex>,
         childrenModelClass: ModelConstructor,
-    ): Promise<T[]> {
+    ): Promise<ModelWithUrl<T>[]> {
         const engine = this.requireEngine();
         const fetch = engine instanceof SolidEngine ? engine.getFetch() : undefined;
         const urls = await findContainerRegistrations(
@@ -25,7 +25,7 @@ export default class Container extends Model {
             fetch as Fetch,
         );
 
-        return urls.map((url) => this.newInstance({ url }, true));
+        return urls.map((url) => this.newInstance({ url }, true) as ModelWithUrl<T>);
     }
 
     public async register(
