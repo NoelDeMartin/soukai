@@ -1,13 +1,32 @@
 import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from '@noeldemartin/utils';
+import { findContainerRegistrations } from '@noeldemartin/solid-utils';
+import type { Fetch } from '@noeldemartin/solid-utils';
 
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { MintUrlOptions } from 'soukai-bis/models/Model';
 
 import Model from './Container.schema';
 
 export default class Container extends Model {
+
+    public static async createFromTypeIndex<T extends Container>(
+        this: ModelConstructor<T>,
+        typeIndex: string | ModelWithUrl<TypeIndex>,
+        childrenModelClass: ModelConstructor,
+    ): Promise<T[]> {
+        const engine = this.requireEngine();
+        const fetch = engine instanceof SolidEngine ? engine.getFetch() : undefined;
+        const urls = await findContainerRegistrations(
+            typeof typeIndex === 'string' ? typeIndex : typeIndex.url,
+            childrenModelClass.schema.rdfClasses.map((rdfClass) => rdfClass.value),
+            fetch as Fetch,
+        );
+
+        return urls.map((url) => this.newInstance({ url }, true));
+    }
 
     public async register(
         typeIndex: string | TypeIndex,
