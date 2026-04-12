@@ -186,6 +186,12 @@ export default class IndexedDBEngine extends Engine {
         });
     }
 
+    public async getContainerUrls(): Promise<string[]> {
+        const documents = await this.getContainersMetadata();
+
+        return documents.filter((document) => !document.dropped).map((document) => document.url);
+    }
+
     public async close(): Promise<void> {
         if (this.metadataConnection) {
             (await this.metadataConnection).close();
@@ -292,12 +298,6 @@ export default class IndexedDBEngine extends Engine {
         });
 
         return documents;
-    }
-
-    private async getContainerUrls(): Promise<string[]> {
-        const documents = await this.getContainersMetadata();
-
-        return documents.filter((document) => !document.dropped).map((document) => document.url);
     }
 
     private getVirtualContainerUrls(containerUrls: string[]): string[] {

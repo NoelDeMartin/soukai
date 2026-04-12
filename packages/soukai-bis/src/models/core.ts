@@ -29,6 +29,10 @@ export function getCoreModels(): ModelConstructor[] {
     return Object.values(coreModels);
 }
 
+export function isCoreModel(modelClass: ModelConstructor): boolean {
+    return getCoreModels().includes(modelClass);
+}
+
 export function bootCoreModels(options: { reset?: boolean } = {}): void {
     bootCoreRelations();
     bootModels(coreModels, options);
