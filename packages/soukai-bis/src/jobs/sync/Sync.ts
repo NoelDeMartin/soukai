@@ -4,6 +4,7 @@ import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils'
 import Container from 'soukai-bis/models/ldp/Container';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import Job from 'soukai-bis/jobs/Job';
 import { SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
@@ -12,6 +13,7 @@ import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Resource from 'soukai-bis/models/ldp/Resource';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
 
 import { syncDocumentOperations } from './concerns/sync-document-operations';
 
@@ -27,19 +29,25 @@ export interface SyncConfig {
     onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
 }
 
-export default class Sync {
+export interface SyncJobStatus extends JobStatus {
+    children: [JobStatus, JobStatus];
+}
+
+export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus> {
 
     public static async run(config: SyncConfig): Promise<void> {
         const job = new Sync(config);
 
-        await job.sync();
+        await job.run();
     }
 
     private visitedDocumentUrls = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private syncRdfClasses: Set<string>;
 
-    private constructor(private config: SyncConfig) {
+    public constructor(private config: SyncConfig) {
+        super();
+
         this.syncRdfClasses = new Set(
             Array.from(this.config.applicationModels)
                 .map((model) => model.model)
@@ -49,9 +57,16 @@ export default class Sync {
         );
     }
 
-    private async sync(): Promise<void> {
+    protected async run(): Promise<void> {
         await this.pullChanges();
         await this.pushChanges();
+    }
+
+    protected override getInitialStatus(): SyncJobStatus {
+        return {
+            completed: false,
+            children: [{ completed: false }, { completed: false }],
+        };
     }
 
     private async getDocumentOperations(
@@ -96,10 +111,13 @@ export default class Sync {
         await Promise.all(
             Array.from(this.registeredContainers.keys()).map((containerUrl) => this.syncDocument(containerUrl)),
         );
+
+        await this.updateProgress((status) => (status.children[0].completed = true));
     }
 
     private async pushChanges(): Promise<void> {
         await this.pushContainerDocuments(this.config.userProfile.storageUrls[0]);
+        await this.updateProgress((status) => (status.children[0].completed = true));
     }
 
     private async initializeMatchingContainers(): Promise<void> {
@@ -133,6 +151,8 @@ export default class Sync {
     }
 
     private async syncDocument(documentUrl: string, remoteUpdatedAt?: Date): Promise<void> {
+        this.assertNotCancelled();
+
         this.visitedDocumentUrls.add(documentUrl);
 
         try {
@@ -193,6 +213,8 @@ export default class Sync {
     }
 
     private async pushContainerDocuments(url: string): Promise<void> {
+        this.assertNotCancelled();
+
         const document = await this.config.localEngine.readDocumentIfExists(url);
         const container = document && (await Container.createFromDocument(document, { url }));
 
