@@ -315,10 +315,11 @@ export default class Model<
         return onModelEvent(this, event, listener);
     }
 
-    public static<T extends typeof Model>(): T;
-    public static<T extends typeof Model, K extends keyof T>(property: K): T[K];
-    public static<T extends typeof Model, K extends keyof T>(property?: K): T | T[K] {
-        return super.static<T, K>(property as K);
+    public static<T extends ModelConstructor<this>>(): T;
+    public static<T extends ModelConstructor<this>, K extends keyof T>(property: K): T[K];
+    public static<T extends ModelConstructor<this>, K extends keyof T>(property?: K): T | T[K] {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return super.static<any, any>(property);
     }
 
     declare public url?: string;
@@ -341,7 +342,7 @@ export default class Model<
     public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
         super();
 
-        if (this.static().isConjuring()) {
+        if ((this.static() as unknown as typeof Model).isConjuring()) {
             this._attributes = {} as unknown as Attributes;
             this._originalAttributes = {} as unknown as Attributes;
             this._dirtyAttributes = new Set();
