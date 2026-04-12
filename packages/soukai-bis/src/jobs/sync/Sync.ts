@@ -41,6 +41,7 @@ export default class Sync extends Job<JobListener, SyncJobStatus, SyncJobStatus>
         await job.run();
     }
 
+    public readonly documentsWithErrors = new Set<string>();
     private visitedDocumentUrls = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private syncRdfClasses: Set<string>;
