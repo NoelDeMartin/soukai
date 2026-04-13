@@ -305,12 +305,15 @@ describe('IndexedDBEngine', () => {
         const childContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
         const documentUrl = fakeDocumentUrl({ containerUrl: childContainerUrl });
 
+        await setDatabaseDocument(containerUrl, childContainerUrl, { '@id': containerUrl });
         await setDatabaseDocument(childContainerUrl, documentUrl, { '@id': documentUrl });
 
         // Act
         const container = await engine.readDocument(containerUrl);
 
         // Assert
+        expect(container.getQuads()).toHaveLength(3);
+
         await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
             '@id': containerUrl,
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],

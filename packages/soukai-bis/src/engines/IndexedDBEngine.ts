@@ -1,6 +1,6 @@
 import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import { Semaphore } from '@noeldemartin/utils';
+import { Semaphore, arrayUnique } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
@@ -237,7 +237,9 @@ export default class IndexedDBEngine extends Engine {
         childrenUrls.push(...childContainerUrls);
 
         document.addQuads(
-            childrenUrls.map((child) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(child))),
+            arrayUnique(childrenUrls).map(
+                (child) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(child)),
+            ),
         );
 
         return document;
