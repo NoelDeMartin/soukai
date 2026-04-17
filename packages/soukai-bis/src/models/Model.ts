@@ -364,7 +364,7 @@ export default class Model<
     }
 
     public getAttributes(): Attributes {
-        return structuredClone(this._attributes);
+        return objectDeepClone(this._attributes);
     }
 
     public setAttribute(field: FieldName, value: unknown): void {
