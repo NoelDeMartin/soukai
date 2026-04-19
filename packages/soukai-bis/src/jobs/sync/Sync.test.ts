@@ -1,3 +1,4 @@
+import { arrayFilter, requireUrlDirectoryName } from '@noeldemartin/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
@@ -84,8 +85,8 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             applicationModels: [
-                { model: User, registered: true },
-                { model: Movie, registered: true },
+                { model: User, registration: true },
+                { model: Movie, registration: true },
             ],
         });
 
@@ -116,7 +117,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
         });
 
         // Assert
@@ -152,7 +153,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
         });
 
         // Assert
@@ -190,7 +191,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
         });
 
         // Assert
@@ -230,7 +231,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
         });
 
         // Assert
@@ -272,7 +273,7 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             typeIndexes: [],
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
             onModelsRegistered(_, models) {
                 registeredModels.push(...models);
             },
@@ -289,16 +290,54 @@ describe('Sync', () => {
             INSERT DATA { ${fixture('person.ttl')} }
         `);
 
-        await expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(`
-            INSERT DATA {
-                @prefix solid: <http://www.w3.org/ns/solid/terms#> .
-                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+        await expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(
+            fixture('register-container.sparql', { containerUrl }),
+        );
+    });
 
-                <#[[.*]]> a solid:TypeRegistration;
-                    solid:forClass foaf:Person;
-                    solid:instanceContainer <${containerUrl}> .
-            }
-        `);
+    it('configures registration path', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const rootContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const nestedContainerUrl = fakeContainerUrl({ baseUrl: rootContainerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl: nestedContainerUrl });
+        const localDocument = await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl })));
+        const typeIndexUrl = `${storageUrl}settings/privateTypeIndex`;
+        const registeredContainers: string[] = [];
+
+        FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+        FakeServer.respondOnce(typeIndexUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(typeIndexUrl, FakeResponse.success());
+        FakeServer.respondOnce(userProfile.writableProfileUrl, FakeResponse.success());
+        FakeServer.respond(typeIndexUrl, fixture('type-index.ttl'));
+
+        await localEngine.createDocument(documentUrl, localDocument);
+
+        // Act
+        await Sync.run({
+            ...config,
+            typeIndexes: [],
+            applicationModels: [
+                { model: User, registration: { path: `/${requireUrlDirectoryName(rootContainerUrl)}/` } },
+            ],
+            onModelsRegistered(registeredTypeIndex) {
+                registeredContainers.push(
+                    ...arrayFilter(
+                        registeredTypeIndex.registrations?.map((registration) => registration.instanceContainer) ?? [],
+                    ),
+                );
+            },
+        });
+
+        // Assert
+        expect(registeredContainers).toEqual([rootContainerUrl]);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(8);
+
+        await expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(
+            fixture('register-container.sparql', { containerUrl: rootContainerUrl }),
+        );
     });
 
     it('handles missing local documents', async () => {
@@ -324,7 +363,7 @@ describe('Sync', () => {
         // Act - First sync
         await Sync.run({
             ...config,
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
         });
 
         // Assert - First sync
@@ -342,7 +381,7 @@ describe('Sync', () => {
         // Act - Subsequent sync
         await Sync.run({
             ...config,
-            applicationModels: [{ model: User, registered: true }],
+            applicationModels: [{ model: User, registration: true }],
         });
 
         // Assert - Subsequent sync
@@ -384,8 +423,8 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             applicationModels: [
-                { model: Movie, registered: true },
-                { model: WatchAction, registered: false },
+                { model: Movie, registration: true },
+                { model: WatchAction, registration: false },
             ],
         });
 
@@ -441,8 +480,8 @@ describe('Sync', () => {
         await Sync.run({
             ...config,
             applicationModels: [
-                { model: Movie, registered: true },
-                { model: WatchAction, registered: false },
+                { model: Movie, registration: true },
+                { model: WatchAction, registration: false },
             ],
         });
 
@@ -475,7 +514,7 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            applicationModels: [{ model: Movie, registered: true }],
+            applicationModels: [{ model: Movie, registration: true }],
         });
 
         // Assert

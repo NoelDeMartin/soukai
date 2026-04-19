@@ -1,4 +1,4 @@
-import { arrayGroupBy, arrayUnique, objectFromEntries, parseDate } from '@noeldemartin/utils';
+import { arrayGroupBy, arrayUnique, isTruthy, objectFromEntries, parseDate } from '@noeldemartin/utils';
 import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
@@ -7,7 +7,6 @@ import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Job from 'soukai-bis/jobs/Job';
 import { SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
-import { safeContainerUrl } from 'soukai-bis/utils/urls';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Resource from 'soukai-bis/models/ldp/Resource';
@@ -15,6 +14,7 @@ import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
 
+import { syncContainerRegistration } from './concerns/sync-container-registration';
 import { syncDocumentOperations } from './concerns/sync-document-operations';
 
 export interface SyncConfig {
@@ -24,7 +24,7 @@ export interface SyncConfig {
     typeIndexes: TypeIndex[];
     applicationModels: {
         model: ModelConstructor;
-        registered: boolean;
+        registration: boolean | { path: string };
     }[];
 }
 
@@ -54,11 +54,24 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
+    private modelRegistrationPaths: Map<ModelConstructor, string>;
     private syncRdfClasses: Set<string>;
 
     public constructor(private config: SyncConfig) {
         super();
 
+        this.modelRegistrationPaths = new Map(
+            this.config.applicationModels
+                .map(
+                    (model) =>
+                        typeof model.registration === 'object' &&
+                        ([
+                            model.model,
+                            this.config.userProfile.storageUrls[0].slice(0, -1) + model.registration.path,
+                        ] as const),
+                )
+                .filter(isTruthy),
+        );
         this.syncRdfClasses = new Set(
             Array.from(this.config.applicationModels)
                 .map((model) => model.model)
@@ -146,7 +159,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
                 const containerRegisteredModels = this.config.applicationModels.filter((model) => {
                     return (
-                        model.registered &&
+                        model.registration &&
                         model.model.schema.rdfClasses.some((rdfClass) => registration.forClass.includes(rdfClass.value))
                     );
                 });
@@ -243,7 +256,18 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
         const pushedModels = await this.pushContainerChildrenDocuments(documentChildren ?? []);
 
-        await this.syncContainerRegistration(container, pushedModels);
+        await syncContainerRegistration({
+            container,
+            models: pushedModels,
+            registeredContainers: this.registeredContainers,
+            modelRegistrationPaths: this.modelRegistrationPaths,
+            getTypeIndex: async () => {
+                return this.config.typeIndexes[0] ?? (await TypeIndex.createPrivate(this.config.userProfile));
+            },
+            onModelsRegistered: (typeIndex, registeredModels) => {
+                return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
+            },
+        });
 
         await Promise.all((containerChildren ?? []).map((containerUrl) => this.pushContainerDocuments(containerUrl)));
     }
@@ -281,34 +305,12 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             this.config.applicationModels
                 .filter((model) => {
                     return (
-                        model.registered &&
+                        model.registration &&
                         model.model.schema.rdfClasses.some((rdfClass) => rdfClasses.has(rdfClass.value))
                     );
                 })
                 .map((model) => model.model),
         );
-    }
-
-    private async syncContainerRegistration(
-        container: ModelWithUrl<Container>,
-        models: Set<ModelConstructor>,
-    ): Promise<void> {
-        let containerUrl: string | null = container.url;
-
-        while (containerUrl) {
-            this.registeredContainers.get(containerUrl)?.forEach((model) => models.delete(model));
-
-            containerUrl = safeContainerUrl(containerUrl);
-
-            if (models.size === 0) {
-                return;
-            }
-        }
-
-        const typeIndex = this.config.typeIndexes[0] ?? (await TypeIndex.createPrivate(this.config.userProfile));
-
-        await container.register(typeIndex, Array.from(models));
-        await this._listeners.emit('onModelsRegistered', typeIndex, Array.from(models));
     }
 
     private async syncDocumentMetadata(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
