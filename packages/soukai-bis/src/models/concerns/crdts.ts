@@ -124,7 +124,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
     }
 
     for (const model of models) {
-        if (!model.url || !model.tracksChanges()) {
+        if (!model.url || !model.tracksChanges() || !model.exists()) {
             continue;
         }
 

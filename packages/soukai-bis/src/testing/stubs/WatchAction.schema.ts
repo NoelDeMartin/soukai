@@ -6,6 +6,7 @@ import Movie from './Movie';
 export default defineSchema({
     rdfContext: 'https://schema.org/',
     rdfClass: 'WatchAction',
+    history: true,
     fields: {
         startTime: date().optional(),
         movieUrl: url().rdfProperty('object'),
