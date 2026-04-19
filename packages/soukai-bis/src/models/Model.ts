@@ -494,6 +494,17 @@ export default class Model<
         return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
     }
 
+    public getSlug(): string | null {
+        const slugField = this.static('schema').slugField as FieldName;
+        const slugFieldValue = slugField && String(this.getAttribute(slugField));
+
+        return (slugFieldValue && stringToSlug(slugFieldValue)) ?? null;
+    }
+
+    public requireSlug(): string {
+        return this.getSlug() ?? fail(SoukaiError, 'Failed getting required slug');
+    }
+
     public getContainerUrl(): string | null {
         const documentUrl = this.getDocumentUrl();
 
