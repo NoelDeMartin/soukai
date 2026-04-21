@@ -15,13 +15,13 @@ export default class IsContainedByRelation<
     RelatedClass extends ModelConstructor<Related> & typeof Container = ModelConstructor<Related> & typeof Container,
 > extends SingleModelRelation<Parent, Related, RelatedClass, 'resourceUrls'> {
 
-    public static validateRelatedClass(parent: Model, relatedClass: unknown): void {
+    public static validateRelatedClass(parentClass: ModelConstructor, relatedClass: unknown): void {
         if (isContainerClass(relatedClass)) {
             return;
         }
 
         throw new SoukaiError(
-            `Relation for model ${parent.static().modelName} is not defined correctly, ` +
+            `Relation for model ${parentClass.modelName} is not defined correctly, ` +
                 'related value is not a solid container class.',
         );
     }

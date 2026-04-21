@@ -28,15 +28,15 @@ import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
+import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
 
+import { getRelatedClass } from './relations/utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import { deleteModel, getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
-import { isModelClass } from './utils';
-import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type {
     ModelConstructor,
     ModelWithHistory,
@@ -429,14 +429,9 @@ export default class Model<
                 `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
             );
 
-            if (!isModelClass(relation.relatedClass)) {
-                const relatedClass = (relation.relatedClass as () => ModelConstructor)();
+            const relatedClass = getRelatedClass(this.static(), relation);
 
-                relation.relationClass.validateRelatedClass(this, relatedClass);
-                relation.relatedClass = relatedClass;
-            }
-
-            this._relations[name] = relation.relationClass.newInstance(this, relation.relatedClass, {
+            this._relations[name] = relation.relationClass.newInstance(this, relatedClass, {
                 foreignKeyName: relation.options.foreignKey,
                 localKeyName: relation.options.localKey,
                 usingSameDocument: relation.options.usingSameDocument,

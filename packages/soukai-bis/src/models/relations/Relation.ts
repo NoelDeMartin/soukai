@@ -30,13 +30,13 @@ export default abstract class Relation<
         return new (this as any)(parent, relatedClass, options);
     }
 
-    public static validateRelatedClass(parent: Model, relatedClass: unknown): void {
+    public static validateRelatedClass(parentClass: ModelConstructor, relatedClass: unknown): void {
         if (isModelClass(relatedClass)) {
             return;
         }
 
         throw new SoukaiError(
-            `Relation for model ${parent.static().modelName} is not defined correctly, ` +
+            `Relation for model ${parentClass.modelName} is not defined correctly, ` +
                 'related value is not a model class.',
         );
     }
