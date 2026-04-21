@@ -3,7 +3,7 @@
     "configurations": [
         {
             "type": "node",
-            "runtimeVersion": "22.14.0",
+            "runtimeVersion": "24.11.1",
             "request": "launch",
             "name": "Debug Current Test File",
             "autoAttachChildProcesses": true,
