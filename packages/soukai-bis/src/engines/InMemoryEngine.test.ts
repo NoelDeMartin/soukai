@@ -5,6 +5,7 @@ import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
@@ -279,6 +280,52 @@ describe('InMemoryEngine', () => {
 
         // Assert
         expect(engine.documents[documentUrl]?.lastModifiedAt).toEqual(newLastModifiedAt);
+    });
+
+    it('gets nested container urls', async () => {
+        // Arrange
+        const rootContainerUrl = fakeContainerUrl();
+        const childContainerUrl = fakeContainerUrl({ baseUrl: rootContainerUrl });
+        const virtualChildContainerUrl = fakeContainerUrl({ baseUrl: fakeContainerUrl() });
+
+        await engine.createDocument(fakeDocumentUrl({ containerUrl: rootContainerUrl }), {});
+        await engine.createDocument(fakeDocumentUrl({ containerUrl: childContainerUrl }), {});
+        await engine.createDocument(fakeDocumentUrl({ containerUrl: virtualChildContainerUrl }), {});
+
+        // Act
+        const containerUrls = await engine.getContainerUrls();
+
+        // Assert
+        expect(containerUrls).toHaveLength(3);
+        expect(containerUrls).toEqual(
+            expect.arrayContaining([rootContainerUrl, childContainerUrl, virtualChildContainerUrl]),
+        );
+    });
+
+    it('drops containers', async () => {
+        // Arrange
+        const containerUrls = [fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl()] as const;
+        const documentUrl = fakeDocumentUrl({ containerUrl: containerUrls[0] });
+
+        await engine.createDocument(documentUrl, { '@id': documentUrl });
+        await engine.createDocument(containerUrls[1], {
+            '@id': containerUrls[1],
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+        await engine.createDocument(containerUrls[2], {
+            '@id': containerUrls[2],
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+        await engine.createDocument(containerUrls[3], {
+            '@id': containerUrls[3],
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        // Act
+        await engine.dropContainers([containerUrls[0], containerUrls[1]]);
+
+        // Assert
+        await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
     });
 
 });

@@ -14,6 +14,7 @@ import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'souk
 
 import Engine from './Engine';
 import type EngineOperation from './operations/EngineOperation';
+import type ManagesContainers from './contracts/ManagesContainers';
 
 export interface LocalDocument {
     url: string;
@@ -38,7 +39,7 @@ interface MetadataSchema extends DBSchema {
     };
 }
 
-export default class IndexedDBEngine extends Engine {
+export default class IndexedDBEngine extends Engine implements ManagesContainers {
 
     private database: string;
     private metadataConnection: Promise<IDBPDatabase<MetadataSchema>> | null = null;

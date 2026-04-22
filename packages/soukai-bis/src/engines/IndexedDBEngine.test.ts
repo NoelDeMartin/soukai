@@ -489,6 +489,30 @@ describe('IndexedDBEngine', () => {
         await engine.close();
     });
 
+    it('gets nested container urls', async () => {
+        // Arrange
+        const rootContainerUrl = fakeContainerUrl();
+        const childContainerUrl = fakeContainerUrl({ baseUrl: rootContainerUrl });
+        const virtualChildContainerUrl = fakeContainerUrl({ baseUrl: fakeContainerUrl() });
+
+        await setDatabaseDocument(rootContainerUrl, fakeDocumentUrl({ containerUrl: rootContainerUrl }), {});
+        await setDatabaseDocument(childContainerUrl, fakeDocumentUrl({ containerUrl: childContainerUrl }), {});
+        await setDatabaseDocument(
+            virtualChildContainerUrl,
+            fakeDocumentUrl({ containerUrl: virtualChildContainerUrl }),
+            {},
+        );
+
+        // Act
+        const containerUrls = await engine.getContainerUrls();
+
+        // Assert
+        expect(containerUrls).toHaveLength(3);
+        expect(containerUrls).toEqual(
+            expect.arrayContaining([rootContainerUrl, childContainerUrl, virtualChildContainerUrl]),
+        );
+    });
+
     async function resetDatabase(): Promise<void> {
         await initMetaDatabase();
     }

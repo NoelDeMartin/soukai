@@ -1,4 +1,5 @@
 export * from './Job';
+export * from './backup';
 export * from './sync';
 export * from './types';
 export * from './utils';

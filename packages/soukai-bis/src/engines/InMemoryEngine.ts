@@ -6,18 +6,19 @@ import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { safeContainerUrl } from 'soukai-bis/utils/urls';
+import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import Engine from './Engine';
 import type EngineOperation from './operations/EngineOperation';
+import type ManagesContainers from './contracts/ManagesContainers';
 
 export interface InMemoryDocument {
     graph: JsonLD;
     lastModifiedAt?: Nullable<Date>;
 }
 
-export default class InMemoryEngine extends Engine {
+export default class InMemoryEngine extends Engine implements ManagesContainers {
 
     public documents: Record<string, InMemoryDocument> = {};
 
@@ -103,6 +104,32 @@ export default class InMemoryEngine extends Engine {
 
     public async deleteDocument(url: string): Promise<void> {
         delete this.documents[url];
+    }
+
+    public async getContainerUrls(): Promise<string[]> {
+        const containerUrls = new Set<string>();
+
+        for (const documentUrl of Object.keys(this.documents)) {
+            if (documentUrl.endsWith('/')) {
+                continue;
+            }
+
+            containerUrls.add(requireSafeContainerUrl(documentUrl));
+        }
+
+        return Array.from(containerUrls);
+    }
+
+    public async dropContainers(containerUrls: string[]): Promise<void> {
+        for (const documentUrl of Object.keys(this.documents)) {
+            const containerUrl = safeContainerUrl(documentUrl);
+
+            if (!containerUrl || !containerUrls.includes(containerUrl)) {
+                continue;
+            }
+
+            delete this.documents[documentUrl];
+        }
     }
 
     private async populateContainer(document: SolidDocument): Promise<void> {
