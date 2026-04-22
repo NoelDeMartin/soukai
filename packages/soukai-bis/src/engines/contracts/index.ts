@@ -1,1 +1,1 @@
-export { default as ManagesContainers } from './ManagesContainers';
+export type { default as ManagesContainers } from './ManagesContainers';
