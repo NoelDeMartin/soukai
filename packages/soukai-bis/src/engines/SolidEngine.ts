@@ -106,7 +106,15 @@ export default class SolidEngine extends Engine {
 
     public async readDocument(url: string): Promise<SolidDocument> {
         return this.lock.run(async () => {
-            const document = await this.client.readIfFound(url);
+            const document = await this.client.readIfFound(
+                url,
+                url.endsWith('/')
+                    ? {
+                        cache: 'no-cache',
+                        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+                    }
+                    : undefined,
+            );
 
             if (!document) {
                 throw new DocumentNotFound(url);
