@@ -349,7 +349,8 @@ export default class TracksHistory {
 
         if (isArrayFieldDefinition(definition)) {
             return arrayFilter(
-                arrayFrom(value, true).map((itemValue) => this.getOperationValue(`${field}.*`, itemValue)),
+                arrayFrom(value, { ignoreEmptyValues: true }).map((itemValue) =>
+                    this.getOperationValue(`${field}.*`, itemValue)),
             );
         }
 
@@ -365,8 +366,8 @@ export default class TracksHistory {
     }
 
     protected addArrayHistoryOperations(this: This, field: string, dirtyValue: unknown, originalValue: unknown): void {
-        const originalValues = arrayFrom(this.getOperationValue(field, originalValue), true);
-        const dirtyValues = arrayFrom(this.getOperationValue(field, dirtyValue), true);
+        const originalValues = arrayFrom(this.getOperationValue(field, originalValue), { ignoreEmptyValues: true });
+        const dirtyValues = arrayFrom(this.getOperationValue(field, dirtyValue), { ignoreEmptyValues: true });
         const { added, removed } = arrayDiff(originalValues, dirtyValues, (a, b) => {
             if (a instanceof ModelKey && b instanceof ModelKey) {
                 return a.equals(b);
