@@ -110,7 +110,7 @@ export default class SolidEngine extends Engine {
                 url,
                 url.endsWith('/')
                     ? {
-                        cache: 'no-cache',
+                        cache: 'reload',
                         headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
                     }
                     : undefined,
