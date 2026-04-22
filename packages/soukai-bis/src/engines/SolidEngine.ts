@@ -19,6 +19,7 @@ export interface SolidEngineConfig {
 
 export default class SolidEngine extends Engine {
 
+    public static readonly engineName = 'SolidEngine';
     public static [classMarker] = 'SolidEngine';
 
     private client: SolidClient;

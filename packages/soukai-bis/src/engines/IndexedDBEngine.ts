@@ -41,6 +41,8 @@ interface MetadataSchema extends DBSchema {
 
 export default class IndexedDBEngine extends Engine implements ManagesContainers {
 
+    public static readonly engineName = 'IndexedDBEngine';
+
     private database: string;
     private metadataConnection: Promise<IDBPDatabase<MetadataSchema>> | null = null;
     private documentsConnection: Promise<IDBPDatabase<DocumentsSchema>> | null = null;

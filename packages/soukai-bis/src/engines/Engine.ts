@@ -17,6 +17,12 @@ import type EngineOperation from './operations/EngineOperation';
 
 export default abstract class Engine {
 
+    public static readonly engineName: string = 'Engine';
+
+    public static(): typeof Engine {
+        return this.constructor as typeof Engine;
+    }
+
     public abstract createDocument(
         url: string,
         contents: JsonLD | Quad[],

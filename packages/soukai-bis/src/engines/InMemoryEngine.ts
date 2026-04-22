@@ -20,6 +20,8 @@ export interface InMemoryDocument {
 
 export default class InMemoryEngine extends Engine implements ManagesContainers {
 
+    public static readonly engineName = 'InMemoryEngine';
+
     public documents: Record<string, InMemoryDocument> = {};
 
     public async createDocument(
