@@ -1,5 +1,5 @@
 export * from './Job';
-export * from './migrate-urls';
+export * from './migrate-local-urls';
 export * from './sync';
 export * from './types';
 export * from './utils';

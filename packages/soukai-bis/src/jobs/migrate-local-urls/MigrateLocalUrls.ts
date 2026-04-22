@@ -6,22 +6,20 @@ import type Engine from 'soukai-bis/engines/Engine';
 import type ManagesContainers from 'soukai-bis/engines/contracts/ManagesContainers';
 import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
-export interface MigrateUrlsConfig {
+export interface MigrateLocalUrlsConfig {
     engine: Engine & ManagesContainers;
     migrations: Record<string, string>;
 }
 
-export default class MigrateUrls extends Job {
+export default class MigrateLocalUrls extends Job {
 
-    public static async run(config: MigrateUrlsConfig): Promise<void> {
-        const job = new MigrateUrls(config);
+    public static async run(config: MigrateLocalUrlsConfig): Promise<void> {
+        const job = new MigrateLocalUrls(config);
 
         await job.run();
     }
 
-    private migratedDocumentUrls: string[] = [];
-
-    public constructor(private config: MigrateUrlsConfig) {
+    public constructor(private config: MigrateLocalUrlsConfig) {
         super();
     }
 
@@ -37,25 +35,22 @@ export default class MigrateUrls extends Job {
             const container = await this.config.engine.readDocument(localContainerUrl);
             const documentUrls = container
                 .statements(new RDFNamedNode(localContainerUrl), LDP_CONTAINS_PREDICATE)
-                .map((quad) => quad.object.value);
+                .map((quad) => quad.object.value)
+                .filter((documentUrl) => !documentUrl.endsWith('/'));
 
             for (const documentUrl of documentUrls) {
                 await this.migrateDocument(documentUrl);
             }
 
+            // TODO migrate containers metadata
+
             migratedContainerUrls.push(localContainerUrl);
         }
 
-        await this.config.engine.dropContainers(migratedContainerUrls);
+        await this.config.engine.dropContainers(/^solid:\/\//);
     }
 
     protected async migrateDocument(documentUrl: string): Promise<void> {
-        if (this.migratedDocumentUrls.includes(documentUrl)) {
-            return;
-        }
-
-        this.migratedDocumentUrls.push(documentUrl);
-
         const remoteUrl = this.migrateUrl(documentUrl);
 
         if (!remoteUrl) {
@@ -75,10 +70,7 @@ export default class MigrateUrls extends Job {
         });
 
         await this.config.engine.createDocument(remoteUrl, migratedQuads);
-
-        if (!documentUrl.endsWith('/')) {
-            await this.config.engine.deleteDocument(documentUrl);
-        }
+        await this.config.engine.deleteDocument(documentUrl);
     }
 
     protected migrateUrl(url: string): string | null {

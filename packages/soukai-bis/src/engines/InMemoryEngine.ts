@@ -122,11 +122,21 @@ export default class InMemoryEngine extends Engine implements ManagesContainers 
         return Array.from(containerUrls);
     }
 
-    public async dropContainers(containerUrls: string[]): Promise<void> {
+    public async dropContainers(containerUrls: string[] | RegExp): Promise<void> {
+        const containerMatches = Array.isArray(containerUrls)
+            ? (url: string) => containerUrls.includes(url)
+            : (url: string) => containerUrls.test(url);
+
         for (const documentUrl of Object.keys(this.documents)) {
+            if (documentUrl.endsWith('/') && containerMatches(documentUrl)) {
+                delete this.documents[documentUrl];
+
+                continue;
+            }
+
             const containerUrl = safeContainerUrl(documentUrl);
 
-            if (!containerUrl || !containerUrls.includes(containerUrl)) {
+            if (!containerUrl || !containerMatches(containerUrl)) {
                 continue;
             }
 

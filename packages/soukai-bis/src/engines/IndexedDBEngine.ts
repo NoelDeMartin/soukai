@@ -157,17 +157,22 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         });
     }
 
-    public async dropContainers(containerUrls: string[]): Promise<void> {
+    public async dropContainers(containerUrls: string[] | RegExp): Promise<void> {
+        const containerMatches = Array.isArray(containerUrls)
+            ? (url: string) => containerUrls.includes(url)
+            : (url: string) => containerUrls.test(url);
+
         await this.lock.run(async () => {
             await this.withMetadataTransaction('readwrite', async (transaction) => {
-                for (const containerUrl of containerUrls) {
-                    const existingContainer = await transaction.store.get(containerUrl);
+                const containersMetadata =
+                    (await transaction.store.getAll()) as MetadataSchema['containers']['value'][];
 
-                    if (!existingContainer || existingContainer.dropped) {
+                for (const containerMetadata of containersMetadata) {
+                    if (containerMetadata.dropped || !containerMatches(containerMetadata.url)) {
                         continue;
                     }
 
-                    await transaction.store.put({ url: containerUrl, dropped: true });
+                    await transaction.store.put({ url: containerMetadata.url, dropped: true });
                 }
             });
 
@@ -297,7 +302,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         return containerUrls.includes(url);
     }
 
-    private async getContainersMetadata(): Promise<{ url: string; dropped?: true }[]> {
+    private async getContainersMetadata(): Promise<MetadataSchema['containers']['value'][]> {
         const documents = await this.withMetadataTransaction('readonly', (transaction) => {
             return transaction.store.getAll();
         });
