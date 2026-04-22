@@ -1,5 +1,5 @@
 import { isInstanceOf } from '@noeldemartin/utils';
-import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import { type JsonLD, type JsonLDGraph, type SolidDocument, isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -25,7 +25,7 @@ export default abstract class Engine {
 
     public abstract createDocument(
         url: string,
-        contents: JsonLD | Quad[],
+        contents: JsonLD | JsonLDGraph | Quad[],
         metadata?: { lastModifiedAt?: Nullable<Date> }
     ): Promise<SolidDocument>;
 
@@ -68,7 +68,15 @@ export default abstract class Engine {
         );
     }
 
-    protected removeContainerProperties(graph: JsonLD, options: { keepTypes?: boolean } = {}): void {
+    protected removeContainerProperties(graph: JsonLD | JsonLDGraph, options: { keepTypes?: boolean } = {}): void {
+        if (isJsonLDGraph(graph)) {
+            for (const resource of graph['@graph']) {
+                this.removeContainerProperties(resource, options);
+            }
+
+            return;
+        }
+
         delete graph[LDP_CONTAINS];
 
         if (!options.keepTypes) {

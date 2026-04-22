@@ -2,7 +2,7 @@ import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { Semaphore, arrayUnique } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
-import type { JsonLD } from '@noeldemartin/solid-utils';
+import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -57,7 +57,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     public async createDocument(
         url: string,
-        contents: JsonLD | Quad[],
+        contents: JsonLD | JsonLDGraph | Quad[],
         metadata?: { lastModifiedAt?: Nullable<Date> },
     ): Promise<SolidDocument> {
         return this.lock.run(async () => {

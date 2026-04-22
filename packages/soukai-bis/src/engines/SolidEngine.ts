@@ -1,7 +1,7 @@
 import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
 import { Semaphore, isDevelopment, isTesting } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
-import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, JsonLDGraph, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -36,7 +36,11 @@ export default class SolidEngine extends Engine {
         return this.client.getFetch();
     }
 
-    public async createDocument(url: string, contents: JsonLD | Quad[], metadata?: unknown): Promise<SolidDocument> {
+    public async createDocument(
+        url: string,
+        contents: JsonLD | JsonLDGraph | Quad[],
+        metadata?: unknown,
+    ): Promise<SolidDocument> {
         return this.lock.run(async () => {
             if (metadata) {
                 const message =

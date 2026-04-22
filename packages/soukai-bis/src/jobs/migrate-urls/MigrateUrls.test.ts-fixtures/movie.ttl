@@ -1,0 +1,13 @@
+@prefix schema: <https://schema.org/> .
+@prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<{{ documentUrl ?? '' }}#it>
+    a schema:Movie ;
+    schema:name "{{ title }}" .
+
+<{{ documentUrl ?? '' }}#it-metadata>
+    a crdt:Metadata ;
+    crdt:resource <{{ documentUrl ?? '' }}#it> ;
+    crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+    crdt:updatedAt "[[.*]]"^^xsd:dateTime .

@@ -19,6 +19,8 @@ export default class MigrateUrls extends Job {
         await job.run();
     }
 
+    private migratedDocumentUrls: string[] = [];
+
     public constructor(private config: MigrateUrlsConfig) {
         super();
     }
@@ -48,6 +50,12 @@ export default class MigrateUrls extends Job {
     }
 
     protected async migrateDocument(documentUrl: string): Promise<void> {
+        if (this.migratedDocumentUrls.includes(documentUrl)) {
+            return;
+        }
+
+        this.migratedDocumentUrls.push(documentUrl);
+
         const remoteUrl = this.migrateUrl(documentUrl);
 
         if (!remoteUrl) {
@@ -67,7 +75,10 @@ export default class MigrateUrls extends Job {
         });
 
         await this.config.engine.createDocument(remoteUrl, migratedQuads);
-        await this.config.engine.deleteDocument(documentUrl);
+
+        if (!documentUrl.endsWith('/')) {
+            await this.config.engine.deleteDocument(documentUrl);
+        }
     }
 
     protected migrateUrl(url: string): string | null {
