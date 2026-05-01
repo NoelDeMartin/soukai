@@ -337,10 +337,20 @@ export class SolidModel extends SolidModelBase {
 
     public static async findOrFail<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T>;
     public static async findOrFail<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T>;
-    public static async findOrFail<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T> {
+    public static async findOrFail<T extends SolidModel>(
+        this: SolidModelConstructor<T>,
+        id: Key,
+        documentUrl?: string
+    ): Promise<T>;
+
+    public static async findOrFail<T extends SolidModel>(
+        this: SolidModelConstructor<T>,
+        id: Key,
+        documentUrl?: string,
+    ): Promise<T> {
         const rdfsClasses = arrayUnique([this.rdfsClasses, ...this.rdfsClassesAliases].flat());
         const resourceUrl = this.instance().serializeKey(id);
-        const documentUrl = urlRoute(resourceUrl);
+        documentUrl ??= urlRoute(resourceUrl);
         const containerUrl = urlParentDirectory(documentUrl) ?? urlRoot(documentUrl);
 
         this.ensureBooted();
@@ -364,9 +374,19 @@ export class SolidModel extends SolidModelBase {
 
     public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null>;
     public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null>;
-    public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null> {
+    public static async find<T extends SolidModel>(
+        this: SolidModelConstructor<T>,
+        id: Key,
+        documentUrl?: string
+    ): Promise<T | null>;
+    
+    public static async find<T extends SolidModel>(
+        this: SolidModelConstructor<T>,
+        id: Key,
+        documentUrl?: string,
+    ): Promise<T | null> {
         try {
-            return await this.findOrFail(id);
+            return await this.findOrFail(id, documentUrl);
         } catch (error) {
             if (
                 applyStrictChecks() &&
@@ -864,6 +884,7 @@ export class SolidModel extends SolidModelBase {
 
         if (documentUrl) {
             this._documentExists = documentExists ?? true;
+            this.setSourceDocumentUrl(documentUrl);
         }
     }
 
@@ -1017,6 +1038,11 @@ export class SolidModel extends SolidModelBase {
     }
 
     public getDocumentUrl(): string | null {
+        const sourceDocumentUrl = this.getSourceDocumentUrl();
+        if (sourceDocumentUrl) {
+            return sourceDocumentUrl;
+        }
+
         const id = this.getSerializedPrimaryKey();
         return id ? urlRoute(id) : null;
     }
@@ -1383,10 +1409,15 @@ export class SolidModel extends SolidModelBase {
         } catch (error) {
             if (!(error instanceof DocumentAlreadyExists)) throw error;
 
-            const newUrl = this.newUniqueUrl(
-                this.getSerializedPrimaryKey() ?? fail('The primary key was not created before save.'),
-            );
-            this.setAttribute(this.static('primaryKey'), newUrl);
+            if (this.getSourceDocumentUrl()) {
+                this.setDocumentExists(true);
+            }
+            else {
+                const newUrl = this.newUniqueUrl(
+                    this.getSerializedPrimaryKey() ?? fail('The primary key was not created before save.'),
+                );
+                this.setAttribute(this.static('primaryKey'), newUrl);
+            }
 
             await super.performSave();
         }
@@ -1758,12 +1789,12 @@ export class SolidModel extends SolidModelBase {
     }
 
     protected guessCollection(): string | undefined {
-        const url = this.getSerializedPrimaryKey();
-        if (!url) {
+        const documentUrl = this.getDocumentUrl();
+        if (!documentUrl) {
             return undefined;
         }
  
-        return urlParentDirectory(url) ?? undefined;
+        return urlParentDirectory(documentUrl) ?? undefined;
     }
 
     protected mintDocumentModelsKeys(models: SolidModel[]): void {
