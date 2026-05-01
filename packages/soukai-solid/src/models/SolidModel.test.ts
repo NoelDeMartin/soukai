@@ -35,6 +35,7 @@ import { defineSolidModelSchema } from 'soukai-solid/models/schema';
 import { XSD_DATE_TIME } from 'soukai-solid/solid/constants';
 
 import Group from 'soukai-solid/testing/lib/stubs/Group';
+import ModelWithCustomKey from 'soukai-solid/testing/lib/stubs/ModelWithCustomKey';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
@@ -59,6 +60,7 @@ describe('SolidModel', () => {
             GroupWithHistory,
             GroupWithHistoryAndPersonsInSameDocument,
             GroupWithPersonsInSameDocument,
+            ModelWithCustomKey,
             Movie,
             MovieWithHistory,
             MoviesCollection,
@@ -1308,6 +1310,18 @@ describe('SolidModel', () => {
         expect(model.url).toEqual(model.id);
     });
 
+    it('aliases custom primary key attribute as id', async () => {
+        // Arrange
+        const model = new ModelWithCustomKey();
+
+        // Act
+        await model.save();
+
+        // Assert
+        expect(model.customKey).toBeTruthy();
+        expect(model.customKey).toEqual(model.id);
+    });
+
     it('implements belongs to many relationship', async () => {
         // Arrange
 
@@ -1460,6 +1474,39 @@ describe('SolidModel', () => {
             'knows': friendUrls.map((url) => ({ '@id': url })),
             'metadata': {
                 '@id': person.url + '#metadata',
+                '@type': 'crdt:Metadata',
+                'crdt:createdAt': {
+                    '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
+                    '@value': '1997-07-21T23:42:00.000Z',
+                },
+            },
+        });
+    });
+
+    it('serializes to JSON-LD with custom primary key', () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const model = new ModelWithCustomKey({
+            customKey: fakeDocumentUrl({ containerUrl }),
+            age: 42,
+            createdAt: new Date('1997-07-21T23:42:00Z'),
+        });
+
+        // Act
+        const jsonld = model.toJsonLD();
+
+        // Assert
+        expect(jsonld).toEqual({
+            '@context': {
+                '@vocab': 'http://xmlns.com/foaf/0.1/',
+                'crdt': 'https://vocab.noeldemartin.com/crdt/',
+                'metadata': { '@reverse': 'crdt:resource' },
+            },
+            '@id': model.customKey,
+            '@type': 'ModelWithCustomKey',
+            'age': 42,
+            'metadata': {
+                '@id': model.customKey + '#metadata',
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
                     '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',

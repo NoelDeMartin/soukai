@@ -24,7 +24,11 @@ import type { TimestampField, TimestampsDefinition } from './timestamps';
 
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & typeof Model;
 
-export type MagicAttributes<S extends SchemaDefinition, TKey extends Key> = Pretty<
+export type MagicAttributes<
+    S extends SchemaDefinition,
+    TKey extends Key,
+    TDefaultKeyName extends string = 'id'
+> = Pretty<
     MagicAttributeProperties<
         {
             // TODO this should be optional (but it's too annoying to use)
@@ -34,6 +38,7 @@ export type MagicAttributes<S extends SchemaDefinition, TKey extends Key> = Pret
     > &
         // TODO infer virtual attributes
         // TODO infer relationship attributes
+        MagicPrimaryKeyAttribute<S, TDefaultKeyName, TKey> &
         NestedMagicAttributes<GetFieldsDefinition<S>, TKey> &
         MagicTimestampAttributes<GetTimestampsDefinition<S>>
 >;
@@ -45,6 +50,13 @@ export type MagicTimestampAttributes<T extends TimestampsDefinition> = T extends
       : T extends (typeof TimestampField.UpdatedAt)[]
         ? { updatedAt: Date }
         : { createdAt: Date; updatedAt: Date };
+
+export type MagicPrimaryKeyAttribute<S extends SchemaDefinition, TDefaultKeyName extends string, TKey extends Key> = 
+    S extends { primaryKey: infer P extends string }
+        ? string extends P 
+            ? {}
+            : MagicAttributeProperties<{[C in P]: typeof FieldType.Key}, TKey>
+        : MagicAttributeProperties<{[C in TDefaultKeyName]: typeof FieldType.Key}, TKey>;
 
 export type NestedMagicAttributes<T extends FieldsDefinition, TKey extends Key> = MagicAttributeProperties<
     Pick<T, GetRequiredFields<T>>,

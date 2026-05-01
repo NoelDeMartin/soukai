@@ -712,7 +712,9 @@ export class SolidModel extends SolidModelBase {
         }
     }
 
-    // TODO this should be optional
+    // Not used directly, because the primary key may be different. 
+    // It is left here for backward compatibility reasons,
+    // because users can extend this class directly without calling defineSolidModelSchema method.
     declare public url: string;
 
     declare public deletedAt?: Date;
@@ -875,7 +877,8 @@ export class SolidModel extends SolidModelBase {
         const model = this.clone();
 
         if (!options.ids) {
-            model.getRelatedModels().forEach((relatedModel) => relatedModel.setAttribute('url', null));
+            model.getRelatedModels().forEach((relatedModel) => 
+                relatedModel.setAttribute(relatedModel.static('primaryKey'), null));
         }
 
         if (!options.timestamps) {
@@ -906,7 +909,9 @@ export class SolidModel extends SolidModelBase {
     }
 
     public getIdAttribute(): string {
-        return this.getAttribute('url');
+        // id is defined as string, but in reality it can be undefined.
+        // For backward compatibility reasons, this method can return undefined.
+        return this.getSerializedPrimaryKey() ?? undefined as unknown as string;
     }
 
     public setExists(exists: boolean): void {
@@ -1012,7 +1017,8 @@ export class SolidModel extends SolidModelBase {
     }
 
     public getDocumentUrl(): string | null {
-        return this.url ? urlRoute(this.url) : null;
+        const id = this.getSerializedPrimaryKey();
+        return id ? urlRoute(id) : null;
     }
 
     public requireDocumentUrl(): string {
@@ -1287,7 +1293,7 @@ export class SolidModel extends SolidModelBase {
 
         await super.beforeSave();
 
-        if (!this.url && this.static('mintsUrls') && !usingExperimentalActivityPods()) {
+        if (!this.getPrimaryKey() && this.static('mintsUrls') && !usingExperimentalActivityPods()) {
             this.mintUrl();
         }
 
@@ -1341,7 +1347,7 @@ export class SolidModel extends SolidModelBase {
             this.static('defaultResourceHash') &&
             !usingExperimentalActivityPods()
         ) {
-            this.metadata.resourceUrl = this.url ?? `#${this.static('defaultResourceHash')}`;
+            this.metadata.resourceUrl = this.getSerializedPrimaryKey() ?? `#${this.static('defaultResourceHash')}`;
             this.metadata.mintUrl(this.getDocumentUrl() || undefined, this._documentExists);
         }
     }
@@ -1377,7 +1383,10 @@ export class SolidModel extends SolidModelBase {
         } catch (error) {
             if (!(error instanceof DocumentAlreadyExists)) throw error;
 
-            this.url = this.newUniqueUrl(this.url);
+            const newUrl = this.newUniqueUrl(
+                this.getSerializedPrimaryKey() ?? fail('The primary key was not created before save.'),
+            );
+            this.setAttribute(this.static('primaryKey'), newUrl);
 
             await super.performSave();
         }
@@ -1402,8 +1411,9 @@ export class SolidModel extends SolidModelBase {
             return;
         }
 
-        if (this.metadata && this.metadata.resourceUrl !== this.url) {
-            this.metadata.resourceUrl = this.url;
+        if (this.metadata && this.metadata.resourceUrl !== this.getSerializedPrimaryKey()) {
+            this.metadata.resourceUrl = this.getSerializedPrimaryKey()
+                ?? fail('The primary key is not set after save.');
 
             if (!usingExperimentalActivityPods()) {
                 this.metadata.mintUrl(this.getDocumentUrl() || undefined, this._documentExists);
@@ -1638,14 +1648,14 @@ export class SolidModel extends SolidModelBase {
                 removedModel.getDocumentModels().forEach((model) =>
                     graphUpdates.push({
                         $updateItems: {
-                            $where: { '@id': model.url },
+                            $where: { '@id': model.getSerializedPrimaryKey() },
                             $unset: true,
                         },
                     }));
             }
         }
 
-        if (super.isDirty() && this.url) {
+        if (super.isDirty() && this.getPrimaryKey()) {
             const modelUpdates = super.getDirtyEngineDocumentUpdates();
 
             // This is necessary because a SolidEngine behaves differently than other engines.
@@ -1655,7 +1665,7 @@ export class SolidModel extends SolidModelBase {
 
             graphUpdates.push({
                 $updateItems: {
-                    $where: { '@id': this.url },
+                    $where: { '@id': this.getSerializedPrimaryKey() },
                     $update: this.convertEngineUpdatesToJsonLD(modelUpdates, compactIRIs),
                 },
             });
@@ -1748,9 +1758,12 @@ export class SolidModel extends SolidModelBase {
     }
 
     protected guessCollection(): string | undefined {
-        if (!this.url) return;
-
-        return urlParentDirectory(this.url) ?? undefined;
+        const url = this.getSerializedPrimaryKey();
+        if (!url) {
+            return undefined;
+        }
+ 
+        return urlParentDirectory(url) ?? undefined;
     }
 
     protected mintDocumentModelsKeys(models: SolidModel[]): void {
@@ -1759,7 +1772,9 @@ export class SolidModel extends SolidModelBase {
 
         // Mint primary keys
         for (const documentModel of models) {
-            if (documentModel.url) continue;
+            if (documentModel.getPrimaryKey()) {
+                continue;
+            }
 
             documentModel.mintUrl(documentUrl, documentExists, uuid());
         }
