@@ -36,6 +36,7 @@ import { XSD_DATE_TIME } from 'soukai-solid/solid/constants';
 
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import ModelWithCustomKey from 'soukai-solid/testing/lib/stubs/ModelWithCustomKey';
+import ModelWithoutType from 'soukai-solid/testing/lib/stubs/ModelWithoutType';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
@@ -61,6 +62,7 @@ describe('SolidModel', () => {
             GroupWithHistoryAndPersonsInSameDocument,
             GroupWithPersonsInSameDocument,
             ModelWithCustomKey,
+            ModelWithoutType,
             Movie,
             MovieWithHistory,
             MoviesCollection,
@@ -331,6 +333,18 @@ describe('SolidModel', () => {
         expect(document['@graph'][0]['@type']).not.toBeUndefined();
     });
 
+    it('doesn\'t send types on create if class is null', async () => {
+        // Arrange
+
+        // Act
+        await ModelWithoutType.create({});
+
+        // Assert
+        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as { '@graph': [{ '@type': string }] };
+
+        expect(document['@graph'][0]['@type']).toBeUndefined();
+    });
+
     it('removes duplicated array values', async () => {
         // Arrange
         const url = fakeResourceUrl();
@@ -476,6 +490,23 @@ describe('SolidModel', () => {
         expect(ids).toEqual([`${documentUrl}#it`]);
     });
 
+    it('finds all resource ids if class is null', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const quads = turtleToQuadsSync(`
+            <#it> a <https://schema.org/Action> .
+            <#second> <https://example.com/test> "Entity without type" .
+            `, {
+            baseIRI: documentUrl,
+        });
+
+        // Act
+        const ids = ModelWithoutType.findMatchingResourceIds(quads);
+
+        // Assert
+        expect(ids).toEqual([`${documentUrl}#it`]);
+    });
+
     it('sends JSON-LD with related model updates using parent engine', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
@@ -574,6 +605,38 @@ describe('SolidModel', () => {
         expect(loadedPerson?.getSourceDocumentUrl()).toEqual(sourceDocumentUrl);
         expect(loadedPerson?.url).toEqual(person.url);
         expect(loadedPerson?.name).toEqual(person.name);
+    });
+
+    it('finds model with any class if class is null', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const resourceUrl = fakeResourceUrl({ documentUrl });
+        const otherResourceUrl = fakeResourceUrl({ documentUrl, hash: 'other' });
+
+        FakeSolidEngine.database[containerUrl] = {
+            [documentUrl]: { 
+                '@graph': [
+                    { 
+                        '@id': otherResourceUrl, 
+                        '@type': 'http://xmlns.com/foaf/0.1/Person',
+                        'http://xmlns.com/foaf/0.1/age': 30,
+                    },
+                    { 
+                        '@id': resourceUrl, 
+                        '@type': 'http://xmlns.com/foaf/0.1/Person',
+                        'http://xmlns.com/foaf/0.1/age': 35,
+                    },
+                ],
+            },
+        };
+
+        // Act
+        const model = await ModelWithoutType.at(containerUrl).find(resourceUrl);
+
+        // Assert
+        expect(model).not.toBeNull();
+        expect(model?.age).toEqual(35);
     });
 
     it('converts filters to JSON-LD', async () => {

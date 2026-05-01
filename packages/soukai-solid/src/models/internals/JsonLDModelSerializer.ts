@@ -169,7 +169,7 @@ export default class JsonLDModelSerializer {
             this.setJsonLDRelations(jsonld, model, ignoredModels);
         }
 
-        if (options.includeTypes ?? true) {
+        if ((options.includeTypes ?? true) && model.static('rdfsClasses').length > 0) {
             this.setJsonLDTypes(jsonld, model);
         } else {
             delete jsonld['@type'];

@@ -121,7 +121,7 @@ export type SolidSchemaDefinition = SchemaDefinition<{
     Partial<{
         rdfContext: string;
         rdfContexts: Record<string, string>;
-        rdfsClass: string;
+        rdfsClass: string | null;
         rdfsClasses: string[];
         rdfsClassesAliases: string[][];
         defaultResourceHash: string;

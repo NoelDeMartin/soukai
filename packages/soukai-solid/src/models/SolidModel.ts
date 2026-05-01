@@ -138,7 +138,7 @@ export class SolidModel extends SolidModelBase {
     public static classFields = ['_history', '_publicPermissions', '_tombstone'];
     public static rdfContext?: string;
     public static rdfContexts: RDFContexts = {};
-    public static rdfsClass?: string;
+    public static rdfsClass?: string | null;
     public static rdfsClasses: string[] = [];
     public static rdfsClassesAliases: string[][] = [];
     public static reservedRelations: string[] = ['metadata', 'operations', 'tombstone', 'authorizations'];
@@ -248,7 +248,7 @@ export class SolidModel extends SolidModelBase {
             this.rdfsClass,
         );
         this.rdfsClasses = this.bootRdfsClasses(
-            Object.getOwnPropertyDescriptor(this, 'rdfsClass')?.value ?? null,
+            Object.getOwnPropertyDescriptor(this, 'rdfsClass')?.value,
             Object.getOwnPropertyDescriptor(this, 'rdfsClasses')?.value ?? null,
             this.rdfContexts,
         );
@@ -359,7 +359,7 @@ export class SolidModel extends SolidModelBase {
         const document = await this.requireEngine().readOne(containerUrl, documentUrl);
         const resource = await RDFDocument.resourceFromJsonLDGraph(document as JsonLDGraph, resourceUrl);
 
-        if (!rdfsClasses.some((type) => resource.isType(type))) {
+        if (rdfsClasses.length > 0 && !rdfsClasses.some((type) => resource.isType(type))) {
             return fail(ResourceNotFound, resourceUrl, documentUrl);
         }
 
@@ -548,14 +548,16 @@ export class SolidModel extends SolidModelBase {
         );
 
         return Object.entries(resourcesTypes)
-            .filter(([_, types]) => types.some((type) => this.rdfsClasses.includes(type)))
+            .filter(([_, types]) => 
+                this.rdfsClasses.length === 0 
+                || types.some((type) => this.rdfsClasses.includes(type)))
             .map(([resourceId]) => (baseUrl ? urlResolve(baseUrl, resourceId) : resourceId));
     }
 
     protected static bootRdfContexts(
         rdfContext: string | null,
         rdfContexts: RDFContexts,
-        rdfsClass: string | undefined,
+        rdfsClass: string | null | undefined,
         options: { modelClass?: typeof SolidModel; skipParentSchema?: boolean } = {},
     ): RDFContexts {
         const modelClass = options.modelClass ?? this;
@@ -605,7 +607,7 @@ export class SolidModel extends SolidModelBase {
     }
 
     protected static bootRdfsClasses(
-        rdfsClass: string | null,
+        rdfsClass: string | null | undefined,
         rdfsClasses: string[] | null,
         rdfContexts: RDFContexts,
         initialClass?: typeof SolidModel,
@@ -620,6 +622,10 @@ export class SolidModel extends SolidModelBase {
             return [this.rdfTerm(rdfsClass, rdfContexts)];
         }
 
+        if (rdfsClass === null) {
+            return [];
+        }
+
         const parentModelClass = Object.getPrototypeOf(modelClass);
 
         if (!parentModelClass) {
@@ -627,7 +633,7 @@ export class SolidModel extends SolidModelBase {
         }
 
         return this.bootRdfsClasses(
-            Object.getOwnPropertyDescriptor(parentModelClass, 'rdfsClass')?.value ?? null,
+            Object.getOwnPropertyDescriptor(parentModelClass, 'rdfsClass')?.value,
             Object.getOwnPropertyDescriptor(parentModelClass, 'rdfsClasses')?.value ?? null,
             {
                 ...rdfContexts,
@@ -711,7 +717,7 @@ export class SolidModel extends SolidModelBase {
                 schema.rdfsClass,
                 { skipParentSchema: true },
             );
-            const rdfsClasses = this.bootRdfsClasses(schema.rdfsClass ?? null, schema.rdfsClasses ?? null, rdfContexts);
+            const rdfsClasses = this.bootRdfsClasses(schema.rdfsClass, schema.rdfsClasses ?? null, rdfContexts);
             const rdfsClassesAliases = this.bootRdfsClassesAliases(schema.rdfsClassesAliases ?? [], rdfContexts);
 
             startSchemaUpdate(this, rdfContexts);
@@ -1271,7 +1277,8 @@ export class SolidModel extends SolidModelBase {
                     rdfDocument.resources
                         .filter(
                             (resource): resource is RDFResource & { url: string } =>
-                                !!resource.url && rdfsClasses.some((type) => resource.isType(type)),
+                                !!resource.url 
+                                && (rdfsClasses.length === 0 || rdfsClasses.some((type) => resource.isType(type))),
                         )
                         .map(async (resource) => {
                             try {
