@@ -335,9 +335,9 @@ export class SolidModel extends SolidModelBase {
     }
     /* eslint-enable max-len */
 
-    public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null>;
-    public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null>;
-    public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null> {
+    public static async findOrFail<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T>;
+    public static async findOrFail<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T>;
+    public static async findOrFail<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T> {
         const rdfsClasses = arrayUnique([this.rdfsClasses, ...this.rdfsClassesAliases].flat());
         const resourceUrl = this.instance().serializeKey(id);
         const documentUrl = urlRoute(resourceUrl);
@@ -345,22 +345,28 @@ export class SolidModel extends SolidModelBase {
 
         this.ensureBooted();
 
+        const { documentPermissions, stopTracking } = this.instance().trackPublicPermissions();
+        const document = await this.requireEngine().readOne(containerUrl, documentUrl);
+        const resource = await RDFDocument.resourceFromJsonLDGraph(document as JsonLDGraph, resourceUrl);
+
+        if (!rdfsClasses.some((type) => resource.isType(type))) {
+            return fail(ResourceNotFound, resourceUrl, documentUrl);
+        }
+
+        const model = await this.instance().createFromEngineDocument(documentUrl, document, resourceUrl);
+
+        stopTracking();
+
+        model._publicPermissions = documentPermissions[documentUrl];
+
+        return model;
+    }
+
+    public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null>;
+    public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null>;
+    public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null> {
         try {
-            const { documentPermissions, stopTracking } = this.instance().trackPublicPermissions();
-            const document = await this.requireEngine().readOne(containerUrl, documentUrl);
-            const resource = await RDFDocument.resourceFromJsonLDGraph(document as JsonLDGraph, resourceUrl);
-
-            if (!rdfsClasses.some((type) => resource.isType(type))) {
-                return null;
-            }
-
-            const model = await this.instance().createFromEngineDocument(documentUrl, document, resourceUrl);
-
-            stopTracking();
-
-            model._publicPermissions = documentPermissions[documentUrl];
-
-            return model;
+            return await this.findOrFail(id);
         } catch (error) {
             if (
                 applyStrictChecks() &&

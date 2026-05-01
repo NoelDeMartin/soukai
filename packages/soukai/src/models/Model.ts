@@ -148,19 +148,17 @@ export class Model {
     }
 
     public static async findOrFail<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T> {
-        const instance = await this.find(id);
+        this.ensureBooted();
 
-        return instance ?? fail(`Failed getting required model ${id}`);
+        const document = await this.requireEngine().readOne(this.collection, this.instance().serializeKey(id));
+        const instance = await this.createFromEngineDocument(id, document);
+
+        return instance;
     }
 
     public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null> {
-        this.ensureBooted();
-
         try {
-            const document = await this.requireEngine().readOne(this.collection, this.instance().serializeKey(id));
-            const instance = await this.createFromEngineDocument(id, document);
-
-            return instance;
+            return await this.findOrFail(id);
         } catch (error) {
             return null;
         }
