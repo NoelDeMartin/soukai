@@ -19,6 +19,7 @@ export * from './schema';
 export * from './schema-container';
 export * from './SolidModel';
 export * from './SolidContainer.schema';
+export * from './SolidMultiDocumentModel';
 
 export { SolidACLAuthorization, SolidContainer, SolidDocument, SolidResource, SolidTypeIndex, SolidTypeRegistration };
 

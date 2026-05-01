@@ -155,6 +155,38 @@ export function stubSolidDocumentJsonLD(url: string, updatedAt: string): JsonLDG
     });
 }
 
+export function stubWebIdJsonLD(
+    id: string,
+    name: string,
+    knows?: string[] | undefined,
+    seeAlso?: string[] | undefined,
+    isPrimaryTopicOf?: string[] | undefined,
+): JsonLDGraph & EngineDocument {
+    const webId: JsonLDResource = {
+        '@context': {
+            rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+            foaf: 'http://xmlns.com/foaf/0.1/',
+        },
+        '@id': id,
+        'foaf:name': name,
+    };
+    
+    if (knows !== undefined) {
+        webId['foaf:knows'] = knows;
+    }
+
+    if (seeAlso !== undefined) {
+        webId['rdfs:seeAlso'] = seeAlso;
+    }
+
+    if (isPrimaryTopicOf !== undefined) {
+        webId['foaf:isPrimaryTopicOf'] = isPrimaryTopicOf;
+    }
+
+    return jsonLDGraph(webId);
+}
+
+
 export function jsonLDGraph(...resources: JsonLDResource[]): JsonLDGraph & EngineDocument {
     return { '@graph': resources } as JsonLDGraph & EngineDocument;
 }
