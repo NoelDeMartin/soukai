@@ -1,14 +1,16 @@
 # Contribution Guidelines
 
-If you're thinking about contributing to the repository, thank you! Here's some guidelines you should have in mind:
+If you're thinking about contributing to the repository, thank you!
+
+Make sure to check [my general guidelines for contributions](https://noeldemartin.com/open-source), and read the following that are specific to this project:
 
 ## Open an issue before opening a PR
 
-For any substantial feature, I strongly suggest that you open an issue validating your idea before you spend any time working on it. This is an _opinionated_ library, which means that I won't be accepting any feature even if it's technically correct. In particular, I'm aware of many limitations of the library, but some of them are design trade-offs for the use-case I'm trying to address (learn more about this in my talk [Thoughts on Solid Developer Experience](https://noeldemartin.com/solid-symposium-dx)).
+I'm aware of many limitations of the library, but some of them are design trade-offs for the use-case I'm trying to address (learn more about this in my talk [Thoughts on Solid Developer Experience](https://noeldemartin.com/solid-symposium-dx)).
 
-We can use the issue to discuss the problem and the solution, and once we have validated the general direction of your contribution, you can go ahead and start working on the code.
+Because of that, there are some things that I won't accept even if they are technically correct. Depending what you're trying to do, you may want to add it to [@noeldemartin/solid-utils](https://github.com/noeldemartin/solid-utils) instead, or check some of the other libraries to work with RDF listed on [rdfjs.dev](https://rdfjs.dev).
 
-Of course, for small fixes or typos you can go ahead and open a PR directly. But keep in mind that I may reject anything that I haven't approved previously.
+In any case, if you're in doubt just open an issue and we can discuss it.
 
 ## `soukai-bis` vs `soukai` and `soukai-solid`
 
