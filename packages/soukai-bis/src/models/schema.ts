@@ -16,6 +16,7 @@ import { isModelClass } from './utils';
 import { requireBootedModel } from './registry';
 import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
 import type { SchemaModelRelations, SchemaRelations } from './relations/schema';
+import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
 
 export type Schema<
     TFields extends SchemaFields = SchemaFields,
@@ -30,6 +31,7 @@ export type Schema<
     rdfClasses: NamedNode[];
     rdfDefaultResourceHash: string;
     rdfFieldProperties: Record<keyof TFields, NamedNode>;
+    computed: Record<string, ComputedAttributeCompute<Model, unknown>>;
     slugField?: string & keyof TFields;
 };
 
@@ -171,6 +173,7 @@ export function defineSchema<
             history,
             tombstone,
             rdfContext,
+            computed: {},
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
             slugField:
                 Object.entries(fields).find(([_, definition]) => deepMeta(definition, 'rdfSlug'))?.[0] ??

@@ -1,3 +1,3 @@
-import { JSError } from '@noeldemartin/utils';
+import SoukaiError from './SoukaiError';
 
-export default class JobCancelledError extends JSError {}
+export default class JobCancelledError extends SoukaiError {}

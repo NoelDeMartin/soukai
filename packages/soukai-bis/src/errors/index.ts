@@ -3,3 +3,4 @@ export { default as DocumentNotFound } from './DocumentNotFound';
 export { default as InvalidAttributeError } from './InvalidAttributeError';
 export { default as InvalidAttributesError } from './InvalidAttributesError';
 export { default as SoukaiError } from './SoukaiError';
+export { default as UndefinedComputedValue } from './UndefinedComputedValue';

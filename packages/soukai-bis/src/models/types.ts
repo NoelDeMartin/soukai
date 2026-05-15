@@ -14,21 +14,24 @@ export type GetModelInput<T extends ModelConstructor> = Pretty<NonNullable<Const
 export type GetModelRelationName<T extends ModelConstructor> = string & keyof T['schema']['relations'];
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;
-export type ModelWithUrl<T extends Model = Model> = T & { url: string };
+export type ModelWithUrl<T extends Model = Model> = Model & T & { url: string };
 
-export type ModelWithTimestamps<T extends Model = Model> = T & {
-    createdAt: Date;
-    updatedAt: Date;
-    metadata: Metadata;
-    relatedMetadata: HasOneRelation<T, Metadata, typeof Metadata>;
-};
+export type ModelWithTimestamps<T extends Model = Model> = Model &
+    T & {
+        createdAt: Date;
+        updatedAt: Date;
+        metadata: Metadata;
+        relatedMetadata: HasOneRelation<T, Metadata, typeof Metadata>;
+    };
 
-export type ModelWithHistory<T extends Model> = T & {
-    operations: Operation[];
-    relatedOperations: HasManyRelation<T, Operation, typeof Operation>;
-};
+export type ModelWithHistory<T extends Model> = Model &
+    T & {
+        operations: Operation[];
+        relatedOperations: HasManyRelation<T, Operation, typeof Operation>;
+    };
 
-export type ModelWithTombstones<T extends Model> = T & {
-    tombstone: Tombstone;
-    relatedTombstone: HasOneRelation<T, Tombstone, typeof Tombstone>;
-};
+export type ModelWithTombstones<T extends Model> = Model &
+    T & {
+        tombstone: Tombstone;
+        relatedTombstone: HasOneRelation<T, Tombstone, typeof Tombstone>;
+    };

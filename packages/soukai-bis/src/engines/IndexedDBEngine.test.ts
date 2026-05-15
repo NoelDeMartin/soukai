@@ -1,4 +1,3 @@
-import 'fake-indexeddb/auto';
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deleteDB, openDB } from 'idb';

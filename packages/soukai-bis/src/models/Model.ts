@@ -31,6 +31,7 @@ import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
 
+import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { getRelatedClass } from './relations/utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
@@ -50,6 +51,7 @@ import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type Tombstone from './crdts/Tombstone';
+import type { ComputedProxy } from './computed-attributes/proxies';
 import type { Schema } from './schema';
 import type { ModelEvent, ModelListener } from './concerns/events';
 
@@ -69,6 +71,9 @@ export default class Model<
 
     public static schema: Schema;
     private static __engine: Engine | null = null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    public static computed: Record<string, (model: ComputedProxy<any>) => unknown>;
 
     public static get defaultContainerUrl(): string {
         return getMeta(this, 'defaultContainerUrl');
@@ -131,8 +136,11 @@ export default class Model<
         try {
             const engine = this.requireEngine();
             const document = await engine.readDocument(urlRoute(url));
+            const model = await this.createFromDocument(document, { url });
 
-            return this.createFromDocument(document, { url });
+            await model?.restoreComputedAttributes();
+
+            return model;
         } catch (error) {
             if (!isInstanceOf(error, DocumentNotFound)) {
                 throw error;
@@ -192,6 +200,8 @@ export default class Model<
                     models.push(deepModels);
                 }
             }
+
+            await Promise.all(models.flat().map((model) => model.restoreComputedAttributes()));
 
             return models.flat();
         } catch (error) {
@@ -337,6 +347,7 @@ export default class Model<
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Set<FieldName>;
+    protected _computedAttributes: Record<string, ComputedAttribute> = {};
     protected _relations: Record<string, Relation> = {};
 
     public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
@@ -420,6 +431,23 @@ export default class Model<
 
     public getOriginalAttribute(field: FieldName): unknown {
         return this._originalAttributes[field];
+    }
+
+    public getComputedAttribute(name: string): ComputedAttribute {
+        if (!(name in this._computedAttributes)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const compute = this.static('schema').computed[name] as any;
+
+            if (!compute) {
+                throw new SoukaiError(
+                    `Computed attribute '${name}' is not defined in the ${this.static().modelName} model.`,
+                );
+            }
+
+            this._computedAttributes[name] = new ComputedAttribute(this, name, compute);
+        }
+
+        return this._computedAttributes[name] as ComputedAttribute;
     }
 
     public getRelation(name: RelationName): Relation {
@@ -549,6 +577,10 @@ export default class Model<
         return this.static('schema').timestamps;
     }
 
+    public hasUrl(): this is ModelWithUrl<this> {
+        return this.url !== undefined;
+    }
+
     public tracksChanges(): this is ModelWithHistory<this> {
         return this.static('schema').history;
     }
@@ -647,6 +679,10 @@ export default class Model<
 
         if (property in this.static('schema').relations) {
             return this._proxy.instance.getRelation(property as RelationName)?.related;
+        }
+
+        if (property in this.static('schema').computed) {
+            return this._proxy.instance.getComputedAttribute(property);
         }
 
         if (property.startsWith('related')) {
@@ -783,6 +819,12 @@ export default class Model<
         });
 
         this.url && metadata.mintUrl();
+    }
+
+    protected async restoreComputedAttributes(): Promise<void> {
+        for (const computedAttribute of Object.keys(this.static('schema').computed)) {
+            await this.getComputedAttribute(computedAttribute).updateValue({ refresh: false, useCache: true });
+        }
     }
 
     protected touch(now: Date): void {

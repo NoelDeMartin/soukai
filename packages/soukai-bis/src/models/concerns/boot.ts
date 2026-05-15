@@ -46,6 +46,10 @@ export function boot(model: ModelConstructor, name?: string): void {
         model.schema.rdfClasses.push(new RDFNamedNode(`${model.schema.rdfContext.default}${model.modelName}`));
     }
 
+    if (model.computed) {
+        model.schema.computed = model.computed;
+    }
+
     initMeta(model, name);
 }
 

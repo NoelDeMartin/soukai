@@ -1,4 +1,5 @@
 import 'soukai-bis/patch-zod';
+import 'fake-indexeddb/auto';
 
 import { beforeEach, vi } from 'vitest';
 import { FakeServer } from '@noeldemartin/testing';

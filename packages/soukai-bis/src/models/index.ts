@@ -1,4 +1,5 @@
 export * from './core';
+export * from './computed-attributes';
 export * from './crdts';
 export * from './events';
 export * from './identity';
