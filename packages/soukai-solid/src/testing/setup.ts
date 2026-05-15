@@ -1,3 +1,5 @@
+import 'fake-indexeddb/auto';
+
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 import { FakeServer } from '@noeldemartin/testing';
 import { beforeEach } from 'vitest';

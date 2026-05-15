@@ -30,4 +30,7 @@ export default defineConfig({
             soukai: fileURLToPath(new URL('./src/', import.meta.url)),
         },
     },
+    test: {
+        setupFiles: ['./src/testing/setup.ts'],
+    },
 });

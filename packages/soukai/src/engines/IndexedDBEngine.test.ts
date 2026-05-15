@@ -1,4 +1,3 @@
-import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { deleteDB, openDB } from 'idb';
