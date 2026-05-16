@@ -1,5 +1,6 @@
 import {
     MagicObject,
+    applyStrictChecks,
     arrayUnique,
     deepEquals,
     fail,
@@ -142,7 +143,7 @@ export default class Model<
 
             return model;
         } catch (error) {
-            if (!isInstanceOf(error, DocumentNotFound)) {
+            if (applyStrictChecks() && !isInstanceOf(error, DocumentNotFound) && !isInstanceOf(error, ZodError)) {
                 throw error;
             }
 
