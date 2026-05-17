@@ -1,29 +1,35 @@
-import { isPlainObject } from '@noeldemartin/utils';
+import { isInstanceOf, isPlainObject } from '@noeldemartin/utils';
 
+import Model from 'soukai-bis/models/Model';
 import UndefinedComputedValue from 'soukai-bis/errors/UndefinedComputedValue';
 
 const proxies = new WeakMap<object, ComputedProxy>();
 
-export const undefinedComputedMarker: unique symbol = Symbol('undefinedComputedMarker');
+export const computedProxyMarker: unique symbol = Symbol('computedProxyMarker');
+export const computedProxyGetter: unique symbol = Symbol('computedProxyGetter');
 
-export type ComputedProxy<T = object> = T extends object
+export type ComputedProxy<T = object> = { [computedProxyGetter]: T } & (T extends object
     ? Required<{
           [K in keyof T]: NonNullable<ComputedProxy<T[K]>>;
       }>
     : T extends Array<infer TItem>
       ? ComputedProxy<TItem>[]
-      : T;
+      : T);
+
+export function isComputedProxy(value: unknown): value is ComputedProxy {
+    return typeof value === 'object' && value !== null && computedProxyMarker in value;
+}
 
 export function unpackComputedValue<T>(value: T): T {
+    if (isComputedProxy(value)) {
+        return value[computedProxyGetter] as T;
+    }
+
     if (Array.isArray(value)) {
         return value.map((item) => unpackComputedValue(item)) as T;
     }
 
     if (isPlainObject(value)) {
-        if (undefinedComputedMarker in value) {
-            return undefined as T;
-        }
-
         return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, unpackComputedValue(v)])) as T;
     }
 
@@ -35,17 +41,21 @@ export function computedProxy<T>(target: T): ComputedProxy<T> {
         return new Proxy(
             {},
             {
-                get() {
+                get(_, property: string | symbol) {
+                    if (property === computedProxyGetter) {
+                        return undefined;
+                    }
+
                     throw new UndefinedComputedValue();
                 },
                 has(_, property: string | symbol) {
-                    return property === undefinedComputedMarker;
+                    return property === computedProxyMarker;
                 },
             },
         ) as ComputedProxy<T>;
     }
 
-    if (!isPlainObject(target) && !Array.isArray(target)) {
+    if (!isPlainObject(target) && !Array.isArray(target) && !isInstanceOf(target, Model)) {
         return target as ComputedProxy<T>;
     }
 
@@ -55,9 +65,18 @@ export function computedProxy<T>(target: T): ComputedProxy<T> {
 
     return new Proxy(target, {
         get(getTarget: object, property: string | symbol, receiver: unknown) {
-            const value = Reflect.get(getTarget, property, receiver);
+            if (property === computedProxyGetter) {
+                return target;
+            }
 
-            return computedProxy(value);
+            return computedProxy(Reflect.get(getTarget, property, receiver));
+        },
+        has(hasTarget: object, property: string | symbol) {
+            if (property === computedProxyMarker) {
+                return true;
+            }
+
+            return Reflect.has(hasTarget, property);
         },
     }) as ComputedProxy<T>;
 }
