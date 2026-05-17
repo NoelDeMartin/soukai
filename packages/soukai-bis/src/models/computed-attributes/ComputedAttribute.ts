@@ -6,7 +6,7 @@ import { getRelatedClasses } from 'soukai-bis/models/relations/utils';
 import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
-import { computedProxy } from './proxies';
+import { computedProxy, unpackComputedValue } from './proxies';
 import type { ComputedProxy } from './proxies';
 
 export type ComputedAttributeCompute<TTarget extends Model, TValue> = (target: ComputedProxy<TTarget>) => TValue;
@@ -66,7 +66,7 @@ export default class ComputedAttribute<TValue = unknown> {
         }
 
         try {
-            this._value = this.compute(computedProxy(this.target));
+            this._value = unpackComputedValue(this.compute(computedProxy(this.target)));
 
             await this.setCachedValue(this._value);
 

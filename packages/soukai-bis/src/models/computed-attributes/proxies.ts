@@ -1,9 +1,10 @@
 import UndefinedComputedValue from 'soukai-bis/errors/UndefinedComputedValue';
-import type Model from 'soukai-bis/models/Model';
 
 const proxies = new WeakMap<object, ComputedProxy>();
 
-export type ComputedProxy<T = object> = T extends Model
+export const undefinedComputedMarker: unique symbol = Symbol('undefinedComputedMarker');
+
+export type ComputedProxy<T = object> = T extends object
     ? Required<{
           [K in keyof T]: NonNullable<ComputedProxy<T[K]>>;
       }>
@@ -11,7 +12,37 @@ export type ComputedProxy<T = object> = T extends Model
       ? ComputedProxy<TItem>[]
       : T;
 
+export function unpackComputedValue<T>(value: T): T {
+    if (Array.isArray(value)) {
+        return value.map((item) => unpackComputedValue(item)) as T;
+    }
+
+    if (typeof value === 'object' && value !== null) {
+        if (undefinedComputedMarker in value) {
+            return undefined as T;
+        }
+
+        return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, unpackComputedValue(v)])) as T;
+    }
+
+    return value;
+}
+
 export function computedProxy<T>(target: T): ComputedProxy<T> {
+    if (target === undefined) {
+        return new Proxy(
+            {},
+            {
+                get() {
+                    throw new UndefinedComputedValue();
+                },
+                has(_, property: string | symbol) {
+                    return property === undefinedComputedMarker;
+                },
+            },
+        ) as ComputedProxy<T>;
+    }
+
     if (typeof target !== 'object' || target === null || target instanceof Date) {
         return target as ComputedProxy<T>;
     }
@@ -23,10 +54,6 @@ export function computedProxy<T>(target: T): ComputedProxy<T> {
     return new Proxy(target, {
         get(getTarget: object, property: string | symbol, receiver: unknown) {
             const value = Reflect.get(getTarget, property, receiver);
-
-            if (value === undefined) {
-                throw new UndefinedComputedValue();
-            }
 
             return computedProxy(value);
         },
