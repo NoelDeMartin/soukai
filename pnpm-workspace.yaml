@@ -1,6 +1,10 @@
 packages:
     - packages/**
 
+allowBuilds:
+    core-js: true
+    esbuild: true
+
 catalog:
     '@arethetypeswrong/cli': ^0.17.4
     '@noeldemartin/faker': 7.6.0
