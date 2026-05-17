@@ -1,3 +1,5 @@
+import { isPlainObject } from '@noeldemartin/utils';
+
 import UndefinedComputedValue from 'soukai-bis/errors/UndefinedComputedValue';
 
 const proxies = new WeakMap<object, ComputedProxy>();
@@ -17,7 +19,7 @@ export function unpackComputedValue<T>(value: T): T {
         return value.map((item) => unpackComputedValue(item)) as T;
     }
 
-    if (typeof value === 'object' && value !== null) {
+    if (isPlainObject(value)) {
         if (undefinedComputedMarker in value) {
             return undefined as T;
         }
@@ -43,7 +45,7 @@ export function computedProxy<T>(target: T): ComputedProxy<T> {
         ) as ComputedProxy<T>;
     }
 
-    if (typeof target !== 'object' || target === null || target instanceof Date) {
+    if (!isPlainObject(target) && !Array.isArray(target)) {
         return target as ComputedProxy<T>;
     }
 
