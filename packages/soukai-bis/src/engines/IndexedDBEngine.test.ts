@@ -512,6 +512,33 @@ describe('IndexedDBEngine', () => {
         );
     });
 
+    it('purges metadata', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date();
+
+        await setDatabaseDocument(
+            containerUrl,
+            documentUrl,
+            {
+                '@id': documentUrl,
+                '@type': 'http://schema.org/CreativeWork',
+            },
+            { lastModifiedAt },
+        );
+
+        const initialDocuments = await getDatabaseDocuments(containerUrl);
+        expect(initialDocuments[0]?.lastModifiedAt).toEqual(lastModifiedAt);
+
+        // Act
+        await engine.purgeMetadata();
+
+        // Assert
+        const purgedDocuments = await getDatabaseDocuments(containerUrl);
+        expect(purgedDocuments[0]?.lastModifiedAt).toBeUndefined();
+    });
+
     async function resetDatabase(): Promise<void> {
         await initMetaDatabase();
     }

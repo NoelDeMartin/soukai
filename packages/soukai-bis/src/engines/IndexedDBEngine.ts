@@ -194,6 +194,23 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         });
     }
 
+    public async purgeMetadata(): Promise<void> {
+        await this.lock.run(async () => {
+            for (const containerUrl of await this.getContainerUrls()) {
+                await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+                    for (const document of await transaction.store.getAll()) {
+                        if (!document.lastModifiedAt) {
+                            continue;
+                        }
+
+                        delete document.lastModifiedAt;
+                        await transaction.store.put(document);
+                    }
+                });
+            }
+        });
+    }
+
     public async getContainerUrls(): Promise<string[]> {
         const documents = await this.getContainersMetadata();
 

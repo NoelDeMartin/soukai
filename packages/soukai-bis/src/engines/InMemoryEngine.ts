@@ -144,6 +144,16 @@ export default class InMemoryEngine extends Engine implements ManagesContainers 
         }
     }
 
+    public async purgeMetadata(): Promise<void> {
+        for (const url of Object.keys(this.documents)) {
+            if (!this.documents[url]?.lastModifiedAt) {
+                continue;
+            }
+
+            delete this.documents[url].lastModifiedAt;
+        }
+    }
+
     private async populateContainer(document: SolidDocument): Promise<void> {
         const quads: Quad[] = [];
         const subject = new RDFNamedNode(document.url);
