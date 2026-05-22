@@ -15,6 +15,7 @@ import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'souk
 import Engine from './Engine';
 import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
+import type PurgesMetadata from './contracts/PurgesMetadata';
 
 export interface LocalDocument {
     url: string;
@@ -39,7 +40,7 @@ interface MetadataSchema extends DBSchema {
     };
 }
 
-export default class IndexedDBEngine extends Engine implements ManagesContainers {
+export default class IndexedDBEngine extends Engine implements ManagesContainers, PurgesMetadata {
 
     public static readonly engineName = 'IndexedDBEngine';
 
