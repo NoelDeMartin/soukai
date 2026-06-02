@@ -81,6 +81,7 @@ export default class SolidEngine extends Engine {
             }
 
             operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
+            operations = this.filterSupersededOperations(operations);
 
             if (operations.length === 0) {
                 return;

@@ -220,6 +220,66 @@ describe('SolidEngine', () => {
         `);
     });
 
+    it('updating documents with multiple SetPropertyOperations uses only the latest', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const resourceUrl = `${documentUrl}#it`;
+        const oldName = faker.name.firstName();
+        const firstName = faker.name.firstName();
+        const secondName = faker.name.firstName();
+        const property = expandIRI('foaf:name');
+
+        FakeServer.respondOnce(
+            documentUrl,
+            `
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${resourceUrl}>
+                    a foaf:Person ;
+                    foaf:name "${oldName}" .
+            `,
+        );
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        // Act
+        await engine.updateDocument(documentUrl, [
+            new SetPropertyOperation({
+                resourceUrl,
+                property,
+                value: [secondName],
+                date: new Date('2026-06-01T00:00:00Z'),
+            }),
+            new SetPropertyOperation({
+                resourceUrl,
+                property,
+                value: [firstName],
+                date: new Date('2026-05-01T00:00:00Z'),
+            }),
+        ]);
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+            2,
+            documentUrl,
+            expect.objectContaining({
+                method: 'PATCH',
+                headers: expect.objectContaining({
+                    'Content-Type': 'application/sparql-update',
+                }),
+            }),
+        );
+
+        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+            DELETE DATA {
+                <#it> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
+            } ;
+            INSERT DATA {
+                <#it> <http://xmlns.com/foaf/0.1/name> "${secondName}" .
+            }
+        `);
+    });
+
     it('updates containers', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();

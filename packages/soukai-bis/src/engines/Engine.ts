@@ -5,6 +5,8 @@ import type { Quad } from '@rdfjs/types';
 
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 import {
     LDP_BASIC_CONTAINER,
     LDP_BASIC_CONTAINER_OBJECT,
@@ -66,6 +68,39 @@ export default abstract class Engine {
         return operations.filter(
             (operation) => !(operation instanceof PropertyOperation) || !operation.hasPredicate(LDP_CONTAINS_PREDICATE),
         );
+    }
+
+    protected filterSupersededOperations(operations: EngineOperation[]): EngineOperation[] {
+        const overridableOperations = operations.filter(
+            (operation): operation is SetPropertyOperation | UnsetPropertyOperation => {
+                return isInstanceOf(operation, SetPropertyOperation) || isInstanceOf(operation, UnsetPropertyOperation);
+            },
+        );
+
+        if (overridableOperations.length <= 1) {
+            return operations;
+        }
+
+        const lastOperations = new Map<string, SetPropertyOperation | UnsetPropertyOperation>();
+
+        for (const operation of overridableOperations) {
+            const key = `${operation.resourceUrl}-${operation.property}`;
+            const existing = lastOperations.get(key);
+
+            if (!existing || operation.date.getTime() > existing.date.getTime()) {
+                lastOperations.set(key, operation);
+            }
+        }
+
+        return operations.filter((operation) => {
+            if (!isInstanceOf(operation, SetPropertyOperation) && !isInstanceOf(operation, UnsetPropertyOperation)) {
+                return true;
+            }
+
+            const key = `${operation.resourceUrl}-${operation.property}`;
+
+            return lastOperations.get(key) === operation;
+        });
     }
 
     protected removeContainerProperties(graph: JsonLD | JsonLDGraph, options: { keepTypes?: boolean } = {}): void {
