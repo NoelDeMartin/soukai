@@ -2,6 +2,7 @@ import { arrayGroupBy, arrayUnique, isTruthy, objectFromEntries, parseDate } fro
 import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
+import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Job from 'soukai-bis/jobs/Job';
@@ -207,8 +208,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 return;
             }
 
-            await this.syncDocumentsOperations(localDocument, remoteDocument);
-            await this.syncDocumentMetadata(localDocument, remoteDocument);
+            await this.syncDocumentContents(localDocument, remoteDocument);
         } catch (error) {
             if (error instanceof DocumentNotFound) {
                 return;
@@ -216,6 +216,11 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
             throw error;
         }
+    }
+
+    private async syncDocumentContents(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
+        await this.syncDocumentsOperations(localDocument, remoteDocument);
+        await this.syncDocumentMetadata(localDocument, remoteDocument);
     }
 
     private async syncRemoteChildren(documentUrl: string): Promise<SolidDocument | null> {
@@ -282,10 +287,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 }
 
                 const localDocument = await this.config.localEngine.readDocument(documentUrl);
-                const remoteDocument = await this.config.remoteEngine.createDocument(
-                    documentUrl,
-                    localDocument.getQuads(),
-                );
+                const remoteDocument = await this.pushRemoteDocument(localDocument);
                 const lastModifiedAt = parseDate(
                     remoteDocument.headers.get('Date') || remoteDocument.headers.get('Last-Modified'),
                 );
@@ -311,6 +313,27 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 })
                 .map((model) => model.model),
         );
+    }
+
+    private async pushRemoteDocument(localDocument: SolidDocument): Promise<SolidDocument> {
+        try {
+            const remoteDocument = await this.config.remoteEngine.createDocument(
+                localDocument.url,
+                localDocument.getQuads(),
+            );
+
+            return remoteDocument;
+        } catch (error) {
+            if (!(error instanceof DocumentAlreadyExists)) {
+                throw error;
+            }
+
+            const remoteDocument = await this.config.remoteEngine.readDocument(localDocument.url);
+
+            await this.syncDocumentContents(localDocument, remoteDocument);
+
+            return remoteDocument;
+        }
     }
 
     private async syncDocumentMetadata(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {

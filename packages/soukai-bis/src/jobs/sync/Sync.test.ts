@@ -531,4 +531,36 @@ describe('Sync', () => {
         await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
     });
 
+    it('handles existing document on remote push', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const remoteDocument = fixture('person-missing-second-name.ttl', { documentUrl });
+        const localDocument = await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl })));
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('foaf:Person')],
+            }),
+        ];
+
+        FakeServer.respond(documentUrl, FakeResponse.success(remoteDocument));
+
+        await localEngine.createDocument(documentUrl, localDocument);
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: User, registration: false }],
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.objectContaining({ method: 'PATCH' }));
+
+        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
+    });
+
 });
