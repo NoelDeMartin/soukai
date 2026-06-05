@@ -11,12 +11,12 @@ describe('ComputedAttributesCache', () => {
     beforeEach(async () => {
         ComputedAttributesCache.reset();
 
-        await ComputedAttributesCache.closeConnections();
+        await ComputedAttributesCache.close();
         await deleteDB('soukai:computed');
     });
 
     afterEach(async () => {
-        await ComputedAttributesCache.closeConnections();
+        await ComputedAttributesCache.close();
     });
 
     it('caches values in IndexedDB', async () => {

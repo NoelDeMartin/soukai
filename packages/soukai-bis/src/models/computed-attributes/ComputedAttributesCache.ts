@@ -1,8 +1,9 @@
-import { openDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
 import { facade } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase } from 'idb';
 
 import { getNamespace } from 'soukai-bis/lib/namespace';
+import { SoukaiError } from 'soukai-bis/errors';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 
 interface ComputedAttributesSchema extends DBSchema {
@@ -42,7 +43,7 @@ export class ComputedAttributesCache {
         return document ? (document[name] as TValue) : undefined;
     }
 
-    public async closeConnections(): Promise<void> {
+    public async close(): Promise<void> {
         if (!this.databaseConnection) {
             return;
         }
@@ -54,6 +55,11 @@ export class ComputedAttributesCache {
         delete this.databaseConnection;
     }
 
+    public async clear(): Promise<void> {
+        await this.close();
+        await deleteDB(`${getNamespace()}:computed`, { blocked: () => this.throwDatabaseBlockedError() });
+    }
+
     private async connect(): Promise<IDBPDatabase<ComputedAttributesSchema>> {
         const databaseName = `${getNamespace()}:computed`;
         const connection = await (this.databaseConnection ??= openDB<ComputedAttributesSchema>(databaseName, 1, {
@@ -63,6 +69,13 @@ export class ComputedAttributesCache {
         }));
 
         return connection;
+    }
+
+    private throwDatabaseBlockedError(): void {
+        throw new SoukaiError(
+            'An attempt to open an IndexedDB connection has been blocked, ' +
+                'remember to call ComputedAttributesCache.close() when necessary. ',
+        );
     }
 
 }
