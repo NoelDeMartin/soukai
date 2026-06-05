@@ -2,6 +2,7 @@ import { openDB } from 'idb';
 import { facade } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase } from 'idb';
 
+import { getNamespace } from 'soukai-bis/lib/namespace';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 
 interface ComputedAttributesSchema extends DBSchema {
@@ -17,12 +18,7 @@ interface ComputedAttributesSchema extends DBSchema {
 
 export class ComputedAttributesCache {
 
-    private databaseName = 'soukai-computed-attributes';
     private databaseConnection?: Promise<IDBPDatabase<ComputedAttributesSchema>>;
-
-    public setDatabaseName(databaseName: string): void {
-        this.databaseName = databaseName;
-    }
 
     public async set<T extends ModelWithUrl>(model: T, name: string, value: unknown): Promise<void> {
         const connection = await this.connect();
@@ -59,7 +55,8 @@ export class ComputedAttributesCache {
     }
 
     private async connect(): Promise<IDBPDatabase<ComputedAttributesSchema>> {
-        const connection = await (this.databaseConnection ??= openDB<ComputedAttributesSchema>(this.databaseName, 1, {
+        const databaseName = `${getNamespace()}:computed`;
+        const connection = await (this.databaseConnection ??= openDB<ComputedAttributesSchema>(databaseName, 1, {
             upgrade(database) {
                 database.createObjectStore('attributes', { keyPath: ['model', 'url'] });
             },

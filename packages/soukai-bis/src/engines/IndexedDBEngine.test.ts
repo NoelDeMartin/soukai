@@ -548,7 +548,7 @@ describe('IndexedDBEngine', () => {
             return;
         }
 
-        metadataConnection = await openDB(`${databaseName}-meta`, 1, {
+        metadataConnection = await openDB(`${engine.getNamespace()}:meta`, 1, {
             upgrade: (database) => database.createObjectStore('containers', { keyPath: 'url' }),
         });
     }
@@ -567,8 +567,8 @@ describe('IndexedDBEngine', () => {
     }
 
     async function dropDatabases(): Promise<void> {
-        await deleteDB(`${databaseName}-meta`);
-        await deleteDB(`${databaseName}`);
+        await deleteDB(`${engine.getNamespace()}:meta`);
+        await deleteDB(`${engine.getNamespace()}:data`);
     }
 
     async function getDatabaseDocuments(containerUrl: string): Promise<Record<string, unknown>[]> {
@@ -611,13 +611,13 @@ describe('IndexedDBEngine', () => {
                 await transaction.done;
             }
 
-            const meta = await openDB(`${databaseName}-meta`);
+            const meta = await openDB(`${engine.getNamespace()}:meta`);
             const containers = await meta.getAll('containers');
             const version = containers.length + 1;
 
             meta.close();
 
-            containersConnection = await openDB(databaseName, version, {
+            containersConnection = await openDB(`${engine.getNamespace()}:data`, version, {
                 upgrade: (database) => {
                     for (const c of containers) {
                         if (!database.objectStoreNames.contains(c.url)) {

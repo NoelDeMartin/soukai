@@ -12,7 +12,7 @@ describe('ComputedAttributesCache', () => {
         ComputedAttributesCache.reset();
 
         await ComputedAttributesCache.closeConnections();
-        await deleteDB('soukai-computed-attributes');
+        await deleteDB('soukai:computed');
     });
 
     afterEach(async () => {
@@ -27,34 +27,39 @@ describe('ComputedAttributesCache', () => {
         await ComputedAttributesCache.set(user, 'test', 'Foo Bar');
 
         // Assert
-        const connection = await openDB('soukai-computed-attributes');
-        const document = await connection.get('attributes', ['User', 'https://alice.example.org#me']);
+        const connection = await openDB('soukai:computed');
 
-        expect(document).toEqual({
-            url: 'https://alice.example.org#me',
-            model: 'User',
-            test: 'Foo Bar',
-        });
+        try {
+            const document = await connection.get('attributes', ['User', 'https://alice.example.org#me']);
 
-        connection.close();
+            expect(document).toEqual({
+                url: 'https://alice.example.org#me',
+                model: 'User',
+                test: 'Foo Bar',
+            });
+        } finally {
+            connection.close();
+        }
     });
 
     it('retrieves values from cache', async () => {
         // Arrange
         const user = new User({ url: 'https://alice.example.org#me', name: 'Alice' }) as ModelWithUrl;
-        const connection = await openDB('soukai-computed-attributes', 1, {
+        const connection = await openDB('soukai:computed', 1, {
             upgrade(database) {
                 database.createObjectStore('attributes', { keyPath: ['model', 'url'] });
             },
         });
 
-        await connection.put('attributes', {
-            url: 'https://alice.example.org#me',
-            model: 'User',
-            test: 'cached value',
-        });
-
-        connection.close();
+        try {
+            await connection.put('attributes', {
+                url: 'https://alice.example.org#me',
+                model: 'User',
+                test: 'cached value',
+            });
+        } finally {
+            connection.close();
+        }
 
         // Act
         const value = await ComputedAttributesCache.get(user, 'test');

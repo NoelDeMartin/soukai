@@ -9,6 +9,7 @@ import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { getNamespace } from 'soukai-bis/lib/namespace';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
@@ -44,16 +45,24 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     public static readonly engineName = 'IndexedDBEngine';
 
-    private database: string;
+    private namespace: string;
+    private dataDatabaseName: string;
+    private metaDatabaseName: string;
     private metadataConnection: Promise<IDBPDatabase<MetadataSchema>> | null = null;
     private documentsConnection: Promise<IDBPDatabase<DocumentsSchema>> | null = null;
     private lock: Semaphore;
 
-    public constructor(database: string = 'soukai-bis') {
+    public constructor(namespace?: string) {
         super();
 
-        this.database = database;
+        this.namespace = namespace ?? getNamespace();
+        this.dataDatabaseName = `${this.namespace}:data`;
+        this.metaDatabaseName = `${this.namespace}:meta`;
         this.lock = new Semaphore();
+    }
+
+    public getNamespace(): string {
+        return this.namespace;
     }
 
     public async createDocument(
@@ -234,8 +243,8 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         await this.lock.run(async () => {
             await this.close();
             await Promise.all([
-                deleteDB(`${this.database}-meta`, { blocked: () => this.throwDatabaseBlockedError() }),
-                deleteDB(this.database, { blocked: () => this.throwDatabaseBlockedError() }),
+                deleteDB(this.metaDatabaseName, { blocked: () => this.throwDatabaseBlockedError() }),
+                deleteDB(this.dataDatabaseName, { blocked: () => this.throwDatabaseBlockedError() }),
             ]);
         });
     }
@@ -376,7 +385,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             return this.metadataConnection;
         }
 
-        return (this.metadataConnection = openDB<MetadataSchema>(`${this.database}-meta`, 1, {
+        return (this.metadataConnection = openDB<MetadataSchema>(this.metaDatabaseName, 1, {
             upgrade(db) {
                 if (db.objectStoreNames.contains('containers')) {
                     return;
@@ -395,7 +404,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         const containers = await this.getContainersMetadata();
 
-        return (this.documentsConnection = openDB<DocumentsSchema>(this.database, containers.length + 1, {
+        return (this.documentsConnection = openDB<DocumentsSchema>(this.dataDatabaseName, containers.length + 1, {
             upgrade(database) {
                 for (const container of containers) {
                     if (container.dropped && database.objectStoreNames.contains(container.url as '[containerUrl]')) {
