@@ -316,6 +316,8 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async pushRemoteDocument(localDocument: SolidDocument): Promise<SolidDocument> {
+        this.syncedDocumentUrls.add(localDocument.url);
+
         try {
             const remoteDocument = await this.config.remoteEngine.createDocument(
                 localDocument.url,
