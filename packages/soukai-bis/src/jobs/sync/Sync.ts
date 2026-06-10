@@ -1,5 +1,6 @@
 import { arrayGroupBy, arrayUnique, isTruthy, objectFromEntries, parseDate } from '@noeldemartin/utils';
-import type { SolidDocument, SolidUserProfile } from '@noeldemartin/solid-utils';
+import { SolidDocument } from '@noeldemartin/solid-utils';
+import type { SolidResponse, SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -286,15 +287,14 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                     return;
                 }
 
+                const start = new Date();
                 const localDocument = await this.config.localEngine.readDocument(documentUrl);
                 const remoteDocument = await this.pushRemoteDocument(localDocument);
-                const lastModifiedAt = parseDate(
-                    remoteDocument.headers.get('Date') || remoteDocument.headers.get('Last-Modified'),
-                );
+                const end = new Date();
 
-                if (lastModifiedAt) {
-                    await this.config.localEngine.updateDocument(documentUrl, [], { lastModifiedAt });
-                }
+                await this.config.localEngine.updateDocument(documentUrl, [], {
+                    lastModifiedAt: this.getLastModifiedAt(start, end, remoteDocument),
+                });
 
                 localDocument
                     .statements(undefined, RDF_TYPE_PREDICATE)
@@ -362,6 +362,19 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         const localOperations = await this.getDocumentOperations(localDocument, resourceUrls);
         const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
 
+        const start = new Date();
+        const response = await syncDocumentOperations({
+            resourceUrls,
+            document: remoteDocument,
+            otherDocument: localDocument,
+            engine: this.config.remoteEngine,
+            existingOperations: Array.from(remoteOperations.values()),
+            newOperations: Array.from(localOperations.values()).filter(
+                (operation) => !remoteOperations.has(operation.url),
+            ),
+        });
+        const end = new Date();
+
         await syncDocumentOperations({
             resourceUrls,
             document: localDocument,
@@ -371,20 +384,24 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             newOperations: Array.from(remoteOperations.values()).filter(
                 (operation) => !localOperations.has(operation.url),
             ),
-            propagateLastModifiedAt: true,
+            metadata: { lastModifiedAt: this.getLastModifiedAt(start, end, response) },
         });
+    }
 
-        await syncDocumentOperations({
-            resourceUrls,
-            document: remoteDocument,
-            otherDocument: localDocument,
-            engine: this.config.remoteEngine,
-            existingOperations: Array.from(remoteOperations.values()),
-            newOperations: Array.from(localOperations.values()).filter(
-                (operation) => !remoteOperations.has(operation.url),
-            ),
-            propagateLastModifiedAt: false,
-        });
+    private getLastModifiedAt(start: Date, end: Date, remoteDocument: SolidDocument | SolidResponse | null): Date {
+        const lastModifiedAt =
+            remoteDocument instanceof SolidDocument
+                ? remoteDocument.getLastModified()
+                : parseDate(remoteDocument?.headers.get('last-modified'));
+
+        if (lastModifiedAt) {
+            return lastModifiedAt;
+        }
+
+        const duration = end.getTime() - start.getTime();
+        const requestDate = parseDate(remoteDocument?.headers.get('Date')) ?? start;
+
+        return new Date(requestDate.getTime() + duration);
     }
 
 }

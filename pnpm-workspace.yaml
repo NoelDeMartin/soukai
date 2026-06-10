@@ -1,10 +1,8 @@
 packages:
     - packages/**
-
 allowBuilds:
     core-js: true
     esbuild: true
-
 catalog:
     '@arethetypeswrong/cli': ^0.17.4
     '@noeldemartin/faker': 7.6.0
@@ -16,4 +14,6 @@ catalog:
     eslint: ^8.57.1
     fake-indexeddb: ^6.0.1
     publint: ^0.3.12
-    vitest: ^3.0.9
+    vitest: ~3.0.9
+minimumReleaseAgeExclude:
+    - '@noeldemartin/*'

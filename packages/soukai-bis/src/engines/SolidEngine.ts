@@ -1,7 +1,7 @@
 import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
 import { Semaphore, isDevelopment, isTesting } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
-import type { Fetch, JsonLD, JsonLDGraph, SolidDocument } from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -11,6 +11,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Engine from './Engine';
 import { classMarker } from './utils';
 import type EngineOperation from './operations/EngineOperation';
+import type { EngineMetadata } from './Engine';
 
 export interface SolidEngineConfig {
     fetch?: Nullable<Fetch>;
@@ -39,7 +40,7 @@ export default class SolidEngine extends Engine {
     public async createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: unknown,
+        metadata?: EngineMetadata,
     ): Promise<SolidDocument> {
         return this.lock.run(async () => {
             if (metadata) {
@@ -66,8 +67,12 @@ export default class SolidEngine extends Engine {
         });
     }
 
-    public async updateDocument(url: string, operations: EngineOperation[], metadata?: unknown): Promise<void> {
-        await this.lock.run(async () => {
+    public updateDocument(
+        url: string,
+        operations: EngineOperation[],
+        metadata?: EngineMetadata,
+    ): Promise<SolidResponse | null> {
+        return this.lock.run(async () => {
             if (metadata) {
                 const message =
                     'SolidEngine does not support metadata updates (they will be handled by the Solid Server)';
@@ -84,7 +89,7 @@ export default class SolidEngine extends Engine {
             operations = this.filterSupersededOperations(operations);
 
             if (operations.length === 0) {
-                return;
+                return null;
             }
 
             const document = await this.client.readIfFound(url);
@@ -99,13 +104,15 @@ export default class SolidEngine extends Engine {
                 operation.applyToSparql(sparql);
             }
 
-            await this.client.update(url.endsWith('/') ? document.getDescriptionUrl() : url, sparql, {
+            const response = await this.client.update(url.endsWith('/') ? document.getDescriptionUrl() : url, sparql, {
                 base: url,
             });
+
+            return response;
         });
     }
 
-    public async readDocument(url: string): Promise<SolidDocument> {
+    public readDocument(url: string): Promise<SolidDocument> {
         return this.lock.run(async () => {
             const document = await this.client.readIfFound(
                 url,
@@ -125,8 +132,8 @@ export default class SolidEngine extends Engine {
         });
     }
 
-    public async deleteDocument(url: string): Promise<void> {
-        await this.lock.run(() => this.client.delete(url));
+    public deleteDocument(url: string): Promise<SolidResponse> {
+        return this.lock.run(() => this.client.delete(url));
     }
 
 }

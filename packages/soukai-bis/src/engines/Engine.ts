@@ -1,5 +1,6 @@
 import { isInstanceOf } from '@noeldemartin/utils';
-import { type JsonLD, type JsonLDGraph, type SolidDocument, isJsonLDGraph } from '@noeldemartin/solid-utils';
+import { isJsonLDGraph } from '@noeldemartin/solid-utils';
+import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -17,6 +18,10 @@ import {
 } from 'soukai-bis/utils/rdf';
 import type EngineOperation from './operations/EngineOperation';
 
+export interface EngineMetadata {
+    lastModifiedAt?: Nullable<Date>;
+}
+
 export default abstract class Engine {
 
     public static readonly engineName: string = 'Engine';
@@ -28,7 +33,7 @@ export default abstract class Engine {
     public abstract createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: { lastModifiedAt?: Nullable<Date> }
+        metadata?: EngineMetadata
     ): Promise<SolidDocument>;
 
     public abstract readDocument(url: string): Promise<SolidDocument>;
@@ -36,10 +41,10 @@ export default abstract class Engine {
     public abstract updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: { lastModifiedAt?: Nullable<Date> }
-    ): Promise<void>;
+        metadata?: EngineMetadata
+    ): Promise<SolidResponse | null>;
 
-    public abstract deleteDocument(url: string): Promise<void>;
+    public abstract deleteDocument(url: string): Promise<SolidResponse>;
 
     public async readDocumentIfExists(url: string): Promise<SolidDocument | null> {
         try {

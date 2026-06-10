@@ -1,5 +1,5 @@
 import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
-import type { SolidDocument } from '@noeldemartin/solid-utils';
+import type { SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
@@ -19,6 +19,7 @@ import {
 import type Engine from 'soukai-bis/engines/Engine';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type Operation from 'soukai-bis/models/crdts/Operation';
+import type { EngineMetadata } from 'soukai-bis/engines/Engine';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 
 function getMetadataUpdates({
@@ -252,7 +253,7 @@ export async function syncDocumentOperations({
     existingOperations,
     newOperations,
     resourceUrls,
-    propagateLastModifiedAt,
+    metadata,
 }: {
     document: SolidDocument;
     otherDocument: SolidDocument;
@@ -260,8 +261,8 @@ export async function syncDocumentOperations({
     existingOperations: Operation[];
     newOperations: Operation[];
     resourceUrls: string[];
-    propagateLastModifiedAt: boolean;
-}): Promise<void> {
+    metadata?: EngineMetadata;
+}): Promise<SolidResponse | null> {
     const documentTombstones = await Tombstone.createManyFromDocument(document);
     const otherDocumentTombstones = await Tombstone.createManyFromDocument(otherDocument);
     const documentMetadatas = await Metadata.createManyFromDocument(document);
@@ -302,9 +303,5 @@ export async function syncDocumentOperations({
             }),
         );
 
-    await engine.updateDocument(
-        document.url,
-        documentOperations,
-        propagateLastModifiedAt ? { lastModifiedAt: otherDocument.getLastModified() ?? undefined } : undefined,
-    );
+    return engine.updateDocument(document.url, documentOperations, metadata);
 }

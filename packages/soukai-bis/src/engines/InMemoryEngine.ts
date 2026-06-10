@@ -1,6 +1,6 @@
 import { fail, urlParentDirectory } from '@noeldemartin/utils';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
+import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -13,6 +13,7 @@ import Engine from './Engine';
 import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
 import type PurgesMetadata from './contracts/PurgesMetadata';
+import type { EngineMetadata } from './Engine';
 
 export interface InMemoryDocument {
     graph: JsonLD;
@@ -28,7 +29,7 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
     public async createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: { lastModifiedAt?: Nullable<Date> },
+        metadata?: EngineMetadata,
     ): Promise<SolidDocument> {
         if (url in this.documents) {
             throw new DocumentAlreadyExists(url);
@@ -79,12 +80,12 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
     public async updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: { lastModifiedAt?: Nullable<Date> },
-    ): Promise<void> {
+        metadata?: EngineMetadata,
+    ): Promise<SolidResponse | null> {
         operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
 
         if (operations.length === 0 && !metadata?.lastModifiedAt) {
-            return;
+            return null;
         }
 
         const document = this.documents[url];
@@ -103,10 +104,14 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
             graph: await quadsToJsonLD(quads),
             lastModifiedAt: metadata?.lastModifiedAt ?? document.lastModifiedAt,
         };
+
+        return { headers: new Headers() };
     }
 
-    public async deleteDocument(url: string): Promise<void> {
+    public async deleteDocument(url: string): Promise<SolidResponse> {
         delete this.documents[url];
+
+        return { headers: new Headers() };
     }
 
     public async getContainerUrls(): Promise<string[]> {

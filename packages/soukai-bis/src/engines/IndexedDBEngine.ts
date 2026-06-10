@@ -2,7 +2,7 @@ import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { Semaphore, arrayUnique } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
-import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
+import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -17,6 +17,7 @@ import Engine from './Engine';
 import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
 import type PurgesMetadata from './contracts/PurgesMetadata';
+import type { EngineMetadata } from './Engine';
 
 export interface LocalDocument {
     url: string;
@@ -68,7 +69,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     public async createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: { lastModifiedAt?: Nullable<Date> },
+        metadata?: EngineMetadata,
     ): Promise<SolidDocument> {
         return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
@@ -130,15 +131,15 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     public async updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: { lastModifiedAt?: Nullable<Date> },
-    ): Promise<void> {
+        metadata?: EngineMetadata,
+    ): Promise<SolidResponse | null> {
         operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
 
         if (operations.length === 0 && !metadata?.lastModifiedAt) {
-            return;
+            return null;
         }
 
-        await this.lock.run(async () => {
+        return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
 
             if (!(await this.containerExists(containerUrl))) {
@@ -164,6 +165,8 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                     lastModifiedAt: metadata?.lastModifiedAt,
                 });
             });
+
+            return { headers: new Headers() };
         });
     }
 
@@ -190,17 +193,19 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         });
     }
 
-    public async deleteDocument(url: string): Promise<void> {
-        await this.lock.run(async () => {
+    public deleteDocument(url: string): Promise<SolidResponse> {
+        return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
 
             if (!(await this.containerExists(containerUrl))) {
-                return;
+                return { headers: new Headers() };
             }
 
             await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                 return transaction.store.delete(url);
             });
+
+            return { headers: new Headers() };
         });
     }
 
