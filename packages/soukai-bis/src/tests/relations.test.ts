@@ -297,7 +297,7 @@ describe('Relations', () => {
         await action.save();
 
         // Assert
-        expect(action.movieUrl).toEqual(movie.url);
+        expect(action.objectUrl).toEqual(movie.url);
         expect(movie.action).toBe(action);
         expect(action.exists()).toBe(true);
 
@@ -319,7 +319,7 @@ describe('Relations', () => {
         await movie.save();
 
         // Assert
-        expect(action.movieUrl).toEqual(movie.url);
+        expect(action.objectUrl).toEqual(movie.url);
         expect(action.url).not.toEqual(movie.url);
         expect(action.getDocumentUrl()).toEqual(movie.getDocumentUrl());
         expect(action.exists()).toBe(true);

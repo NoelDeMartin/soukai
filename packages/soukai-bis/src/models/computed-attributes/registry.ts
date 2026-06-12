@@ -10,18 +10,19 @@ import type { Nullable, Obj } from '@noeldemartin/utils';
 import ComputedAttribute from './ComputedAttribute';
 import type { ComputedAttributeCompute } from './ComputedAttribute';
 import type { ComputedProxy } from './proxies';
+import type { SchemaRelationDefinition } from 'soukai-bis/models/relations';
 
 const registry = new WeakMap<ModelConstructor, string[]>();
 
-function simulateComputedRun(modelClass: ModelConstructor, compute: ComputedAttributeCompute): string[] {
-    const visited: string[] = [];
+function simulateComputedRun(modelClass: ModelConstructor, compute: ComputedAttributeCompute): string[][] {
+    const visited: string[][] = [];
 
-    compute(simulatedModelProxy(modelClass, visited));
+    compute(simulatedModelProxy(modelClass, [], visited));
 
     return visited;
 }
 
-function simulatedModelProxy(modelClass: ModelConstructor, visited: string[]): ComputedProxy<Model> {
+function simulatedModelProxy(modelClass: ModelConstructor, root: string[], visited: string[][]): ComputedProxy<Model> {
     return new Proxy(
         {},
         {
@@ -33,13 +34,18 @@ function simulatedModelProxy(modelClass: ModelConstructor, visited: string[]): C
                 const relatedClassDefinition = modelClass.schema.relations[property];
                 const relatedClass = relatedClassDefinition && getRelatedClass(modelClass, relatedClassDefinition);
 
-                if (relatedClass && isMultiModelRelationClass(relatedClassDefinition.relationClass)) {
-                    visited.push(property);
+                if (relatedClass) {
+                    const route = [...root, property];
+                    const relatedProxy = simulatedModelProxy(relatedClass, route, visited);
 
-                    return [simulatedModelProxy(relatedClass, visited)];
+                    visited.push(route);
+
+                    return isMultiModelRelationClass(relatedClassDefinition.relationClass)
+                        ? [relatedProxy]
+                        : relatedProxy;
                 }
 
-                return simulatedModelProxy(modelClass, visited);
+                return simulatedModelProxy(modelClass, root, visited);
             },
             has() {
                 return true;
@@ -48,25 +54,37 @@ function simulatedModelProxy(modelClass: ModelConstructor, visited: string[]): C
     ) as ComputedProxy<Model>;
 }
 
-function getInverseRelationPath(
-    originClass: ModelConstructor,
-    targetClass: ModelConstructor,
-): Record<string, string> | null {
-    for (const [inverseRelationName, inverseRelationDefinition] of Object.entries(originClass.schema.relations)) {
-        const inverseRelatedClass = getRelatedClass(originClass, inverseRelationDefinition);
+function getInverseRelationName(
+    fromClass: ModelConstructor,
+    relationDefinition: SchemaRelationDefinition,
+): string | null {
+    const toClass = getRelatedClass(fromClass, relationDefinition);
+    const fromForeignKey = relationDefinition.options.foreignKey;
+    const inverseRelationEntry = Object.entries(toClass.schema.relations).find(([_, definition]) => {
+        return fromForeignKey === definition.options.foreignKey && fromClass === getRelatedClass(toClass, definition);
+    });
 
-        if (inverseRelatedClass === targetClass) {
-            for (const [relationName, relationDefinition] of Object.entries(targetClass.schema.relations)) {
-                const relatedClass = getRelatedClass(targetClass, relationDefinition);
+    return inverseRelationEntry?.[0] ?? null;
+}
 
-                if (relatedClass === originClass) {
-                    return { [inverseRelationName]: relationName };
-                }
-            }
+function resolveInverseRelationPath(originClass: ModelConstructor, path: string[]): string[] | null {
+    let currentClass = originClass;
+    const inversePath: string[] = [];
+
+    for (const relation of path) {
+        const relationDefinition = currentClass.schema.relations[relation];
+        const inverseRelationName = relationDefinition && getInverseRelationName(currentClass, relationDefinition);
+
+        if (!relationDefinition || !inverseRelationName) {
+            return null;
         }
+
+        inversePath.push(inverseRelationName);
+
+        currentClass = getRelatedClass(currentClass, relationDefinition);
     }
 
-    return null;
+    return inversePath.reverse();
 }
 
 function initComputedAttributes(modelClass: ModelConstructor): string[] {
@@ -79,17 +97,31 @@ function initComputedAttributes(modelClass: ModelConstructor): string[] {
             continue;
         }
 
-        const inversePath = getInverseRelationPath(relatedClass, modelClass);
-
-        if (!inversePath) {
-            continue;
-        }
-
         for (const [name, compute] of Object.entries(relatedClass.schema.computed)) {
-            const [visited] = simulateComputedRun(relatedClass, compute);
+            const visited = simulateComputedRun(relatedClass, compute);
 
-            if (visited && visited in inversePath) {
-                computedAttributes.push(`${inversePath[visited]}.${name}`);
+            pathLoop: for (const path of visited) {
+                let resolvedClass = relatedClass;
+
+                for (const relation of path) {
+                    const relationDefinition = resolvedClass.schema.relations[relation];
+
+                    if (!relationDefinition) {
+                        continue pathLoop;
+                    }
+
+                    resolvedClass = getRelatedClass(resolvedClass, relationDefinition);
+                }
+
+                if (resolvedClass !== modelClass) {
+                    continue;
+                }
+
+                const inversePath = resolveInverseRelationPath(relatedClass, path);
+
+                if (inversePath) {
+                    computedAttributes.push(`${inversePath.join('.')}.${name}`);
+                }
             }
         }
     }
@@ -109,7 +141,7 @@ export async function refreshComputedAttributes(model: Model): Promise<void> {
     for (const path of computedAttributes) {
         const computedAttribute = path
             .split('.')
-            .reduce((target, segment) => target?.[segment] as Nullable<Obj>, model as unknown as Nullable<Obj>);
+            .reduce((target, relation) => target?.[relation] as Nullable<Obj>, model as unknown as Nullable<Obj>);
 
         if (!isInstanceOf(computedAttribute, ComputedAttribute)) {
             continue;

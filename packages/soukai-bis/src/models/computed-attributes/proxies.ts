@@ -8,13 +8,17 @@ const proxies = new WeakMap<object, ComputedProxy>();
 export const computedProxyMarker: unique symbol = Symbol('computedProxyMarker');
 export const computedProxyGetter: unique symbol = Symbol('computedProxyGetter');
 
-export type ComputedProxy<T = object> = { [computedProxyGetter]: T } & (T extends object
-    ? Required<{
-          [K in keyof T]: NonNullable<ComputedProxy<T[K]>>;
-      }>
-    : T extends Array<infer TItem>
+export type PrimitiveValue = string | number | boolean | bigint | symbol | Date | RegExp;
+
+export type ComputedProxy<T = object> = T extends PrimitiveValue
+    ? T
+    : T extends ReadonlyArray<infer TItem>
       ? ComputedProxy<TItem>[]
-      : T);
+      : T extends object
+        ? { [computedProxyGetter]: T } & Required<{
+              [K in keyof T]: NonNullable<ComputedProxy<T[K]>>;
+          }>
+        : T;
 
 export function isComputedProxy(value: unknown): value is ComputedProxy {
     return typeof value === 'object' && value !== null && computedProxyMarker in value;

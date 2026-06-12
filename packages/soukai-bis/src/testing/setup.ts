@@ -7,6 +7,7 @@ import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 
 import { InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
 
+import Episode from 'soukai-bis/testing/stubs/Episode';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import MoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
 import Post from 'soukai-bis/testing/stubs/Post';
@@ -21,6 +22,7 @@ beforeEach(() => {
     bootCoreModels({ reset: true });
     bootModels(
         {
+            Episode,
             Movie,
             MoviesCollection,
             Post,

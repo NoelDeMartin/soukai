@@ -40,14 +40,14 @@ describe('HasOneRelation', () => {
         // Arrange
         const movieUrl = fakeResourceUrl();
         const movie = new Movie({ url: movieUrl, title: 'Spiderman' });
-        const action = new WatchAction({ startTime: new Date(), movieUrl });
+        const action = new WatchAction({ startTime: new Date(), objectUrl: movieUrl });
 
         // Act
         movie.relatedAction.attach(action);
 
         // Assert
         expect(movie.action).toBe(action);
-        expect(action.movieUrl).toBe(movie.url);
+        expect(action.objectUrl).toBe(movie.url);
     });
 
     it('creates related models using same document', async () => {
@@ -58,8 +58,8 @@ describe('HasOneRelation', () => {
         const action = await movie.relatedAction.create({ startTime: new Date() });
 
         // Assert
-        expect(action.movieUrl).toBe(movie.url);
-        expect(action.movieUrl?.startsWith(movie.requireDocumentUrl())).toBe(true);
+        expect(action.objectUrl).toBe(movie.url);
+        expect(action.objectUrl?.startsWith(movie.requireDocumentUrl())).toBe(true);
     });
 
 });

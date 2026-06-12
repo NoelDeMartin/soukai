@@ -10,6 +10,6 @@ export default defineSchema({
         title: string().rdfProperty('name'),
     },
     relations: {
-        action: hasOne(() => WatchAction, 'movieUrl').usingSameDocument(),
+        action: hasOne(() => WatchAction, 'objectUrl').usingSameDocument(),
     },
 });
