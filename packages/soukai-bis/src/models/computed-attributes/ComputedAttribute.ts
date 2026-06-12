@@ -9,7 +9,9 @@ import ComputedAttributesCache from './ComputedAttributesCache';
 import { computedProxy, unpackComputedValue } from './proxies';
 import type { ComputedProxy } from './proxies';
 
-export type ComputedAttributeCompute<TTarget extends Model, TValue> = (target: ComputedProxy<TTarget>) => TValue;
+export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (
+    target: ComputedProxy<TTarget>
+) => TValue;
 
 export default class ComputedAttribute<TValue = unknown> {
 
@@ -22,8 +24,6 @@ export default class ComputedAttribute<TValue = unknown> {
         this.name = name;
         this.target = target;
         this.compute = compute;
-
-        this.updateValue({ refresh: false, useCache: true });
     }
 
     public get value(): TValue | undefined {

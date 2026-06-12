@@ -24,4 +24,19 @@ describe('Computed Attributes', () => {
         expect(freshUser.postTitles.value).toEqual(['Hello World']);
     });
 
+    it('recomputes after saving affected attributes', async () => {
+        // Arrange
+        const user = await User.create({ name: 'Alice' });
+
+        await user.loadRelation('posts');
+
+        // Act
+        await user.relatedPosts.create({ title: 'Hello World' });
+
+        // Assert
+        const freshUser = await user.fresh();
+
+        expect(freshUser.postTitles.value).toEqual(['Hello World']);
+    });
+
 });

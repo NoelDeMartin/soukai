@@ -9,10 +9,11 @@ import type SingleModelRelation from './SingleModelRelation';
 export const classMarker: unique symbol = Symbol('classMarker');
 
 export function isMultiModelRelation(relation: Relation): relation is MultiModelRelation {
-    return (
-        classMarker in relation.constructor &&
-        arrayFrom(relation.constructor[classMarker]).includes('MultiModelRelation')
-    );
+    return isMultiModelRelationClass(relation.constructor);
+}
+
+export function isMultiModelRelationClass(relationClass: Function): boolean {
+    return classMarker in relationClass && arrayFrom(relationClass[classMarker]).includes('MultiModelRelation');
 }
 
 export function isSingleModelRelation(relation: Relation): relation is SingleModelRelation {

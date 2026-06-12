@@ -33,6 +33,7 @@ import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
 
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
+import { refreshComputedAttributes } from './computed-attributes/registry';
 import { getRelatedClass } from './relations/utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
@@ -778,13 +779,15 @@ export default class Model<
     }
 
     protected async afterSave(): Promise<void> {
-        const modelDocuments = this.getDocumentModels();
+        const documentModels = this.getDocumentModels();
 
-        for (const modelDocument of modelDocuments) {
-            modelDocument.setExists(true);
-            modelDocument.setDocumentExists(true);
-            modelDocument.cleanDirty();
+        for (const documentModel of documentModels) {
+            documentModel.setExists(true);
+            documentModel.setDocumentExists(true);
+            documentModel.cleanDirty();
         }
+
+        await Promise.all(documentModels.map(refreshComputedAttributes));
     }
 
     protected async performDelete(): Promise<void> {
