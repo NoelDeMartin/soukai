@@ -27,6 +27,10 @@ export default abstract class MultiModelRelation<
 
     public set related(related: Nullable<Related[]>) {
         this._related = related;
+
+        for (const model of related ?? []) {
+            this.setInverseRelations(model);
+        }
     }
 
     public attach(model: Related): Related;

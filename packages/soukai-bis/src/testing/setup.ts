@@ -9,9 +9,11 @@ import { InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bi
 
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import MoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
-import User from 'soukai-bis/testing/stubs/User';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
+import Season from 'soukai-bis/testing/stubs/Season';
+import Show from 'soukai-bis/testing/stubs/Show';
+import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 
 beforeEach(() => {
@@ -21,9 +23,11 @@ beforeEach(() => {
         {
             Movie,
             MoviesCollection,
-            User,
             Post,
             PostsCollection,
+            Season,
+            Show,
+            User,
             WatchAction,
         },
         { reset: true },

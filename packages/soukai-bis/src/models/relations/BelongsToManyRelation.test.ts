@@ -1,7 +1,9 @@
 import z from 'zod';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 
 import User from 'soukai-bis/testing/stubs/User';
+import Show from 'soukai-bis/testing/stubs/Show';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
@@ -10,6 +12,7 @@ import { bootModels } from 'soukai-bis/models/registry';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
 import type { MintUrlOptions } from 'soukai-bis/models/Model';
 
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { belongsToMany, hasOne } from './fluent';
 import type BelongsToManyRelation from './BelongsToManyRelation';
 
@@ -118,6 +121,39 @@ describe('BelongsToManyRelation', () => {
         const freshSeason = await season.fresh();
 
         expect(freshSeason.episodeUrls).toEqual([episode.url]);
+    });
+
+    it('loads documents models', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const showUrl = fakeResourceUrl({ documentUrl, hash: 'show' });
+        const seasonUrl = fakeResourceUrl({ documentUrl, hash: 'season' });
+
+        FakeServer.respondOnce(
+            documentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+
+                <${showUrl}>
+                    a schema:TVSeries ;
+                    schema:name "House M.D." ;
+                    schema:containsSeason <${seasonUrl}> .
+
+                <${seasonUrl}> a schema:TVSeason .
+            `,
+        );
+
+        setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
+
+        // Act
+        const show = await Show.find(showUrl);
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
+
+        expect(show).not.toBeNull();
+        expect(show?.seasons).toHaveLength(1);
+        expect(show?.seasons?.[0]?.show?.name).toEqual('House M.D.');
     });
 
 });

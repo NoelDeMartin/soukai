@@ -27,6 +27,8 @@ export default abstract class SingleModelRelation<
 
     public set related(related: Nullable<Related>) {
         this._related = related;
+
+        related && this.setInverseRelations(related);
     }
 
     public attach(model: Related): Related;
