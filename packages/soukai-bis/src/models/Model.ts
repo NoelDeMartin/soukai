@@ -33,6 +33,7 @@ import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
 
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
+import ComputedAttributesRegistry from './computed-attributes/ComputedAttributesRegistry';
 import { getRelatedClass } from './relations/utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
@@ -369,6 +370,8 @@ export default class Model<
         this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
 
         this.initializeMetadata();
+
+        ComputedAttributesRegistry.track(this);
     }
 
     public getAttribute(field: FieldName): unknown {

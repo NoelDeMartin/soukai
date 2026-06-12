@@ -24,4 +24,24 @@ describe('Computed Attributes', () => {
         expect(freshUser.postTitles.value).toEqual(['Hello World']);
     });
 
+    it('recomputes when source models are modified without active subscriptions', async () => {
+        // Arrange
+        const user = await User.create({ name: 'Alice' });
+        const post = new Post({ title: 'Hello World' });
+
+        user.relatedPosts.related = [post];
+
+        await user.postTitles.updateValue({ refresh: true });
+
+        expect(user.postTitles.value).toEqual(['Hello World']);
+
+        // Act
+        post.title = 'Hello Updated World';
+
+        await post.save();
+
+        // Assert
+        expect(user.postTitles.value).toEqual(['Hello Updated World']);
+    });
+
 });

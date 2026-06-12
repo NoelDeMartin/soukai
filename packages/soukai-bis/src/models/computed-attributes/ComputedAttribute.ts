@@ -2,7 +2,6 @@ import { isInstanceOf } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import UndefinedComputedValue from 'soukai-bis/errors/UndefinedComputedValue';
-import { getRelatedClasses } from 'soukai-bis/models/relations/utils';
 import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
@@ -16,6 +15,7 @@ export default class ComputedAttribute<TValue = unknown> {
     private name: string;
     private target: Model;
     private compute: ComputedAttributeCompute<Model, TValue>;
+    private listeners: Set<(value: TValue | undefined) => unknown> = new Set();
     private _value: TValue | undefined;
 
     public constructor(target: Model, name: string, compute: ComputedAttributeCompute<Model, TValue>) {
@@ -31,25 +31,20 @@ export default class ComputedAttribute<TValue = unknown> {
     }
 
     public subscribe(listener: (value: TValue | undefined) => unknown): () => void {
-        const update = async () => {
-            const previousValue = this._value;
-            const updatedValue = await this.updateValue({ refresh: true, useCache: true });
+        this.listeners.add(listener);
 
-            if (previousValue !== updatedValue) {
-                listener(updatedValue);
-            }
-        };
+        this.refresh();
 
-        const modelClasses = getRelatedClasses(this.target.static());
-        const unsubscribes = modelClasses.flatMap((modelClass) => [
-            modelClass.on('saved', () => update()),
-            modelClass.on('deleted', () => update()),
-            modelClass.on('relation-loaded', () => update()),
-        ]);
+        return () => this.listeners.delete(listener);
+    }
 
-        update();
+    public async refresh(): Promise<void> {
+        const previousValue = this._value;
+        const updatedValue = await this.updateValue({ refresh: true, useCache: true });
 
-        return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+        if (previousValue !== updatedValue) {
+            this.listeners.forEach((listener) => listener(updatedValue));
+        }
     }
 
     public async updateValue(options: { refresh?: boolean; useCache?: boolean } = {}): Promise<TValue | undefined> {
