@@ -1,4 +1,5 @@
 import { isInstanceOf, isPlainObject } from '@noeldemartin/utils';
+import type { Closure } from '@noeldemartin/utils';
 
 import Model from 'soukai-bis/models/Model';
 import UndefinedComputedValue from 'soukai-bis/errors/UndefinedComputedValue';
@@ -12,13 +13,15 @@ export type PrimitiveValue = string | number | boolean | bigint | symbol | Date 
 
 export type ComputedProxy<T = object> = T extends PrimitiveValue
     ? T
-    : T extends ReadonlyArray<infer TItem>
-      ? ComputedProxy<TItem>[]
-      : T extends object
-        ? { [computedProxyGetter]: T } & Required<{
-              [K in keyof T]: NonNullable<ComputedProxy<T[K]>>;
-          }>
-        : T;
+    : T extends Closure
+      ? T
+      : T extends ReadonlyArray<infer TItem>
+        ? ComputedProxy<TItem>[]
+        : T extends object
+          ? { [computedProxyGetter]: T } & Required<{
+                [K in keyof T]: NonNullable<ComputedProxy<T[K]>>;
+            }>
+          : T;
 
 export function isComputedProxy(value: unknown): value is ComputedProxy {
     return typeof value === 'object' && value !== null && computedProxyMarker in value;
@@ -54,6 +57,9 @@ export function computedProxy<T>(target: T): ComputedProxy<T> {
                 },
                 has(_, property: string | symbol) {
                     return property === computedProxyMarker;
+                },
+                getPrototypeOf() {
+                    throw new UndefinedComputedValue();
                 },
             },
         ) as ComputedProxy<T>;
