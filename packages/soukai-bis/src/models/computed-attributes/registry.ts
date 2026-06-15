@@ -8,23 +8,16 @@ import type { ModelConstructor } from 'soukai-bis/models/types';
 import type { Nullable, Obj } from '@noeldemartin/utils';
 
 import ComputedAttribute from './ComputedAttribute';
+import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
 import type { ComputedAttributeCompute } from './ComputedAttribute';
-import type { ComputedProxy } from './proxies';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations';
 
 const registry = new WeakMap<ModelConstructor, string[]>();
 
-function simulateComputedRun(modelClass: ModelConstructor, compute: ComputedAttributeCompute): string[][] {
-    const visited: string[][] = [];
-
-    compute(simulatedModelProxy(modelClass, [], visited));
-
-    return visited;
-}
-
-function simulatedModelProxy(modelClass: ModelConstructor, root: string[], visited: string[][]): ComputedProxy<Model> {
+function simulatedModelProxy<T extends Model>(modelClass: ModelConstructor<T>, root: string[], visited: string[][]): T {
     return new Proxy(
-        {},
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        (() => {}) as unknown as T,
         {
             get(_, property: string | symbol) {
                 if (typeof property !== 'string') {
@@ -50,8 +43,11 @@ function simulatedModelProxy(modelClass: ModelConstructor, root: string[], visit
             has() {
                 return true;
             },
+            apply() {
+                return simulatedModelProxy(modelClass, root, visited);
+            },
         },
-    ) as ComputedProxy<Model>;
+    ) as T;
 }
 
 function getInverseRelationName(
@@ -129,6 +125,25 @@ function initComputedAttributes(modelClass: ModelConstructor): string[] {
     return tap(computedAttributes, (value) => {
         registry.set(modelClass, value);
     });
+}
+
+export function simulateComputedRun<TTarget extends Model = Model, TValue = unknown>(
+    modelClass: ModelConstructor<TTarget>,
+    compute: ComputedAttributeCompute<TTarget, TValue>,
+): string[][] {
+    const visited: string[][] = [];
+
+    try {
+        compute(simulatedModelProxy(modelClass, [], visited));
+    } catch (error) {
+        if (isInstanceOf(error, RelationNotLoaded)) {
+            return visited;
+        }
+
+        throw error;
+    }
+
+    return visited;
 }
 
 export function getComputedAttributes(model: ModelConstructor): string[] {

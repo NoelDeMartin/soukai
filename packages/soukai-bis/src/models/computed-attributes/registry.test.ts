@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
+
 import Episode from 'soukai-bis/testing/stubs/Episode';
 import Post from 'soukai-bis/testing/stubs/Post';
 import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { loaded } from 'soukai-bis/models/computed-attributes';
 
-import { getComputedAttributes } from './registry';
+import { getComputedAttributes, simulateComputedRun } from './registry';
 
 describe('Computed attributes registry', () => {
 
@@ -17,6 +19,12 @@ describe('Computed attributes registry', () => {
         expect(getComputedAttributes(Season)).toEqual(['show.pendingEpisodeDates']);
         expect(getComputedAttributes(Episode)).toEqual(['season.show.pendingEpisodeDates']);
         expect(getComputedAttributes(WatchAction)).toEqual(['episode.season.show.pendingEpisodeDates']);
+    });
+
+    it('simulates computed runs', () => {
+        const visited = simulateComputedRun(Show, (show) => loaded(show, 'seasons').map((season) => season.exists()));
+
+        expect(visited).toEqual([['seasons']]);
     });
 
 });

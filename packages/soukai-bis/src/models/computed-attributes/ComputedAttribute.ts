@@ -1,17 +1,13 @@
 import { isInstanceOf } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import UndefinedComputedValue from 'soukai-bis/errors/UndefinedComputedValue';
+import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
 import { getRelatedClasses } from 'soukai-bis/models/relations/utils';
 import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
-import { computedProxy, unpackComputedValue } from './proxies';
-import type { ComputedProxy } from './proxies';
 
-export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (
-    target: ComputedProxy<TTarget>
-) => TValue;
+export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (target: TTarget) => TValue;
 
 export default class ComputedAttribute<TValue = unknown> {
 
@@ -66,13 +62,13 @@ export default class ComputedAttribute<TValue = unknown> {
         }
 
         try {
-            this._value = unpackComputedValue(this.compute(computedProxy(this.target)));
+            this._value = this.compute(this.target);
 
             await this.setCachedValue(this._value);
 
             return this._value;
         } catch (error) {
-            if (!isInstanceOf(error, UndefinedComputedValue)) {
+            if (!isInstanceOf(error, RelationNotLoaded)) {
                 throw error;
             }
 

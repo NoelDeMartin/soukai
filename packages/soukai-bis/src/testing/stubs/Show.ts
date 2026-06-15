@@ -1,4 +1,5 @@
-import type { BelongsToManyRelation, ComputedAttribute, ComputedProxy } from 'soukai-bis';
+import { loaded } from 'soukai-bis';
+import type { BelongsToManyRelation, ComputedAttribute } from 'soukai-bis';
 
 import Model from './Show.schema';
 import type Season from './Season';
@@ -10,10 +11,10 @@ export default class Show extends Model {
     declare public readonly seasons?: Season[];
 
     public static computed = {
-        pendingEpisodeDates(show: ComputedProxy<Show>): Date[] {
-            return show.seasons
-                .flatMap((season) => season.episodes)
-                .map((episode) => episode.watchAction.startTime)
+        pendingEpisodeDates(show: Show): Date[] {
+            return loaded(show, 'seasons')
+                .flatMap((season) => loaded(season, 'episodes'))
+                .map((episode) => loaded(episode, 'watchAction')?.startTime)
                 .filter((date) => !!date);
         },
     };

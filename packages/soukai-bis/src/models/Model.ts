@@ -53,7 +53,6 @@ import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type Tombstone from './crdts/Tombstone';
-import type { ComputedProxy } from './computed-attributes/proxies';
 import type { Schema } from './schema';
 import type { ModelEvent, ModelListener } from './concerns/events';
 
@@ -75,7 +74,7 @@ export default class Model<
     private static __engine: Engine | null = null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public static computed: Record<string, (model: ComputedProxy<any>) => unknown>;
+    public static computed: Record<string, (model: any) => unknown>;
 
     public static get defaultContainerUrl(): string {
         return getMeta(this, 'defaultContainerUrl');
