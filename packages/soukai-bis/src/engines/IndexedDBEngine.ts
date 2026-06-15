@@ -73,17 +73,16 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     ): Promise<SolidDocument> {
         return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
+            const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
+            const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
+
+            if (url.endsWith('/')) {
+                this.removeContainerProperties(graph, { keepTypes: true });
+            }
 
             return this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                 if (await transaction.store.get(url)) {
                     throw new DocumentAlreadyExists(url);
-                }
-
-                const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
-                const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
-
-                if (url.endsWith('/')) {
-                    this.removeContainerProperties(graph, { keepTypes: true });
                 }
 
                 await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
@@ -146,22 +145,26 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 throw new DocumentNotFound(url);
             }
 
-            await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                const document = await transaction.store.get(url);
+            const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+                return transaction.store.get(url);
+            });
 
-                if (!document) {
-                    throw new DocumentNotFound(url);
-                }
+            if (!document) {
+                throw new DocumentNotFound(url);
+            }
 
-                let quads = await jsonldToQuads(document.graph);
+            let quads = await jsonldToQuads(document.graph);
 
-                for (const operation of operations) {
-                    quads = operation.applyToQuads(quads);
-                }
+            for (const operation of operations) {
+                quads = operation.applyToQuads(quads);
+            }
 
+            const graph = await quadsToJsonLD(quads);
+
+            await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
                 return transaction.store.put({
                     url,
-                    graph: await quadsToJsonLD(quads),
+                    graph,
                     lastModifiedAt: metadata?.lastModifiedAt,
                 });
             });
@@ -201,7 +204,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 return { headers: new Headers() };
             }
 
-            await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+            await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
                 return transaction.store.delete(url);
             });
 
@@ -213,7 +216,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         await this.lock.run(async () => {
             for (const containerUrl of await this.getContainerUrls()) {
                 await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                    for (const document of await transaction.store.getAll()) {
+                    const documents = await transaction.store.getAll();
+
+                    for (const document of documents) {
                         if (!document.lastModifiedAt) {
                             continue;
                         }
