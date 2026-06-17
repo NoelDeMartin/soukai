@@ -139,8 +139,6 @@ export default class Model<
             const document = await engine.readDocument(urlRoute(url));
             const model = await this.createFromDocument(document, { url });
 
-            await model?.restoreComputedAttributes();
-
             return model;
         } catch (error) {
             if (applyStrictChecks() && !isInstanceOf(error, DocumentNotFound) && !isInstanceOf(error, ZodError)) {
@@ -201,8 +199,6 @@ export default class Model<
                     models.push(deepModels);
                 }
             }
-
-            await Promise.all(models.flat().map((model) => model.restoreComputedAttributes()));
 
             return models.flat();
         } catch (error) {
@@ -265,6 +261,8 @@ export default class Model<
             await relation.loadFromDocumentRDF(quads, { modelsCache });
         }
 
+        await instance.restoreComputedAttributes();
+
         return instance;
     }
 
@@ -308,7 +306,11 @@ export default class Model<
             matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl, modelsCache })),
         );
 
-        return models.filter(isTruthy);
+        const filteredModels = models.filter(isTruthy);
+
+        await Promise.all(filteredModels.map((model) => model.restoreComputedAttributes()));
+
+        return filteredModels;
     }
 
     public static async createManyFromDocument<T extends Model>(
@@ -825,9 +827,17 @@ export default class Model<
     }
 
     protected async restoreComputedAttributes(): Promise<void> {
-        for (const computedAttribute of Object.keys(this.static('schema').computed)) {
-            await this.getComputedAttribute(computedAttribute).updateValue({ refresh: false, useCache: true });
-        }
+        const computedAttributes = Object.keys(this.static('schema').computed);
+
+        await Promise.all(
+            computedAttributes.map(async (computedAttribute) => {
+                await this.getComputedAttribute(computedAttribute).updateValue({
+                    refresh: false,
+                    useCache: true,
+                    loadRelations: false,
+                });
+            }),
+        );
     }
 
     protected touch(now: Date): void {

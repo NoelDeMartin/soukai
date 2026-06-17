@@ -7,6 +7,12 @@ import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
 
+export interface UpdateOptions {
+    refresh?: boolean;
+    useCache?: boolean;
+    loadRelations?: boolean;
+}
+
 export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (target: TTarget) => TValue;
 
 export default class ComputedAttribute<TValue = unknown> {
@@ -50,13 +56,14 @@ export default class ComputedAttribute<TValue = unknown> {
         return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
     }
 
-    public async updateValue(options: { refresh?: boolean; useCache?: boolean } = {}): Promise<TValue | undefined> {
+    public async updateValue(options: UpdateOptions = {}): Promise<TValue | undefined> {
         if (!this.target.url) {
             return;
         }
 
         const refresh = options.refresh ?? false;
         const useCache = options.useCache ?? true;
+        const loadRelations = options.loadRelations ?? true;
         const cachedValue = useCache && !refresh && (await this.getCachedValue());
 
         if (cachedValue) {
@@ -74,7 +81,7 @@ export default class ComputedAttribute<TValue = unknown> {
                 throw error;
             }
 
-            if (!ComputedAttribute.__disableLoadingRelations && error.model && error.relation) {
+            if (!ComputedAttribute.__disableLoadingRelations && loadRelations && error.model && error.relation) {
                 await error.model.loadRelation(error.relation);
 
                 return this.updateValue(options);
