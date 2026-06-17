@@ -5,7 +5,7 @@ import { beforeEach, vi } from 'vitest';
 import { FakeServer } from '@noeldemartin/testing';
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 
-import { InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
+import { ComputedAttribute, InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
 
 import Episode from 'soukai-bis/testing/stubs/Episode';
 import Movie from 'soukai-bis/testing/stubs/Movie';
@@ -18,6 +18,8 @@ import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 
 beforeEach(() => {
+    ComputedAttribute.__disableLoadingRelations = true;
+
     setEngine(new InMemoryEngine());
     bootCoreModels({ reset: true });
     bootModels(

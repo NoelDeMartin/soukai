@@ -9,12 +9,12 @@ export async function clearCache(): Promise<void> {
     await ComputedAttributesCache.clear();
 }
 
-export function loaded<TModel extends Model, TRelation extends keyof TModel>(
+export function loaded<TModel extends Model, TRelation extends string & keyof TModel>(
     model: TModel,
     relation: TRelation,
 ): NonNullable<TModel[TRelation]> extends Array<infer TItem> ? TItem[] : NonNullable<TModel[TRelation]> | null {
-    if (!model.isRelationLoaded(String(relation))) {
-        throw new RelationNotLoaded();
+    if (!model.isRelationLoaded(relation)) {
+        throw new RelationNotLoaded(model, relation);
     }
 
     return model[relation] as TModel[TRelation] extends (infer TItem)[]

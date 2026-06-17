@@ -11,6 +11,8 @@ export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unk
 
 export default class ComputedAttribute<TValue = unknown> {
 
+    public static __disableLoadingRelations: boolean = false;
+
     private name: string;
     private target: Model;
     private compute: ComputedAttributeCompute<Model, TValue>;
@@ -70,6 +72,12 @@ export default class ComputedAttribute<TValue = unknown> {
         } catch (error) {
             if (!isInstanceOf(error, RelationNotLoaded)) {
                 throw error;
+            }
+
+            if (!ComputedAttribute.__disableLoadingRelations && error.model && error.relation) {
+                await error.model.loadRelation(error.relation);
+
+                return this.updateValue(options);
             }
 
             return (this._value = useCache ? await this.getCachedValue() : undefined);
