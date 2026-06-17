@@ -1,4 +1,4 @@
-import { arrayFrom, mixed } from '@noeldemartin/utils';
+import { arrayFrom, isTruthy, mixed, urlRoute } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
 import type Model from 'soukai-bis/models/Model';
@@ -62,15 +62,24 @@ export default class BelongsToManyRelation<
 
     private async loadRelatedModels(): Promise<Related[]> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
-        const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true });
+        const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true }).map(String);
 
         if (foreignKeys.length === 0) {
             return [];
         }
 
-        const models = await Promise.all(foreignKeys.map((key) => this.relatedClass.find(String(key))));
+        const engine = this.relatedClass.requireEngine();
+        const documentUrls = foreignKeys.map(urlRoute);
+        const documents = await engine.readDocuments(documentUrls);
+        const models = await Promise.all(
+            foreignKeys.map(async (url) => {
+                const document = documents[urlRoute(url)];
 
-        return models.filter((model) => model !== null);
+                return document && this.relatedClass.createFromDocument(document, { url });
+            }),
+        );
+
+        return models.filter(isTruthy);
     }
 
 }

@@ -1,4 +1,4 @@
-import { isInstanceOf } from '@noeldemartin/utils';
+import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
 import { isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
@@ -58,6 +58,18 @@ export default abstract class Engine {
 
             return null;
         }
+    }
+
+    public async readDocuments(urls: string[]): Promise<Record<string, SolidDocument>> {
+        const documents: SolidDocument[] = [];
+
+        for (const chunk of arrayChunk(urls, 10)) {
+            const chunkDocuments = await Promise.all(chunk.map((url) => this.readDocument(url)));
+
+            documents.push(...chunkDocuments.filter((document): document is SolidDocument => !!document));
+        }
+
+        return Object.fromEntries(documents.map((document) => [document.url, document]));
     }
 
     protected filterContainerQuads(quads: Quad[], options: { keepTypes?: boolean } = {}): Quad[] {

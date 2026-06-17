@@ -1,6 +1,6 @@
 import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import { Semaphore, arrayUnique } from '@noeldemartin/utils';
+import { Semaphore, arrayUnique, isTruthy } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
@@ -124,6 +124,68 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             }
 
             return document;
+        });
+    }
+
+    public async readDocuments(urls: string[]): Promise<Record<string, SolidDocument>> {
+        return this.lock.run(async () => {
+            const documents: Record<string, SolidDocument> = {};
+            const documentUrlsByContainer: Record<string, string[]> = {};
+
+            for (const url of urls) {
+                if (url.endsWith('/')) {
+                    documents[url] = await this.readContainerDocument(url);
+
+                    continue;
+                }
+
+                const containerUrl = requireSafeContainerUrl(url);
+
+                documentUrlsByContainer[containerUrl] ??= [];
+                documentUrlsByContainer[containerUrl].push(url);
+            }
+
+            await Promise.all(
+                Object.entries(documentUrlsByContainer).map(async ([containerUrl, containerDocumentUrls]) => {
+                    const containerExists = await this.containerExists(containerUrl);
+
+                    if (!containerExists) {
+                        return;
+                    }
+
+                    const idbDocumentsMap = await this.withDocumentsTransaction(
+                        containerUrl,
+                        'readonly',
+                        async (transaction) => {
+                            const idbDocuments = await Promise.all(
+                                containerDocumentUrls.map((url) => transaction.store.get(url)),
+                            );
+
+                            return Object.fromEntries(
+                                idbDocuments.filter(isTruthy).map((result) => [result.url, result]),
+                            );
+                        },
+                    );
+
+                    for (const url of containerDocumentUrls) {
+                        const localDocument = idbDocumentsMap[url];
+
+                        if (!localDocument) {
+                            continue;
+                        }
+
+                        const document = new SolidDocument(url, await jsonldToQuads(localDocument.graph));
+
+                        if (localDocument.lastModifiedAt) {
+                            document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
+                        }
+
+                        documents[url] = document;
+                    }
+                }),
+            );
+
+            return documents;
         });
     }
 
