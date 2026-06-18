@@ -2,7 +2,6 @@ import { Semaphore, isInstanceOf } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
-import { getRelatedClasses } from 'soukai-bis/models/relations/utils';
 import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
@@ -15,6 +14,7 @@ export interface UpdateOptions {
     loadRelations?: boolean;
 }
 
+export type ComputedAttributeListener<TValue = unknown> = (value: TValue | undefined) => unknown;
 export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (target: TTarget) => TValue;
 
 export default class ComputedAttribute<TValue = unknown> {
@@ -42,44 +42,39 @@ export default class ComputedAttribute<TValue = unknown> {
     private target: Model;
     private compute: ComputedAttributeCompute<Model, TValue>;
     private _value: TValue | undefined;
+    private listeners: Set<ComputedAttributeListener<TValue>>;
 
     public constructor(target: Model, name: string, compute: ComputedAttributeCompute<Model, TValue>) {
         this.name = name;
         this.target = target;
         this.compute = compute;
+        this.listeners = new Set();
     }
 
     public get value(): TValue | undefined {
         return this._value;
     }
 
-    public subscribe(listener: (value: TValue | undefined) => unknown): () => void {
-        const update = async () => {
-            const previousValue = this._value;
-            const updatedValue = await this.updateValue({ refresh: true, useCache: true });
+    public subscribe(listener: ComputedAttributeListener<TValue>): () => void {
+        this.listeners.add(listener);
 
-            if (previousValue !== updatedValue) {
-                listener(updatedValue);
-            }
-        };
+        this.updateValue().then(listener);
 
-        const modelClasses = getRelatedClasses(this.target.static());
-        const unsubscribes = modelClasses.flatMap((modelClass) => [
-            modelClass.on('saved', () => update()),
-            modelClass.on('deleted', () => update()),
-            modelClass.on('relation-loaded', () => update()),
-        ]);
-
-        update();
-
-        return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+        return () => this.listeners.delete(listener);
     }
 
     public async updateValue(options: UpdateOptions = {}): Promise<TValue | undefined> {
         const loadedRelations: { model: Model; relation: string }[] = [];
 
         try {
-            return await this.runUpdateValue(options, loadedRelations);
+            const previousValue = this._value;
+            const updatedValue = await this.runUpdateValue(options, loadedRelations);
+
+            if (previousValue !== updatedValue) {
+                this.listeners.forEach((listener) => listener(updatedValue));
+            }
+
+            return updatedValue;
         } finally {
             loadedRelations.forEach(({ model, relation }) => model.getRelation(relation).unload());
         }

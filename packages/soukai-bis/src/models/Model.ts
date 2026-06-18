@@ -541,6 +541,14 @@ export default class Model<
         return Array.from(modelsSet);
     }
 
+    public getRelatedModels(): Model[] {
+        const modelsSet = new Set<Model>();
+
+        this.populateRelatedModels(modelsSet);
+
+        return Array.from(modelsSet);
+    }
+
     public getDirtyDocumentModels(): Model[] {
         return this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
     }
@@ -603,6 +611,7 @@ export default class Model<
         }
 
         await this.performDelete();
+        await this.afterDelete();
         await emitModelEvent(this, 'deleted');
 
         return this;
@@ -769,6 +778,7 @@ export default class Model<
 
     protected async afterSave(): Promise<void> {
         const documentModels = this.getDocumentModels();
+        const relatedModels = this.getRelatedModels();
 
         for (const documentModel of documentModels) {
             documentModel.setExists(true);
@@ -776,7 +786,7 @@ export default class Model<
             documentModel.cleanDirty();
         }
 
-        await Promise.all(documentModels.map(refreshComputedAttributes));
+        await Promise.all(relatedModels.map(refreshComputedAttributes));
     }
 
     protected async performDelete(): Promise<void> {
@@ -798,6 +808,12 @@ export default class Model<
         }
 
         this.setExists(false);
+    }
+
+    protected async afterDelete(): Promise<void> {
+        const relatedModels = this.getRelatedModels();
+
+        await Promise.all(relatedModels.map(refreshComputedAttributes));
     }
 
     protected initializeMetadata(): void {
@@ -903,6 +919,26 @@ export default class Model<
                     (model: Model) => isContainsRelationInstance || isUsingSameDocument(documentUrl, relation, model),
                 )
                 .forEach((model: Model) => model.populateDocumentModels(documentModels));
+        }
+    }
+
+    private populateRelatedModels(relatedModels: Set<Model>): void {
+        if (relatedModels.has(this)) {
+            return;
+        }
+
+        relatedModels.add(this);
+
+        for (const relation of Object.values(this._relations)) {
+            if (isSingleModelRelation(relation) && relation.__newModel) {
+                relation.__newModel.populateRelatedModels(relatedModels);
+            }
+
+            if (isMultiModelRelation(relation)) {
+                relation.__newModels?.map((model) => model.populateRelatedModels(relatedModels));
+            }
+
+            relation.getLoadedModels().forEach((model) => model.populateRelatedModels(relatedModels));
         }
     }
 

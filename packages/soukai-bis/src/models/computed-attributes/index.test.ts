@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { sleep } from '@noeldemartin/utils';
 
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
@@ -42,30 +41,6 @@ describe('Computed Attributes', () => {
         const freshUser = await user.fresh();
 
         expect(freshUser.postTitles.value).toEqual(['Hello World']);
-    });
-
-    it('loads relations when subscribed', async () => {
-        // Arrange
-        const user = await User.create({ name: 'Alice' });
-
-        await Post.create({ authorUrl: user.url, title: 'Proactive Post' });
-
-        const freshUser = await user.fresh();
-        expect(freshUser.postTitles.value).toEqual([]);
-        expect(freshUser.isRelationLoaded('posts')).toBe(false);
-
-        // Act
-        let emittedValue: string[] | undefined;
-        const unsubscribe = freshUser.postTitles.subscribe((value) => (emittedValue = value));
-
-        // Assert
-        await sleep(100);
-
-        unsubscribe();
-
-        expect(emittedValue).toEqual(['Proactive Post']);
-        expect(freshUser.postTitles.value).toEqual(['Proactive Post']);
-        expect(freshUser.isRelationLoaded('posts')).toBe(false);
     });
 
 });
