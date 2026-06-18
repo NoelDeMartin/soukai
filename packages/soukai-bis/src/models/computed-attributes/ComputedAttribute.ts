@@ -3,8 +3,11 @@ import { Semaphore, isInstanceOf } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
 import type Model from 'soukai-bis/models/Model';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
+import { getComputedAttributeRelations } from './registry';
+import type { RelationTree } from './registry';
 
 const relationsLock = new Semaphore(20);
 
@@ -97,6 +100,12 @@ export default class ComputedAttribute<TValue = unknown> {
             return (this._value = cachedValue);
         }
 
+        if (loadRelations && loadedRelations.length === 0) {
+            const tree = getComputedAttributeRelations(this.target.static() as ModelConstructor, this.name);
+
+            await this.loadRelationTree([this.target], tree, loadedRelations);
+        }
+
         try {
             this._value = this.compute(this.target);
 
@@ -109,15 +118,53 @@ export default class ComputedAttribute<TValue = unknown> {
             }
 
             if (loadRelations && error.model && error.relation) {
-                loadedRelations.push({ model: error.model, relation: error.relation });
-
-                await relationsLock.run(() => error.model.loadRelation(error.relation));
+                await this.loadRelation(error.model, error.relation, loadedRelations);
 
                 return this.runUpdateValue(options, loadedRelations);
             }
 
             return (this._value = useCache ? await this.getCachedValue() : undefined);
         }
+    }
+
+    private async loadRelation(
+        model: Model,
+        relation: string,
+        loadedRelations: { model: Model; relation: string }[],
+    ): Promise<void> {
+        loadedRelations.push({ model, relation });
+
+        await relationsLock.run(() => model.loadRelation(relation));
+    }
+
+    private async loadRelationTree(
+        models: Model[],
+        tree: RelationTree,
+        loadedRelations: { model: Model; relation: string }[],
+    ): Promise<void> {
+        if (models.length === 0) {
+            return;
+        }
+
+        await Promise.all(
+            Object.entries(tree).map(async ([relationName, children]) => {
+                await Promise.all(
+                    models.map(async (model) => {
+                        if (model.isRelationLoaded(relationName)) {
+                            return;
+                        }
+
+                        await this.loadRelation(model, relationName, loadedRelations);
+                    }),
+                );
+
+                if (Object.keys(children).length > 0) {
+                    const nextModels = models.flatMap((model) => model.getRelation(relationName).getLoadedModels());
+
+                    await this.loadRelationTree(nextModels, children, loadedRelations);
+                }
+            }),
+        );
     }
 
     private async setCachedValue(value: TValue): Promise<void> {

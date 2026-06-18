@@ -1,7 +1,8 @@
+import { RelationNotLoaded } from 'soukai-bis/errors';
 import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
-import { RelationNotLoaded } from 'soukai-bis/errors';
+
 export { default as ComputedAttribute } from './ComputedAttribute';
 export { default as ComputedAttributesCache } from './ComputedAttributesCache';
 

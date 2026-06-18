@@ -12,7 +12,27 @@ import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
 import type { ComputedAttributeCompute } from './ComputedAttribute';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations';
 
-const registry = new WeakMap<ModelConstructor, string[]>();
+interface ComputedAttributesRegistryEntry {
+    invalidationPaths: string[];
+    relations: Record<string, RelationTree>;
+}
+
+const registry = new WeakMap<ModelConstructor, ComputedAttributesRegistryEntry>();
+
+function relationPathsToTree(paths: string[][]): RelationTree {
+    const tree: RelationTree = {};
+
+    for (const path of paths) {
+        let current = tree;
+
+        for (const relation of path) {
+            current[relation] = current[relation] ?? {};
+            current = current[relation];
+        }
+    }
+
+    return tree;
+}
 
 function simulatedModelProxy<T extends Model>(modelClass: ModelConstructor<T>, root: string[], visited: string[][]): T {
     return new Proxy(
@@ -83,12 +103,18 @@ function resolveInverseRelationPath(originClass: ModelConstructor, path: string[
     return inversePath.reverse();
 }
 
-function initComputedAttributes(modelClass: ModelConstructor): string[] {
-    const computedAttributes: string[] = [];
+function initComputedAttributes(modelClass: ModelConstructor): ComputedAttributesRegistryEntry {
+    const invalidationPaths: string[] = [];
+    const relations: Record<string, RelationTree> = {};
 
     for (const relatedClass of getRelatedClasses(modelClass)) {
         if (relatedClass === modelClass) {
-            computedAttributes.push(...Object.keys(relatedClass.schema.computed));
+            for (const [name, compute] of Object.entries(relatedClass.schema.computed)) {
+                const visited = simulateComputedRun(relatedClass, compute);
+
+                relations[name] = relationPathsToTree(visited);
+                invalidationPaths.push(name);
+            }
 
             continue;
         }
@@ -116,15 +142,19 @@ function initComputedAttributes(modelClass: ModelConstructor): string[] {
                 const inversePath = resolveInverseRelationPath(relatedClass, path);
 
                 if (inversePath) {
-                    computedAttributes.push(`${inversePath.join('.')}.${name}`);
+                    invalidationPaths.push(`${inversePath.join('.')}.${name}`);
                 }
             }
         }
     }
 
-    return tap(computedAttributes, (value) => {
+    return tap({ invalidationPaths, relations }, (value) => {
         registry.set(modelClass, value);
     });
+}
+
+export interface RelationTree {
+    [relationName: string]: RelationTree;
 }
 
 export function simulateComputedRun<TTarget extends Model = Model, TValue = unknown>(
@@ -147,7 +177,15 @@ export function simulateComputedRun<TTarget extends Model = Model, TValue = unkn
 }
 
 export function getComputedAttributes(model: ModelConstructor): string[] {
-    return registry.get(model) ?? initComputedAttributes(model);
+    const entry = registry.get(model) ?? initComputedAttributes(model);
+
+    return entry.invalidationPaths;
+}
+
+export function getComputedAttributeRelations(model: ModelConstructor, name: string): RelationTree {
+    const entry = registry.get(model) ?? initComputedAttributes(model);
+
+    return entry.relations[name] ?? {};
 }
 
 export async function refreshComputedAttributes(model: Model): Promise<void> {

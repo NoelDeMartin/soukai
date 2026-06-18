@@ -8,7 +8,7 @@ import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { loaded } from 'soukai-bis/models/computed-attributes';
 
-import { getComputedAttributes, simulateComputedRun } from './registry';
+import { getComputedAttributeRelations, getComputedAttributes, simulateComputedRun } from './registry';
 
 describe('Computed attributes registry', () => {
 
@@ -19,6 +19,13 @@ describe('Computed attributes registry', () => {
         expect(getComputedAttributes(Season)).toEqual(['show.pendingEpisodeDates']);
         expect(getComputedAttributes(Episode)).toEqual(['season.show.pendingEpisodeDates']);
         expect(getComputedAttributes(WatchAction)).toEqual(['episode.season.show.pendingEpisodeDates']);
+        expect(getComputedAttributeRelations(Show, 'pendingEpisodeDates')).toEqual({
+            seasons: {
+                episodes: {
+                    watchAction: {},
+                },
+            },
+        });
     });
 
     it('simulates computed runs', () => {
