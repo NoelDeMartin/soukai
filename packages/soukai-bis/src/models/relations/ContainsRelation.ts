@@ -2,7 +2,6 @@ import { isInstanceOf, tap } from '@noeldemartin/utils';
 
 import Container from 'soukai-bis/models/ldp/Container';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -100,19 +99,16 @@ export default class ContainsRelation<
         }
 
         const engine = this.relatedClass.requireEngine();
+        const documents = await engine.readDocuments(documentUrls);
         const models = await Promise.all(
             documentUrls.map(async (documentUrl) => {
-                try {
-                    const document = await engine.readDocument(documentUrl);
+                const document = documents[documentUrl];
 
-                    return this.relatedClass.createManyFromDocument(document);
-                } catch (error) {
-                    if (!isInstanceOf(error, DocumentNotFound)) {
-                        throw error;
-                    }
-
+                if (!document) {
                     return [];
                 }
+
+                return this.relatedClass.createManyFromDocument(document);
             }),
         );
 

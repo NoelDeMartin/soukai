@@ -64,7 +64,7 @@ export default abstract class Engine {
         const documents: SolidDocument[] = [];
 
         for (const chunk of arrayChunk(urls, 10)) {
-            const chunkDocuments = await Promise.all(chunk.map((url) => this.readDocument(url)));
+            const chunkDocuments = await Promise.all(chunk.map((url) => this.readDocumentIfExists(url)));
 
             documents.push(...chunkDocuments.filter((document): document is SolidDocument => !!document));
         }

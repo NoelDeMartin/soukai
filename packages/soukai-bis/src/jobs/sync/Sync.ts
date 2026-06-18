@@ -280,15 +280,18 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
     private async pushContainerChildrenDocuments(urls: string[] = []): Promise<Set<ModelConstructor>> {
         const rdfClasses = new Set<string>();
+        const pendingUrls = urls.filter((url) => !this.syncedDocumentUrls.has(url));
+        const localDocuments = await this.config.localEngine.readDocuments(pendingUrls);
 
         await Promise.all(
-            urls.map(async (documentUrl) => {
-                if (this.syncedDocumentUrls.has(documentUrl)) {
+            pendingUrls.map(async (documentUrl) => {
+                const localDocument = localDocuments[documentUrl];
+
+                if (!localDocument) {
                     return;
                 }
 
                 const start = new Date();
-                const localDocument = await this.config.localEngine.readDocument(documentUrl);
                 const remoteDocument = await this.pushRemoteDocument(localDocument);
                 const end = new Date();
 

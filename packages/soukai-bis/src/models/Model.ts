@@ -165,20 +165,8 @@ export default class Model<
             const engine = this.requireEngine();
             const container = await engine.readDocument(containerUrl);
             const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
-            const documents: Record<string, SolidDocument> = {};
-
-            await Promise.all(
-                containsQuads.map(async (quad) => {
-                    const url = quad.object.value;
-                    const document = await engine.readDocument(url);
-
-                    if (!document) {
-                        return;
-                    }
-
-                    documents[url] = document;
-                }),
-            );
+            const documentUrls = containsQuads.map((quad) => quad.object.value);
+            const documents = await engine.readDocuments(documentUrls);
 
             const models = await Promise.all(
                 Object.values(documents).map(async (document) => this.createManyFromDocument(document)),

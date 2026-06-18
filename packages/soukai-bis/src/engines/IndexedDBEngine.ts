@@ -1,6 +1,6 @@
 import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import { Semaphore, arrayUnique, isTruthy } from '@noeldemartin/utils';
+import { Semaphore, arrayUnique, isTruthy, objectEntries, objectFromEntries, silenced } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
@@ -129,12 +129,12 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     public async readDocuments(urls: string[]): Promise<Record<string, SolidDocument>> {
         return this.lock.run(async () => {
-            const documents: Record<string, SolidDocument> = {};
+            const documents: Record<string, SolidDocument | null> = {};
             const documentUrlsByContainer: Record<string, string[]> = {};
 
             for (const url of urls) {
                 if (url.endsWith('/')) {
-                    documents[url] = await this.readContainerDocument(url);
+                    documents[url] = await silenced(this.readContainerDocument(url));
 
                     continue;
                 }
@@ -185,7 +185,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 }),
             );
 
-            return documents;
+            return objectFromEntries(
+                objectEntries(documents).filter((entry): entry is [string, SolidDocument] => !!entry[1]),
+            );
         });
     }
 
