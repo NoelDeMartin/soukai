@@ -18,8 +18,6 @@ import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 
 beforeEach(() => {
-    ComputedAttribute.__disableLoadingRelations = true;
-
     setEngine(new InMemoryEngine());
     bootCoreModels({ reset: true });
     bootModels(
@@ -39,6 +37,7 @@ beforeEach(() => {
 
     FakeServer.reset();
     vi.resetAllMocks();
+    ComputedAttribute.disableLoadingRelations();
 });
 
 installVitestSolidMatchers();

@@ -19,7 +19,24 @@ export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unk
 
 export default class ComputedAttribute<TValue = unknown> {
 
-    public static __disableLoadingRelations: boolean = false;
+    private static relationsDisabled: boolean = false;
+    private static refreshesDisabled: boolean = false;
+
+    public static disableLoadingRelations(): void {
+        this.relationsDisabled = true;
+    }
+
+    public static enableLoadingRelations(): void {
+        this.relationsDisabled = false;
+    }
+
+    public static disableRefreshes(): void {
+        this.refreshesDisabled = true;
+    }
+
+    public static enableRefreshes(): void {
+        this.refreshesDisabled = false;
+    }
 
     private name: string;
     private target: Model;
@@ -76,9 +93,9 @@ export default class ComputedAttribute<TValue = unknown> {
             return;
         }
 
-        const refresh = options.refresh ?? false;
+        const refresh = !ComputedAttribute.refreshesDisabled && (options.refresh ?? false);
         const useCache = options.useCache ?? true;
-        const loadRelations = options.loadRelations ?? true;
+        const loadRelations = !ComputedAttribute.relationsDisabled && (options.loadRelations ?? true);
         const cachedValue = useCache && !refresh && (await this.getCachedValue());
 
         if (cachedValue) {
@@ -96,7 +113,7 @@ export default class ComputedAttribute<TValue = unknown> {
                 throw error;
             }
 
-            if (!ComputedAttribute.__disableLoadingRelations && loadRelations && error.model && error.relation) {
+            if (loadRelations && error.model && error.relation) {
                 loadedRelations.push({ model: error.model, relation: error.relation });
 
                 await relationsLock.run(() => error.model.loadRelation(error.relation));

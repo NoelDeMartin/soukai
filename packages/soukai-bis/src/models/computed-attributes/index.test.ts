@@ -8,7 +8,7 @@ import ComputedAttribute from './ComputedAttribute';
 
 describe('Computed Attributes', () => {
 
-    beforeEach(() => (ComputedAttribute.__disableLoadingRelations = false));
+    beforeEach(() => ComputedAttribute.enableLoadingRelations());
 
     it('calculates computed attributes', async () => {
         // Starts as empty array
