@@ -34,6 +34,8 @@ export default class HasOneRelation<
             if (this.__newModel) {
                 delete this.__newModel;
             }
+        } else if (this.usingSameDocument) {
+            this.related = null;
         }
     }
 

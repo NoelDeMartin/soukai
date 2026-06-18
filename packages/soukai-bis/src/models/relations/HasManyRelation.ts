@@ -29,6 +29,8 @@ export default class HasManyRelation<
         if (related.length > 0) {
             this.related = related;
             this.__modelsInSameDocument = related;
+        } else if (this.usingSameDocument) {
+            this.related = [];
         }
     }
 
