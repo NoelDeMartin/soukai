@@ -65,7 +65,7 @@ describe('Computed Attributes', () => {
 
         expect(emittedValue).toEqual(['Proactive Post']);
         expect(freshUser.postTitles.value).toEqual(['Proactive Post']);
-        expect(freshUser.isRelationLoaded('posts')).toBe(true);
+        expect(freshUser.isRelationLoaded('posts')).toBe(false);
     });
 
 });

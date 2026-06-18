@@ -1,4 +1,4 @@
-import { isInstanceOf } from '@noeldemartin/utils';
+import { Semaphore, isInstanceOf } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
@@ -6,6 +6,8 @@ import { getRelatedClasses } from 'soukai-bis/models/relations/utils';
 import type Model from 'soukai-bis/models/Model';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
+
+const relationsLock = new Semaphore(20);
 
 export interface UpdateOptions {
     refresh?: boolean;
@@ -57,6 +59,19 @@ export default class ComputedAttribute<TValue = unknown> {
     }
 
     public async updateValue(options: UpdateOptions = {}): Promise<TValue | undefined> {
+        const loadedRelations: { model: Model; relation: string }[] = [];
+
+        try {
+            return await this.runUpdateValue(options, loadedRelations);
+        } finally {
+            loadedRelations.forEach(({ model, relation }) => model.getRelation(relation).unload());
+        }
+    }
+
+    private async runUpdateValue(
+        options: UpdateOptions,
+        loadedRelations: { model: Model; relation: string }[],
+    ): Promise<TValue | undefined> {
         if (!this.target.url) {
             return;
         }
@@ -82,9 +97,11 @@ export default class ComputedAttribute<TValue = unknown> {
             }
 
             if (!ComputedAttribute.__disableLoadingRelations && loadRelations && error.model && error.relation) {
-                await error.model.loadRelation(error.relation);
+                loadedRelations.push({ model: error.model, relation: error.relation });
 
-                return this.updateValue(options);
+                await relationsLock.run(() => error.model.loadRelation(error.relation));
+
+                return this.runUpdateValue(options, loadedRelations);
             }
 
             return (this._value = useCache ? await this.getCachedValue() : undefined);
