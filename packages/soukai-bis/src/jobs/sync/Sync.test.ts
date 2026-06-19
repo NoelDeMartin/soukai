@@ -557,10 +557,10 @@ describe('Sync', () => {
         });
 
         // Assert
-        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.objectContaining({ method: 'PATCH' }));
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.objectContaining({ method: 'PATCH' }));
 
-        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
+        await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
     });
 
 });

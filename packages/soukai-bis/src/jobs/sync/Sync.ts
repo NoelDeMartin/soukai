@@ -333,7 +333,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 throw error;
             }
 
-            const remoteDocument = await this.config.remoteEngine.readDocument(localDocument.url);
+            const remoteDocument = error.document ?? (await this.config.remoteEngine.readDocument(localDocument.url));
 
             await this.syncDocumentContents(localDocument, remoteDocument);
 

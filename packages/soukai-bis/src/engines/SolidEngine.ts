@@ -55,8 +55,10 @@ export default class SolidEngine extends Engine {
                 console.warn(message);
             }
 
-            if (await this.client.exists(url)) {
-                throw new DocumentAlreadyExists(url);
+            const existingDocument = await this.client.readIfFound(url);
+
+            if (existingDocument) {
+                throw new DocumentAlreadyExists(url, existingDocument);
             }
 
             const originalQuads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);

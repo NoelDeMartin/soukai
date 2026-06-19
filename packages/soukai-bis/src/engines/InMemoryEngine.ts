@@ -32,7 +32,7 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         metadata?: EngineMetadata,
     ): Promise<SolidDocument> {
         if (url in this.documents) {
-            throw new DocumentAlreadyExists(url);
+            throw new DocumentAlreadyExists(url, await this.readDocument(url));
         }
 
         const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);

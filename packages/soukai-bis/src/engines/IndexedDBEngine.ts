@@ -71,6 +71,12 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         contents: JsonLD | JsonLDGraph | Quad[],
         metadata?: EngineMetadata,
     ): Promise<SolidDocument> {
+        const existingDocument = await this.readDocumentIfExists(url);
+
+        if (existingDocument) {
+            throw new DocumentAlreadyExists(url, existingDocument);
+        }
+
         return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
             const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
@@ -81,10 +87,6 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             }
 
             return this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                if (await transaction.store.get(url)) {
-                    throw new DocumentAlreadyExists(url);
-                }
-
                 await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
 
                 return new SolidDocument(
