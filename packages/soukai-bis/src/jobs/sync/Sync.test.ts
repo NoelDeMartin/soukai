@@ -563,4 +563,35 @@ describe('Sync', () => {
         await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
     });
 
+    it('reports progress updates', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:Movie')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, fixture('movies-container.ttl', { containerUrl, documentUrl }));
+        FakeServer.respondOnce(documentUrl, fixture('movie.ttl', { documentUrl }));
+
+        const progressUpdates: number[] = [];
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: Movie, registration: true }],
+            onUpdated: (progress) => progressUpdates.push(progress),
+        });
+
+        // Assert
+        expect(progressUpdates.length).toBeGreaterThan(0);
+        expect(progressUpdates[0]).toBe(0);
+        expect(progressUpdates[progressUpdates.length - 1]).toBe(1);
+    });
+
 });

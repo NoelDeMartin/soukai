@@ -1,4 +1,4 @@
-import { arrayGroupBy, arrayUnique, isTruthy, objectFromEntries, parseDate } from '@noeldemartin/utils';
+import { arrayGroupBy, arrayUnique, isTruthy, objectFromEntries, parseDate, round } from '@noeldemartin/utils';
 import { SolidDocument } from '@noeldemartin/solid-utils';
 import type { SolidResponse, SolidUserProfile } from '@noeldemartin/solid-utils';
 
@@ -31,6 +31,7 @@ export interface SyncConfig {
 }
 
 export interface SyncJobStatus extends JobStatus {
+    root?: boolean;
     children: [JobStatus, JobStatus];
 }
 
@@ -90,9 +91,25 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
     protected override getInitialStatus(): SyncJobStatus {
         return {
+            root: true,
             completed: false,
             children: [{ completed: false }, { completed: false }],
         };
+    }
+
+    protected override calculateCurrentProgress(status?: JobStatus): number {
+        status ??= this.status;
+
+        const syncStatus = status as SyncJobStatus;
+
+        if (syncStatus.root) {
+            const pullProgress = syncStatus.children[0] ? this.calculateCurrentProgress(syncStatus.children[0]) : 0;
+            const pushProgress = syncStatus.children[1] ? this.calculateCurrentProgress(syncStatus.children[1]) : 0;
+
+            return round(pullProgress * 0.9 + pushProgress * 0.1, 2);
+        }
+
+        return super.calculateCurrentProgress(status);
     }
 
     private async getDocumentOperations(
@@ -134,16 +151,27 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     private async pullChanges(): Promise<void> {
         await this.initializeMatchingContainers();
 
+        const containers = Array.from(this.registeredContainers.keys());
+        const pullStatus = this.status.children[0];
+
+        pullStatus.children = containers.map(() => ({ completed: false }));
+
         await Promise.all(
-            Array.from(this.registeredContainers.keys()).map((containerUrl) => this.syncDocument(containerUrl)),
+            containers.map((containerUrl, index) => {
+                const childStatus = pullStatus.children?.[index];
+
+                return this.syncDocument(containerUrl, childStatus);
+            }),
         );
 
         await this.updateProgress((status) => (status.children[0].completed = true));
     }
 
     private async pushChanges(): Promise<void> {
-        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0]);
-        await this.updateProgress((status) => (status.children[0].completed = true));
+        const pushStatus = this.status.children[1];
+
+        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], pushStatus);
+        await this.updateProgress((status) => (status.children[1].completed = true));
         await this._listeners.emit('onFinished', {
             syncedDocumentUrls: this.syncedDocumentUrls,
             documentsWithErrors: this.documentsWithErrors,
@@ -180,21 +208,29 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         }
     }
 
-    private async syncDocument(documentUrl: string, remoteUpdatedAt?: Date): Promise<void> {
+    private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<void> {
         this.assertNotCancelled();
 
         this.syncedDocumentUrls.add(documentUrl);
 
         try {
             if (await this.skipDocumentPull(documentUrl, remoteUpdatedAt)) {
+                if (status) {
+                    await this.updateProgress(() => (status.completed = true));
+                }
+
                 return;
             }
 
-            const remoteDocument = await this.syncRemoteChildren(documentUrl);
+            const remoteDocument = await this.syncRemoteChildren(documentUrl, status);
             const localDocument = await this.config.localEngine.readDocumentIfExists(documentUrl);
 
             if (!localDocument && remoteDocument) {
                 if (!this.shouldPullDocument(remoteDocument)) {
+                    if (status) {
+                        await this.updateProgress(() => (status.completed = true));
+                    }
+
                     return;
                 }
 
@@ -202,15 +238,31 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                     lastModifiedAt: remoteDocument.getLastModified() ?? undefined,
                 });
 
+                if (status) {
+                    await this.updateProgress(() => (status.completed = true));
+                }
+
                 return;
             }
 
             if (!remoteDocument || !localDocument) {
+                if (status) {
+                    await this.updateProgress(() => (status.completed = true));
+                }
+
                 return;
             }
 
             await this.syncDocumentContents(localDocument, remoteDocument);
+
+            if (status) {
+                await this.updateProgress(() => (status.completed = true));
+            }
         } catch (error) {
+            if (status) {
+                await this.updateProgress(() => (status.completed = true));
+            }
+
             if (error instanceof DocumentNotFound) {
                 return;
             }
@@ -224,7 +276,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         await this.syncDocumentMetadata(localDocument, remoteDocument);
     }
 
-    private async syncRemoteChildren(documentUrl: string): Promise<SolidDocument | null> {
+    private async syncRemoteChildren(documentUrl: string, status?: JobStatus): Promise<SolidDocument | null> {
         const remoteDocument = await this.config.remoteEngine.readDocumentIfExists(documentUrl);
 
         if (remoteDocument && documentUrl.endsWith('/')) {
@@ -234,11 +286,20 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
             );
 
-            await Promise.all(
-                (container?.resourceUrls ?? []).map((childDocumentUrl) => {
-                    const childResource = resourcesByUrl[childDocumentUrl];
+            const resourceUrls = container?.resourceUrls ?? [];
 
-                    return this.syncDocument(childDocumentUrl, childResource?.updatedAt);
+            if (status && resourceUrls.length > 0) {
+                status.children = resourceUrls.map(() => ({ completed: false }));
+
+                await this.updateProgress();
+            }
+
+            await Promise.all(
+                resourceUrls.map((childDocumentUrl, index) => {
+                    const childResource = resourcesByUrl[childDocumentUrl];
+                    const childStatus = status?.children?.[index];
+
+                    return this.syncDocument(childDocumentUrl, childStatus, childResource?.updatedAt);
                 }),
             );
         }
@@ -246,13 +307,17 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         return remoteDocument;
     }
 
-    private async pushContainerDocuments(url: string): Promise<void> {
+    private async pushContainerDocuments(url: string, status?: JobStatus): Promise<void> {
         this.assertNotCancelled();
 
         const document = await this.config.localEngine.readDocumentIfExists(url);
         const container = document && (await Container.createFromDocument(document, { url }));
 
         if (!container) {
+            if (status) {
+                await this.updateProgress(() => (status.completed = true));
+            }
+
             return;
         }
 
@@ -260,7 +325,16 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             return childUrl.endsWith('/') ? 'containerChildren' : 'documentChildren';
         });
 
-        const pushedModels = await this.pushContainerChildrenDocuments(documentChildren ?? []);
+        const pendingUrls = (documentChildren ?? []).filter((pendingUrl) => !this.syncedDocumentUrls.has(pendingUrl));
+        const allChildrenUrls = pendingUrls.concat(containerChildren ?? []);
+
+        if (status && allChildrenUrls.length > 0) {
+            status.children = allChildrenUrls.map(() => ({ completed: false }));
+
+            await this.updateProgress();
+        }
+
+        const pushedModels = await this.pushContainerChildrenDocuments(documentChildren ?? [], status);
 
         await syncContainerRegistration({
             container,
@@ -275,19 +349,39 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             },
         });
 
-        await Promise.all((containerChildren ?? []).map((containerUrl) => this.pushContainerDocuments(containerUrl)));
+        const containerChildrenUrls = containerChildren ?? [];
+
+        await Promise.all(
+            containerChildrenUrls.map((containerUrl, index) => {
+                const childStatus = status?.children?.[pendingUrls.length + index];
+
+                return this.pushContainerDocuments(containerUrl, childStatus);
+            }),
+        );
+
+        if (status) {
+            await this.updateProgress(() => (status.completed = true));
+        }
     }
 
-    private async pushContainerChildrenDocuments(urls: string[] = []): Promise<Set<ModelConstructor>> {
+    private async pushContainerChildrenDocuments(
+        urls: string[] = [],
+        status?: JobStatus,
+    ): Promise<Set<ModelConstructor>> {
         const rdfClasses = new Set<string>();
         const pendingUrls = urls.filter((url) => !this.syncedDocumentUrls.has(url));
         const localDocuments = await this.config.localEngine.readDocuments(pendingUrls);
 
         await Promise.all(
-            pendingUrls.map(async (documentUrl) => {
+            pendingUrls.map(async (documentUrl, index) => {
+                const childStatus = status?.children?.[index];
                 const localDocument = localDocuments[documentUrl];
 
                 if (!localDocument) {
+                    if (childStatus) {
+                        await this.updateProgress(() => (childStatus.completed = true));
+                    }
+
                     return;
                 }
 
@@ -303,6 +397,10 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                     .statements(undefined, RDF_TYPE_PREDICATE)
                     .map((quad) => quad.object.value)
                     .forEach((rdfClass) => rdfClasses.add(rdfClass));
+
+                if (childStatus) {
+                    await this.updateProgress(() => (childStatus.completed = true));
+                }
             }),
         );
 
