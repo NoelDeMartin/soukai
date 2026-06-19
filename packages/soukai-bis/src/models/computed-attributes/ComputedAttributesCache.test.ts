@@ -90,7 +90,7 @@ describe('ComputedAttributesCache', () => {
         expect(await ComputedAttributesCache.get(secondUser, 'postTitles')).toEqual(['Hello World']);
     });
 
-    it.only('invalidates entries by container', async () => {
+    it('invalidates entries by container', async () => {
         // Arrange
         const now = new Date();
         const containerUrl = fakeContainerUrl();
