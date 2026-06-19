@@ -6,6 +6,7 @@ import Container from 'soukai-bis/models/ldp/Container';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
 import Job from 'soukai-bis/jobs/Job';
 import { SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
@@ -172,6 +173,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
         await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], pushStatus);
         await this.updateProgress((status) => (status.children[1].completed = true));
+        await ComputedAttributesCache.invalidate(Array.from(this.syncedDocumentUrls));
         await this._listeners.emit('onFinished', {
             syncedDocumentUrls: this.syncedDocumentUrls,
             documentsWithErrors: this.documentsWithErrors,

@@ -40,19 +40,21 @@ import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/r
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import { deleteModel, getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
-import type {
-    ModelConstructor,
-    ModelWithHistory,
-    ModelWithTimestamps,
-    ModelWithTombstones,
-    ModelWithUrl,
-} from './types';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Relation from './relations/Relation';
 import type Tombstone from './crdts/Tombstone';
+import type {
+    ModelComputedAttributeDefinitions,
+    ModelConstructor,
+    ModelWithHistory,
+    ModelWithTimestamps,
+    ModelWithTombstones,
+    ModelWithUrl,
+} from './types';
+import type { SchemaComputedAttributeDefinition } from './relations/schema';
 import type { Schema } from './schema';
 import type { ModelEvent, ModelListener } from './concerns/events';
 
@@ -73,8 +75,7 @@ export default class Model<
     public static schema: Schema;
     private static __engine: Engine | null = null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public static computed: Record<string, (model: any) => unknown>;
+    public static computed: ModelComputedAttributeDefinitions;
 
     public static get defaultContainerUrl(): string {
         return getMeta(this, 'defaultContainerUrl');
@@ -426,16 +427,20 @@ export default class Model<
 
     public getComputedAttribute(name: string): ComputedAttribute {
         if (!(name in this._computedAttributes)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const compute = this.static('schema').computed[name] as any;
+            const definition = this.static('schema').computed[name] as SchemaComputedAttributeDefinition;
 
-            if (!compute) {
+            if (!definition) {
                 throw new SoukaiError(
                     `Computed attribute '${name}' is not defined in the ${this.static().modelName} model.`,
                 );
             }
 
-            this._computedAttributes[name] = new ComputedAttribute(this, name, compute);
+            this._computedAttributes[name] = new ComputedAttribute(
+                this,
+                name,
+                definition.compute,
+                definition.invalidationStrategy,
+            );
         }
 
         return this._computedAttributes[name] as ComputedAttribute;

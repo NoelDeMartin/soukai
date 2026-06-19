@@ -15,8 +15,7 @@ import { SchemaRelationDefinition } from './relations/schema';
 import { isModelClass } from './utils';
 import { requireBootedModel } from './registry';
 import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
-import type { SchemaModelRelations, SchemaRelations } from './relations/schema';
-import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
+import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRelations } from './relations/schema';
 
 export type Schema<
     TFields extends SchemaFields = SchemaFields,
@@ -31,7 +30,7 @@ export type Schema<
     rdfClasses: NamedNode[];
     rdfDefaultResourceHash: string;
     rdfFieldProperties: Record<keyof TFields, NamedNode>;
-    computed: Record<string, ComputedAttributeCompute<Model, unknown>>;
+    computed: Record<string, SchemaComputedAttributeDefinition>;
     slugField?: string & keyof TFields;
 };
 

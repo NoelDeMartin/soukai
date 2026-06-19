@@ -1,4 +1,5 @@
 import type { ContainerConstructor, ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
+import type { ComputedAttributeCompute, InvalidationStrategy } from 'soukai-bis/models/computed-attributes';
 
 import type { AnyMultiModelRelation, RelationConstructor } from './types';
 
@@ -43,3 +44,9 @@ export class SchemaRelationDefinition<
     }
 
 }
+
+export type SchemaComputedAttributeDefinition = {
+    invalidationStrategy: InvalidationStrategy;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    compute: ComputedAttributeCompute<any, unknown>;
+};

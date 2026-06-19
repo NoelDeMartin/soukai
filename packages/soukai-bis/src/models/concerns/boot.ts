@@ -2,6 +2,7 @@ import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import { stringToCamelCase, tap } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 const store = new WeakMap<ModelConstructor, ModelMeta>();
@@ -47,7 +48,21 @@ export function boot(model: ModelConstructor, name?: string): void {
     }
 
     if (model.computed) {
-        model.schema.computed = model.computed;
+        model.schema.computed = Object.fromEntries(
+            Object.entries(model.computed).map(([computedAttribute, definition]) => {
+                if (typeof definition === 'function') {
+                    return [
+                        computedAttribute,
+                        {
+                            invalidationStrategy: InvalidationStrategies.DOCUMENT,
+                            compute: definition,
+                        },
+                    ];
+                }
+
+                return [computedAttribute, definition];
+            }),
+        );
     }
 
     initMeta(model, name);

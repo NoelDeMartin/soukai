@@ -1,10 +1,13 @@
 import { deleteDB, openDB } from 'idb';
-import { facade } from '@noeldemartin/utils';
-import type { DBSchema, IDBPDatabase } from 'idb';
+import { facade, objectWithout, urlRoute } from '@noeldemartin/utils';
+import type { DBSchema, IDBPCursorWithValue, IDBPDatabase } from 'idb';
 
 import { getNamespace } from 'soukai-bis/lib/namespace';
+import { getBootedModels } from 'soukai-bis/models/registry';
+import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
 import { SoukaiError } from 'soukai-bis/errors';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
+import type { SchemaComputedAttributeDefinition } from 'soukai-bis/models/relations/schema';
 
 interface ComputedAttributesSchema extends DBSchema {
     attributes: {
@@ -43,6 +46,22 @@ export class ComputedAttributesCache {
         return document ? (document[name] as TValue) : undefined;
     }
 
+    public async invalidate(affectedDocumentUrls: string[]): Promise<void> {
+        const connection = await this.connect();
+        const transaction = connection.transaction('attributes', 'readwrite');
+        const store = transaction.objectStore('attributes');
+
+        let cursor = await store.openCursor();
+
+        while (cursor) {
+            await this.invalidateEntry(cursor, affectedDocumentUrls);
+
+            cursor = await cursor.continue();
+        }
+
+        await transaction.done;
+    }
+
     public async close(): Promise<void> {
         if (!this.databaseConnection) {
             return;
@@ -58,6 +77,54 @@ export class ComputedAttributesCache {
     public async clear(): Promise<void> {
         await this.close();
         await deleteDB(`${getNamespace()}:computed`, { blocked: () => this.throwDatabaseBlockedError() });
+    }
+
+    private async invalidateEntry(
+        cursor: IDBPCursorWithValue<ComputedAttributesSchema, ['attributes'], 'attributes', unknown, 'readwrite'>,
+        affectedDocumentUrls: string[],
+    ) {
+        const entry = cursor.value;
+        const { model, url: entryUrl, ...attributes } = entry;
+        const modelClass = getBootedModels().get(model);
+        const invalidatedAttributes: (keyof typeof entry)[] = [];
+
+        if (!modelClass) {
+            return;
+        }
+
+        for (const attribute of Object.keys(attributes)) {
+            const definition = modelClass.schema.computed[attribute];
+
+            if (!definition || !this.shouldInvalidateCache(definition, entryUrl, affectedDocumentUrls)) {
+                continue;
+            }
+
+            invalidatedAttributes.push(attribute);
+        }
+
+        if (invalidatedAttributes.length === 0) {
+            return;
+        }
+
+        invalidatedAttributes.length === attributes.length
+            ? await cursor.delete()
+            : await cursor.update(objectWithout(entry, invalidatedAttributes) as typeof entry);
+    }
+
+    private shouldInvalidateCache(
+        definition: SchemaComputedAttributeDefinition,
+        entryUrl: string,
+        affectedDocumentUrls: string[],
+    ): boolean {
+        switch (definition.invalidationStrategy) {
+            case 'document':
+                return affectedDocumentUrls.includes(urlRoute(entryUrl));
+            case 'container': {
+                const containerUrl = requireSafeContainerUrl(entryUrl);
+
+                return affectedDocumentUrls.some((url) => url.startsWith(containerUrl));
+            }
+        }
     }
 
     private async connect(): Promise<IDBPDatabase<ComputedAttributesSchema>> {

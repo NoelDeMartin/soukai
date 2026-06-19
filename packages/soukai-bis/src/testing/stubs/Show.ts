@@ -1,4 +1,4 @@
-import { loaded } from 'soukai-bis';
+import { InvalidationStrategies, loaded } from 'soukai-bis';
 import type { BelongsToManyRelation, ComputedAttribute } from 'soukai-bis';
 
 import Model from './Show.schema';
@@ -11,11 +11,14 @@ export default class Show extends Model {
     declare public readonly seasons?: Season[];
 
     public static computed = {
-        pendingEpisodeDates(show: Show): Date[] {
-            return loaded(show, 'seasons')
-                .flatMap((season) => loaded(season, 'episodes'))
-                .map((episode) => loaded(episode, 'watchAction')?.startTime)
-                .filter((date) => !!date);
+        pendingEpisodeDates: {
+            invalidationStrategy: InvalidationStrategies.CONTAINER,
+            compute(show: Show): Date[] {
+                return loaded(show, 'seasons')
+                    .flatMap((season) => loaded(season, 'episodes'))
+                    .map((episode) => loaded(episode, 'watchAction')?.startTime)
+                    .filter((date) => !!date);
+            },
         },
     };
 

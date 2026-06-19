@@ -11,12 +11,18 @@ import type { RelationTree } from './registry';
 
 const relationsLock = new Semaphore(20);
 
+export const InvalidationStrategies = {
+    DOCUMENT: 'document',
+    CONTAINER: 'container',
+} as const;
+
 export interface UpdateOptions {
     refresh?: boolean;
     useCache?: boolean;
     loadRelations?: boolean;
 }
 
+export type InvalidationStrategy = (typeof InvalidationStrategies)[keyof typeof InvalidationStrategies];
 export type ComputedAttributeListener<TValue = unknown> = (value: TValue | undefined) => unknown;
 export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (target: TTarget) => TValue;
 
@@ -41,16 +47,23 @@ export default class ComputedAttribute<TValue = unknown> {
         this.refreshesDisabled = false;
     }
 
+    public readonly invalidationStrategy: InvalidationStrategy;
     private name: string;
     private target: Model;
     private compute: ComputedAttributeCompute<Model, TValue>;
     private _value: TValue | undefined;
     private listeners: Set<ComputedAttributeListener<TValue>>;
 
-    public constructor(target: Model, name: string, compute: ComputedAttributeCompute<Model, TValue>) {
+    public constructor(
+        target: Model,
+        name: string,
+        compute: ComputedAttributeCompute<Model, TValue>,
+        invalidationStrategy: InvalidationStrategy,
+    ) {
         this.name = name;
         this.target = target;
         this.compute = compute;
+        this.invalidationStrategy = invalidationStrategy;
         this.listeners = new Set();
     }
 

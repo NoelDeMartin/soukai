@@ -109,7 +109,7 @@ function initComputedAttributes(modelClass: ModelConstructor): ComputedAttribute
 
     for (const relatedClass of getRelatedClasses(modelClass)) {
         if (relatedClass === modelClass) {
-            for (const [name, compute] of Object.entries(relatedClass.schema.computed)) {
+            for (const [name, { compute }] of Object.entries(relatedClass.schema.computed)) {
                 const visited = simulateComputedRun(relatedClass, compute);
 
                 relations[name] = relationPathsToTree(visited);
@@ -119,7 +119,7 @@ function initComputedAttributes(modelClass: ModelConstructor): ComputedAttribute
             continue;
         }
 
-        for (const [name, compute] of Object.entries(relatedClass.schema.computed)) {
+        for (const [name, { compute }] of Object.entries(relatedClass.schema.computed)) {
             const visited = simulateComputedRun(relatedClass, compute);
 
             pathLoop: for (const path of visited) {

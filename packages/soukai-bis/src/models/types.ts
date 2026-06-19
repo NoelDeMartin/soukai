@@ -7,6 +7,8 @@ import type Metadata from './crdts/Metadata';
 import type Model from './Model';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
+import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
+import type { SchemaComputedAttributeDefinition } from './relations/schema';
 
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
@@ -35,3 +37,9 @@ export type ModelWithTombstones<T extends Model> = Model &
         tombstone: Tombstone;
         relatedTombstone: HasOneRelation<T, Tombstone, typeof Tombstone>;
     };
+
+export type ModelComputedAttributeDefinitions = Record<
+    string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ComputedAttributeCompute<any, unknown> | SchemaComputedAttributeDefinition
+>;
