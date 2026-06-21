@@ -111,7 +111,8 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
 
         this.documents[url] = {
             graph: await quadsToJsonLD(quads),
-            lastModifiedAt: metadata?.lastModifiedAt ?? document.lastModifiedAt,
+            lastModifiedAt:
+                metadata && 'lastModifiedAt' in metadata ? metadata.lastModifiedAt : document.lastModifiedAt,
         };
 
         return { headers: new Headers() };

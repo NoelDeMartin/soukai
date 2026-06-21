@@ -237,7 +237,9 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 }
 
                 await this.config.localEngine.createDocument(documentUrl, remoteDocument.getQuads(), {
-                    lastModifiedAt: remoteDocument.getLastModified() ?? undefined,
+                    lastModifiedAt: remoteDocument.url.endsWith('/')
+                        ? this.getContainerLastModifiedAt(remoteDocument)
+                        : (remoteDocument.getLastModified() ?? undefined),
                 });
 
                 if (status) {

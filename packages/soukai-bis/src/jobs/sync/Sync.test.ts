@@ -641,4 +641,78 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenCalledWith(registeredContainerUrl, expect.anything());
     });
 
+    it('pushes local changes under skipped containers', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const registeredContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const nestedContainerUrl = fakeContainerUrl({ baseUrl: registeredContainerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl: nestedContainerUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: registeredContainerUrl,
+                forClass: [expandIRI('schema:Movie')],
+            }),
+        ];
+
+        FakeServer.respondOnce(
+            registeredContainerUrl,
+            `
+                @prefix ldp: <http://www.w3.org/ns/ldp#> .
+                @prefix purl: <http://purl.org/dc/terms/> .
+                @prefix fs: <https://vocab.noeldemartin.com/fs/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <>
+                    a ldp:Container ;
+                    ldp:contains <${nestedContainerUrl}> .
+
+                <${nestedContainerUrl}>
+                    a ldp:Resource, ldp:Container, ldp:BasicContainer ;
+                    purl:modified "2026-06-13T07:00:59.000Z"^^xsd:dateTime ;
+                    fs:deepLastModified "2026-06-19T07:17:00.000Z"^^xsd:dateTime ;
+                    ldp:contains <${documentUrl}> .
+            `,
+        );
+
+        await localEngine.createDocument(
+            nestedContainerUrl,
+            {
+                '@id': nestedContainerUrl,
+                '@type': ['http://www.w3.org/ns/ldp#Container', 'http://www.w3.org/ns/ldp#BasicContainer'],
+                ['http://www.w3.org/ns/ldp#contains']: { '@id': documentUrl },
+            },
+            {
+                lastModifiedAt: new Date('2026-06-19T07:17:00.000Z'),
+            },
+        );
+
+        await localEngine.createDocument(
+            documentUrl,
+            {
+                '@id': `${documentUrl}#it`,
+                '@type': expandIRI('schema:Movie'),
+                [expandIRI('schema:name')]: 'Interstellar',
+            },
+            {
+                lastModifiedAt: new Date('2026-06-20T07:17:00.000Z'),
+            },
+        );
+
+        FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+        FakeServer.respondOnce(documentUrl, FakeResponse.created());
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: Movie, registration: true }],
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, registeredContainerUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.objectContaining({ method: 'PATCH' }));
+    });
+
 });

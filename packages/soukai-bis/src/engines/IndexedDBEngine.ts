@@ -198,7 +198,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         operations: EngineOperation[],
         metadata?: EngineMetadata,
     ): Promise<SolidResponse | null> {
-        operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
+        const isContainer = url.endsWith('/');
+
+        operations = isContainer ? this.filterContainerOperations(operations) : operations;
 
         if (operations.length === 0 && !metadata?.lastModifiedAt) {
             return null;
@@ -206,14 +208,17 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         return this.lock.run(async () => {
             const containerUrl = requireSafeContainerUrl(url);
+            const containerExists = await this.containerExists(containerUrl);
 
-            if (!(await this.containerExists(containerUrl))) {
+            if (!isContainer && !containerExists) {
                 throw new DocumentNotFound(url);
             }
 
-            const document = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                return transaction.store.get(url);
-            });
+            const document = containerExists
+                ? await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
+                    return transaction.store.get(url);
+                })
+                : undefined;
 
             if (!document) {
                 if (url.endsWith('/')) {
@@ -444,7 +449,11 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const connection = await this.getMetadataConnection();
         const transaction = connection.transaction('containers', mode);
 
-        return operation(transaction);
+        const result = await operation(transaction);
+
+        await transaction.done;
+
+        return result;
     }
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
@@ -463,7 +472,11 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const connection = await this.getDocumentsConnection();
         const transaction = connection.transaction(containerUrl as '[containerUrl]', mode);
 
-        return operation(transaction);
+        const result = await operation(transaction);
+
+        await transaction.done;
+
+        return result;
     }
 
     private async getMetadataConnection(): Promise<IDBPDatabase<MetadataSchema>> {
