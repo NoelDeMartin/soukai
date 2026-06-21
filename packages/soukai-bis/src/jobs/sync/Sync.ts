@@ -480,7 +480,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             ),
             metadata: {
                 lastModifiedAt: localDocument.url.endsWith('/')
-                    ? this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument)
+                    ? (this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument))
                     : this.getDocumentLastModifiedAt(start, end, response),
             },
         });
