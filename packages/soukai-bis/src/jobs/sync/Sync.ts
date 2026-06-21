@@ -273,11 +273,6 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         }
     }
 
-    private async syncDocumentContents(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
-        await this.syncDocumentsOperations(localDocument, remoteDocument);
-        await this.syncDocumentMetadata(localDocument, remoteDocument);
-    }
-
     private async syncRemoteChildren(documentUrl: string, status?: JobStatus): Promise<SolidDocument | null> {
         const remoteDocument = await this.config.remoteEngine.readDocumentIfExists(documentUrl);
 
@@ -301,7 +296,11 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                     const childResource = resourcesByUrl[childDocumentUrl];
                     const childStatus = status?.children?.[index];
 
-                    return this.syncDocument(childDocumentUrl, childStatus, childResource?.updatedAt);
+                    return this.syncDocument(
+                        childDocumentUrl,
+                        childStatus,
+                        childDocumentUrl.endsWith('/') ? childResource?.deepUpdatedAt : childResource?.updatedAt,
+                    );
                 }),
             );
         }
@@ -392,7 +391,9 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 const end = new Date();
 
                 await this.config.localEngine.updateDocument(documentUrl, [], {
-                    lastModifiedAt: this.getLastModifiedAt(start, end, remoteDocument),
+                    lastModifiedAt: remoteDocument.url.endsWith('/')
+                        ? this.getContainerLastModifiedAt(remoteDocument)
+                        : this.getDocumentLastModifiedAt(start, end, remoteDocument),
                 });
 
                 localDocument
@@ -441,17 +442,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         }
     }
 
-    private async syncDocumentMetadata(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
-        const lastModifiedAt = remoteDocument.getLastModified();
-
-        if (!lastModifiedAt) {
-            return;
-        }
-
-        await this.config.localEngine.updateDocument(localDocument.url, [], { lastModifiedAt });
-    }
-
-    private async syncDocumentsOperations(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
+    private async syncDocumentContents(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
         const resourceUrls = arrayUnique(
             [remoteDocument, localDocument].flatMap((document) =>
                 document
@@ -487,11 +478,19 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             newOperations: Array.from(remoteOperations.values()).filter(
                 (operation) => !localOperations.has(operation.url),
             ),
-            metadata: { lastModifiedAt: this.getLastModifiedAt(start, end, response) },
+            metadata: {
+                lastModifiedAt: localDocument.url.endsWith('/')
+                    ? this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument)
+                    : this.getDocumentLastModifiedAt(start, end, response),
+            },
         });
     }
 
-    private getLastModifiedAt(start: Date, end: Date, remoteDocument: SolidDocument | SolidResponse | null): Date {
+    private getDocumentLastModifiedAt(
+        start: Date,
+        end: Date,
+        remoteDocument: SolidDocument | SolidResponse | null,
+    ): Date {
         const lastModifiedAt =
             remoteDocument instanceof SolidDocument
                 ? remoteDocument.getLastModified()
@@ -505,6 +504,12 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         const requestDate = parseDate(remoteDocument?.headers.get('Date')) ?? start;
 
         return new Date(requestDate.getTime() + duration);
+    }
+
+    private getContainerLastModifiedAt(remoteDocument: SolidDocument | SolidResponse | null): Date | null {
+        const lastModifiedAt = remoteDocument?.headers.get('deep-last-modified');
+
+        return lastModifiedAt ? parseDate(lastModifiedAt) : null;
     }
 
 }

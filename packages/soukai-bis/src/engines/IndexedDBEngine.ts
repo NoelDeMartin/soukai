@@ -216,6 +216,16 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             });
 
             if (!document) {
+                if (url.endsWith('/')) {
+                    const graph = await quadsToJsonLD([]);
+
+                    await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+                        await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
+                    });
+
+                    return { headers: new Headers() };
+                }
+
                 throw new DocumentNotFound(url);
             }
 

@@ -91,6 +91,15 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         const document = this.documents[url];
 
         if (!document) {
+            if (url.endsWith('/')) {
+                this.documents[url] = {
+                    graph: await quadsToJsonLD([]),
+                    lastModifiedAt: metadata?.lastModifiedAt,
+                };
+
+                return { headers: new Headers() };
+            }
+
             throw new DocumentNotFound(url);
         }
 

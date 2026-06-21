@@ -171,6 +171,10 @@ function getNewResourcesDocumentOperations({
     const documentOperations: EngineOperation[] = [];
 
     for (const resourceUrl of newResourceUrls) {
+        if (resourceUrl.endsWith('/')) {
+            continue;
+        }
+
         const quads = [
             ...otherDocument.statements(resourceUrl),
             ...otherDocument

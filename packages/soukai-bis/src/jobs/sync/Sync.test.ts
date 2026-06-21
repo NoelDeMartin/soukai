@@ -594,4 +594,51 @@ describe('Sync', () => {
         expect(progressUpdates[progressUpdates.length - 1]).toBe(1);
     });
 
+    it('skips containers with deep last modified dates', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const registeredContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const nestedContainerUrl = fakeContainerUrl({ baseUrl: registeredContainerUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: registeredContainerUrl,
+                forClass: [expandIRI('schema:Movie')],
+            }),
+        ];
+
+        FakeServer.respondOnce(
+            registeredContainerUrl,
+            `
+                @prefix ldp: <http://www.w3.org/ns/ldp#> .
+                @prefix purl: <http://purl.org/dc/terms/> .
+                @prefix fs: <https://vocab.noeldemartin.com/fs/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <>
+                    a ldp:Container ;
+                    ldp:contains <${nestedContainerUrl}> .
+
+                <${nestedContainerUrl}>
+                    a ldp:Resource, ldp:Container, ldp:BasicContainer ;
+                    purl:modified "2026-06-13T07:00:59.000Z"^^xsd:dateTime ;
+                    fs:deepLastModified "2026-06-19T07:17:00.000Z"^^xsd:dateTime .
+            `,
+        );
+
+        await localEngine.createDocument(nestedContainerUrl, [], {
+            lastModifiedAt: new Date('2026-06-19T07:17:00.000Z'),
+        });
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: Movie, registration: true }],
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
+        expect(FakeServer.fetch).toHaveBeenCalledWith(registeredContainerUrl, expect.anything());
+    });
+
 });
