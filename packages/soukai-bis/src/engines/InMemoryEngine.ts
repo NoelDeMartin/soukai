@@ -93,7 +93,7 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         if (!document) {
             if (url.endsWith('/')) {
                 this.documents[url] = {
-                    graph: await quadsToJsonLD([]),
+                    graph: { '@graph': [{ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }] },
                     lastModifiedAt: metadata?.lastModifiedAt,
                 };
 
@@ -111,8 +111,7 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
 
         this.documents[url] = {
             graph: await quadsToJsonLD(quads),
-            lastModifiedAt:
-                metadata && 'lastModifiedAt' in metadata ? metadata.lastModifiedAt : document.lastModifiedAt,
+            lastModifiedAt: metadata?.lastModifiedAt,
         };
 
         return { headers: new Headers() };

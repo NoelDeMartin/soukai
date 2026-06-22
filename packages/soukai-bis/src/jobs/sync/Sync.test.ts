@@ -687,17 +687,11 @@ describe('Sync', () => {
             },
         );
 
-        await localEngine.createDocument(
-            documentUrl,
-            {
-                '@id': `${documentUrl}#it`,
-                '@type': expandIRI('schema:Movie'),
-                [expandIRI('schema:name')]: 'Interstellar',
-            },
-            {
-                lastModifiedAt: new Date('2026-06-20T07:17:00.000Z'),
-            },
-        );
+        await localEngine.createDocument(documentUrl, {
+            '@id': `${documentUrl}#it`,
+            '@type': expandIRI('schema:Movie'),
+            [expandIRI('schema:name')]: 'Interstellar',
+        });
 
         FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
         FakeServer.respondOnce(documentUrl, FakeResponse.created());

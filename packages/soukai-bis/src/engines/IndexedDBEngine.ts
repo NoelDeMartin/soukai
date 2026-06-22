@@ -222,7 +222,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
             if (!document) {
                 if (url.endsWith('/')) {
-                    const graph = await quadsToJsonLD([]);
+                    const graph = { '@graph': [{ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }] };
 
                     await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                         await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });

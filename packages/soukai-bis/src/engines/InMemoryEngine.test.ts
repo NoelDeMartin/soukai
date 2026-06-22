@@ -203,6 +203,8 @@ describe('InMemoryEngine', () => {
         const container = await engine.readDocument(containerUrl);
 
         // Assert
+        expect(container.getQuads()).toHaveLength(3);
+
         await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
             '@id': containerUrl,
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],

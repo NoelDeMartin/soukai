@@ -344,7 +344,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
             await this.updateProgress();
         }
 
-        const pushedModels = await this.pushContainerChildrenDocuments(documentChildren ?? [], status);
+        const pushedModels = await this.pushContainerChildrenDocuments(pendingUrls, status);
 
         await syncContainerRegistration({
             container,
@@ -375,11 +375,10 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async pushContainerChildrenDocuments(
-        urls: string[] = [],
+        pendingUrls: string[] = [],
         status?: JobStatus,
     ): Promise<Set<ModelConstructor>> {
         const rdfClasses = new Set<string>();
-        const pendingUrls = urls.filter((url) => !this.syncedDocumentUrls.has(url));
         const localDocuments = await this.config.localEngine.readDocuments(pendingUrls);
 
         await Promise.all(
@@ -387,7 +386,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 const childStatus = status?.children?.[index];
                 const localDocument = localDocuments[documentUrl];
 
-                if (!localDocument) {
+                if (!localDocument || !!localDocument.getLastModified()) {
                     if (childStatus) {
                         await this.updateProgress(() => (childStatus.completed = true));
                     }
