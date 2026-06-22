@@ -1,7 +1,8 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
-import { stringToCamelCase, tap } from '@noeldemartin/utils';
+import { tap } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { getContainerName } from 'soukai-bis/models/utils';
 import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -18,7 +19,7 @@ function initMeta(model: ModelConstructor, name?: string): ModelMeta {
     return tap(
         {
             modelName: name,
-            defaultContainerUrl: `solid://${stringToCamelCase(name)}s/`,
+            defaultContainerUrl: `solid://${getContainerName(name)}/`,
         },
         (meta) => store.set(model, meta),
     );

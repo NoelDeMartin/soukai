@@ -8,7 +8,7 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
 import Job from 'soukai-bis/jobs/Job';
-import { SetPropertyOperation, UnsetPropertyOperation } from 'soukai-bis/models';
+import { SetPropertyOperation, UnsetPropertyOperation, getContainerName } from 'soukai-bis/models';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
@@ -66,14 +66,21 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
         this.modelRegistrationPaths = new Map(
             this.config.applicationModels
-                .map(
-                    (model) =>
-                        typeof model.registration === 'object' &&
-                        ([
-                            model.model,
-                            this.config.userProfile.storageUrls[0].slice(0, -1) + model.registration.path,
-                        ] as const),
-                )
+                .map((model) => {
+                    const path =
+                        typeof model.registration === 'object'
+                            ? (model.registration.path ?? getContainerName(model.model.modelName))
+                            : model.registration && getContainerName(model.model.modelName);
+
+                    if (!path) {
+                        return;
+                    }
+
+                    const storageUrl = this.config.userProfile.storageUrls[0].slice(0, -1);
+                    const containerUrl = storageUrl + `/${path}/`.replace(/\/\//g, '/');
+
+                    return [model.model, containerUrl] as const;
+                })
                 .filter(isTruthy),
         );
         this.syncRdfClasses = new Set(

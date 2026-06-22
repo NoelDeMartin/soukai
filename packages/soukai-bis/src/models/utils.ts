@@ -1,3 +1,5 @@
+import { stringToCamelCase } from '@noeldemartin/utils';
+
 import type { ModelConstructor } from './types';
 
 export function isModelClass(value: unknown): value is ModelConstructor {
@@ -17,4 +19,8 @@ export function isModelClassOrSubclass(value: ModelConstructor, target: ModelCon
     }
 
     return false;
+}
+
+export function getContainerName(modelName: string): string {
+    return `${stringToCamelCase(modelName)}s`;
 }
