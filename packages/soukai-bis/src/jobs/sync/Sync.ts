@@ -95,6 +95,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     protected async run(): Promise<void> {
         await this.pullChanges();
         await this.pushChanges();
+        await this.finish();
     }
 
     protected override getInitialStatus(): SyncJobStatus {
@@ -144,6 +145,14 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         );
     }
 
+    private async finish(): Promise<void> {
+        await ComputedAttributesCache.invalidate(Array.from(this.syncedDocumentUrls));
+        await this._listeners.emit('onFinished', {
+            syncedDocumentUrls: this.syncedDocumentUrls,
+            documentsWithErrors: this.documentsWithErrors,
+        });
+    }
+
     private shouldPullDocument(document: SolidDocument): boolean {
         return (
             !document.url.endsWith('/') ||
@@ -176,15 +185,8 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async pushChanges(): Promise<void> {
-        const pushStatus = this.status.children[1];
-
-        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], pushStatus);
+        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], this.status.children[1]);
         await this.updateProgress((status) => (status.children[1].completed = true));
-        await ComputedAttributesCache.invalidate(Array.from(this.syncedDocumentUrls));
-        await this._listeners.emit('onFinished', {
-            syncedDocumentUrls: this.syncedDocumentUrls,
-            documentsWithErrors: this.documentsWithErrors,
-        });
     }
 
     private async initializeMatchingContainers(): Promise<void> {
