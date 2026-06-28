@@ -529,6 +529,40 @@ describe('IndexedDBEngine', () => {
         expect(purgedDocuments[0]?.lastModifiedAt).toBeUndefined();
     });
 
+    it('gets document urls', async () => {
+        // Arrange
+        const containerUrl = 'http://localhost:3000/alice/movies/';
+        const firstUrl = `${containerUrl}first`;
+        const secondUrl = `${containerUrl}second`;
+        const lastModifiedAt = new Date();
+
+        await engine.createDocument(
+            firstUrl,
+            {
+                '@id': firstUrl,
+                '@type': 'http://schema.org/CreativeWork',
+            },
+            { lastModifiedAt },
+        );
+        await engine.createDocument(secondUrl, {
+            '@id': secondUrl,
+            '@type': 'http://schema.org/CreativeWork',
+        });
+
+        // Act & Assert
+        const allUrls = await engine.getDocumentUrls();
+        expect(allUrls).toContain(firstUrl);
+        expect(allUrls).toContain(secondUrl);
+
+        const unsyncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt: null } });
+        expect(unsyncedUrls).not.toContain(firstUrl);
+        expect(unsyncedUrls).toContain(secondUrl);
+
+        const syncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt } });
+        expect(syncedUrls).toContain(firstUrl);
+        expect(syncedUrls).not.toContain(secondUrl);
+    });
+
     async function resetDatabase(): Promise<void> {
         await SoukaiIndexedDB.clear();
         await SoukaiIndexedDB.connect();

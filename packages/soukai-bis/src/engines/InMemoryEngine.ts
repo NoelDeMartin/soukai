@@ -13,6 +13,8 @@ import Engine from './Engine';
 import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
 import type PurgesMetadata from './contracts/PurgesMetadata';
+import type ManagesDocuments from './contracts/ManagesDocuments';
+import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
 import type { EngineMetadata } from './Engine';
 
 export interface InMemoryDocument {
@@ -20,7 +22,7 @@ export interface InMemoryDocument {
     lastModifiedAt?: Nullable<Date>;
 }
 
-export default class InMemoryEngine extends Engine implements ManagesContainers, PurgesMetadata {
+export default class InMemoryEngine extends Engine implements ManagesContainers, PurgesMetadata, ManagesDocuments {
 
     public static readonly engineName = 'InMemoryEngine';
 
@@ -135,6 +137,21 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         }
 
         return Array.from(containerUrls);
+    }
+
+    public async getDocumentUrls(options?: GetDocumentUrlsOptions): Promise<string[]> {
+        const metadata = options?.metadata ?? {};
+
+        return Object.entries(this.documents)
+            .filter(([_, document]) => {
+                return (
+                    metadata.lastModifiedAt === undefined ||
+                    (metadata.lastModifiedAt === null
+                        ? !document.lastModifiedAt
+                        : metadata.lastModifiedAt?.getTime() === document.lastModifiedAt?.getTime())
+                );
+            })
+            .map(([url]) => url);
     }
 
     public async dropContainers(containerUrls: string[] | RegExp): Promise<void> {

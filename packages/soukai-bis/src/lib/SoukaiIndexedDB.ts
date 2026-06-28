@@ -19,6 +19,7 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
         value: LocalDocument;
         indexes: {
             containerUrl: string;
+            lastModifiedAt: Date;
         };
     };
     containers: {
@@ -55,6 +56,7 @@ export class SoukaiIndexedDB {
                         database.createObjectStore('computedAttributes', { keyPath: ['model', 'url'] });
 
                         documentsStore.createIndex('containerUrl', 'containerUrl', { unique: false });
+                        documentsStore.createIndex('lastModifiedAt', 'lastModifiedAt', { unique: false });
                     },
                     blocked: () => this.throwDatabaseBlockedError(),
                 });

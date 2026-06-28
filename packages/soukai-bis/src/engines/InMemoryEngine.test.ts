@@ -304,6 +304,29 @@ describe('InMemoryEngine', () => {
         );
     });
 
+    it('gets document urls', async () => {
+        // Arrange
+        const firstUrl = fakeDocumentUrl();
+        const secondUrl = fakeDocumentUrl();
+        const lastModifiedAt = new Date();
+
+        await engine.createDocument(firstUrl, { '@id': firstUrl }, { lastModifiedAt });
+        await engine.createDocument(secondUrl, { '@id': secondUrl });
+
+        // Act & Assert
+        const allUrls = await engine.getDocumentUrls();
+        expect(allUrls).toContain(firstUrl);
+        expect(allUrls).toContain(secondUrl);
+
+        const unsyncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt: null } });
+        expect(unsyncedUrls).not.toContain(firstUrl);
+        expect(unsyncedUrls).toContain(secondUrl);
+
+        const syncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt } });
+        expect(syncedUrls).toContain(firstUrl);
+        expect(syncedUrls).not.toContain(secondUrl);
+    });
+
     it('drops containers', async () => {
         // Arrange
         const containerUrls = [fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl()] as const;
