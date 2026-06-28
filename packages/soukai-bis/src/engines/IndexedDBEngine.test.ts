@@ -1,37 +1,29 @@
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import type { IDBPDatabase, IDBPTransaction } from 'idb';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import IndexedDBEngine from './IndexedDBEngine';
 
 describe('IndexedDBEngine', () => {
 
-    let databaseName: string;
     let engine: IndexedDBEngine;
-    let metadataConnection: IDBPDatabase | null = null;
-    let containersConnection: IDBPDatabase | null = null;
 
     beforeEach(async () => {
-        databaseName = faker.random.word();
-        engine = new IndexedDBEngine(databaseName);
+        engine = new IndexedDBEngine();
 
         await resetDatabase();
     });
 
     afterEach(async () => {
         await engine.close();
-
-        closeConnections();
-
         await dropDatabases();
     });
 
@@ -464,8 +456,6 @@ describe('IndexedDBEngine', () => {
             '@id': documentUrl,
         });
 
-        closeConnections();
-
         await engine.createDocument(containerUrls[1], {
             '@id': containerUrls[1],
             '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
@@ -540,41 +530,27 @@ describe('IndexedDBEngine', () => {
     });
 
     async function resetDatabase(): Promise<void> {
-        await initMetaDatabase();
-    }
-
-    async function initMetaDatabase(): Promise<void> {
-        if (metadataConnection) {
-            return;
-        }
-
-        metadataConnection = await openDB(`${engine.getNamespace()}:meta`, 1, {
-            upgrade: (database) => database.createObjectStore('containers', { keyPath: 'url' }),
-        });
-    }
-
-    function closeConnections(): void {
-        if (metadataConnection) {
-            metadataConnection.close();
-        }
-
-        if (containersConnection) {
-            containersConnection.close();
-        }
-
-        metadataConnection = null;
-        containersConnection = null;
+        await SoukaiIndexedDB.clear();
+        await SoukaiIndexedDB.connect();
     }
 
     async function dropDatabases(): Promise<void> {
-        await deleteDB(`${engine.getNamespace()}:meta`);
-        await deleteDB(`${engine.getNamespace()}:data`);
+        await SoukaiIndexedDB.clear();
     }
 
     async function getDatabaseDocuments(containerUrl: string): Promise<Record<string, unknown>[]> {
-        const transaction = await getContainerTransaction(containerUrl, 'readonly');
-
-        return transaction.store.getAll();
+        const db = await SoukaiIndexedDB.connect();
+        const documents = await db.getAllFromIndex('documents', 'containerUrl', containerUrl);
+        return documents.map((doc) => {
+            const formatted: Record<string, unknown> = {
+                url: doc.url,
+                graph: doc.graph,
+            };
+            if (doc.lastModifiedAt !== undefined && doc.lastModifiedAt !== null) {
+                formatted.lastModifiedAt = doc.lastModifiedAt;
+            }
+            return formatted;
+        });
     }
 
     async function setDatabaseDocument(
@@ -583,52 +559,22 @@ describe('IndexedDBEngine', () => {
         graph: Record<string, unknown>,
         metadata?: { lastModifiedAt?: Date },
     ): Promise<void> {
-        const transaction = await getContainerTransaction(containerUrl, 'readwrite');
+        const db = await SoukaiIndexedDB.connect();
+        const transaction = db.transaction(['containers', 'documents'], 'readwrite');
 
-        transaction.store.put({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
+        const container = await transaction.objectStore('containers').get(containerUrl);
+        if (!container) {
+            await transaction.objectStore('containers').add({ url: containerUrl });
+        }
+
+        await transaction.objectStore('documents').put({
+            url,
+            containerUrl,
+            graph,
+            lastModifiedAt: metadata?.lastModifiedAt,
+        });
 
         await transaction.done;
-    }
-
-    async function getContainerTransaction<T extends IDBTransactionMode>(
-        containerUrl: string,
-        mode: T,
-    ): Promise<IDBPTransaction<unknown, [string], T>> {
-        if (containersConnection && !containersConnection.objectStoreNames.contains(containerUrl)) {
-            containersConnection.close();
-            containersConnection = null;
-        }
-
-        if (!containersConnection) {
-            if (metadataConnection) {
-                const transaction = metadataConnection.transaction('containers', 'readwrite');
-                const existing = await transaction.store.get(containerUrl);
-
-                if (!existing) {
-                    await transaction.store.add({ url: containerUrl });
-                }
-
-                await transaction.done;
-            }
-
-            const meta = await openDB(`${engine.getNamespace()}:meta`);
-            const containers = await meta.getAll('containers');
-            const version = containers.length + 1;
-
-            meta.close();
-
-            containersConnection = await openDB(`${engine.getNamespace()}:data`, version, {
-                upgrade: (database) => {
-                    for (const c of containers) {
-                        if (!database.objectStoreNames.contains(c.url)) {
-                            database.createObjectStore(c.url, { keyPath: 'url' });
-                        }
-                    }
-                },
-            });
-        }
-
-        return (containersConnection as IDBPDatabase).transaction(containerUrl, mode);
     }
 
 });

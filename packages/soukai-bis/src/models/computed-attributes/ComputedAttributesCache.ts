@@ -1,33 +1,19 @@
-import { deleteDB, openDB } from 'idb';
 import { facade, objectWithout, urlRoute } from '@noeldemartin/utils';
-import type { DBSchema, IDBPCursorWithValue, IDBPDatabase } from 'idb';
+import type { IDBPCursorWithValue, IDBPDatabase } from 'idb';
 
-import { getNamespace } from 'soukai-bis/lib/namespace';
+import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import { getBootedModels } from 'soukai-bis/models/registry';
 import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
-import { SoukaiError } from 'soukai-bis/errors';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import type { SchemaComputedAttributeDefinition } from 'soukai-bis/models/relations/schema';
-
-interface ComputedAttributesSchema extends DBSchema {
-    attributes: {
-        key: [string, string];
-        value: {
-            model: string;
-            url: string;
-            [attribute: string]: unknown;
-        };
-    };
-}
+import type { SoukaiIndexedDBSchema } from 'soukai-bis/lib/SoukaiIndexedDB';
 
 export class ComputedAttributesCache {
 
-    private databaseConnection?: Promise<IDBPDatabase<ComputedAttributesSchema>>;
-
     public async set<T extends ModelWithUrl>(model: T, name: string, value: unknown): Promise<void> {
         const connection = await this.connect();
-        const transaction = connection.transaction('attributes', 'readwrite');
-        const store = transaction.objectStore('attributes');
+        const transaction = connection.transaction('computedAttributes', 'readwrite');
+        const store = transaction.objectStore('computedAttributes');
         const document = (await store.get([model.static().modelName, model.url])) ?? {
             url: model.url,
             model: model.static().modelName,
@@ -41,15 +27,15 @@ export class ComputedAttributesCache {
 
     public async get<TModel extends ModelWithUrl, TValue>(model: TModel, name: string): Promise<TValue | undefined> {
         const connection = await this.connect();
-        const document = await connection.get('attributes', [model.static().modelName, model.url]);
+        const document = await connection.get('computedAttributes', [model.static().modelName, model.url]);
 
         return document ? (document[name] as TValue) : undefined;
     }
 
     public async invalidate(affectedDocumentUrls: string[]): Promise<void> {
         const connection = await this.connect();
-        const transaction = connection.transaction('attributes', 'readwrite');
-        const store = transaction.objectStore('attributes');
+        const transaction = connection.transaction('computedAttributes', 'readwrite');
+        const store = transaction.objectStore('computedAttributes');
 
         let cursor = await store.openCursor();
 
@@ -63,24 +49,25 @@ export class ComputedAttributesCache {
     }
 
     public async close(): Promise<void> {
-        if (!this.databaseConnection) {
-            return;
-        }
-
-        const connection = await this.databaseConnection;
-
-        connection.close();
-
-        delete this.databaseConnection;
+        await SoukaiIndexedDB.close();
     }
 
     public async clear(): Promise<void> {
-        await this.close();
-        await deleteDB(`${getNamespace()}:computed`, { blocked: () => this.throwDatabaseBlockedError() });
+        const connection = await this.connect();
+        const transaction = connection.transaction('computedAttributes', 'readwrite');
+
+        await transaction.objectStore('computedAttributes').clear();
+        await transaction.done;
     }
 
     private async invalidateEntry(
-        cursor: IDBPCursorWithValue<ComputedAttributesSchema, ['attributes'], 'attributes', unknown, 'readwrite'>,
+        cursor: IDBPCursorWithValue<
+            SoukaiIndexedDBSchema,
+            ['computedAttributes'],
+            'computedAttributes',
+            unknown,
+            'readwrite'
+        >,
         affectedDocumentUrls: string[],
     ) {
         const entry = cursor.value;
@@ -127,22 +114,8 @@ export class ComputedAttributesCache {
         }
     }
 
-    private async connect(): Promise<IDBPDatabase<ComputedAttributesSchema>> {
-        const databaseName = `${getNamespace()}:computed`;
-        const connection = await (this.databaseConnection ??= openDB<ComputedAttributesSchema>(databaseName, 1, {
-            upgrade(database) {
-                database.createObjectStore('attributes', { keyPath: ['model', 'url'] });
-            },
-        }));
-
-        return connection;
-    }
-
-    private throwDatabaseBlockedError(): void {
-        throw new SoukaiError(
-            'An attempt to open an IndexedDB connection has been blocked, ' +
-                'remember to call ComputedAttributesCache.close() when necessary. ',
-        );
+    private async connect(): Promise<IDBPDatabase<SoukaiIndexedDBSchema>> {
+        return SoukaiIndexedDB.connect();
     }
 
 }

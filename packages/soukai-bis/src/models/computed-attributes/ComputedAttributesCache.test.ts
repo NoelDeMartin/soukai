@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { deleteDB, openDB } from 'idb';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 
+import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
@@ -14,7 +14,7 @@ describe('ComputedAttributesCache', () => {
         ComputedAttributesCache.reset();
 
         await ComputedAttributesCache.close();
-        await deleteDB('soukai:computed');
+        await SoukaiIndexedDB.clear();
     });
 
     afterEach(async () => {
@@ -29,39 +29,26 @@ describe('ComputedAttributesCache', () => {
         await ComputedAttributesCache.set(user, 'test', 'Foo Bar');
 
         // Assert
-        const connection = await openDB('soukai:computed');
+        const connection = await SoukaiIndexedDB.connect();
+        const document = await connection.get('computedAttributes', ['User', 'https://alice.example.org#me']);
 
-        try {
-            const document = await connection.get('attributes', ['User', 'https://alice.example.org#me']);
-
-            expect(document).toEqual({
-                url: 'https://alice.example.org#me',
-                model: 'User',
-                test: 'Foo Bar',
-            });
-        } finally {
-            connection.close();
-        }
+        expect(document).toEqual({
+            url: 'https://alice.example.org#me',
+            model: 'User',
+            test: 'Foo Bar',
+        });
     });
 
     it('retrieves values from cache', async () => {
         // Arrange
         const user = new User({ url: 'https://alice.example.org#me', name: 'Alice' }) as ModelWithUrl;
-        const connection = await openDB('soukai:computed', 1, {
-            upgrade(database) {
-                database.createObjectStore('attributes', { keyPath: ['model', 'url'] });
-            },
-        });
+        const connection = await SoukaiIndexedDB.connect();
 
-        try {
-            await connection.put('attributes', {
-                url: 'https://alice.example.org#me',
-                model: 'User',
-                test: 'cached value',
-            });
-        } finally {
-            connection.close();
-        }
+        await connection.put('computedAttributes', {
+            url: 'https://alice.example.org#me',
+            model: 'User',
+            test: 'cached value',
+        });
 
         // Act
         const value = await ComputedAttributesCache.get(user, 'test');

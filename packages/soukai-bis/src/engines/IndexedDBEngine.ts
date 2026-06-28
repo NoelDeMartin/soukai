@@ -1,69 +1,33 @@
-import { deleteDB, openDB } from 'idb';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { Semaphore, arrayUnique, isTruthy, objectEntries, objectFromEntries, silenced } from '@noeldemartin/utils';
-import type { DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
+import type { IDBPTransaction } from 'idb';
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
-import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { getNamespace } from 'soukai-bis/lib/namespace';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import Engine from './Engine';
+import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
 import type PurgesMetadata from './contracts/PurgesMetadata';
 import type { EngineMetadata } from './Engine';
-
-export interface LocalDocument {
-    url: string;
-    graph: JsonLD;
-    lastModifiedAt?: Nullable<Date>;
-}
-
-interface DocumentsSchema extends DBSchema {
-    '[containerUrl]': {
-        key: string;
-        value: LocalDocument;
-    };
-}
-
-interface MetadataSchema extends DBSchema {
-    containers: {
-        key: string;
-        value: {
-            url: string;
-            dropped?: true;
-        };
-    };
-}
+import type { SoukaiIndexedDBSchema } from 'soukai-bis/lib/SoukaiIndexedDB';
 
 export default class IndexedDBEngine extends Engine implements ManagesContainers, PurgesMetadata {
 
     public static readonly engineName = 'IndexedDBEngine';
 
-    private namespace: string;
-    private dataDatabaseName: string;
-    private metaDatabaseName: string;
-    private metadataConnection: Promise<IDBPDatabase<MetadataSchema>> | null = null;
-    private documentsConnection: Promise<IDBPDatabase<DocumentsSchema>> | null = null;
     private lock: Semaphore;
 
-    public constructor(namespace?: string) {
+    public constructor() {
         super();
 
-        this.namespace = namespace ?? getNamespace();
-        this.dataDatabaseName = `${this.namespace}:data`;
-        this.metaDatabaseName = `${this.namespace}:meta`;
         this.lock = new Semaphore();
-    }
-
-    public getNamespace(): string {
-        return this.namespace;
     }
 
     public async createDocument(
@@ -87,7 +51,12 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             }
 
             return this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
+                await transaction.objectStore('documents').add({
+                    url,
+                    containerUrl,
+                    graph,
+                    lastModifiedAt: metadata?.lastModifiedAt,
+                });
 
                 return new SolidDocument(
                     url,
@@ -112,7 +81,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             }
 
             const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                return transaction.store.get(url);
+                return transaction.objectStore('documents').get(url);
             });
 
             if (!localDocument) {
@@ -160,7 +129,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                         'readonly',
                         async (transaction) => {
                             const idbDocuments = await Promise.all(
-                                containerDocumentUrls.map((url) => transaction.store.get(url)),
+                                containerDocumentUrls.map((url) => transaction.objectStore('documents').get(url)),
                             );
 
                             return Object.fromEntries(
@@ -216,7 +185,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
             const document = containerExists
                 ? await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                    return transaction.store.get(url);
+                    return transaction.objectStore('documents').get(url);
                 })
                 : undefined;
 
@@ -225,7 +194,12 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                     const graph = { '@graph': [{ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }] };
 
                     await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                        await transaction.store.add({ url, graph, lastModifiedAt: metadata?.lastModifiedAt });
+                        await transaction.objectStore('documents').add({
+                            url,
+                            containerUrl,
+                            graph,
+                            lastModifiedAt: metadata?.lastModifiedAt,
+                        });
                     });
 
                     return { headers: new Headers() };
@@ -243,8 +217,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             const graph = await quadsToJsonLD(quads);
 
             await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
-                return transaction.store.put({
+                return transaction.objectStore('documents').put({
                     url,
+                    containerUrl,
                     graph,
                     lastModifiedAt: metadata?.lastModifiedAt,
                 });
@@ -260,20 +235,27 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             : (url: string) => containerUrls.test(url);
 
         await this.lock.run(async () => {
-            await this.withMetadataTransaction('readwrite', async (transaction) => {
-                const containersMetadata =
-                    (await transaction.store.getAll()) as MetadataSchema['containers']['value'][];
+            const connection = await SoukaiIndexedDB.connect();
+            const transaction = connection.transaction(['containers', 'documents'], 'readwrite');
+            const containersStore = transaction.objectStore('containers');
+            const documentsStore = transaction.objectStore('documents');
+            const containersMetadata = await containersStore.getAll();
 
-                for (const containerMetadata of containersMetadata) {
-                    if (containerMetadata.dropped || !containerMatches(containerMetadata.url)) {
-                        continue;
-                    }
-
-                    await transaction.store.put({ url: containerMetadata.url, dropped: true });
+            for (const containerMetadata of containersMetadata) {
+                if (containerMetadata.dropped || !containerMatches(containerMetadata.url)) {
+                    continue;
                 }
-            });
 
-            await this.syncContainerStores();
+                await containersStore.put({ url: containerMetadata.url, dropped: true });
+
+                const documentKeys = await documentsStore.index('containerUrl').getAllKeys(containerMetadata.url);
+
+                for (const key of documentKeys) {
+                    await documentsStore.delete(key);
+                }
+            }
+
+            await transaction.done;
         });
     }
 
@@ -286,7 +268,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             }
 
             await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
-                return transaction.store.delete(url);
+                return transaction.objectStore('documents').delete(url);
             });
 
             return { headers: new Headers() };
@@ -297,7 +279,8 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         await this.lock.run(async () => {
             for (const containerUrl of await this.getContainerUrls()) {
                 await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                    const documents = await transaction.store.getAll();
+                    const documentsStore = transaction.objectStore('documents');
+                    const documents = await documentsStore.index('containerUrl').getAll(containerUrl);
 
                     for (const document of documents) {
                         if (!document.lastModifiedAt) {
@@ -305,7 +288,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                         }
 
                         delete document.lastModifiedAt;
-                        await transaction.store.put(document);
+                        await documentsStore.put(document);
                     }
                 });
             }
@@ -313,30 +296,21 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     }
 
     public async getContainerUrls(): Promise<string[]> {
-        const documents = await this.getContainersMetadata();
+        const connection = await SoukaiIndexedDB.connect();
+        const transaction = connection.transaction('containers', 'readonly');
+        const documents = await transaction.store.getAll();
 
         return documents.filter((document) => !document.dropped).map((document) => document.url);
     }
 
     public async close(): Promise<void> {
-        if (this.metadataConnection) {
-            (await this.metadataConnection).close();
-            this.metadataConnection = null;
-        }
-
-        if (this.documentsConnection) {
-            (await this.documentsConnection).close();
-            this.documentsConnection = null;
-        }
+        await SoukaiIndexedDB.close();
     }
 
     public async clear(): Promise<void> {
         await this.lock.run(async () => {
             await this.close();
-            await Promise.all([
-                deleteDB(this.metaDatabaseName, { blocked: () => this.throwDatabaseBlockedError() }),
-                deleteDB(this.dataDatabaseName, { blocked: () => this.throwDatabaseBlockedError() }),
-            ]);
+            await SoukaiIndexedDB.clear();
         });
     }
 
@@ -356,7 +330,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const subject = new RDFNamedNode(document.url);
         const childrenUrls = exists
             ? await this.withDocumentsTransaction(document.url, 'readonly', (transaction) => {
-                return transaction.store.getAllKeys();
+                return transaction.objectStore('documents').index('containerUrl').getAllKeys(document.url);
             })
             : [];
 
@@ -382,7 +356,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         }
 
         const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-            return transaction.store.get(url);
+            return transaction.objectStore('documents').get(url);
         });
 
         const document = new SolidDocument(
@@ -398,34 +372,17 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     }
 
     private async createContainer(url: string): Promise<void> {
-        if (await this.containerExists(url)) {
-            return;
-        }
+        const connection = await SoukaiIndexedDB.connect();
+        const transaction = connection.transaction('containers', 'readwrite');
 
-        await this.withMetadataTransaction('readwrite', (transaction) => {
-            return transaction.store.add({ url });
-        });
-
-        if (this.documentsConnection) {
-            const connection = await this.documentsConnection;
-
-            connection.close();
-            this.documentsConnection = null;
-        }
+        await transaction.store.add({ url });
+        await transaction.done;
     }
 
     private async containerExists(url: string): Promise<boolean> {
         const containerUrls = await this.getContainerUrls();
 
         return containerUrls.includes(url);
-    }
-
-    private async getContainersMetadata(): Promise<MetadataSchema['containers']['value'][]> {
-        const documents = await this.withMetadataTransaction('readonly', (transaction) => {
-            return transaction.store.getAll();
-        });
-
-        return documents;
     }
 
     private getVirtualContainerUrls(containerUrls: string[]): string[] {
@@ -442,24 +399,12 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         return Array.from(virtualContainerUrls);
     }
 
-    private async withMetadataTransaction<TResult, TMode extends IDBTransactionMode>(
-        mode: TMode,
-        operation: (transaction: IDBPTransaction<MetadataSchema, ['containers'], TMode>) => Promise<TResult>,
-    ): Promise<TResult> {
-        const connection = await this.getMetadataConnection();
-        const transaction = connection.transaction('containers', mode);
-
-        const result = await operation(transaction);
-
-        await transaction.done;
-
-        return result;
-    }
-
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
         containerUrl: string,
         mode: TMode,
-        operation: (transaction: IDBPTransaction<DocumentsSchema, ['[containerUrl]'], TMode>) => Promise<TResult>,
+        operation: (
+            transaction: IDBPTransaction<SoukaiIndexedDBSchema, ['documents', 'containers'], TMode>
+        ) => Promise<TResult>,
     ): Promise<TResult> {
         if (!(await this.containerExists(containerUrl))) {
             if (mode !== 'readwrite') {
@@ -469,66 +414,14 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             await this.createContainer(containerUrl);
         }
 
-        const connection = await this.getDocumentsConnection();
-        const transaction = connection.transaction(containerUrl as '[containerUrl]', mode);
+        const connection = await SoukaiIndexedDB.connect();
+        const transaction = connection.transaction(['documents', 'containers'], mode);
 
         const result = await operation(transaction);
 
         await transaction.done;
 
         return result;
-    }
-
-    private async getMetadataConnection(): Promise<IDBPDatabase<MetadataSchema>> {
-        if (this.metadataConnection) {
-            return this.metadataConnection;
-        }
-
-        return (this.metadataConnection = openDB<MetadataSchema>(this.metaDatabaseName, 1, {
-            upgrade(db) {
-                if (db.objectStoreNames.contains('containers')) {
-                    return;
-                }
-
-                db.createObjectStore('containers', { keyPath: 'url' });
-            },
-            blocked: () => this.throwDatabaseBlockedError(),
-        }));
-    }
-
-    private async getDocumentsConnection(): Promise<IDBPDatabase<DocumentsSchema>> {
-        if (this.documentsConnection) {
-            return this.documentsConnection;
-        }
-
-        const containers = await this.getContainersMetadata();
-
-        return (this.documentsConnection = openDB<DocumentsSchema>(this.dataDatabaseName, containers.length + 1, {
-            upgrade(database) {
-                for (const container of containers) {
-                    if (container.dropped && database.objectStoreNames.contains(container.url as '[containerUrl]')) {
-                        database.deleteObjectStore(container.url as '[containerUrl]');
-                    }
-
-                    if (!container.dropped && !database.objectStoreNames.contains(container.url as '[containerUrl]')) {
-                        database.createObjectStore(container.url as '[containerUrl]', { keyPath: 'url' });
-                    }
-                }
-            },
-            blocked: () => this.throwDatabaseBlockedError(),
-        }));
-    }
-
-    private async syncContainerStores(): Promise<void> {
-        await this.close();
-        await this.getDocumentsConnection();
-    }
-
-    private throwDatabaseBlockedError(): void {
-        throw new SoukaiError(
-            'An attempt to open an IndexedDB connection has been blocked, ' +
-                'remember to call IndexedDBEngine.close() when necessary. ',
-        );
     }
 
 }
