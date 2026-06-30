@@ -342,7 +342,7 @@ describe('InMemoryEngine', () => {
         // Assert
         expect(timestamps[firstUrl]).toBeInstanceOf(Date);
         expect(timestamps[firstUrl]?.getTime()).toBe(lastModifiedAt.getTime());
-        expect(timestamps[secondUrl]).toBeUndefined();
+        expect(timestamps[secondUrl]).toBeNull();
     });
 
     it('drops containers', async () => {

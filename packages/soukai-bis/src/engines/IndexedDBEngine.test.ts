@@ -588,7 +588,7 @@ describe('IndexedDBEngine', () => {
         // Assert
         expect(timestamps[firstUrl]).toBeInstanceOf(Date);
         expect(timestamps[firstUrl]?.getTime()).toBe(lastModifiedAt.getTime());
-        expect(timestamps[secondUrl]).toBeUndefined();
+        expect(timestamps[secondUrl]).toBeNull();
     });
 
     async function resetDatabase(): Promise<void> {

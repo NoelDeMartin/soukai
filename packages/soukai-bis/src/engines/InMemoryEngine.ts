@@ -154,15 +154,11 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
             .map(([url]) => url);
     }
 
-    public async getDocumentsLastModifiedAt(): Promise<Record<string, Date>> {
-        const timestamps: Record<string, Date> = {};
+    public async getDocumentsLastModifiedAt(): Promise<Record<string, Date | null>> {
+        const timestamps: Record<string, Date | null> = {};
 
         for (const [url, document] of Object.entries(this.documents)) {
-            if (!document.lastModifiedAt) {
-                continue;
-            }
-
-            timestamps[url] = document.lastModifiedAt;
+            timestamps[url] = document.lastModifiedAt ?? null;
         }
 
         return timestamps;

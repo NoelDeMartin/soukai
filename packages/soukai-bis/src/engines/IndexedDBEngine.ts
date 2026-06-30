@@ -331,11 +331,18 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         return store.index('lastModifiedAt').getAllKeys(metadata.lastModifiedAt);
     }
 
-    public async getDocumentsLastModifiedAt(): Promise<Record<string, Date>> {
+    public async getDocumentsLastModifiedAt(): Promise<Record<string, Date | null>> {
         const connection = await SoukaiIndexedDB.connect();
         const transaction = connection.transaction('documents', 'readonly');
-        const index = transaction.store.index('lastModifiedAt');
-        const timestamps: Record<string, Date> = {};
+        const store = transaction.store;
+        const index = store.index('lastModifiedAt');
+        const timestamps: Record<string, Date | null> = {};
+        const allUrls = await store.getAllKeys();
+
+        for (const url of allUrls) {
+            timestamps[url] = null;
+        }
+
         let cursor = await index.openKeyCursor();
 
         while (cursor) {

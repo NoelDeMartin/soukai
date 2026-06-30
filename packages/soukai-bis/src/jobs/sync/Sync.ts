@@ -9,6 +9,7 @@ import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
 import Job from 'soukai-bis/jobs/Job';
 import { engineFulfillsContract } from 'soukai-bis/engines/utils';
+import { safeContainerUrl } from 'soukai-bis/utils/urls';
 import { SetPropertyOperation, UnsetPropertyOperation, getContainerName } from 'soukai-bis/models';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Engine from 'soukai-bis/engines/Engine';
@@ -62,6 +63,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrationPaths: Map<ModelConstructor, string>;
     private syncRdfClasses: Set<string>;
+    private unsyncedContainers?: Set<string>;
 
     public constructor(private config: SyncConfig) {
         super();
@@ -95,7 +97,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     protected async run(): Promise<void> {
-        await this.prepare();
+        await this.prepareDocumentsLastModifiedAt();
         await this.pullChanges();
         await this.pushChanges();
         await this.finish();
@@ -144,7 +146,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         return !!(remoteUpdatedAt && lastModifiedAt?.getTime() === remoteUpdatedAt.getTime());
     }
 
-    private async prepare(): Promise<void> {
+    private async prepareDocumentsLastModifiedAt(): Promise<void> {
         if (!engineFulfillsContract(this.config.localEngine, 'ManagesDocuments')) {
             return;
         }
@@ -152,6 +154,32 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         const documentsLastModifiedAt = await this.config.localEngine.getDocumentsLastModifiedAt();
 
         this.documentsLastModifiedAt = new Map(Object.entries(documentsLastModifiedAt));
+    }
+
+    private async prepareUnsyncedContainers(): Promise<void> {
+        if (!engineFulfillsContract(this.config.localEngine, 'ManagesDocuments')) {
+            return;
+        }
+
+        this.unsyncedContainers = new Set<string>();
+
+        for (const [url, lastModifiedAt] of this.documentsLastModifiedAt) {
+            if (lastModifiedAt !== null) {
+                continue;
+            }
+
+            let containerUrl: string | null = url.endsWith('/') ? url : safeContainerUrl(url);
+
+            while (containerUrl !== null) {
+                if (this.unsyncedContainers.has(containerUrl)) {
+                    break;
+                }
+
+                this.unsyncedContainers.add(containerUrl);
+
+                containerUrl = safeContainerUrl(containerUrl);
+            }
+        }
     }
 
     private async finish(): Promise<void> {
@@ -194,6 +222,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async pushChanges(): Promise<void> {
+        await this.prepareUnsyncedContainers();
         await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], this.status.children[1]);
         await this.updateProgress((status) => (status.children[1].completed = true));
     }
@@ -334,6 +363,14 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
     private async pushContainerDocuments(url: string, status?: JobStatus): Promise<void> {
         this.assertNotCancelled();
+
+        if (this.unsyncedContainers && !this.unsyncedContainers.has(url)) {
+            if (status) {
+                await this.updateProgress(() => (status.completed = true));
+            }
+
+            return;
+        }
 
         const document = await this.config.localEngine.readDocumentIfExists(url);
         const container = document && (await Container.createFromDocument(document, { url }));
