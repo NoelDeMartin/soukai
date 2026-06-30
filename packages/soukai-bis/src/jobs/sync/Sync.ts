@@ -22,6 +22,8 @@ import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
 import { syncContainerRegistration } from './concerns/sync-container-registration';
 import { syncDocumentOperations } from './concerns/sync-document-operations';
 
+const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
+
 export interface SyncConfig {
     userProfile: SolidUserProfile;
     localEngine: Engine;
@@ -31,6 +33,7 @@ export interface SyncConfig {
         model: ModelConstructor;
         registration: boolean | { path: string };
     }[];
+    lastModifiedTolerance?: number;
 }
 
 export interface SyncJobStatus extends JobStatus {
@@ -143,7 +146,30 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     private async skipDocumentPull(documentUrl: string, remoteUpdatedAt?: Date): Promise<boolean> {
         const lastModifiedAt = this.documentsLastModifiedAt.get(documentUrl);
 
-        return !!(remoteUpdatedAt && lastModifiedAt?.getTime() === remoteUpdatedAt.getTime());
+        if (!remoteUpdatedAt || !lastModifiedAt) {
+            return false;
+        }
+
+        const localTimestamp = lastModifiedAt.getTime();
+        const remoteTimestamp = remoteUpdatedAt.getTime();
+
+        if (localTimestamp === remoteTimestamp) {
+            return true;
+        }
+
+        const lastModifiedTolerance = this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
+
+        if (Math.abs(remoteTimestamp - localTimestamp) <= lastModifiedTolerance) {
+            await this.config.localEngine.updateDocument(documentUrl, [], {
+                lastModifiedAt: remoteUpdatedAt,
+            });
+
+            this.documentsLastModifiedAt.set(documentUrl, remoteUpdatedAt);
+
+            return true;
+        }
+
+        return false;
     }
 
     private async prepareDocumentsLastModifiedAt(): Promise<void> {
