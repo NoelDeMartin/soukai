@@ -6,4 +6,5 @@ export interface GetDocumentUrlsOptions {
 
 export default interface ManagesDocuments {
     getDocumentUrls(options?: GetDocumentUrlsOptions): Promise<string[]>;
+    getDocumentsLastModifiedAt(): Promise<Record<string, Date>>;
 }

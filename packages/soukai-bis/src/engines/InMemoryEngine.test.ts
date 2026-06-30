@@ -327,6 +327,24 @@ describe('InMemoryEngine', () => {
         expect(syncedUrls).not.toContain(secondUrl);
     });
 
+    it('gets documents last modified at', async () => {
+        // Arrange
+        const firstUrl = fakeDocumentUrl();
+        const secondUrl = fakeDocumentUrl();
+        const lastModifiedAt = new Date();
+
+        await engine.createDocument(firstUrl, { '@id': firstUrl }, { lastModifiedAt });
+        await engine.createDocument(secondUrl, { '@id': secondUrl });
+
+        // Act
+        const timestamps = await engine.getDocumentsLastModifiedAt();
+
+        // Assert
+        expect(timestamps[firstUrl]).toBeInstanceOf(Date);
+        expect(timestamps[firstUrl]?.getTime()).toBe(lastModifiedAt.getTime());
+        expect(timestamps[secondUrl]).toBeUndefined();
+    });
+
     it('drops containers', async () => {
         // Arrange
         const containerUrls = [fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl()] as const;

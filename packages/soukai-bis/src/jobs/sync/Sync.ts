@@ -8,6 +8,7 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
 import Job from 'soukai-bis/jobs/Job';
+import { engineFulfillsContract } from 'soukai-bis/engines/utils';
 import { SetPropertyOperation, UnsetPropertyOperation, getContainerName } from 'soukai-bis/models';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Engine from 'soukai-bis/engines/Engine';
@@ -58,6 +59,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
+    private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrationPaths: Map<ModelConstructor, string>;
     private syncRdfClasses: Set<string>;
 
@@ -93,6 +95,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     protected async run(): Promise<void> {
+        await this.prepare();
         await this.pullChanges();
         await this.pushChanges();
         await this.finish();
@@ -136,13 +139,19 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async skipDocumentPull(documentUrl: string, remoteUpdatedAt?: Date): Promise<boolean> {
-        const localDocument = await this.config.localEngine.readDocumentIfExists(documentUrl);
+        const lastModifiedAt = this.documentsLastModifiedAt.get(documentUrl);
 
-        return !!(
-            localDocument &&
-            remoteUpdatedAt &&
-            localDocument.getLastModified()?.getTime() === remoteUpdatedAt.getTime()
-        );
+        return !!(remoteUpdatedAt && lastModifiedAt?.getTime() === remoteUpdatedAt.getTime());
+    }
+
+    private async prepare(): Promise<void> {
+        if (!engineFulfillsContract(this.config.localEngine, 'ManagesDocuments')) {
+            return;
+        }
+
+        const documentsLastModifiedAt = await this.config.localEngine.getDocumentsLastModifiedAt();
+
+        this.documentsLastModifiedAt = new Map(Object.entries(documentsLastModifiedAt));
     }
 
     private async finish(): Promise<void> {
@@ -245,11 +254,15 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                     return;
                 }
 
+                const lastModifiedAt = remoteDocument.url.endsWith('/')
+                    ? this.getContainerLastModifiedAt(remoteDocument)
+                    : remoteDocument.getLastModified();
+
                 await this.config.localEngine.createDocument(documentUrl, remoteDocument.getQuads(), {
-                    lastModifiedAt: remoteDocument.url.endsWith('/')
-                        ? this.getContainerLastModifiedAt(remoteDocument)
-                        : (remoteDocument.getLastModified() ?? undefined),
+                    lastModifiedAt,
                 });
+
+                this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
 
                 if (status) {
                     await this.updateProgress(() => (status.completed = true));
@@ -399,12 +412,15 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 const start = new Date();
                 const remoteDocument = await this.pushRemoteDocument(localDocument);
                 const end = new Date();
+                const lastModifiedAt = remoteDocument.url.endsWith('/')
+                    ? this.getContainerLastModifiedAt(remoteDocument)
+                    : this.getDocumentLastModifiedAt(start, end, remoteDocument);
 
                 await this.config.localEngine.updateDocument(documentUrl, [], {
-                    lastModifiedAt: remoteDocument.url.endsWith('/')
-                        ? this.getContainerLastModifiedAt(remoteDocument)
-                        : this.getDocumentLastModifiedAt(start, end, remoteDocument),
+                    lastModifiedAt,
                 });
+
+                this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
 
                 localDocument
                     .statements(undefined, RDF_TYPE_PREDICATE)
@@ -479,6 +495,10 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         });
         const end = new Date();
 
+        const lastModifiedAt = localDocument.url.endsWith('/')
+            ? (this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument))
+            : this.getDocumentLastModifiedAt(start, end, response);
+
         await syncDocumentOperations({
             resourceUrls,
             document: localDocument,
@@ -489,11 +509,11 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 (operation) => !localOperations.has(operation.url),
             ),
             metadata: {
-                lastModifiedAt: localDocument.url.endsWith('/')
-                    ? (this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument))
-                    : this.getDocumentLastModifiedAt(start, end, response),
+                lastModifiedAt,
             },
         });
+
+        this.documentsLastModifiedAt.set(localDocument.url, lastModifiedAt);
     }
 
     private getDocumentLastModifiedAt(

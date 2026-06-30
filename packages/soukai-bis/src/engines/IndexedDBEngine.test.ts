@@ -563,6 +563,34 @@ describe('IndexedDBEngine', () => {
         expect(syncedUrls).not.toContain(secondUrl);
     });
 
+    it('gets documents last modified at', async () => {
+        // Arrange
+        const firstUrl = fakeDocumentUrl();
+        const secondUrl = fakeDocumentUrl();
+        const lastModifiedAt = new Date();
+
+        await engine.createDocument(
+            firstUrl,
+            {
+                '@id': firstUrl,
+                '@type': 'http://schema.org/CreativeWork',
+            },
+            { lastModifiedAt },
+        );
+        await engine.createDocument(secondUrl, {
+            '@id': secondUrl,
+            '@type': 'http://schema.org/CreativeWork',
+        });
+
+        // Act
+        const timestamps = await engine.getDocumentsLastModifiedAt();
+
+        // Assert
+        expect(timestamps[firstUrl]).toBeInstanceOf(Date);
+        expect(timestamps[firstUrl]?.getTime()).toBe(lastModifiedAt.getTime());
+        expect(timestamps[secondUrl]).toBeUndefined();
+    });
+
     async function resetDatabase(): Promise<void> {
         await SoukaiIndexedDB.clear();
         await SoukaiIndexedDB.connect();
