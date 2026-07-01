@@ -42,6 +42,7 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
 export class SoukaiIndexedDB {
 
     private promisedConnection: PromisedValue<IDBPDatabase<SoukaiIndexedDBSchema>> | null = null;
+    private clearListeners: (() => void)[] = [];
 
     public async connect(): Promise<IDBPDatabase<SoukaiIndexedDBSchema>> {
         if (!this.promisedConnection) {
@@ -95,6 +96,12 @@ export class SoukaiIndexedDB {
         await deleteDB(getNamespace(), {
             blocked: () => this.throwDatabaseBlockedError(),
         });
+
+        this.clearListeners.forEach((listener) => listener());
+    }
+
+    public addClearListener(listener: () => void): void {
+        this.clearListeners.push(listener);
     }
 
     private throwDatabaseBlockedError(): void {

@@ -445,7 +445,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         containerUrl: string,
         mode: TMode,
         operation: (
-            transaction: IDBPTransaction<SoukaiIndexedDBSchema, ['documents', 'containers'], TMode>
+            transaction: IDBPTransaction<SoukaiIndexedDBSchema, readonly ['documents', 'containers'], TMode>
         ) => Promise<TResult>,
     ): Promise<TResult> {
         const containerExists = await this.containerExists(containerUrl);
@@ -464,7 +464,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         }
 
         const connection = await SoukaiIndexedDB.connect();
-        const transaction = connection.transaction(['documents', 'containers'], mode);
+        const transaction = connection.transaction(['documents', 'containers'] as const, mode);
 
         const result = await operation(transaction);
 
