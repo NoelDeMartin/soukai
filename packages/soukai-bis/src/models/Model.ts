@@ -27,7 +27,7 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
-import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
@@ -36,7 +36,7 @@ import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
 import { getRelatedClass } from './relations/utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
-import { createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
+import { buildRDFTypeIndex, createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import { deleteModel, getDirtyDocumentsUpdates } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
@@ -227,10 +227,8 @@ export default class Model<
     ): Promise<ModelWithUrl<T> | null> {
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
-        const subject = new RDFNamedNode(url);
-        const isType = quads
-            .filter((q) => subject.equals(q.subject) && RDF_TYPE_PREDICATE.equals(q.predicate))
-            .some((q) => this.schema.rdfClasses.some((rdfClass) => rdfClass.equals(q.object)));
+        const typeIndex = buildRDFTypeIndex(quads);
+        const isType = this.schema.rdfClasses.some((rdfClass) => typeIndex.get(rdfClass.value)?.has(url));
 
         if (!isType) {
             return null;
@@ -281,16 +279,16 @@ export default class Model<
         quads: Quad[],
         options: { modelsCache?: Map<string, Model> } = {},
     ): Promise<ModelWithUrl<T>[]> {
-        const modelsCache = options.modelsCache ?? new Map();
+        const typeIndex = buildRDFTypeIndex(quads);
         const matchingResourceUrls = arrayUnique(
-            quads
-                .filter(
-                    (q) =>
-                        RDF_TYPE_PREDICATE.equals(q.predicate) &&
-                        this.schema.rdfClasses.some((rdfClass) => rdfClass.equals(q.object)),
-                )
-                .map((q) => q.subject.value),
+            this.schema.rdfClasses.flatMap((rdfClass) => Array.from(typeIndex.get(rdfClass.value) ?? [])),
         );
+
+        if (matchingResourceUrls.length === 0) {
+            return [];
+        }
+
+        const modelsCache = options.modelsCache ?? new Map();
         const models = await Promise.all(
             matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl, modelsCache })),
         );

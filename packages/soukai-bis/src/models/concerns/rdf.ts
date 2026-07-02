@@ -1,4 +1,4 @@
-import { hasItems } from '@noeldemartin/utils';
+import { fail, hasItems, tap } from '@noeldemartin/utils';
 import { RDFNamedNode, RDFQuad, SolidStore } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -8,8 +8,33 @@ import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { Relation } from 'soukai-bis/models/relations';
 
+const typeIndexes = new WeakMap<Quad[], RDFTypeIndex>();
+
+export type RDFTypeIndex = Map<string, Set<string>>;
+
 export function isUsingSameDocument(documentUrl: string | null, relation: Relation, model: Model): boolean {
     return (documentUrl && model.getDocumentUrl() === documentUrl) || relation.usingSameDocument;
+}
+
+export function buildRDFTypeIndex(quads: Quad[]): RDFTypeIndex {
+    if (!typeIndexes.has(quads)) {
+        const index = new Map();
+
+        for (const quad of quads) {
+            if (quad.predicate.value !== RDF_TYPE) {
+                continue;
+            }
+
+            const resourceUrls =
+                index.get(quad.object.value) ?? tap(new Set(), (set) => void index.set(quad.object.value, set));
+
+            resourceUrls.add(quad.subject.value);
+        }
+
+        typeIndexes.set(quads, index);
+    }
+
+    return typeIndexes.get(quads) ?? fail('Failed getting RDF type index');
 }
 
 export function createFromRDF<T extends Model>(
