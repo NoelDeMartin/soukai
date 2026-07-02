@@ -7,10 +7,11 @@ import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
+import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import Engine from './Engine';
+import ContainersIndex from 'soukai-bis/lib/ContainersIndex';
 import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
@@ -24,7 +25,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     public static readonly engineName = 'IndexedDBEngine';
 
-    private containerUrlsCache: PromisedValue<Set<string>> | null = null;
+    private containersIndexCache: PromisedValue<ContainersIndex> | null = null;
 
     public constructor() {
         super();
@@ -235,7 +236,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 continue;
             }
 
-            await this.containerUrlsCache?.then((cache) => cache.delete(containerMetadata.url));
+            await this.containersIndexCache?.then((index) => index.delete(containerMetadata.url));
             await containersStore.put({ url: containerMetadata.url, dropped: true });
 
             const documentKeys = await documentsStore.index('containerUrl').getAllKeys(containerMetadata.url);
@@ -281,14 +282,14 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     }
 
     public async getContainerUrls(): Promise<string[]> {
-        const cache = await this.getContainerUrlsCache();
+        const index = await this.getContainersIndex();
 
-        return Array.from(cache);
+        return index.getUrls();
     }
 
-    private async getContainerUrlsCache(): Promise<Set<string>> {
-        if (!this.containerUrlsCache) {
-            const promised = (this.containerUrlsCache = new PromisedValue());
+    private async getContainersIndex(): Promise<ContainersIndex> {
+        if (!this.containersIndexCache) {
+            const promised = (this.containersIndexCache = new PromisedValue());
 
             try {
                 const connection = await SoukaiIndexedDB.connect();
@@ -296,19 +297,19 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 const documents = await transaction.store.getAll();
 
                 const urls = documents.filter((document) => !document.dropped).map((document) => document.url);
-                promised.resolve(new Set(urls));
+                promised.resolve(new ContainersIndex(new Set(urls)));
             } catch (error) {
                 promised.reject(error instanceof Error ? error : new Error(String(error)));
 
-                if (this.containerUrlsCache === promised) {
-                    this.containerUrlsCache = null;
+                if (this.containersIndexCache === promised) {
+                    this.containersIndexCache = null;
                 }
 
                 return promised;
             }
         }
 
-        return this.containerUrlsCache;
+        return this.containersIndexCache;
     }
 
     public async getDocumentUrls(options?: GetDocumentUrlsOptions): Promise<string[]> {
@@ -361,18 +362,15 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     public async clear(): Promise<void> {
         await this.close();
         await SoukaiIndexedDB.clear();
-        this.containerUrlsCache = null;
+        this.containersIndexCache = null;
     }
 
     private async readContainerDocument(url: string): Promise<SolidDocument> {
-        const containerUrls = await this.getContainerUrls();
-        const virtualContainerUrls = this.getVirtualContainerUrls(containerUrls);
-        const exists = containerUrls.includes(url);
-        const childContainerUrls = virtualContainerUrls.filter(
-            (containerUrl) => safeContainerUrl(containerUrl) === url,
-        );
+        const containersIndex = await this.getContainersIndex();
+        const exists = containersIndex.has(url);
+        const childContainerUrls = containersIndex.childrenOf(url);
 
-        if (!exists && childContainerUrls.length === 0) {
+        if (!exists && !childContainerUrls) {
             throw new DocumentNotFound(url);
         }
 
@@ -384,7 +382,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             })
             : [];
 
-        childrenUrls.push(...childContainerUrls);
+        childrenUrls.push(...(childContainerUrls ?? []));
 
         document.addQuads(
             arrayUnique(childrenUrls).map(
@@ -422,23 +420,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     }
 
     private async containerExists(url: string): Promise<boolean> {
-        const cache = await this.getContainerUrlsCache();
+        const index = await this.getContainersIndex();
 
-        return cache.has(url);
-    }
-
-    private getVirtualContainerUrls(containerUrls: string[]): string[] {
-        const virtualContainerUrls = new Set(containerUrls);
-
-        for (const containerUrl of containerUrls) {
-            let url: string | null = containerUrl;
-
-            while ((url = safeContainerUrl(url))) {
-                virtualContainerUrls.add(url);
-            }
-        }
-
-        return Array.from(virtualContainerUrls);
+        return index.has(url);
     }
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(
@@ -460,7 +444,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
             await transaction.store.put({ url: containerUrl });
             await transaction.done;
-            await this.containerUrlsCache?.then((cache) => cache.add(containerUrl));
+            await this.containersIndexCache?.then((index) => index.add(containerUrl));
         }
 
         const connection = await SoukaiIndexedDB.connect();
