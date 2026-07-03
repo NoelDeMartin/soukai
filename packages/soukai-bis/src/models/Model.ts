@@ -16,6 +16,7 @@ import {
     urlResolve,
     urlRoute,
     uuid,
+    weakMemo,
 } from '@noeldemartin/utils';
 import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
@@ -270,8 +271,9 @@ export default class Model<
         options: { url?: string } = {},
     ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? document.url;
+        const quads = weakMemo('document-quads', document, () => document.getQuads());
 
-        return this.createFromRDF(document.statements(), { url });
+        return this.createFromRDF(quads, { url });
     }
 
     public static async createManyFromRDF<T extends Model>(
@@ -304,7 +306,9 @@ export default class Model<
         this: ModelConstructor<T>,
         document: SolidDocument,
     ): Promise<ModelWithUrl<T>[]> {
-        return this.createManyFromRDF(document.getQuads());
+        const quads = weakMemo('document-quads', document, () => document.getQuads());
+
+        return this.createManyFromRDF(quads);
     }
 
     public static on<TModel extends Model, TEvent extends ModelEvent>(

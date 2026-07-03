@@ -1,4 +1,4 @@
-import { fail, hasItems, tap } from '@noeldemartin/utils';
+import { hasItems, tap, weakMemo } from '@noeldemartin/utils';
 import { RDFNamedNode, RDFQuad, SolidStore } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
 
@@ -8,17 +8,30 @@ import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { Relation } from 'soukai-bis/models/relations';
 
-const typeIndexes = new WeakMap<Quad[], RDFTypeIndex>();
+function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
+    const subjectQuadsIndex = weakMemo('subject-quads-index', quads, () => {
+        const index = new Map<string, Quad[]>();
 
-export type RDFTypeIndex = Map<string, Set<string>>;
+        for (const quad of quads) {
+            const quadSubject = quad.subject.value;
+            const subjectQuads = index.get(quadSubject) ?? tap([], (arr) => index.set(quadSubject, arr));
+
+            subjectQuads.push(quad);
+        }
+
+        return index;
+    });
+
+    return new SolidStore(subjectQuadsIndex.get(subject));
+}
 
 export function isUsingSameDocument(documentUrl: string | null, relation: Relation, model: Model): boolean {
     return (documentUrl && model.getDocumentUrl() === documentUrl) || relation.usingSameDocument;
 }
 
-export function buildRDFTypeIndex(quads: Quad[]): RDFTypeIndex {
-    if (!typeIndexes.has(quads)) {
-        const index = new Map();
+export function buildRDFTypeIndex(quads: Quad[]): Map<string, Set<string>> {
+    return weakMemo('quads-type-index', quads, () => {
+        const typeIndex = new Map();
 
         for (const quad of quads) {
             if (quad.predicate.value !== RDF_TYPE) {
@@ -26,15 +39,13 @@ export function buildRDFTypeIndex(quads: Quad[]): RDFTypeIndex {
             }
 
             const resourceUrls =
-                index.get(quad.object.value) ?? tap(new Set(), (set) => void index.set(quad.object.value, set));
+                typeIndex.get(quad.object.value) ?? tap(new Set(), (set) => void typeIndex.set(quad.object.value, set));
 
             resourceUrls.add(quad.subject.value);
         }
 
-        typeIndexes.set(quads, index);
-    }
-
-    return typeIndexes.get(quads) ?? fail('Failed getting RDF type index');
+        return typeIndex;
+    });
 }
 
 export function createFromRDF<T extends Model>(
@@ -45,7 +56,7 @@ export function createFromRDF<T extends Model>(
     const { fields, rdfFieldProperties } = modelClass.schema;
     const subject = new RDFNamedNode(url);
     const attributes: Record<string, unknown> = {};
-    const store = new SolidStore(quads);
+    const store = buildSubjectStore(url, quads);
 
     for (const [field, type] of Object.entries(fields.shape)) {
         const fieldType = getFinalType(type);
