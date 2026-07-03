@@ -4,7 +4,7 @@ allowBuilds:
     core-js: true
     esbuild: true
 catalog:
-    '@arethetypeswrong/cli': ^0.17.4
+    '@arethetypeswrong/cli': ^0.18.3
     '@noeldemartin/faker': 7.6.0
     '@noeldemartin/scripts': next
     '@noeldemartin/solid-utils': next
