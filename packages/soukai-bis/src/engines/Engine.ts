@@ -73,12 +73,17 @@ export default abstract class Engine {
     }
 
     protected filterContainerQuads(quads: Quad[], options: { keepTypes?: boolean } = {}): Quad[] {
-        return quads.filter(
-            (quad) =>
-                !quad.object.equals(LDP_CONTAINER_OBJECT) &&
-                !quad.object.equals(LDP_BASIC_CONTAINER_OBJECT) &&
-                (options.keepTypes || !quad.predicate.equals(LDP_CONTAINS_PREDICATE)),
-        );
+        return quads.filter((quad) => {
+            if (quad.predicate.equals(LDP_CONTAINS_PREDICATE)) {
+                return false;
+            }
+
+            if (quad.object.equals(LDP_CONTAINER_OBJECT) || quad.object.equals(LDP_BASIC_CONTAINER_OBJECT)) {
+                return !!options.keepTypes;
+            }
+
+            return true;
+        });
     }
 
     protected filterContainerOperations(operations: EngineOperation[]): EngineOperation[] {

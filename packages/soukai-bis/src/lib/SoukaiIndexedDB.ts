@@ -1,15 +1,15 @@
 import { deleteDB, openDB } from 'idb';
 import { PromisedValue, facade } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase } from 'idb';
-import type { JsonLD } from '@noeldemartin/solid-utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { getNamespace } from 'soukai-bis/lib/namespace';
+import type { IDBGraph } from 'soukai-bis/utils/idb-quads';
 
 export interface LocalDocument {
     url: string;
     containerUrl: string;
-    graph: JsonLD;
+    resources: IDBGraph;
     lastModifiedAt?: Date | null;
 }
 

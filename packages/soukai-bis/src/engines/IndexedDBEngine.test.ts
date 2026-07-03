@@ -1,4 +1,4 @@
-import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
@@ -9,6 +9,8 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
+import type { LocalDocument } from 'soukai-bis/lib/SoukaiIndexedDB';
 
 import IndexedDBEngine from './IndexedDBEngine';
 
@@ -43,10 +45,12 @@ describe('IndexedDBEngine', () => {
         expect(documents).toHaveLength(1);
         expect(documents[0]).toEqual({
             url: documentUrl,
-            graph: {
-                '@id': `${documentUrl}#it`,
-                '@type': expandIRI('foaf:Person'),
-                [expandIRI('foaf:name')]: name,
+            containerUrl,
+            resources: {
+                [`${documentUrl}#it`]: [
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: expandIRI('foaf:Person') },
+                    { p: expandIRI('foaf:name'), o: { v: name } },
+                ],
             },
         });
     });
@@ -69,9 +73,12 @@ describe('IndexedDBEngine', () => {
         expect(documents).toHaveLength(1);
         expect(documents[0]).toEqual({
             url: containerUrl,
-            graph: {
-                '@id': containerUrl,
-                '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            containerUrl: parentUrl,
+            resources: {
+                [containerUrl]: [
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
+                ],
             },
         });
     });
@@ -96,10 +103,13 @@ describe('IndexedDBEngine', () => {
         expect(documents).toHaveLength(1);
         expect(documents[0]).toEqual({
             url: containerUrl,
-            graph: {
-                '@id': containerUrl,
-                '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-                [expandIRI('rdfs:label')]: name,
+            containerUrl: parentUrl,
+            resources: {
+                [containerUrl]: [
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
+                    { p: expandIRI('rdfs:label'), o: { v: name } },
+                ],
             },
         });
     });
@@ -152,12 +162,15 @@ describe('IndexedDBEngine', () => {
         const documents = await getDatabaseDocuments(containerUrl);
 
         expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({ url: documentUrl, graph: expect.anything() });
-
-        await expect(documents[0]?.graph).toEqualJsonLD({
-            '@id': `${documentUrl}#it`,
-            '@type': expandIRI('foaf:Person'),
-            [expandIRI('foaf:name')]: newName,
+        expect(documents[0]).toEqual({
+            url: documentUrl,
+            containerUrl,
+            resources: {
+                [`${documentUrl}#it`]: [
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: expandIRI('foaf:Person') },
+                    { p: expandIRI('foaf:name'), o: { v: newName } },
+                ],
+            },
         });
     });
 
@@ -186,9 +199,15 @@ describe('IndexedDBEngine', () => {
         const documents = await getDatabaseDocuments(parentUrl);
 
         expect(documents).toHaveLength(1);
-        await expect(documents[0]?.graph).toEqualJsonLD({
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        expect(documents[0]).toEqual({
+            url: containerUrl,
+            containerUrl: parentUrl,
+            resources: {
+                [containerUrl]: [
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
+                ],
+            },
         });
     });
 
@@ -225,10 +244,16 @@ describe('IndexedDBEngine', () => {
         const documents = await getDatabaseDocuments(parentUrl);
 
         expect(documents).toHaveLength(1);
-        await expect(documents[0]?.graph).toEqualJsonLD({
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [expandIRI('rdfs:label')]: name,
+        expect(documents[0]).toEqual({
+            url: containerUrl,
+            containerUrl: parentUrl,
+            resources: {
+                [containerUrl]: [
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
+                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
+                    { p: expandIRI('rdfs:label'), o: { v: name } },
+                ],
+            },
         });
     });
 
@@ -372,7 +397,8 @@ describe('IndexedDBEngine', () => {
         expect(documents).toHaveLength(1);
         expect(documents[0]).toEqual({
             url: documentUrl,
-            graph: document,
+            containerUrl,
+            resources: {},
             lastModifiedAt,
         });
     });
@@ -600,19 +626,19 @@ describe('IndexedDBEngine', () => {
         await SoukaiIndexedDB.clear();
     }
 
-    async function getDatabaseDocuments(containerUrl: string): Promise<Record<string, unknown>[]> {
+    async function getDatabaseDocuments(containerUrl: string): Promise<LocalDocument[]> {
         const db = await SoukaiIndexedDB.connect();
         const documents = await db.getAllFromIndex('documents', 'containerUrl', containerUrl);
-        return documents.map((doc) => {
-            const formatted: Record<string, unknown> = {
-                url: doc.url,
-                graph: doc.graph,
-            };
-            if (doc.lastModifiedAt !== undefined && doc.lastModifiedAt !== null) {
-                formatted.lastModifiedAt = doc.lastModifiedAt;
+
+        for (const doc of documents) {
+            if (doc.lastModifiedAt !== undefined) {
+                continue;
             }
-            return formatted;
-        });
+
+            delete doc.lastModifiedAt;
+        }
+
+        return documents;
     }
 
     async function setDatabaseDocument(
@@ -623,16 +649,19 @@ describe('IndexedDBEngine', () => {
     ): Promise<void> {
         const db = await SoukaiIndexedDB.connect();
         const transaction = db.transaction(['containers', 'documents'], 'readwrite');
-
         const container = await transaction.objectStore('containers').get(containerUrl);
+
         if (!container) {
             await transaction.objectStore('containers').add({ url: containerUrl });
         }
 
+        const quads = await jsonldToQuads(graph);
+        const resources = serializeIDBQuads(quads);
+
         await transaction.objectStore('documents').put({
             url,
             containerUrl,
-            graph,
+            resources,
             lastModifiedAt: metadata?.lastModifiedAt,
         });
 

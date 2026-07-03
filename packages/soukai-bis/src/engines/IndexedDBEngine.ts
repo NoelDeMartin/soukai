@@ -1,4 +1,4 @@
-import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads } from '@noeldemartin/solid-utils';
 import { PromisedValue, arrayUnique, isTruthy, objectEntries, objectFromEntries, silenced } from '@noeldemartin/utils';
 import type { IDBPTransaction } from 'idb';
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
@@ -8,7 +8,13 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { parseIDBQuads, serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
+import {
+    LDP_BASIC_CONTAINER_OBJECT,
+    LDP_CONTAINER_OBJECT,
+    LDP_CONTAINS_PREDICATE,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/utils/rdf';
 
 import Engine from './Engine';
 import ContainersIndex from 'soukai-bis/lib/ContainersIndex';
@@ -43,18 +49,15 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         }
 
         const containerUrl = requireSafeContainerUrl(url);
-        const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
-        const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
-
-        if (url.endsWith('/')) {
-            this.removeContainerProperties(graph, { keepTypes: true });
-        }
+        const allQuads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
+        const quads = url.endsWith('/') ? this.filterContainerQuads(allQuads, { keepTypes: true }) : allQuads;
+        const resources = serializeIDBQuads(quads);
 
         return this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
             await transaction.objectStore('documents').add({
                 url,
                 containerUrl,
-                graph,
+                resources,
                 lastModifiedAt: metadata?.lastModifiedAt,
             });
 
@@ -86,7 +89,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             throw new DocumentNotFound(url);
         }
 
-        const document = new SolidDocument(url, await jsonldToQuads(localDocument.graph));
+        const document = new SolidDocument(url, parseIDBQuads(localDocument.resources));
 
         if (localDocument.lastModifiedAt) {
             document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
@@ -139,7 +142,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                         continue;
                     }
 
-                    const document = new SolidDocument(url, await jsonldToQuads(localDocument.graph));
+                    const document = new SolidDocument(url, parseIDBQuads(localDocument.resources));
 
                     if (localDocument.lastModifiedAt) {
                         document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
@@ -183,13 +186,18 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         if (!document) {
             if (url.endsWith('/')) {
-                const graph = { '@graph': [{ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }] };
+                const subject = new RDFNamedNode(url);
+                const quads = [
+                    new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
+                    new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
+                ];
+                const resources = serializeIDBQuads(quads);
 
                 await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                     await transaction.objectStore('documents').add({
                         url,
                         containerUrl,
-                        graph,
+                        resources,
                         lastModifiedAt: metadata?.lastModifiedAt,
                     });
                 });
@@ -200,19 +208,19 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             throw new DocumentNotFound(url);
         }
 
-        let quads = await jsonldToQuads(document.graph);
+        let quads = parseIDBQuads(document.resources);
 
         for (const operation of operations) {
             quads = operation.applyToQuads(quads);
         }
 
-        const graph = await quadsToJsonLD(quads);
+        const resources = serializeIDBQuads(quads);
 
         await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
             return transaction.objectStore('documents').put({
                 url,
                 containerUrl,
-                graph,
+                resources,
                 lastModifiedAt: metadata?.lastModifiedAt,
             });
         });
@@ -395,22 +403,22 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     private async readContainerDocumentMeta(url: string): Promise<SolidDocument> {
         const containerUrl = requireSafeContainerUrl(url);
+        const subject = new RDFNamedNode(url);
+        const defaultQuads = [
+            new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
+            new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
+        ];
 
         if (!(await this.containerExists(containerUrl))) {
-            return new SolidDocument(
-                url,
-                await jsonldToQuads({ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
-            );
+            return new SolidDocument(url, defaultQuads);
         }
 
         const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
             return transaction.objectStore('documents').get(url);
         });
 
-        const document = new SolidDocument(
-            url,
-            await jsonldToQuads(localDocument?.graph ?? { '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }),
-        );
+        const quads = localDocument ? parseIDBQuads(localDocument.resources) : defaultQuads;
+        const document = new SolidDocument(url, quads);
 
         if (localDocument?.lastModifiedAt) {
             document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
