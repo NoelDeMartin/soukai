@@ -1,5 +1,5 @@
 import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
-import { isJsonLDGraph } from '@noeldemartin/solid-utils';
+import { RDFNamedNode, isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
@@ -60,7 +60,17 @@ export default abstract class Engine {
         }
     }
 
-    public async readDocuments(urls: string[]): Promise<Record<string, SolidDocument>> {
+    public async readDocuments(
+        options: { urls: string[] } | { containerUrl: string; deep?: boolean; depth?: number },
+    ): Promise<Record<string, SolidDocument>> {
+        if ('urls' in options) {
+            return this.readDocumentsByUrl(options.urls);
+        }
+
+        return this.readDocumentsByContainer(options.containerUrl, { deep: options.deep, depth: options.depth });
+    }
+
+    protected async readDocumentsByUrl(urls: string[]): Promise<Record<string, SolidDocument>> {
         const documents: SolidDocument[] = [];
 
         for (const chunk of arrayChunk(urls, 10)) {
@@ -70,6 +80,34 @@ export default abstract class Engine {
         }
 
         return Object.fromEntries(documents.map((document) => [document.url, document]));
+    }
+
+    protected async readDocumentsByContainer(
+        containerUrl: string,
+        options: { deep?: boolean; depth?: number } = {},
+    ): Promise<Record<string, SolidDocument>> {
+        const container = await this.readDocument(containerUrl);
+        const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
+        const documentUrls = containsQuads.map((quad) => quad.object.value);
+        const documents = await this.readDocumentsByUrl(documentUrls);
+        const results: Record<string, SolidDocument> = { [containerUrl]: container, ...documents };
+
+        if (options.deep || (options.depth ?? 0) > 0) {
+            for (const document of Object.values(documents)) {
+                if (!document.url.endsWith('/')) {
+                    continue;
+                }
+
+                const childResults = await this.readDocumentsByContainer(document.url, {
+                    deep: options.deep,
+                    depth: options.depth !== undefined ? options.depth - 1 : undefined,
+                });
+
+                Object.assign(results, childResults);
+            }
+        }
+
+        return results;
     }
 
     protected filterContainerQuads(quads: Quad[], options: { keepTypes?: boolean } = {}): Quad[] {

@@ -457,7 +457,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         status?: JobStatus,
     ): Promise<Set<ModelConstructor>> {
         const rdfClasses = new Set<string>();
-        const localDocuments = await this.config.localEngine.readDocuments(pendingUrls);
+        const localDocuments = await this.config.localEngine.readDocuments({ urls: pendingUrls });
 
         await Promise.all(
             pendingUrls.map(async (documentUrl, index) => {

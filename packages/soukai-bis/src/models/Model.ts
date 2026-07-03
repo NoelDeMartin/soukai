@@ -18,7 +18,7 @@ import {
     uuid,
     weakMemo,
 } from '@noeldemartin/utils';
-import { RDFNamedNode, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import { jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import { ZodError } from 'zod';
 import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
@@ -28,7 +28,6 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
-import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
@@ -161,34 +160,16 @@ export default class Model<
         this: ModelConstructor<T>,
         options: { from?: string; deep?: boolean; depth?: number } = {},
     ): Promise<ModelWithUrl<T>[]> {
-        const containerUrl = options.from ?? this.defaultContainerUrl;
-
         try {
-            const engine = this.requireEngine();
-            const container = await engine.readDocument(containerUrl);
-            const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
-            const documentUrls = containsQuads.map((quad) => quad.object.value);
-            const documents = await engine.readDocuments(documentUrls);
+            const documents = await this.requireEngine().readDocuments({
+                containerUrl: options.from ?? this.defaultContainerUrl,
+                deep: options.deep,
+                depth: options.depth,
+            });
 
             const models = await Promise.all(
                 Object.values(documents).map(async (document) => this.createManyFromDocument(document)),
             );
-
-            if (options.deep || (options.depth ?? 0) > 0) {
-                for (const document of Object.values(documents)) {
-                    if (!document.url.endsWith('/')) {
-                        continue;
-                    }
-
-                    const deepModels = await this.all({
-                        from: document.url,
-                        deep: options.deep,
-                        depth: options.depth ? options.depth - 1 : undefined,
-                    });
-
-                    models.push(deepModels);
-                }
-            }
 
             return models.flat();
         } catch (error) {

@@ -70,7 +70,7 @@ export default class BelongsToManyRelation<
 
         const engine = this.relatedClass.requireEngine();
         const documentUrls = foreignKeys.map(urlRoute);
-        const documents = await engine.readDocuments(documentUrls);
+        const documents = await engine.readDocuments({ urls: documentUrls });
         const models = await Promise.all(
             foreignKeys.map(async (url) => {
                 const document = documents[urlRoute(url)];

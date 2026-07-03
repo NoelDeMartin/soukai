@@ -99,7 +99,7 @@ export default class ContainsRelation<
         }
 
         const engine = this.relatedClass.requireEngine();
-        const documents = await engine.readDocuments(documentUrls);
+        const documents = await engine.readDocuments({ urls: documentUrls });
         const models = await Promise.all(
             documentUrls.map(async (documentUrl) => {
                 const document = documents[documentUrl];

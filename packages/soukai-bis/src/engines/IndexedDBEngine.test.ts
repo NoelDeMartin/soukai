@@ -617,6 +617,184 @@ describe('IndexedDBEngine', () => {
         expect(timestamps[secondUrl]).toBeNull();
     });
 
+    it('reads deep documents', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const rootContainerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const show1ContainerUrl = `${rootContainerUrl}show1/`;
+        const show2ContainerUrl = `${rootContainerUrl}show2/`;
+        const season1ContainerUrl = `${show1ContainerUrl}season1/`;
+        const show1MetadataDocumentUrl = `${show1ContainerUrl}metadata`;
+        const show1MetadataResourceUrl = `${show1MetadataDocumentUrl}#it`;
+        const season1Episode1DocumentUrl = `${season1ContainerUrl}episode1`;
+        const season1Episode1ResourceUrl = `${season1Episode1DocumentUrl}#it`;
+        const show2Episode1DocumentUrl = `${show2ContainerUrl}episode1`;
+        const show2Episode1ResourceUrl = `${show2Episode1DocumentUrl}#it`;
+
+        await setDatabaseDocument(parentUrl, rootContainerUrl, {
+            '@id': rootContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(show1ContainerUrl, season1ContainerUrl, {
+            '@id': season1ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(rootContainerUrl, show2ContainerUrl, {
+            '@id': show2ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(show1ContainerUrl, show1MetadataDocumentUrl, {
+            '@id': show1MetadataResourceUrl,
+            '@type': 'https://vocab.noeldemartin.com/crdt/Metadata',
+        });
+
+        await setDatabaseDocument(season1ContainerUrl, season1Episode1DocumentUrl, {
+            '@id': season1Episode1ResourceUrl,
+            '@type': 'https://schema.org/Episode',
+        });
+
+        await setDatabaseDocument(show2ContainerUrl, show2Episode1DocumentUrl, {
+            '@id': show2Episode1ResourceUrl,
+            '@type': 'https://schema.org/Episode',
+        });
+
+        // Act
+        const documents = await engine.readDocuments({ containerUrl: rootContainerUrl, deep: true });
+
+        // Assert
+        expect(Object.keys(documents)).toHaveLength(7);
+        expect(Object.keys(documents)).toEqual(
+            expect.arrayContaining([
+                rootContainerUrl,
+                show1ContainerUrl,
+                show2ContainerUrl,
+                season1ContainerUrl,
+                show1MetadataDocumentUrl,
+                season1Episode1DocumentUrl,
+                show2Episode1DocumentUrl,
+            ]),
+        );
+
+        const rootJsonLD = await quadsToJsonLD(documents[rootContainerUrl]?.statements(rootContainerUrl) ?? []);
+        const show1JsonLD = await quadsToJsonLD(documents[show1ContainerUrl]?.statements(show1ContainerUrl) ?? []);
+        const show2JsonLD = await quadsToJsonLD(documents[show2ContainerUrl]?.statements(show2ContainerUrl) ?? []);
+        const season1JsonLD = await quadsToJsonLD(
+            documents[season1ContainerUrl]?.statements(season1ContainerUrl) ?? [],
+        );
+        const show1MetadataJsonLD = await quadsToJsonLD(
+            documents[show1MetadataDocumentUrl]?.statements(show1MetadataResourceUrl) ?? [],
+        );
+        const season1Episode1JsonLD = await quadsToJsonLD(
+            documents[season1Episode1DocumentUrl]?.statements(season1Episode1ResourceUrl) ?? [],
+        );
+        const show2Episode1JsonLD = await quadsToJsonLD(
+            documents[show2Episode1DocumentUrl]?.statements(show2Episode1ResourceUrl) ?? [],
+        );
+
+        await expect(rootJsonLD).toEqualJsonLD({
+            '@id': rootContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: [{ '@id': show1ContainerUrl }, { '@id': show2ContainerUrl }],
+        });
+
+        await expect(show1JsonLD).toEqualJsonLD({
+            '@id': show1ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: [{ '@id': show1MetadataDocumentUrl }, { '@id': season1ContainerUrl }],
+        });
+
+        await expect(show2JsonLD).toEqualJsonLD({
+            '@id': show2ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: [{ '@id': show2Episode1DocumentUrl }],
+        });
+
+        await expect(season1JsonLD).toEqualJsonLD({
+            '@id': season1ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+            [LDP_CONTAINS]: [{ '@id': season1Episode1DocumentUrl }],
+        });
+
+        await expect(show1MetadataJsonLD).toEqualJsonLD({
+            '@id': show1MetadataResourceUrl,
+            '@type': 'https://vocab.noeldemartin.com/crdt/Metadata',
+        });
+
+        await expect(season1Episode1JsonLD).toEqualJsonLD({
+            '@id': season1Episode1ResourceUrl,
+            '@type': 'https://schema.org/Episode',
+        });
+
+        await expect(show2Episode1JsonLD).toEqualJsonLD({
+            '@id': show2Episode1ResourceUrl,
+            '@type': 'https://schema.org/Episode',
+        });
+    });
+
+    it('reads deep documents with a specific depth', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const rootContainerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const show1ContainerUrl = `${rootContainerUrl}show1/`;
+        const show2ContainerUrl = `${rootContainerUrl}show2/`;
+        const season1ContainerUrl = `${show1ContainerUrl}season1/`;
+        const show1MetadataDocumentUrl = `${show1ContainerUrl}metadata`;
+        const show1MetadataResourceUrl = `${show1MetadataDocumentUrl}#it`;
+        const season1Episode1DocumentUrl = `${season1ContainerUrl}episode1`;
+        const season1Episode1ResourceUrl = `${season1Episode1DocumentUrl}#it`;
+        const show2Episode1DocumentUrl = `${show2ContainerUrl}episode1`;
+        const show2Episode1ResourceUrl = `${show2Episode1DocumentUrl}#it`;
+
+        await setDatabaseDocument(parentUrl, rootContainerUrl, {
+            '@id': rootContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(show1ContainerUrl, season1ContainerUrl, {
+            '@id': season1ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(rootContainerUrl, show2ContainerUrl, {
+            '@id': show2ContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(show1ContainerUrl, show1MetadataDocumentUrl, {
+            '@id': show1MetadataResourceUrl,
+            '@type': 'http://schema.org/CreativeWork',
+        });
+
+        await setDatabaseDocument(season1ContainerUrl, season1Episode1DocumentUrl, {
+            '@id': season1Episode1ResourceUrl,
+            '@type': 'http://schema.org/CreativeWork',
+        });
+
+        await setDatabaseDocument(show2ContainerUrl, show2Episode1DocumentUrl, {
+            '@id': show2Episode1ResourceUrl,
+            '@type': 'http://schema.org/CreativeWork',
+        });
+
+        // Act
+        const documents = await engine.readDocuments({ containerUrl: rootContainerUrl, depth: 1 });
+
+        // Assert
+        expect(Object.keys(documents)).toHaveLength(6);
+        expect(Object.keys(documents)).toEqual(
+            expect.arrayContaining([
+                rootContainerUrl,
+                show1ContainerUrl,
+                show2ContainerUrl,
+                season1ContainerUrl,
+                show1MetadataDocumentUrl,
+                show2Episode1DocumentUrl,
+            ]),
+        );
+    });
+
     async function resetDatabase(): Promise<void> {
         await SoukaiIndexedDB.clear();
         await SoukaiIndexedDB.connect();
