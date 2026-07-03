@@ -70,9 +70,7 @@ export type ObjectFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
 
 export type BootedFieldsDefinition<T = unknown> = Record<string, BootedFieldDefinition<T>>;
 export type BootedFieldDefinition<T = unknown> =
-    | BootedBasicFieldDefinition<T>
-    | BootedArrayFieldDefinition<T>
-    | BootedObjectFieldDefinition<T>;
+    BootedBasicFieldDefinition<T> | BootedArrayFieldDefinition<T> | BootedObjectFieldDefinition<T>;
 
 export type BootedFieldDefinitionBase<T = unknown> = T & {
     required: boolean;

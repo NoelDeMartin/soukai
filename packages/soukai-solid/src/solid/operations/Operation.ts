@@ -4,10 +4,7 @@ import type ShieldPropertyOperation from './ShieldPropertyOperation';
 import type UpdatePropertyOperation from './UpdatePropertyOperation';
 
 export type UpdateOperation =
-    | UpdatePropertyOperation
-    | RemovePropertyOperation
-    | ShieldPropertyOperation
-    | ChangeUrlOperation;
+    UpdatePropertyOperation | RemovePropertyOperation | ShieldPropertyOperation | ChangeUrlOperation;
 
 export const OperationTypes = {
     ChangeUrl: 'change',

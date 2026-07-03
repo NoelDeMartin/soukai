@@ -1,10 +1,7 @@
 export type EngineAttributeLeafValue = string | number | boolean | null | Date;
 
 export type EngineAttributeValue =
-    | EngineAttributeLeafValue
-    | EngineAttributeValueMap
-    | EngineAttributeValueArray
-    | EngineAttributeValueArrayMap;
+    EngineAttributeLeafValue | EngineAttributeValueMap | EngineAttributeValueArray | EngineAttributeValueArrayMap;
 
 export interface EngineAttributeValueArray extends Array<EngineAttributeValue> {}
 export interface EngineAttributeValueMap extends Record<string, EngineAttributeValue> {}
@@ -46,9 +43,7 @@ export type EngineDocument = Record<string, EngineAttributeValue>;
 export type EngineDocumentsCollection = Record<string, EngineDocument>;
 export type EngineFilters = EngineRootFilter & Record<string, EngineAttributeFilter>;
 export type EngineUpdates =
-    | Record<string, EngineAttributeUpdate>
-    | { $unset: string | string[] }
-    | { $overwrite: EngineAttributeValue };
+    Record<string, EngineAttributeUpdate> | { $unset: string | string[] } | { $overwrite: EngineAttributeValue };
 
 export interface Engine {
     create(collection: string, document: EngineDocument, id?: string): Promise<string>;
