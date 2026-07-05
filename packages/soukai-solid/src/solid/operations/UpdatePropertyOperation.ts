@@ -11,7 +11,8 @@ export default class UpdatePropertyOperation implements Operation {
 
     constructor(propertyOrProperties: RDFResourceProperty | RDFResourceProperty[]) {
         this.propertyOrProperties = propertyOrProperties as
-            RDFResourceProperty | ([RDFResourceProperty] & RDFResourceProperty[]);
+            | RDFResourceProperty
+            | ([RDFResourceProperty] & RDFResourceProperty[]);
 
         if (!Array.isArray(propertyOrProperties)) return;
 

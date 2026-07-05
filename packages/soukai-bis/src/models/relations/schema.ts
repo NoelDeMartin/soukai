@@ -6,7 +6,8 @@ import type { AnyMultiModelRelation, RelationConstructor } from './types';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> = TRelated | (() => any);
 export type RelatedContainerDefinition<TRelated extends ContainerConstructor = ContainerConstructor> =
-    TRelated | (() => any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    | TRelated
+    | (() => any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
 export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = {
