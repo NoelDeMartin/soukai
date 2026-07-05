@@ -709,4 +709,44 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.objectContaining({ method: 'PATCH' }));
     });
 
+    it('tolerates some errors', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const document1Url = fakeDocumentUrl({ containerUrl });
+        const document2Url = fakeDocumentUrl({ containerUrl });
+        const document3Url = fakeDocumentUrl({ containerUrl });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('foaf:Person')],
+            }),
+        ];
+
+        FakeServer.respond(containerUrl, containerTurtle([document1Url, document2Url, document3Url]));
+        FakeServer.respondOnce(document1Url, FakeResponse.internalServerError());
+        FakeServer.respond(document2Url, fixture('person.ttl', { documentUrl: document2Url }));
+        FakeServer.respond(document3Url, fixture('person.ttl', { documentUrl: document3Url }));
+
+        // Act
+        const result = { syncedDocumentUrls: new Set<string>(), documentsWithErrors: new Set<string>() };
+
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: User, registration: true }],
+            onFinished(res) {
+                result.syncedDocumentUrls = res.syncedDocumentUrls;
+                result.documentsWithErrors = res.documentsWithErrors;
+            },
+        });
+
+        // Assert
+        expect(result.syncedDocumentUrls.has(document1Url)).toBe(true);
+        expect(result.syncedDocumentUrls.has(document2Url)).toBe(true);
+        expect(result.syncedDocumentUrls.has(document3Url)).toBe(true);
+        expect(result.documentsWithErrors.has(document1Url)).toBe(true);
+        expect(result.documentsWithErrors.size).toBe(1);
+    });
+
 });
