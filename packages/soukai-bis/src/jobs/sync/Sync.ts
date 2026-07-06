@@ -1,4 +1,13 @@
-import { arrayGroupBy, arrayUnique, isTruthy, objectFromEntries, parseDate, round } from '@noeldemartin/utils';
+import {
+    Semaphore,
+    arrayGroupBy,
+    arrayUnique,
+    isInstanceOf,
+    isTruthy,
+    objectFromEntries,
+    parseDate,
+    round,
+} from '@noeldemartin/utils';
 import { SolidDocument } from '@noeldemartin/solid-utils';
 import type { SolidResponse, SolidUserProfile } from '@noeldemartin/solid-utils';
 
@@ -25,6 +34,7 @@ import { syncContainerRegistration } from './concerns/sync-container-registratio
 import { syncDocumentOperations } from './concerns/sync-document-operations';
 
 const DEFAULT_MAX_ERRORS = 10;
+const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
 
 export interface SyncConfig {
@@ -37,12 +47,19 @@ export interface SyncConfig {
         registration: boolean | { path: string };
     }[];
     maxErrors?: number;
+    concurrency?: number;
     lastModifiedTolerance?: number;
 }
 
 export interface SyncJobStatus extends JobStatus {
     root?: boolean;
     children: [JobStatus, JobStatus];
+}
+
+export interface PullTask {
+    url: string;
+    status?: JobStatus;
+    remoteUpdatedAt?: Date;
 }
 
 export interface SyncJobListener extends JobListener {
@@ -66,6 +83,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
+    private semaphore: Semaphore;
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrationPaths: Map<ModelConstructor, string>;
@@ -75,6 +93,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     public constructor(private config: SyncConfig) {
         super();
 
+        this.semaphore = new Semaphore(config.concurrency ?? DEFAULT_CONCURRENCY);
         this.modelRegistrationPaths = new Map(
             this.config.applicationModels
                 .map((model) => {
@@ -235,20 +254,83 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     private async pullChanges(): Promise<void> {
         await this.initializeMatchingContainers();
 
-        const containers = Array.from(this.registeredContainers.keys());
+        const containerUrls = Array.from(this.registeredContainers.keys());
         const pullStatus = this.status.children[0];
 
-        pullStatus.children = containers.map(() => ({ completed: false }));
+        pullStatus.children = containerUrls.map(() => ({ completed: false }));
 
-        await Promise.all(
-            containers.map((containerUrl, index) => {
-                const childStatus = pullStatus.children?.[index];
-
-                return this.syncDocument(containerUrl, childStatus);
-            }),
-        );
-
+        await this.pullContainerDocuments(containerUrls, pullStatus);
         await this.updateProgress((status) => (status.children[0].completed = true));
+    }
+
+    private async pullContainerDocuments(containerUrls: string[], pullStatus: JobStatus): Promise<void> {
+        let ongoing = 0;
+        let failed = false;
+
+        const queue = containerUrls.map((containerUrl, index) => ({
+            url: containerUrl,
+            status: pullStatus.children?.[index],
+        }));
+
+        return new Promise<void>((resolve, reject) => {
+            const next = () => {
+                if (failed) {
+                    return;
+                }
+
+                while (queue.length > 0 && this.semaphore.isAvailable()) {
+                    const pullTask = queue.shift() as PullTask;
+
+                    ongoing++;
+
+                    this.runPullTask(pullTask, queue, {
+                        onFinished: () => {
+                            ongoing--;
+
+                            if (ongoing === 0 && queue.length === 0) {
+                                resolve();
+
+                                return;
+                            }
+
+                            next();
+                        },
+                        onFailed: (error) => {
+                            failed = true;
+
+                            reject(error);
+                        },
+                    });
+                }
+
+                if (ongoing === 0 && queue.length === 0 && !failed) {
+                    resolve();
+                }
+            };
+
+            next();
+        });
+    }
+
+    private async runPullTask(
+        pullTask: PullTask,
+        queue: PullTask[],
+        options: {
+            onFinished: () => void;
+            onFailed: (error: unknown) => void;
+        },
+    ): Promise<void> {
+        try {
+            const childPullTasks = await this.semaphore.run(() => {
+                return this.syncDocument(pullTask.url, pullTask.status, pullTask.remoteUpdatedAt);
+            });
+
+            queue.unshift(...childPullTasks);
+        } catch (error) {
+            options.onFailed(error);
+        } finally {
+            options.onFinished();
+        }
     }
 
     private async pushChanges(): Promise<void> {
@@ -287,22 +369,26 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         }
     }
 
-    private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<void> {
+    private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<PullTask[]> {
         this.assertNotCancelled();
+
+        if (this.syncedDocumentUrls.has(documentUrl)) {
+            return [];
+        }
 
         this.syncedDocumentUrls.add(documentUrl);
 
         try {
             if (await this.skipDocumentPull(documentUrl, remoteUpdatedAt)) {
-                return;
+                return [];
             }
 
-            const remoteDocument = await this.syncRemoteChildren(documentUrl, status);
+            const { remoteDocument, childrenPullTasks } = await this.syncRemoteChildren(documentUrl, status);
             const localDocument = await this.config.localEngine.readDocumentIfExists(documentUrl);
 
             if (!localDocument && remoteDocument) {
                 if (!this.shouldPullDocument(remoteDocument)) {
-                    return;
+                    return childrenPullTasks;
                 }
 
                 const lastModifiedAt = remoteDocument.url.endsWith('/')
@@ -315,28 +401,35 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
 
                 this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
 
-                return;
+                return childrenPullTasks;
             }
 
             if (!remoteDocument || !localDocument) {
-                return;
+                return childrenPullTasks;
             }
 
             await this.syncDocumentContents(localDocument, remoteDocument);
+
+            return childrenPullTasks;
         } catch (error) {
-            if (error instanceof DocumentNotFound) {
-                return;
+            if (!isInstanceOf(error, DocumentNotFound)) {
+                this.handleDocumentError(documentUrl, error);
             }
 
-            this.handleDocumentError(documentUrl, error);
+            return [];
         } finally {
             if (status) {
-                await this.updateProgress(() => (status.completed = true));
+                await this.updateProgress(
+                    () => (status.completed ||= !status.children || status.children.length === 0),
+                );
             }
         }
     }
 
-    private async syncRemoteChildren(documentUrl: string, status?: JobStatus): Promise<SolidDocument | null> {
+    private async syncRemoteChildren(
+        documentUrl: string,
+        status?: JobStatus,
+    ): Promise<{ remoteDocument: SolidDocument | null; childrenPullTasks: PullTask[] }> {
         const remoteDocument = await this.config.remoteEngine.readDocumentIfExists(documentUrl);
 
         if (remoteDocument && documentUrl.endsWith('/')) {
@@ -354,21 +447,23 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 await this.updateProgress();
             }
 
-            await Promise.all(
-                resourceUrls.map((childDocumentUrl, index) => {
-                    const childResource = resourcesByUrl[childDocumentUrl];
-                    const childStatus = status?.children?.[index];
+            const childrenPullTasks = resourceUrls.map((childDocumentUrl, index) => {
+                const childResource = resourcesByUrl[childDocumentUrl];
+                const childStatus = status?.children?.[index];
 
-                    return this.syncDocument(
-                        childDocumentUrl,
-                        childStatus,
-                        childDocumentUrl.endsWith('/') ? childResource?.deepUpdatedAt : childResource?.updatedAt,
-                    );
-                }),
-            );
+                return {
+                    url: childDocumentUrl,
+                    status: childStatus,
+                    remoteUpdatedAt: childDocumentUrl.endsWith('/')
+                        ? childResource?.deepUpdatedAt
+                        : childResource?.updatedAt,
+                };
+            });
+
+            return { remoteDocument, childrenPullTasks };
         }
 
-        return remoteDocument;
+        return { remoteDocument, childrenPullTasks: [] };
     }
 
     private async pushContainerDocuments(url: string, status?: JobStatus): Promise<void> {
@@ -499,6 +594,8 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async pushRemoteDocument(localDocument: SolidDocument): Promise<SolidDocument> {
+        this.assertNotCancelled();
+
         this.syncedDocumentUrls.add(localDocument.url);
 
         try {
@@ -522,6 +619,8 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async syncDocumentContents(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
+        this.assertNotCancelled();
+
         const resourceUrls = arrayUnique(
             [remoteDocument, localDocument].flatMap((document) =>
                 document
