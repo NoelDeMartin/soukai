@@ -586,6 +586,62 @@ describe('Model', () => {
         });
     });
 
+    it('syncs CRDT operations', async () => {
+        class UserWithHistory extends defineSchema(User, { history: true }) {}
+
+        bootModels({ UserWithHistory });
+
+        const documentUrl = 'solid://users/alice';
+        const quads = await turtleToQuads(`
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <${documentUrl}#it>
+                a foaf:Person ;
+                foaf:name "Second Name" .
+
+            <${documentUrl}#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <${documentUrl}#it> ;
+                crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                crdt:updatedAt "2021-01-03T00:00:00.000Z"^^xsd:dateTime .
+
+            <${documentUrl}#operation-3>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${documentUrl}#it> ;
+                crdt:property foaf:name ;
+                crdt:value "Third Name" ;
+                crdt:date "2021-01-03T00:00:00.000Z"^^xsd:dateTime .
+
+            <${documentUrl}#operation-2>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${documentUrl}#it> ;
+                crdt:property foaf:name ;
+                crdt:value "Second Name" ;
+                crdt:date "2021-01-02T00:00:00.000Z"^^xsd:dateTime .
+
+            <${documentUrl}#operation-1>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${documentUrl}#it> ;
+                crdt:property foaf:name ;
+                crdt:value "First Name" ;
+                crdt:date "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+        `);
+
+        await engine.createDocument(documentUrl, quads);
+
+        const user = await UserWithHistory.findOrFail(`${documentUrl}#it`);
+
+        expect(user.name).toEqual('Second Name');
+
+        // Act
+        await user.syncOperations();
+
+        // Assert
+        expect(user.name).toEqual('Third Name');
+    });
+
     it('mints urls using the slug field', async () => {
         const post = await Post.create({ title: 'Hello World' });
 
