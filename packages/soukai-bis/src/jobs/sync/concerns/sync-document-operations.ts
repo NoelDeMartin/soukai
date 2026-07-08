@@ -7,6 +7,7 @@ import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
+import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import {
     CRDT_METADATA_OBJECT,
     CRDT_RESOURCE_PREDICATE,
@@ -130,8 +131,13 @@ function getNewDocumentOperations({
     existingOperations: Operation[];
     newOperations: Operation[];
 }): EngineOperation[] {
-    const documentOperations = getDocumentUpdateOperations({ existingOperations, newOperations });
-    const metadataUpdates = getMetadataUpdates({ documentMetadatas, otherDocumentMetadatas, newOperations });
+    const newSortedOperations = sortedOperations(newOperations);
+    const documentOperations = getDocumentUpdateOperations({ existingOperations, newOperations: newSortedOperations });
+    const metadataUpdates = getMetadataUpdates({
+        documentMetadatas,
+        otherDocumentMetadatas,
+        newOperations: newSortedOperations,
+    });
 
     for (const [resourceUrl, metadata] of Object.entries(metadataUpdates)) {
         if (!metadata.exists) {
