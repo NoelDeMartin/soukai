@@ -16,6 +16,7 @@ import type PurgesMetadata from './contracts/PurgesMetadata';
 import type ManagesDocuments from './contracts/ManagesDocuments';
 import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
 import type { EngineMetadata } from './Engine';
+import type { PurgesMetadataOptions } from './contracts/PurgesMetadata';
 
 export interface InMemoryDocument {
     graph: JsonLD;
@@ -186,13 +187,15 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         }
     }
 
-    public async purgeMetadata(): Promise<void> {
-        for (const url of Object.keys(this.documents)) {
-            if (!this.documents[url]?.lastModifiedAt) {
+    public async purgeMetadata(options: PurgesMetadataOptions = {}): Promise<void> {
+        const documentUrls = options.documentUrls ?? Object.keys(this.documents);
+
+        for (const documentUrl of documentUrls) {
+            if (!this.documents[documentUrl]?.lastModifiedAt) {
                 continue;
             }
 
-            delete this.documents[url].lastModifiedAt;
+            delete this.documents[documentUrl].lastModifiedAt;
         }
     }
 

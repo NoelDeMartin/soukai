@@ -29,7 +29,7 @@ export class ComputedAttributesCache {
         return document ? (document[name] as TValue) : undefined;
     }
 
-    public async invalidate(affectedDocumentUrls: string[]): Promise<void> {
+    public async invalidate(options: { documentUrls: string[] }): Promise<void> {
         await this.store.traverse('readwrite', async (cursor) => {
             const entry = cursor.value;
             const { model, url: entryUrl, ...attributes } = entry;
@@ -45,7 +45,7 @@ export class ComputedAttributesCache {
             for (const attribute of attributeKeys) {
                 const definition = modelClass.schema.computed[attribute];
 
-                if (!definition || !this.shouldInvalidateCache(definition, entryUrl, affectedDocumentUrls)) {
+                if (!definition || !this.shouldInvalidateCache(definition, entryUrl, options.documentUrls)) {
                     continue;
                 }
 

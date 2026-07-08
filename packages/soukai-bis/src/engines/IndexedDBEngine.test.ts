@@ -555,6 +555,45 @@ describe('IndexedDBEngine', () => {
         expect(purgedDocuments[0]?.lastModifiedAt).toBeUndefined();
     });
 
+    it('purges metadata for specific documents', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl1 = fakeDocumentUrl({ containerUrl });
+        const documentUrl2 = fakeDocumentUrl({ containerUrl });
+        const lastModifiedAt = new Date();
+
+        await setDatabaseDocument(
+            containerUrl,
+            documentUrl1,
+            {
+                '@id': documentUrl1,
+                '@type': 'http://schema.org/CreativeWork',
+            },
+            { lastModifiedAt },
+        );
+
+        await setDatabaseDocument(
+            containerUrl,
+            documentUrl2,
+            {
+                '@id': documentUrl2,
+                '@type': 'http://schema.org/CreativeWork',
+            },
+            { lastModifiedAt },
+        );
+
+        // Act
+        await engine.purgeMetadata({ documentUrls: [documentUrl1] });
+
+        // Assert
+        const documents = await getDatabaseDocuments(containerUrl);
+        const doc1 = documents.find((doc) => doc.url === documentUrl1);
+        const doc2 = documents.find((doc) => doc.url === documentUrl2);
+
+        expect(doc1?.lastModifiedAt).toBeUndefined();
+        expect(doc2?.lastModifiedAt).toEqual(lastModifiedAt);
+    });
+
     it('gets document urls', async () => {
         // Arrange
         const containerUrl = 'http://localhost:3000/alice/movies/';

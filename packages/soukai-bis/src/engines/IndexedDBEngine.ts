@@ -33,6 +33,7 @@ import type PurgesMetadata from './contracts/PurgesMetadata';
 import type ManagesDocuments from './contracts/ManagesDocuments';
 import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
 import type { EngineMetadata } from './Engine';
+import type { PurgesMetadataOptions } from './contracts/PurgesMetadata';
 import type { LocalDocument, SoukaiIndexedDBSchema } from 'soukai-bis/lib/SoukaiIndexedDB';
 
 export default class IndexedDBEngine extends Engine implements ManagesContainers, PurgesMetadata, ManagesDocuments {
@@ -219,7 +220,29 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         return { headers: new Headers() };
     }
 
-    public async purgeMetadata(): Promise<void> {
+    public async purgeMetadata(options: PurgesMetadataOptions = {}): Promise<void> {
+        if (options.documentUrls) {
+            const connection = await SoukaiIndexedDB.connect();
+            const transaction = connection.transaction('documents', 'readwrite');
+            const documentsStore = transaction.objectStore('documents');
+
+            for (const documentUrl of options.documentUrls) {
+                const document = await documentsStore.get(documentUrl);
+
+                if (!document || !document.lastModifiedAt) {
+                    continue;
+                }
+
+                delete document.lastModifiedAt;
+
+                await documentsStore.put(document);
+            }
+
+            await transaction.done;
+
+            return;
+        }
+
         for (const containerUrl of await this.getContainerUrls()) {
             await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
                 const documentsStore = transaction.objectStore('documents');

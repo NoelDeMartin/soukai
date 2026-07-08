@@ -1,3 +1,7 @@
+export interface PurgesMetadataOptions {
+    documentUrls?: string[];
+}
+
 export default interface PurgesMetadata {
-    purgeMetadata(): Promise<void>;
+    purgeMetadata(options?: PurgesMetadataOptions): Promise<void>;
 }

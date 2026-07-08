@@ -232,7 +232,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private async finish(): Promise<void> {
-        await ComputedAttributesCache.invalidate(Array.from(this.syncedDocumentUrls));
+        await ComputedAttributesCache.invalidate({ documentUrls: Array.from(this.syncedDocumentUrls) });
         await this._listeners.emit('onFinished', {
             syncedDocumentUrls: this.syncedDocumentUrls,
             documentsWithErrors: this.documentsWithErrors,

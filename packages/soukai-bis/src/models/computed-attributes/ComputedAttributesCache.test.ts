@@ -70,7 +70,7 @@ describe('ComputedAttributesCache', () => {
         await ComputedAttributesCache.set(secondUser, 'postTitles', ['Hello World']);
 
         // Act
-        await ComputedAttributesCache.invalidate([firstUserDocumentUrl]);
+        await ComputedAttributesCache.invalidate({ documentUrls: [firstUserDocumentUrl] });
 
         // Assert
         expect(await ComputedAttributesCache.get(firstUser, 'postTitles')).toBeUndefined();
@@ -93,7 +93,7 @@ describe('ComputedAttributesCache', () => {
         await ComputedAttributesCache.set(secondShow, 'pendingEpisodeDates', [now]);
 
         // Act
-        await ComputedAttributesCache.invalidate([episodeDocumentUrl]);
+        await ComputedAttributesCache.invalidate({ documentUrls: [episodeDocumentUrl] });
 
         // Assert
         expect(await ComputedAttributesCache.get(firstShow, 'pendingEpisodeDates')).toBeUndefined();
