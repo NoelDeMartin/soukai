@@ -9,6 +9,7 @@ import {
     isTesting,
     isTruthy,
     objectDeepClone,
+    objectFromEntries,
     required,
     stringToCamelCase,
     stringToSlug,
@@ -38,7 +39,7 @@ import { getRelatedClass } from './relations/utils';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { buildRDFTypeIndex, createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import { emitModelEvent, onModelEvent } from './concerns/events';
-import { deleteModel, getDirtyDocumentsUpdates } from './concerns/crdts';
+import { deleteModel, getDirtyDocumentsUpdates, syncDocumentOperations } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
@@ -494,6 +495,32 @@ export default class Model<
 
     public requireDocumentUrl(): string {
         return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
+    }
+
+    public async syncOperations(): Promise<void> {
+        const { updated } = await syncDocumentOperations(this.requireDocumentUrl());
+        const documentModels = objectFromEntries(
+            this.getDocumentModels()
+                .filter((model) => model.hasUrl())
+                .map((model) => [model.url, model]),
+        );
+
+        for (const updatedResourceUrl of updated) {
+            const documentModel = documentModels[updatedResourceUrl];
+
+            if (!documentModel) {
+                continue;
+            }
+
+            const freshInstance = await documentModel.fresh();
+
+            documentModel._attributes = freshInstance._attributes;
+            documentModel._originalAttributes = freshInstance._originalAttributes;
+            documentModel._dirtyAttributes = new Set();
+
+            await emitModelEvent(documentModel, 'saved');
+            await emitModelEvent(documentModel, 'updated');
+        }
     }
 
     public getSlug(): string | null {

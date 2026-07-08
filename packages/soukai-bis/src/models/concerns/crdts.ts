@@ -1,4 +1,4 @@
-import { arrayFilter, objectWithoutEmpty } from '@noeldemartin/utils';
+import { arrayFilter, arrayUnique, objectWithoutEmpty } from '@noeldemartin/utils';
 import { ZodArray, ZodURL } from 'zod';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
 
@@ -6,6 +6,8 @@ import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourc
 import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getFinalType } from 'soukai-bis/zod/utils';
 import { requireBootedModel } from 'soukai-bis/models/registry';
+import { requireEngine } from 'soukai-bis/engines/state';
+import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type Model from 'soukai-bis/models/Model';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
@@ -184,4 +186,64 @@ export function deleteModel<T extends Model>(
     }
 
     return operations;
+}
+
+export async function syncDocumentOperations(documentUrl: string): Promise<{ updated: string[] }> {
+    const engine = requireEngine();
+    const document = await engine.readDocumentIfExists(documentUrl);
+
+    if (!document) {
+        return { updated: [] };
+    }
+
+    const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
+    const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
+    const promisedOperations = await Promise.all([
+        SetPropertyOperation.createManyFromDocument(document),
+        UnsetPropertyOperation.createManyFromDocument(document),
+    ]);
+
+    const operations = sortedOperations(promisedOperations.flat());
+    const finalOperations: Record<string, Record<string, Operation>> = {};
+
+    for (const operation of operations) {
+        const resourceOperations = (finalOperations[operation.resourceUrl] ??= {});
+
+        resourceOperations[operation.property] = operation;
+    }
+
+    const newOperations: Operation[] = [];
+
+    for (const [resourceUrl, resourceOperations] of Object.entries(finalOperations)) {
+        for (const [property, operation] of Object.entries(resourceOperations)) {
+            const quads = document.statements(resourceUrl, property);
+
+            if (operation instanceof SetPropertyOperation) {
+                if (
+                    quads.length !== operation.values.length ||
+                    quads.some((quad) => !operation.values.some((value) => value.equals(quad.object)))
+                ) {
+                    newOperations.push(operation);
+                }
+
+                continue;
+            }
+
+            if (operation instanceof UnsetPropertyOperation) {
+                if (quads.length > 0) {
+                    newOperations.push(operation);
+                }
+
+                continue;
+            }
+        }
+    }
+
+    if (newOperations.length === 0) {
+        return { updated: [] };
+    }
+
+    await engine.updateDocument(documentUrl, newOperations);
+
+    return { updated: arrayUnique(newOperations.map((operation) => operation.resourceUrl)) };
 }
