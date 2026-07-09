@@ -1,5 +1,5 @@
 import { deleteDB, openDB } from 'idb';
-import { PromisedValue, facade } from '@noeldemartin/utils';
+import { PromisedValue, arrayRemove, facade } from '@noeldemartin/utils';
 import type { DBSchema, IDBPDatabase } from 'idb';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -100,8 +100,10 @@ export class SoukaiIndexedDB {
         this.clearListeners.forEach((listener) => listener());
     }
 
-    public addClearListener(listener: () => void): void {
+    public addClearListener(listener: () => void): () => void {
         this.clearListeners.push(listener);
+
+        return () => arrayRemove(this.clearListeners, listener);
     }
 
     private throwDatabaseBlockedError(): void {
