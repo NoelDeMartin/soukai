@@ -473,9 +473,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 }
 
                 if (!promised.isResolved()) {
-                    promised.reject(
-                        new SoukaiError('IndexedDB was cleared while loading containers index'),
-                    );
+                    promised.reject(new SoukaiError('IndexedDB was cleared while loading containers index'));
                 }
 
                 this.containersIndexCache = null;
