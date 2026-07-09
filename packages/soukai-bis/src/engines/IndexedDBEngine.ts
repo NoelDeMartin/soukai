@@ -44,6 +44,16 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     public constructor() {
         super();
+
+        SoukaiIndexedDB.addClearListener(() => {
+            if (this.containersIndexCache?.isResolved() === false) {
+                this.containersIndexCache.reject(
+                    new SoukaiError('[IndexedDBEngine] IndexedDB cleared while loading containers index'),
+                );
+            }
+
+            this.containersIndexCache = null;
+        });
     }
 
     public async createDocument(
@@ -485,9 +495,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 if (this.containersIndexCache === promised) {
                     this.containersIndexCache = null;
                 }
-
-                return promised;
             }
+
+            return promised;
         }
 
         return this.containersIndexCache;
