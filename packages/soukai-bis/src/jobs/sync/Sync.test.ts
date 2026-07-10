@@ -612,7 +612,7 @@ describe('Sync', () => {
             `
                 @prefix ldp: <http://www.w3.org/ns/ldp#> .
                 @prefix purl: <http://purl.org/dc/terms/> .
-                @prefix fs: <https://vocab.noeldemartin.com/fs/> .
+                @prefix extra: <https://vocab.noeldemartin.com/solid-extra/> .
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <>
@@ -622,7 +622,7 @@ describe('Sync', () => {
                 <${nestedContainerUrl}>
                     a ldp:Resource, ldp:Container, ldp:BasicContainer ;
                     purl:modified "2026-06-13T07:00:59.000Z"^^xsd:dateTime ;
-                    fs:deepLastModified "2026-06-19T07:17:00.000Z"^^xsd:dateTime .
+                    extra:deepLastModified "2026-06-19T07:17:00.000Z"^^xsd:dateTime .
             `,
         );
 
@@ -660,7 +660,7 @@ describe('Sync', () => {
             `
                 @prefix ldp: <http://www.w3.org/ns/ldp#> .
                 @prefix purl: <http://purl.org/dc/terms/> .
-                @prefix fs: <https://vocab.noeldemartin.com/fs/> .
+                @prefix extra: <https://vocab.noeldemartin.com/solid-extra/> .
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <>
@@ -670,7 +670,7 @@ describe('Sync', () => {
                 <${nestedContainerUrl}>
                     a ldp:Resource, ldp:Container, ldp:BasicContainer ;
                     purl:modified "2026-06-13T07:00:59.000Z"^^xsd:dateTime ;
-                    fs:deepLastModified "2026-06-19T07:17:00.000Z"^^xsd:dateTime ;
+                    extra:deepLastModified "2026-06-19T07:17:00.000Z"^^xsd:dateTime ;
                     ldp:contains <${documentUrl}> .
             `,
         );

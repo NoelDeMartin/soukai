@@ -9,6 +9,6 @@ export default defineSchema({
     timestamps: false,
     fields: {
         updatedAt: rdfProperty(date(), 'purl:modified').optional(),
-        deepUpdatedAt: rdfProperty(date(), 'fs:deepLastModified').optional(),
+        deepUpdatedAt: rdfProperty(date(), 'extra:deepLastModified').optional(),
     },
 });

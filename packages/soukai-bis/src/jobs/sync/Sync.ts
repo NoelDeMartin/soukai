@@ -689,7 +689,9 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
     }
 
     private getContainerLastModifiedAt(remoteDocument: SolidDocument | SolidResponse | null): Date | null {
-        const lastModifiedAt = remoteDocument?.headers.get('deep-last-modified');
+        const lastModifiedAt = remoteDocument instanceof SolidDocument
+            ? remoteDocument.statement(remoteDocument.url, 'extra:deepLastModified')?.object.value
+            : null;
 
         return lastModifiedAt ? parseDate(lastModifiedAt) : null;
     }
