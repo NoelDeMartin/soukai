@@ -731,16 +731,9 @@ export default class Model<
     }
 
     protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
-        const slug = this.newUrlDocumentUrlSlug() ?? uuid();
+        const slug = this.getSlug() ?? uuid();
 
         return urlResolve(options.containerUrl ?? this.static('defaultContainerUrl'), slug);
-    }
-
-    protected newUrlDocumentUrlSlug(): string | null {
-        const slugField = this.static('schema').slugField as FieldName;
-        const slugFieldValue = slugField && String(this.getAttribute(slugField));
-
-        return (slugFieldValue && stringToSlug(slugFieldValue)) ?? null;
     }
 
     protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
