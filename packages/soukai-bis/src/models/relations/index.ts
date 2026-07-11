@@ -5,6 +5,7 @@ export { default as HasManyRelation } from './HasManyRelation';
 export { default as HasOneRelation } from './HasOneRelation';
 export { default as IsContainedByRelation } from './IsContainedByRelation';
 export { default as MultiModelRelation } from './MultiModelRelation';
+export { default as OperationsRelation } from './OperationsRelation';
 export { default as Relation } from './Relation';
 export * from './Relation';
 export * from './fluent';

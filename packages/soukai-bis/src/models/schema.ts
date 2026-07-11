@@ -9,8 +9,8 @@ import { deepMeta, rdfProperty } from 'soukai-bis/zod/soukai';
 import type { SafeInferObject } from 'soukai-bis/zod/types';
 
 import HasOneRelation from './relations/HasOneRelation';
-import HasManyRelation from './relations/HasManyRelation';
 import Model from './Model';
+import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
 import { isModelClass } from './utils';
 import { requireBootedModel } from './registry';
@@ -152,7 +152,7 @@ export function defineSchema<
     }
 
     if (history) {
-        relations.operations = new SchemaRelationDefinition(() => requireBootedModel('Operation'), HasManyRelation, {
+        relations.operations = new SchemaRelationDefinition(() => requireBootedModel('Operation'), OperationsRelation, {
             foreignKey: 'resourceUrl',
         }).usingSameDocument();
     }

@@ -3,11 +3,10 @@ import Metadata from './crdts/Metadata';
 import Operation from './crdts/Operation';
 import Person from './identity/Person';
 import Resource from './ldp/Resource';
-import SetPropertyOperation from './crdts/SetPropertyOperation';
 import Tombstone from './crdts/Tombstone';
 import TypeIndex from './interop/TypeIndex';
 import TypeRegistration from './interop/TypeRegistration';
-import UnsetPropertyOperation from './crdts/UnsetPropertyOperation';
+import { coreOperationModels } from './crdts/core';
 import { bootModels } from './registry';
 import { bootCoreRelations } from './relations/core';
 import type { ModelConstructor } from './types';
@@ -18,11 +17,10 @@ const coreModels = {
     Operation,
     Person,
     Resource,
-    SetPropertyOperation,
     Tombstone,
     TypeIndex,
     TypeRegistration,
-    UnsetPropertyOperation,
+    ...coreOperationModels,
 };
 
 export function getCoreModels(): ModelConstructor[] {
@@ -38,16 +36,14 @@ export function bootCoreModels(options: { reset?: boolean } = {}): void {
     bootModels(coreModels, options);
 }
 
-declare module './registry' {
+declare module 'soukai-bis' {
     interface ModelsRegistry {
         Container: typeof Container;
         Metadata: typeof Metadata;
         Operation: typeof Operation;
         Resource: typeof Resource;
-        SetPropertyOperation: typeof SetPropertyOperation;
         Tombstone: typeof Tombstone;
         TypeIndex: typeof TypeIndex;
         TypeRegistration: typeof TypeRegistration;
-        UnsetPropertyOperation: typeof UnsetPropertyOperation;
     }
 }

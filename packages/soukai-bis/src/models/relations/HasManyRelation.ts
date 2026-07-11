@@ -20,9 +20,7 @@ export default class HasManyRelation<
     }
 
     public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: Map<string, Model> } = {}): Promise<void> {
-        const localKey = this.parent.getAttribute(this.localKeyName);
-        const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
-        const related = allRelated.filter((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
+        const related = await this.loadRelatedModelsFromDocumentRDF(quads, options);
 
         this.documentModelsLoaded = true;
 
@@ -34,7 +32,7 @@ export default class HasManyRelation<
         }
     }
 
-    private async loadRelatedModels(): Promise<Related[]> {
+    protected async loadRelatedModels(): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
         const foreignKeyName = this.requireForeignKeyName();
 
@@ -59,6 +57,16 @@ export default class HasManyRelation<
         const relatedModels = await this.relatedClass.all();
 
         return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
+    }
+
+    protected async loadRelatedModelsFromDocumentRDF(
+        quads: Quad[],
+        options: { modelsCache?: Map<string, Model> } = {},
+    ): Promise<Related[]> {
+        const localKey = this.parent.getAttribute(this.localKeyName);
+        const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
+
+        return allRelated.filter((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
     }
 
 }

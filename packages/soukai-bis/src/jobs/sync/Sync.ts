@@ -21,7 +21,8 @@ import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/Compu
 import Job from 'soukai-bis/jobs/Job';
 import { engineFulfillsContract } from 'soukai-bis/engines/utils';
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
-import { SetPropertyOperation, UnsetPropertyOperation, getContainerName } from 'soukai-bis/models';
+import { getContainerName } from 'soukai-bis/models/utils';
+import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import type Engine from 'soukai-bis/engines/Engine';
 import type Operation from 'soukai-bis/models/crdts/Operation';
@@ -156,10 +157,9 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
         document: SolidDocument,
         resourceUrls: string[],
     ): Promise<Map<string, ModelWithUrl<Operation>>> {
-        const allOperations = await Promise.all([
-            SetPropertyOperation.createManyFromDocument(document),
-            UnsetPropertyOperation.createManyFromDocument(document),
-        ]);
+        const allOperations = (await Promise.all(
+            getCoreOperationModels().map((model) => model.createManyFromDocument(document)),
+        )) as ModelWithUrl<Operation>[][];
 
         const operations = allOperations.flat().filter((operation) => resourceUrls.includes(operation.resourceUrl));
 
