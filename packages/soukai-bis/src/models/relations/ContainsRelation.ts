@@ -36,7 +36,13 @@ export default class ContainsRelation<
     public setForeignAttributes(related: Related): void {
         const relatedDocumentUrl = related.getDocumentUrl();
 
-        if (!relatedDocumentUrl || this.parent.resourceUrls.includes(relatedDocumentUrl)) {
+        if (!relatedDocumentUrl) {
+            related.once('saved', () => this.setForeignAttributes(related));
+
+            return;
+        }
+
+        if (this.parent.resourceUrls.includes(relatedDocumentUrl)) {
             return;
         }
 

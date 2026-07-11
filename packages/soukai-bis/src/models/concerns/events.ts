@@ -17,6 +17,10 @@ export interface ModelEvents {
 
 export type ModelEvent = keyof ModelEvents;
 
+export type ModelInstanceListener<TEvent extends ModelEvent = ModelEvent> = ModelEvents[TEvent] extends void
+    ? () => unknown
+    : (payload: ModelEvents[TEvent]) => unknown;
+
 export type ModelListener<
     TModel extends Model = Model,
     TEvent extends ModelEvent = ModelEvent,

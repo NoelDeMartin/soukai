@@ -48,6 +48,8 @@ export default class BelongsToManyRelation<
         const foreignKey = related.getAttribute(this.localKeyName);
 
         if (!foreignKey) {
+            related.once('saved', () => this.setForeignAttributes(related));
+
             return;
         }
 
@@ -55,9 +57,11 @@ export default class BelongsToManyRelation<
         const foreignValue = this.parent.getAttribute(foreignKeyName);
         const foreignValues = arrayFrom(foreignValue, { ignoreEmptyValues: true });
 
-        if (!foreignValues.includes(foreignKey)) {
-            this.parent.setAttribute(foreignKeyName, foreignValues.concat([foreignKey]));
+        if (foreignValues.includes(foreignKey)) {
+            return;
         }
+
+        this.parent.setAttribute(foreignKeyName, foreignValues.concat([foreignKey]));
     }
 
     private async loadRelatedModels(): Promise<Related[]> {

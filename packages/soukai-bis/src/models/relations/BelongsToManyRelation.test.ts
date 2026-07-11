@@ -156,4 +156,19 @@ describe('BelongsToManyRelation', () => {
         expect(show?.seasons?.[0]?.show?.name).toEqual('House M.D.');
     });
 
+    it('sets foreign attributes after save', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+        const bob = alice.relatedFriends.attach({ name: 'Bob' });
+
+        // Act
+        await bob.save();
+
+        // Assert
+        expect(alice.isDirty()).toBe(true);
+        expect(alice.friendUrls).toContain(bob.url);
+        expect(alice.friends).toHaveLength(1);
+        expect(alice.friends?.[0]?.url).toEqual(bob.url);
+    });
+
 });

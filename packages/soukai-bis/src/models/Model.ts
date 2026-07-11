@@ -57,7 +57,7 @@ import type {
 } from './types';
 import type { SchemaComputedAttributeDefinition } from './relations/schema';
 import type { Schema } from './schema';
-import type { ModelEvent, ModelListener } from './concerns/events';
+import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 
 export interface MintUrlOptions {
     containerUrl?: string;
@@ -301,6 +301,22 @@ export default class Model<
         return onModelEvent(this, event, listener);
     }
 
+    public static once<TModel extends Model, TEvent extends ModelEvent>(
+        this: ModelConstructor<TModel>,
+        event: TEvent,
+        listener: ModelListener<TModel, TEvent>,
+    ): () => void {
+        let unsubscribe: (() => void) | undefined = undefined;
+        const wrapperListener = (...args: any[]) => {
+            listener(...(args as [TModel, ModelEvents[TEvent]]));
+            unsubscribe?.();
+        };
+
+        unsubscribe = onModelEvent(this, event, wrapperListener);
+
+        return unsubscribe;
+    }
+
     public static<T extends ModelConstructor<this>>(): T;
     public static<T extends ModelConstructor<this>, K extends keyof T>(property: K): T[K];
     public static<T extends ModelConstructor<this>, K extends keyof T>(property?: K): T | T[K] {
@@ -495,6 +511,34 @@ export default class Model<
 
     public requireDocumentUrl(): string {
         return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
+    }
+
+    public on<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
+        const wrapperListener = (instance: Model, ...args: any[]) => {
+            if (instance !== this) {
+                return;
+            }
+
+            listener(...(args as [ModelEvents[TEvent]]));
+        };
+
+        return this.static().on(event, wrapperListener);
+    }
+
+    public once<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
+        let unsubscribe: (() => void) | undefined = undefined;
+        const wrapperListener = (instance: Model, ...args: any[]) => {
+            if (instance !== this) {
+                return;
+            }
+
+            listener(...(args as [ModelEvents[TEvent]]));
+            unsubscribe?.();
+        };
+
+        unsubscribe = this.static().on(event, wrapperListener);
+
+        return unsubscribe;
     }
 
     public async syncOperations(): Promise<void> {

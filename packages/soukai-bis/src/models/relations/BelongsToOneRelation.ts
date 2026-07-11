@@ -46,6 +46,8 @@ export default class BelongsToOneRelation<
         const foreignKey = related.getAttribute(this.localKeyName);
 
         if (!foreignKey) {
+            related.once('saved', () => this.setForeignAttributes(related));
+
             return;
         }
 
