@@ -17,7 +17,7 @@ export default class Person extends Model {
                 publicTypeIndexUrls: profile.publicTypeIndexUrl ? [profile.publicTypeIndexUrl] : [],
                 privateTypeIndexUrls: profile.privateTypeIndexUrl ? [profile.privateTypeIndexUrl] : [],
             },
-            true,
+            { exists: true },
         );
     }
 

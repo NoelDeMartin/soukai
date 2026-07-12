@@ -5,7 +5,7 @@ import type { Quad_Object } from '@rdfjs/types';
 import type { SomeType } from 'zod/v4/core';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { XSD_DATE_TIME_TYPE, XSD_INTEGER_TYPE } from 'soukai-bis/utils/rdf';
+import { XSD_BOOLEAN, XSD_DATE_TIME, XSD_DATE_TIME_TYPE, XSD_INTEGER, XSD_INTEGER_TYPE } from 'soukai-bis/utils/rdf';
 
 export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], definition: SomeType): unknown {
     const finalType = getFinalType(definition);
@@ -23,15 +23,28 @@ export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], defin
         }
     }
 
+    const object = objects[0];
+
     if (finalType instanceof ZodDate) {
-        return new Date(objects[0].value);
+        return new Date(object.value);
     }
 
     if (finalType instanceof ZodNumber) {
-        return Number(objects[0].value);
+        return Number(object.value);
     }
 
-    return objects[0].value;
+    if (object.termType === 'Literal') {
+        switch (object.datatype?.value) {
+            case XSD_DATE_TIME:
+                return new Date(object.value);
+            case XSD_INTEGER:
+                return Number(object.value);
+            case XSD_BOOLEAN:
+                return object.value === 'true';
+        }
+    }
+
+    return object.value;
 }
 
 export function castToRDF(value: unknown, definition: SomeType): Quad_Object[] {

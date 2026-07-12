@@ -55,7 +55,7 @@ describe('CRUD', () => {
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
         const createdAt = new Date(Date.now() - 1000);
-        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new User({ url: `${documentUrl}#it`, name, age }, { exists: true });
 
         user.metadata?.setAttribute('url', `${documentUrl}#it-metadata`);
         user.metadata?.setAttribute('createdAt', createdAt);
@@ -139,7 +139,7 @@ describe('CRUD', () => {
         const name = faker.name.firstName();
         const age = faker.datatype.number({ min: 18, max: 99 });
         const documentUrl = fakeDocumentUrl();
-        const user = new User({ url: `${documentUrl}#it`, name, age }, true);
+        const user = new User({ url: `${documentUrl}#it`, name, age }, { exists: true });
 
         FakeServer.respondOnce(documentUrl, await user.toTurtle()); // GET document
         FakeServer.respondOnce(documentUrl, FakeResponse.success()); // DELETE document

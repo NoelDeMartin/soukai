@@ -25,7 +25,7 @@ export default class Container extends Model {
             fetch as Fetch,
         );
 
-        return urls.map((url) => this.newInstance({ url }, true) as ModelWithUrl<T>);
+        return urls.map((url) => this.newInstance({ url }, { exists: true }) as ModelWithUrl<T>);
     }
 
     public async register(

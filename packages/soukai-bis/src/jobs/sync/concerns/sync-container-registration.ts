@@ -46,7 +46,7 @@ function getUnregisteredContainers(
     }
 
     return Object.entries(modelsByContainerUrl).map(([containerUrl, models]) => [
-        new Container({ url: containerUrl }, true) as ModelWithUrl<Container>,
+        new Container({ url: containerUrl }, { exists: true }) as ModelWithUrl<Container>,
         models,
     ]);
 }

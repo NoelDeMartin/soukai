@@ -66,6 +66,11 @@ export interface MintUrlOptions {
     resourceHash?: string;
 }
 
+export interface ModelConstructorOptions {
+    exists?: boolean;
+    source?: Quad[];
+}
+
 export default class Model<
     Attributes extends Record<string, unknown> = Record<string, unknown>,
     Relations extends Record<string, unknown> = Record<string, unknown>,
@@ -101,9 +106,9 @@ export default class Model<
     public static newInstance<T extends Model>(
         this: ModelConstructor<T>,
         attributes?: Record<string, unknown>,
-        exists?: boolean,
+        options?: ModelConstructorOptions,
     ): T {
-        return new this(attributes, exists);
+        return new this(attributes, options);
     }
 
     public static getEngine(): Engine | undefined {
@@ -342,7 +347,7 @@ export default class Model<
     protected _computedAttributes: Record<string, ComputedAttribute> = {};
     protected _relations: Record<string, Relation> = {};
 
-    public constructor(attributes: Record<string, unknown> = {}, exists: boolean = false) {
+    public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
         super();
 
         if ((this.static() as unknown as typeof Model).isConjuring()) {
@@ -353,6 +358,7 @@ export default class Model<
             return;
         }
 
+        const exists = options.exists ?? false;
         this._exists = exists;
         this._documentExists = exists;
         this._attributes = this.parseAttributes(attributes);

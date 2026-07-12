@@ -15,6 +15,7 @@ export const LDP_BASIC_CONTAINER = expandIRI('ldp:BasicContainer');
 export const LDP_CONTAINER = expandIRI('ldp:Container');
 export const LDP_CONTAINS = expandIRI('ldp:contains');
 export const RDF_TYPE = expandIRI('rdf:type');
+export const XSD_BOOLEAN = expandIRI('xsd:boolean');
 export const XSD_DATE_TIME = expandIRI('xsd:dateTime');
 export const XSD_INTEGER = expandIRI('xsd:integer');
 

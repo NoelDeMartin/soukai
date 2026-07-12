@@ -14,6 +14,7 @@ import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
 import { isModelClass } from './utils';
 import { requireBootedModel } from './registry';
+import type { ModelConstructorOptions } from './Model';
 import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
 import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRelations } from './relations/schema';
 
@@ -64,12 +65,12 @@ export type SchemaModelClass<
     {
         new (
             attributes?: SchemaModelInput<TFields, TBaseClass>,
-            exists?: boolean
+            options?: ModelConstructorOptions
         ): SchemaModel<TFields, TRelations, TBaseClass>;
         newInstance<This>(
             this: This,
             attributes?: SchemaModelInput<TFields, TBaseClass>,
-            exists?: boolean
+            options?: ModelConstructorOptions
         ): ModelInstanceType<This>;
         create<This>(
             this: This,

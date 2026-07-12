@@ -9,13 +9,22 @@ import {
     createRDFLiteral,
 } from 'soukai-bis/utils/rdf';
 
-import Model from './SetPropertyOperation.schema';
+import SetPropertyOperationModel from './SetPropertyOperation.schema';
 import type Operation from './Operation';
 
-export default class SetPropertyOperation extends Model {
+export default class SetPropertyOperation extends SetPropertyOperationModel {
 
     private _isNamedNode: boolean = false;
     private _values: Quad_Object[] | null = null;
+
+    constructor(...[attributes, options]: ConstructorParameters<typeof SetPropertyOperationModel>) {
+        super(attributes, options);
+
+        const valueQuad = options?.source?.find(
+            (quad) => quad.subject.value === attributes?.url && quad.predicate.equals(CRDT_VALUE_PREDICATE),
+        );
+        this._isNamedNode = valueQuad?.object.termType === 'NamedNode';
+    }
 
     public get values(): Quad_Object[] {
         this._values ??= this.value.map((value) =>
