@@ -1,5 +1,6 @@
 import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
 import type { SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
+import type { Quad } from '@rdfjs/types';
 
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
@@ -192,19 +193,30 @@ function getNewResourcesDocumentOperations({
                 .flat(),
         ];
 
+        const quadsByResourceProperty: Record<string, Record<string, [Quad, ...Quad[]]>> = {};
+
         for (const quad of quads) {
-            documentOperations.push(
-                new SetPropertyOperation({
-                    resourceUrl: quad.subject.value,
-                    property: quad.predicate.value,
-                    value: [quad.object.value],
-                    date: new Date(),
-                })
-                    .setNamedNode(quad.object.termType === 'NamedNode')
-                    .setSubject(quad.subject)
-                    .setPredicate(quad.predicate)
-                    .setValues([quad.object]),
-            );
+            const resourceQuads = (quadsByResourceProperty[quad.subject.value] ??= {});
+            const propertyQuads = (resourceQuads[quad.predicate.value] ??= [] as unknown as [Quad, ...Quad[]]);
+
+            propertyQuads.push(quad);
+        }
+
+        for (const [quadsResourceUrl, resourceQuads] of Object.entries(quadsByResourceProperty)) {
+            for (const [property, propertyQuads] of Object.entries(resourceQuads)) {
+                documentOperations.push(
+                    new SetPropertyOperation({
+                        resourceUrl: quadsResourceUrl,
+                        property,
+                        value: propertyQuads.map((quad) => quad.object.value),
+                        date: new Date(),
+                    })
+                        .setNamedNode(propertyQuads[0].object.termType === 'NamedNode')
+                        .setSubject(propertyQuads[0].subject)
+                        .setPredicate(propertyQuads[0].predicate)
+                        .setValues(propertyQuads.map((quad) => quad.object)),
+                );
+            }
         }
     }
 
