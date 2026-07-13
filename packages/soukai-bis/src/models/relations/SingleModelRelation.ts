@@ -1,4 +1,4 @@
-import { type Nullable, tap } from '@noeldemartin/utils';
+import { type Nullable, tap, uuid } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
@@ -57,7 +57,10 @@ export default abstract class SingleModelRelation<
             if (options?.mintUrl) {
                 model.mintUrl(
                     this.usingSameDocument
-                        ? { documentUrl: this.parent.getDocumentUrl() ?? undefined }
+                        ? {
+                            documentUrl: this.parent.getDocumentUrl() ?? undefined,
+                            resourceHash: uuid(),
+                        }
                         : { containerUrl: this.parent.url },
                 );
             }

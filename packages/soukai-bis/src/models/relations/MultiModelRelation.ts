@@ -1,4 +1,4 @@
-import { tap } from '@noeldemartin/utils';
+import { tap, uuid } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 
 import type Model from 'soukai-bis/models/Model';
@@ -56,7 +56,10 @@ export default abstract class MultiModelRelation<
             if (options?.mintUrl) {
                 model.mintUrl(
                     this.usingSameDocument
-                        ? { documentUrl: this.parent.getDocumentUrl() ?? undefined }
+                        ? {
+                            documentUrl: this.parent.getDocumentUrl() ?? undefined,
+                            resourceHash: uuid(),
+                        }
                         : { containerUrl: this.parent.url },
                 );
             }
