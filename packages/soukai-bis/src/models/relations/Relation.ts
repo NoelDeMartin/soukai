@@ -10,6 +10,10 @@ import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
 import type { GetRelatedModelInput, RelationConstructor } from './types';
 
+export interface AttachOptions {
+    mintUrl?: boolean;
+}
+
 export default abstract class Relation<
     Parent extends Model = Model,
     Related extends Model = Model,
@@ -119,8 +123,12 @@ export default abstract class Relation<
     public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: Map<string, Model> }): Promise<void>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract isEmpty(): boolean | null;
-    public abstract attach(model: Related): Related;
-    public abstract attach(attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related;
+    public abstract attach(model: Related, options?: AttachOptions): Related;
+    public abstract attach(
+        attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>,
+        options?: AttachOptions
+    ): Related;
+
     public abstract isRelated(model: Related): boolean;
 
     public abstract addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, ForeignKeyName>>(

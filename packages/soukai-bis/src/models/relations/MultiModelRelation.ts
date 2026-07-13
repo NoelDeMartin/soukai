@@ -33,9 +33,16 @@ export default abstract class MultiModelRelation<
         }
     }
 
-    public attach(model: Related): Related;
-    public attach(attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related;
-    public attach(modelOrAttributes: Related | GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related {
+    public attach(model: Related, options?: { mintUrl?: boolean }): Related;
+    public attach(
+        attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>,
+        options?: { mintUrl?: boolean }
+    ): Related;
+
+    public attach(
+        modelOrAttributes: Related | GetRelatedModelInput<RelatedClass, ForeignKeyName>,
+        options?: { mintUrl?: boolean },
+    ): Related {
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)
@@ -44,6 +51,14 @@ export default abstract class MultiModelRelation<
         return tap(model, () => {
             if (!this.assertLoaded('attach') || this.isRelated(model)) {
                 return;
+            }
+
+            if (options?.mintUrl) {
+                model.mintUrl(
+                    this.usingSameDocument
+                        ? { documentUrl: this.parent.getDocumentUrl() ?? undefined }
+                        : { containerUrl: this.parent.url },
+                );
             }
 
             this.addRelated(model);

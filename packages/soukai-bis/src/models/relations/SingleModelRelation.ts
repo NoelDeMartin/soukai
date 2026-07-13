@@ -31,9 +31,16 @@ export default abstract class SingleModelRelation<
         related && this.setInverseRelations(related);
     }
 
-    public attach(model: Related): Related;
-    public attach(attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related;
-    public attach(modelOrAttributes: Related | GetRelatedModelInput<RelatedClass, ForeignKeyName>): Related {
+    public attach(model: Related, options?: { mintUrl?: boolean }): Related;
+    public attach(
+        attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>,
+        options?: { mintUrl?: boolean }
+    ): Related;
+
+    public attach(
+        modelOrAttributes: Related | GetRelatedModelInput<RelatedClass, ForeignKeyName>,
+        options?: { mintUrl?: boolean },
+    ): Related {
         const model =
             modelOrAttributes instanceof this.relatedClass
                 ? (modelOrAttributes as Related)
@@ -44,6 +51,14 @@ export default abstract class SingleModelRelation<
                 throw new SoukaiError(
                     'The "attach" method can\'t be called because a related model already exists, ' +
                         'use a hasMany relationship if you want to support multiple related models.',
+                );
+            }
+
+            if (options?.mintUrl) {
+                model.mintUrl(
+                    this.usingSameDocument
+                        ? { documentUrl: this.parent.getDocumentUrl() ?? undefined }
+                        : { containerUrl: this.parent.url },
                 );
             }
 
