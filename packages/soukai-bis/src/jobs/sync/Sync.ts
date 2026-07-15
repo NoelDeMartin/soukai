@@ -50,6 +50,7 @@ export interface SyncConfig {
     maxErrors?: number;
     concurrency?: number;
     lastModifiedTolerance?: number;
+    createPrivateTypeIndex?(): Promise<TypeIndex>;
 }
 
 export interface SyncJobStatus extends JobStatus {
@@ -508,7 +509,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 registeredContainers: this.registeredContainers,
                 modelRegistrationPaths: this.modelRegistrationPaths,
                 getTypeIndex: async () => {
-                    return this.config.typeIndexes[0] ?? (await TypeIndex.createPrivate(this.config.userProfile));
+                    return this.config.typeIndexes[0] ?? (await this.createPrivateTypeIndex());
                 },
                 onModelsRegistered: (typeIndex, registeredModels) => {
                     return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
@@ -531,6 +532,16 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobSta
                 await this.updateProgress(() => (status.completed = true));
             }
         }
+    }
+
+    private async createPrivateTypeIndex(): Promise<TypeIndex> {
+        const typeIndex = this.config.createPrivateTypeIndex
+            ? await this.config.createPrivateTypeIndex()
+            : await TypeIndex.createPrivate(this.config.userProfile);
+
+        this.config.typeIndexes.push(typeIndex);
+
+        return typeIndex;
     }
 
     private async pushContainerChildrenDocuments(

@@ -39,6 +39,8 @@ export default class TypeIndex extends Model {
         const url = await createPrivateTypeIndex(user, TypeIndex.requireFetch());
         const instance = await this.findOrFail(url);
 
+        user.privateTypeIndexUrl = url;
+
         return instance;
     }
 
