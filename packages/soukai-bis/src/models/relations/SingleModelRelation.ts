@@ -76,9 +76,11 @@ export default abstract class SingleModelRelation<
             return;
         }
 
-        await this.related.delete();
+        const related = this.related;
 
         this.related = null;
+
+        await related.delete();
     }
 
     public isEmpty(): boolean | null {
