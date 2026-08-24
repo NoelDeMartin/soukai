@@ -471,23 +471,25 @@ export default class Model<
         return this._relations[name] as Relation;
     }
 
-    public async loadRelation(name: RelationName): Promise<void> {
+    public async loadRelation<T extends Model | Model[] | null>(name: RelationName): Promise<T> {
         const relation = this.getRelation(name);
 
         await relation.load();
         await emitModelEvent(this, 'relation-loaded', relation);
+
+        return relation.related as T;
     }
 
     public isRelationLoaded(name: RelationName): boolean {
         return this.getRelation(name).loaded;
     }
 
-    public async loadRelationIfUnloaded(name: RelationName): Promise<void> {
-        if (this.isRelationLoaded(name)) {
-            return;
+    public async loadRelationIfUnloaded<T extends Model | Model[] | null>(name: RelationName): Promise<T> {
+        if (!this.isRelationLoaded(name)) {
+            await this.loadRelation(name);
         }
 
-        await this.loadRelation(name);
+        return this.getRelation(name).related as T;
     }
 
     public mintUrl(options: MintUrlOptions = {}): string {
