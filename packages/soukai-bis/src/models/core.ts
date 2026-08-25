@@ -9,6 +9,7 @@ import TypeRegistration from './interop/TypeRegistration';
 import { coreOperationModels } from './crdts/core';
 import { bootModels } from './registry';
 import { bootCoreRelations } from './relations/core';
+import type { BootOptions } from './registry';
 import type { ModelConstructor } from './types';
 
 const coreModels = {
@@ -31,7 +32,7 @@ export function isCoreModel(modelClass: ModelConstructor): boolean {
     return getCoreModels().includes(modelClass);
 }
 
-export function bootCoreModels(options: { reset?: boolean } = {}): void {
+export function bootCoreModels(options: BootOptions = {}): void {
     bootCoreRelations();
     bootModels(coreModels, options);
 }

@@ -10,6 +10,10 @@ const bootedModels: Map<string, ModelConstructor> = new Map();
 
 export interface ModelsRegistry {}
 
+export interface BootOptions {
+    reset?: boolean;
+}
+
 export function getModelsFromViteGlob(
     glob: Record<string, Record<string, unknown>>,
     ignoreSuffixes: string[] = ['.schema', '.test'],
@@ -54,7 +58,7 @@ export function getBootedModels(): Map<string, ModelConstructor> {
 
 export function bootModels(
     models: Record<string, { boot(name: string): unknown; reset(): void }>,
-    options: { reset?: boolean } = {},
+    options: BootOptions = {},
 ): void {
     for (const [modelName, modelClass] of Object.entries(models)) {
         options.reset && modelClass.reset();
@@ -66,9 +70,11 @@ export function bootModels(
 
 export function bootModelsFromViteGlob(
     glob: Record<string, Record<string, unknown>>,
-    ignoreSuffixes: string[] = ['.schema'],
+    options: BootOptions & { ignoreSuffixes?: string[] } = {},
 ): void {
-    const models = getModelsFromViteGlob(glob, ignoreSuffixes);
+    const { ignoreSuffixes, ...bootOptions } = options;
+    const suffixes = ignoreSuffixes ?? ['.schema'];
+    const models = getModelsFromViteGlob(glob, suffixes);
 
-    bootModels(models);
+    bootModels(models, bootOptions);
 }
