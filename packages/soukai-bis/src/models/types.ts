@@ -45,4 +45,3 @@ export type ModelComputedAttributeDefinitions = Record<
 >;
 
 export type ModelsCache = Map<string, WeakMap<typeof Model, Model>>;
-
