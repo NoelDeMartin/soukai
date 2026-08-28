@@ -1,7 +1,7 @@
 import type { Quad } from '@rdfjs/types';
 
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor } from 'soukai-bis/models/types';
+import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
 import MultiModelRelation from './MultiModelRelation';
 import { classMarker } from './helpers';
@@ -21,7 +21,7 @@ export default class DocumentContainsManyRelation<
         return this.related;
     }
 
-    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: Map<string, Model> } = {}): Promise<void> {
+    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: ModelsCache } = {}): Promise<void> {
         this.related = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
         this.documentModelsLoaded = true;
         this.__modelsInSameDocument = this.related;

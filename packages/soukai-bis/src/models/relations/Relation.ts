@@ -5,7 +5,7 @@ import type { Constructor, Nullable } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
 import type Model from 'soukai-bis/models/Model';
-import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
+import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
 import type { GetRelatedModelInput, RelationConstructor } from './types';
@@ -120,7 +120,7 @@ export default abstract class Relation<
     }
 
     public abstract load(): Promise<Related | Related[] | null>;
-    public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: Map<string, Model> }): Promise<void>;
+    public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: ModelsCache }): Promise<void>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract isEmpty(): boolean | null;
     public abstract attach(model: Related, options?: AttachOptions): Related;

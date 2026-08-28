@@ -695,4 +695,29 @@ describe('Model', () => {
         expect(user.getDirtyAttributes()).not.toContain('email');
     });
 
+    it('caches instances by model class, not only url', async () => {
+        // Arrange
+        const Guest = defineSchema(User, {});
+        const url = fakeResourceUrl();
+        const rdf = await turtleToQuads(`
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+            <${url}>
+                a foaf:Person ;
+                foaf:name "Alice" .
+        `);
+
+        bootModels({ Guest });
+
+        // Act
+        const modelsCache = new Map();
+        const user = await User.createFromRDF(rdf, { url, modelsCache });
+        const guest = await Guest.createFromRDF(rdf, { url, modelsCache });
+
+        // Assert
+        expect(user).toBeInstanceOf(User);
+        expect(user).not.toBeInstanceOf(Guest);
+        expect(guest).toBeInstanceOf(Guest);
+    });
+
 });

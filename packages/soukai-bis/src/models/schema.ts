@@ -15,7 +15,7 @@ import { SchemaRelationDefinition } from './relations/schema';
 import { isModelClass } from './utils';
 import { requireBootedModel } from './registry';
 import type { ModelConstructorOptions } from './Model';
-import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
+import type { ModelConstructor, ModelInstanceType, ModelWithUrl, ModelsCache } from './types';
 import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRelations } from './relations/schema';
 
 export type Schema<
@@ -89,7 +89,7 @@ export type SchemaModelClass<
         createFromRDF<This>(
             this: This,
             quads: Quad[],
-            options: { url: string; modelsCache?: Map<string, Model> }
+            options: { url: string; modelsCache?: ModelsCache }
         ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createManyFromDocument<This>(
             this: This,

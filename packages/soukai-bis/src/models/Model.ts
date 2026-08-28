@@ -54,6 +54,7 @@ import type {
     ModelWithTimestamps,
     ModelWithTombstones,
     ModelWithUrl,
+    ModelsCache,
 } from './types';
 import type { SchemaComputedAttributeDefinition } from './relations/schema';
 import type { Schema } from './schema';
@@ -211,7 +212,7 @@ export default class Model<
     public static async createFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: { url: string; modelsCache?: Map<string, Model> },
+        options: { url: string; modelsCache?: ModelsCache },
     ): Promise<ModelWithUrl<T> | null> {
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
@@ -222,13 +223,17 @@ export default class Model<
             return null;
         }
 
-        if (modelsCache.has(url)) {
-            return modelsCache.get(url) as ModelWithUrl<T>;
+        const existingClassCache = modelsCache.get(url);
+
+        if (existingClassCache?.has(this)) {
+            return existingClassCache.get(this) as ModelWithUrl<T>;
         }
 
+        const classCache = existingClassCache ?? new WeakMap();
         const instance = createFromRDF<T>(this, url, quads);
 
-        modelsCache.set(url, instance);
+        modelsCache.set(url, classCache);
+        classCache.set(this, instance);
 
         for (const relationName of Object.keys(this.schema.relations)) {
             const relation = instance.getRelation(relationName);
@@ -266,7 +271,7 @@ export default class Model<
     public static async createManyFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: { modelsCache?: Map<string, Model> } = {},
+        options: { modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T>[]> {
         const typeIndex = buildRDFTypeIndex(quads);
         const matchingResourceUrls = arrayUnique(

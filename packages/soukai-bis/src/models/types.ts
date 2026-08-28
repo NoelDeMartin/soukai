@@ -43,3 +43,6 @@ export type ModelComputedAttributeDefinitions = Record<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ComputedAttributeCompute<any, unknown> | SchemaComputedAttributeDefinition
 >;
+
+export type ModelsCache = Map<string, WeakMap<typeof Model, Model>>;
+

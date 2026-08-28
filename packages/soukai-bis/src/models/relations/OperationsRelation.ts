@@ -4,7 +4,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
+import type { ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 
 import HasManyRelation from './HasManyRelation';
 import { requireBootedModel } from 'soukai-bis/models/registry';
@@ -43,7 +43,7 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
 
     protected async loadRelatedModelsFromDocumentRDF(
         quads: Quad[],
-        options: { modelsCache?: Map<string, Model> } = {},
+        options: { modelsCache?: ModelsCache } = {},
     ): Promise<Operation[]> {
         const parentUrl = this.parent.url;
         const allOperations = (await Promise.all(
