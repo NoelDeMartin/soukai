@@ -62,4 +62,30 @@ describe('HasOneRelation', () => {
         expect(action.objectUrl?.startsWith(movie.requireDocumentUrl())).toBe(true);
     });
 
+    it('loads related model using same document', async () => {
+        // Arrange
+        const movie = await Movie.create({ title: 'Spiderman' });
+        const action = await movie.relatedAction.create({ startTime: new Date() });
+        const freshMovie = new Movie({ url: movie.url, title: 'Spiderman' });
+        freshMovie.setExists(true);
+
+        // Act
+        await freshMovie.loadRelation('action');
+
+        // Assert
+        expect(freshMovie.action).toBeInstanceOf(WatchAction);
+        expect(freshMovie.action?.url).toBe(action.url);
+    });
+
+    it('returns null when trying to load from an unsaved parent using same document', async () => {
+        // Arrange
+        const movie = new Movie({ url: 'http://example.com/movie', title: 'Spiderman' });
+
+        // Act
+        const action = await movie.relatedAction.load();
+
+        // Assert
+        expect(action).toBeNull();
+    });
+
 });

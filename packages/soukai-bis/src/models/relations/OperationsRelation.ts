@@ -28,7 +28,7 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
 
         const documentUrl = this.parent.getDocumentUrl();
 
-        if (!documentUrl) {
+        if (!documentUrl || !this.parent.exists()) {
             return [];
         }
 

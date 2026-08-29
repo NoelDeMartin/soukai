@@ -694,6 +694,7 @@ export default class Model<
             return this;
         }
 
+        const thisExisted = this.exists();
         const dirtyDocumentModels = this.getDirtyDocumentModels();
         const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
 
@@ -707,6 +708,11 @@ export default class Model<
 
             await emitModelEvent(model, existed ? 'updated' : 'created');
             await emitModelEvent(model, 'saved');
+        }
+
+        if (!dirtyDocumentModels.includes(this)) {
+            await emitModelEvent(this, thisExisted ? 'updated' : 'created');
+            await emitModelEvent(this, 'saved');
         }
 
         return this as ModelWithUrl<this>;

@@ -47,6 +47,21 @@ export default class HasOneRelation<
         }
 
         const foreignKeyName = this.requireForeignKeyName();
+
+        if (this.usingSameDocument) {
+            const documentUrl = this.parent.getDocumentUrl();
+
+            if (!documentUrl || !this.parent.exists()) {
+                return null;
+            }
+
+            const engine = this.relatedClass.requireEngine();
+            const document = await engine.readDocument(documentUrl);
+            const relatedModels = await this.relatedClass.createManyFromDocument(document);
+
+            return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;
+        }
+
         const relatedModels = await this.relatedClass.all();
 
         return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;

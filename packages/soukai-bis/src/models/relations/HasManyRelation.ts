@@ -43,7 +43,7 @@ export default class HasManyRelation<
         if (this.usingSameDocument) {
             const documentUrl = this.parent.getDocumentUrl();
 
-            if (!documentUrl) {
+            if (!documentUrl || !this.parent.exists()) {
                 return [];
             }
 
