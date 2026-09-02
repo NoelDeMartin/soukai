@@ -1,4 +1,4 @@
-import { ListenersManager, PromisedValue, round, tap, toError } from '@noeldemartin/utils';
+import { ListenersManager, PromisedValue, round, tap, toError, uuid } from '@noeldemartin/utils';
 import type { Listeners } from '@noeldemartin/utils';
 
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
@@ -6,11 +6,12 @@ import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import type { JobListener, JobStatus } from './types';
 
 export default abstract class Job<
-    Listener extends JobListener = JobListener,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Listener extends JobListener<any> = JobListener,
     Status extends JobStatus = JobStatus,
-    SerializedStatus extends JobStatus = JobStatus,
 > {
 
+    public readonly id: string;
     protected status: Status;
     protected _listeners: ListenersManager<Listener>;
     protected _progress?: number;
@@ -19,6 +20,7 @@ export default abstract class Job<
     protected _completed: PromisedValue<void>;
 
     constructor() {
+        this.id = uuid();
         this.status = this.getInitialStatus();
         this._listeners = new ListenersManager();
         this._started = new PromisedValue();
@@ -37,6 +39,8 @@ export default abstract class Job<
             this._completed.resolve();
         } catch (error) {
             if (error instanceof JobCancelledError) {
+                await (this._listeners as ListenersManager<JobListener>).emit('onCancelled');
+
                 return;
             }
 
@@ -50,10 +54,6 @@ export default abstract class Job<
         this._cancelled = new PromisedValue();
 
         await this._cancelled;
-    }
-
-    public serialize(): SerializedStatus {
-        return this.serializeStatus(this.status);
     }
 
     public get listeners(): Listeners<Listener> {
@@ -137,10 +137,6 @@ export default abstract class Job<
         this._progress = progress;
 
         await (this._listeners as ListenersManager<JobListener>).emit('onUpdated', progress);
-    }
-
-    protected serializeStatus(status: Status): SerializedStatus {
-        return { ...status } as unknown as SerializedStatus;
     }
 
 }

@@ -64,23 +64,26 @@ export interface PullTask {
     remoteUpdatedAt?: Date;
 }
 
-export interface SyncJobListener extends JobListener {
+export interface SyncJobListener extends JobListener<{
+    syncedDocumentUrls: Set<string>;
+    documentsWithErrors: Set<string>;
+}> {
     onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
-    onFinished?(result: { syncedDocumentUrls: Set<string>; documentsWithErrors: Set<string> }): unknown;
 }
 
-export default class Sync extends Job<SyncJobListener, SyncJobStatus, SyncJobStatus> {
+export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
 
     public static async run(config: SyncConfig & SyncJobListener): Promise<void> {
         const job = new Sync(config);
 
         job.listeners.add({
             onModelsRegistered: (typeIndex, models) => config.onModelsRegistered?.(typeIndex, models),
-            onFinished: (result) => config.onFinished?.(result),
             onUpdated: (progress) => config.onUpdated?.(progress),
+            onFinished: (result) => config.onFinished?.(result),
+            onCancelled: () => config.onCancelled?.(),
         });
 
-        await job.run();
+        await job.start();
     }
 
     public readonly documentsWithErrors = new Set<string>();
