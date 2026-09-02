@@ -1,7 +1,7 @@
-export interface JobListener<T = void> {
+export interface JobListener<TResult = void, TCancelledResult = void> {
     onUpdated?(progress: number): unknown;
-    onFinished?(result: T): unknown;
-    onCancelled?(): unknown;
+    onFinished?(result: TResult): unknown;
+    onCancelled?(result: TCancelledResult): unknown;
     onFailed?(error: Error): unknown;
 }
 

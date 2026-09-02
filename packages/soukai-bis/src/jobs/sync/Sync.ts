@@ -64,14 +64,16 @@ export interface PullTask {
     remoteUpdatedAt?: Date;
 }
 
-export interface SyncJobListener extends JobListener<{
+export interface SyncJobResult {
     syncedDocumentUrls: Set<string>;
     documentsWithErrors: Set<string>;
-}> {
+}
+
+export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResult> {
     onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
 }
 
-export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
+export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
 
     public static async run(config: SyncConfig & SyncJobListener): Promise<void> {
         const job = new Sync(config);
@@ -80,7 +82,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
             onModelsRegistered: (typeIndex, models) => config.onModelsRegistered?.(typeIndex, models),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
-            onCancelled: () => config.onCancelled?.(),
+            onCancelled: (partialResult) => config.onCancelled?.(partialResult),
         });
 
         await job.start();
@@ -127,11 +129,13 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
         );
     }
 
-    protected async run(): Promise<void> {
+    protected async run(): Promise<SyncJobResult> {
         await this.prepareDocumentsLastModifiedAt();
         await this.pullChanges();
         await this.pushChanges();
         await this.finish();
+
+        return this.getResult();
     }
 
     protected override getInitialStatus(): SyncJobStatus {
@@ -155,6 +159,13 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
         }
 
         return super.calculateCurrentProgress(status);
+    }
+
+    private getResult(): SyncJobResult {
+        return {
+            syncedDocumentUrls: this.syncedDocumentUrls,
+            documentsWithErrors: this.documentsWithErrors,
+        };
     }
 
     private async getDocumentOperations(
@@ -237,10 +248,6 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
 
     private async finish(): Promise<void> {
         await ComputedAttributesCache.invalidate({ documentUrls: Array.from(this.syncedDocumentUrls) });
-        await this._listeners.emit('onFinished', {
-            syncedDocumentUrls: this.syncedDocumentUrls,
-            documentsWithErrors: this.documentsWithErrors,
-        });
     }
 
     private shouldPullDocument(document: SolidDocument): boolean {
@@ -374,7 +381,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
     }
 
     private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<PullTask[]> {
-        this.assertNotCancelled();
+        this.assertNotCancelled(this.getResult());
 
         if (this.syncedDocumentUrls.has(documentUrl)) {
             return [];
@@ -471,7 +478,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
     }
 
     private async pushContainerDocuments(url: string, status?: JobStatus): Promise<void> {
-        this.assertNotCancelled();
+        this.assertNotCancelled(this.getResult());
 
         if (this.unsyncedContainers && !this.unsyncedContainers.has(url)) {
             if (status) {
@@ -608,7 +615,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
     }
 
     private async pushRemoteDocument(localDocument: SolidDocument): Promise<SolidDocument> {
-        this.assertNotCancelled();
+        this.assertNotCancelled(this.getResult());
 
         this.syncedDocumentUrls.add(localDocument.url);
 
@@ -633,7 +640,7 @@ export default class Sync extends Job<SyncJobListener, SyncJobStatus> {
     }
 
     private async syncDocumentContents(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
-        this.assertNotCancelled();
+        this.assertNotCancelled(this.getResult());
 
         const resourceUrls = arrayUnique(
             [remoteDocument, localDocument].flatMap((document) =>

@@ -5,19 +5,23 @@ import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 
 import type { JobListener, JobStatus } from './types';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyListenersManager = ListenersManager<JobListener<any, any>>;
+
 export default abstract class Job<
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Listener extends JobListener<any> = JobListener<any>,
+    Result = any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    PartialResult = any, // eslint-disable-line @typescript-eslint/no-explicit-any
     Status extends JobStatus = JobStatus,
+    Listener extends JobListener<Result, PartialResult> = JobListener<Result, PartialResult>,
 > {
 
     public readonly id: string;
     protected status: Status;
     protected _listeners: ListenersManager<Listener>;
     protected _progress?: number;
-    protected _cancelled?: PromisedValue<void>;
+    protected _cancelled?: PromisedValue<PartialResult>;
     protected _started: PromisedValue<void>;
-    protected _completed: PromisedValue<void>;
+    protected _completed: PromisedValue<Result>;
 
     constructor() {
         this.id = uuid();
@@ -33,13 +37,17 @@ export default abstract class Job<
 
         try {
             await this.updateProgress();
-            await this.run();
+
+            const result = await this.run();
+
             await this.updateProgress();
 
-            this._completed.resolve();
+            this._completed.resolve(result);
+
+            await (this._listeners as AnyListenersManager).emit('onFinished', result);
         } catch (error) {
             if (error instanceof JobCancelledError) {
-                await (this._listeners as ListenersManager<JobListener>).emit('onCancelled');
+                await (this._listeners as AnyListenersManager).emit('onCancelled', error.result);
 
                 return;
             }
@@ -47,7 +55,7 @@ export default abstract class Job<
             throw tap(toError(error), (realError) => {
                 this._completed.reject(realError);
 
-                (this._listeners as ListenersManager<JobListener>).emit('onFailed', realError);
+                (this._listeners as AnyListenersManager).emit('onFailed', realError);
             });
         }
     }
@@ -74,11 +82,11 @@ export default abstract class Job<
         return this._started;
     }
 
-    public get completed(): Promise<void> {
+    public get completed(): Promise<Result> {
         return this._completed;
     }
 
-    protected abstract run(): Promise<void>;
+    protected abstract run(): Promise<Result>;
 
     protected getInitialStatus(): Status {
         return { completed: false } as Status;
@@ -99,14 +107,14 @@ export default abstract class Job<
         throw new Error('Job already started!');
     }
 
-    protected assertNotCancelled(): void {
+    protected assertNotCancelled(result: PartialResult): void {
         if (!this._cancelled) {
             return;
         }
 
-        this._cancelled.resolve();
+        this._cancelled.resolve(result);
 
-        throw new JobCancelledError();
+        throw new JobCancelledError(result);
     }
 
     protected calculateCurrentProgress(status?: JobStatus): number {
@@ -138,7 +146,7 @@ export default abstract class Job<
 
         this._progress = progress;
 
-        await (this._listeners as ListenersManager<JobListener>).emit('onUpdated', progress);
+        await (this._listeners as AnyListenersManager).emit('onUpdated', progress);
     }
 
 }
