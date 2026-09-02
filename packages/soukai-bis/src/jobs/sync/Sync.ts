@@ -85,7 +85,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             onCancelled: (partialResult) => config.onCancelled?.(partialResult),
         });
 
-        await job.start();
+        await job.process();
     }
 
     public readonly documentsWithErrors = new Set<string>();
@@ -266,7 +266,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         await this.initializeMatchingContainers();
 
         const containerUrls = Array.from(this.registeredContainers.keys());
-        const pullStatus = this.status.children[0];
+        const pullStatus = this.requireStatus().children[0];
 
         pullStatus.children = containerUrls.map(() => ({ completed: false }));
 
@@ -346,7 +346,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
     private async pushChanges(): Promise<void> {
         await this.prepareUnsyncedContainers();
-        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], this.status.children[1]);
+        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], this.requireStatus().children[1]);
         await this.updateProgress((status) => (status.children[1].completed = true));
     }
 

@@ -16,7 +16,7 @@ export default class MigrateLocalUrls extends Job {
     public static async run(config: MigrateLocalUrlsConfig): Promise<void> {
         const job = new MigrateLocalUrls(config);
 
-        await job.run();
+        await job.process();
     }
 
     public constructor(private config: MigrateLocalUrlsConfig) {

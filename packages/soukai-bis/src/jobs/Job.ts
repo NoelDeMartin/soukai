@@ -1,4 +1,4 @@
-import { ListenersManager, PromisedValue, round, tap, toError, uuid } from '@noeldemartin/utils';
+import { ListenersManager, PromisedValue, fail, round, tap, toError, uuid } from '@noeldemartin/utils';
 import type { Listeners } from '@noeldemartin/utils';
 
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
@@ -16,7 +16,7 @@ export default abstract class Job<
 > {
 
     public readonly id: string;
-    protected status: Status;
+    protected status?: Status;
     protected _listeners: ListenersManager<Listener>;
     protected _progress?: number;
     protected _cancelled?: PromisedValue<PartialResult>;
@@ -25,15 +25,13 @@ export default abstract class Job<
 
     constructor() {
         this.id = uuid();
-        this.status = this.getInitialStatus();
         this._listeners = new ListenersManager();
         this._started = new PromisedValue();
         this._completed = new PromisedValue();
     }
 
-    public async start(): Promise<void> {
+    public async process(): Promise<Result | PartialResult> {
         this.beforeStart();
-        this._started.resolve();
 
         try {
             await this.updateProgress();
@@ -45,11 +43,13 @@ export default abstract class Job<
             this._completed.resolve(result);
 
             await (this._listeners as AnyListenersManager).emit('onFinished', result);
+
+            return result;
         } catch (error) {
             if (error instanceof JobCancelledError) {
                 await (this._listeners as AnyListenersManager).emit('onCancelled', error.result);
 
-                return;
+                return error.result as PartialResult;
             }
 
             throw tap(toError(error), (realError) => {
@@ -78,6 +78,10 @@ export default abstract class Job<
         return !!this._cancelled?.isResolved();
     }
 
+    public get cancellationRequested(): boolean {
+        return !!this._cancelled;
+    }
+
     public get started(): Promise<void> {
         return this._started;
     }
@@ -92,19 +96,17 @@ export default abstract class Job<
         return { completed: false } as Status;
     }
 
+    protected requireStatus(): Status {
+        return this.status ?? fail('Job status not initialized yet');
+    }
+
     protected beforeStart(): void {
-        if (!this._started.isResolved()) {
-            return;
+        if (this._started.isResolved()) {
+            throw new Error('Job already started!');
         }
 
-        if (this._cancelled) {
-            delete this._progress;
-            delete this._cancelled;
-
-            return;
-        }
-
-        throw new Error('Job already started!');
+        this.status = this.getInitialStatus();
+        this._started.resolve();
     }
 
     protected assertNotCancelled(result: PartialResult): void {
@@ -118,7 +120,7 @@ export default abstract class Job<
     }
 
     protected calculateCurrentProgress(status?: JobStatus): number {
-        status ??= this.status;
+        status ??= this.requireStatus();
 
         if (status.completed) {
             return 1;
@@ -136,7 +138,7 @@ export default abstract class Job<
     }
 
     protected async updateProgress(update?: (status: Status) => unknown): Promise<void> {
-        await update?.(this.status);
+        await update?.(this.requireStatus());
 
         const progress = this.calculateCurrentProgress();
 
