@@ -7,7 +7,7 @@ import type { JobListener, JobStatus } from './types';
 
 export default abstract class Job<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Listener extends JobListener<any> = JobListener,
+    Listener extends JobListener<any> = JobListener<any>,
     Status extends JobStatus = JobStatus,
 > {
 
