@@ -46,6 +46,8 @@ export default abstract class Job<
 
             throw tap(toError(error), (realError) => {
                 this._completed.reject(realError);
+
+                (this._listeners as ListenersManager<JobListener>).emit('onFailed', realError);
             });
         }
     }
