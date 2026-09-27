@@ -31,11 +31,11 @@ export default class HasOneRelation<
         if (related) {
             this.__modelInSameDocument = related;
 
-            if (this.__newModel) {
-                delete this.__newModel;
-            }
+            delete this.__newModel;
         } else if (this.usingSameDocument) {
             this.related = null;
+
+            delete this.__newModel;
         }
     }
 

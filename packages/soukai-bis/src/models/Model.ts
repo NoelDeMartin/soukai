@@ -30,6 +30,7 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
 import { getEngine, requireEngine } from 'soukai-bis/engines/state';
+import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/utils/rdf';
 import { isSolidEngine } from 'soukai-bis/engines/utils';
 import type Engine from 'soukai-bis/engines/Engine';
 
@@ -241,6 +242,8 @@ export default class Model<
             await relation.loadFromDocumentRDF(quads, { modelsCache });
         }
 
+        instance.initializeLegacyTimestamps(quads);
+
         await instance.restoreComputedAttributes();
 
         return instance;
@@ -351,6 +354,7 @@ export default class Model<
     protected _dirtyAttributes: Set<FieldName>;
     protected _computedAttributes: Record<string, ComputedAttribute> = {};
     protected _relations: Record<string, Relation> = {};
+    protected _legacyTimestamps: { createdAt?: Date; updatedAt?: Date } | null = null;
 
     public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
         super();
@@ -752,7 +756,10 @@ export default class Model<
         }
 
         if (this.static('schema').timestamps && (property === 'createdAt' || property === 'updatedAt')) {
-            return (this._relations.metadata?.related as Metadata)?._attributes[property];
+            return (
+                (this._relations.metadata?.related as Metadata)?._attributes[property] ??
+                this._legacyTimestamps?.[property]
+            );
         }
 
         if (property in this.static('schema').relations) {
@@ -887,18 +894,36 @@ export default class Model<
         await Promise.all(relatedModels.map(refreshComputedAttributes));
     }
 
-    protected initializeMetadata(): void {
+    protected initializeMetadata(timestamps: { createdAt?: Date; updatedAt?: Date } = {}): void {
         if (!this.hasTimestamps()) {
             return;
         }
 
         const metadata = this.relatedMetadata.attach({
             resourceUrl: this.url,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: timestamps.createdAt ?? new Date(),
+            updatedAt: timestamps.updatedAt ?? new Date(),
         });
 
         this.url && metadata.mintUrl();
+    }
+
+    protected initializeLegacyTimestamps(quads: Quad[]): void {
+        if (!this.hasTimestamps() || this.metadata) {
+            return;
+        }
+
+        const legacyDate = (predicate: string) => {
+            const quad = quads.find((q) => q.subject.value === this.url && q.predicate.value === predicate);
+            const date = quad && new Date(quad.object.value);
+
+            return date && !isNaN(date.getTime()) ? date : undefined;
+        };
+
+        const createdAt = legacyDate(PURL_CREATED);
+        const updatedAt = legacyDate(PURL_MODIFIED) ?? createdAt;
+
+        this._legacyTimestamps = { createdAt, updatedAt };
     }
 
     protected async restoreComputedAttributes(): Promise<void> {
@@ -915,8 +940,14 @@ export default class Model<
         );
     }
 
-    protected touch(now: Date): void {
+    protected touch(now?: Date): void {
         if (!this.hasTimestamps()) {
+            return;
+        }
+
+        if (!this.metadata) {
+            this.initializeMetadata({ createdAt: this._legacyTimestamps?.createdAt ?? now, updatedAt: now });
+
             return;
         }
 

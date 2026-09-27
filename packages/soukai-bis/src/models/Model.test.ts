@@ -538,6 +538,50 @@ describe('Model', () => {
         expect(user?.getDocumentModels()).toHaveLength(2);
     });
 
+    it('updates legacy instances without metadata', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const url = `${documentUrl}#it`;
+
+        await engine.createDocument(
+            documentUrl,
+            await turtleToQuads(`
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix purl: <http://purl.org/dc/terms/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <${url}>
+                    a foaf:Person ;
+                    foaf:name "Alice" ;
+                    purl:created "2020-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                    purl:modified "2020-01-02T00:00:00.000Z"^^xsd:dateTime .
+            `),
+        );
+
+        const user = await User.findOrFail(url);
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+
+        await user.save();
+
+        expect(updateDocumentSpy).not.toHaveBeenCalled();
+        expect(user.isDirty()).toBe(false);
+        expect(user.metadata).toBeFalsy();
+        expect(user.createdAt).toEqual(new Date('2020-01-01T00:00:00.000Z'));
+        expect(user.updatedAt).toEqual(new Date('2020-01-02T00:00:00.000Z'));
+
+        // Act
+        await user.update({ name: 'Alice Cooper' });
+
+        // Assert
+        const freshUser = await user.fresh();
+
+        expect(freshUser.name).toEqual('Alice Cooper');
+        expect(freshUser.metadata?.url).toEqual(`${url}-metadata`);
+        expect(freshUser.createdAt).toEqual(new Date('2020-01-01T00:00:00.000Z'));
+        expect(freshUser.updatedAt).toEqual(user.updatedAt);
+        expect(freshUser.updatedAt?.getTime()).toBeGreaterThan(new Date('2020-01-02T00:00:00.000Z').getTime());
+    });
+
     it('returns null when creating instances from mismatched JsonLD', async () => {
         const url = 'https://example.com/post';
         const jsonld = {
