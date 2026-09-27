@@ -3,7 +3,8 @@
     "version": "0.0.0",
     "type": "module",
     "sideEffects": [
-        "./dist/patch-zod.js"
+        "./dist/patch-zod.js",
+        "./src/patch-zod.ts"
     ],
     "exports": {
         ".": {
