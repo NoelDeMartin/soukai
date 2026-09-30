@@ -1,10 +1,8 @@
-import { describe, expect, it } from 'vitest';
-
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('ContainsRelation', () => {
-
     it('creates related model', async () => {
         // Arrange
         const collection = await PostsCollection.create({ url: 'https://example.com/posts/' });
@@ -49,5 +47,4 @@ describe('ContainsRelation', () => {
         expect(post.url?.startsWith('solid://posts/')).toBe(true);
         expect(collection.resourceUrls).toContain(post.getDocumentUrl());
     });
-
 });

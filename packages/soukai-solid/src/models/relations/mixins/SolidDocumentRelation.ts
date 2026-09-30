@@ -1,8 +1,7 @@
 import type { Relation } from 'soukai';
-
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 import type { DocumentContainsRelation } from 'soukai-solid/models/relations/DocumentContainsRelation';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
 // Workaround for https://github.com/microsoft/TypeScript/issues/35356
 export interface ISolidDocumentRelation<Related extends SolidModel = SolidModel> extends DocumentContainsRelation {
@@ -17,7 +16,6 @@ export type SolidDocumentRelationInstance<
 > = Relation<Parent, Related, RelatedClass> & SolidDocumentRelation<Related> & ISolidDocumentRelation<Related>;
 
 export default abstract class SolidDocumentRelation<Related extends SolidModel> {
-
     public useSameDocument: boolean = false;
 
     protected documentModelsLoaded: boolean = false;
@@ -29,5 +27,4 @@ export default abstract class SolidDocumentRelation<Related extends SolidModel> 
     }
 
     protected abstract loadDocumentModels(modelsInSameDocument: Related[], modelsInOtherDocumentIds: string[]): void;
-
 }

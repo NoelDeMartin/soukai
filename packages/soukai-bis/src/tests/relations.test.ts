@@ -1,15 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-
+import { setEngine } from 'soukai-bis/engines';
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import User from 'soukai-bis/testing/stubs/User';
-import { setEngine } from 'soukai-bis/engines';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('Relations', () => {
-
     beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('belongsToOne', async () => {
@@ -326,7 +324,7 @@ describe('Relations', () => {
 
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 @prefix schema: <https://schema.org/> .
                 @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
@@ -354,5 +352,4 @@ describe('Relations', () => {
             }
         `);
     });
-
 });

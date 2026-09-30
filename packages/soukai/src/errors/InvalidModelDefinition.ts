@@ -1,7 +1,6 @@
 import SoukaiError from 'soukai/errors/SoukaiError';
 
 export default class InvalidModelDefinition extends SoukaiError {
-
     public readonly modelName: string;
 
     constructor(modelName: string, message: string) {
@@ -9,5 +8,4 @@ export default class InvalidModelDefinition extends SoukaiError {
 
         this.modelName = modelName;
     }
-
 }

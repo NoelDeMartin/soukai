@@ -14,33 +14,32 @@ import {
     tap,
     toString,
 } from '@noeldemartin/utils';
-
+import { extractFinalEngine, getEngine, requireEngine } from 'soukai/engines';
+import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from 'soukai/engines/Engine';
 import InvalidModelAttributes from 'soukai/errors/InvalidModelAttributes';
 import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
 import SoukaiError from 'soukai/errors/SoukaiError';
-import { extractFinalEngine, getEngine, requireEngine } from 'soukai/engines';
-import type { Engine, EngineDocument, EngineFilters, EngineUpdates } from 'soukai/engines/Engine';
 
+import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
+import type { Attributes } from './attributes';
+import { FieldType, bootFieldDefinition } from './fields';
+import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
+import type { ModelHooks } from './hooks';
+import type { ModelConstructor, SchemaDefinition } from './inference';
+import { emitModelEvent, registerModelListener } from './listeners';
+import type { ModelClassEvents, ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
+import ModelKey from './ModelKey';
+import { ensureInverseRelationsBooted } from './relations';
 import BelongsToManyRelation from './relations/BelongsToManyRelation';
 import BelongsToOneRelation from './relations/BelongsToOneRelation';
 import HasManyRelation from './relations/HasManyRelation';
 import HasOneRelation from './relations/HasOneRelation';
-import ModelKey from './ModelKey';
 import MultiModelRelation from './relations/MultiModelRelation';
-import SingleModelRelation from './relations/SingleModelRelation';
-import { FieldType, bootFieldDefinition } from './fields';
-import { removeUndefinedAttributes, validateAttributes, validateRequiredAttributes } from './attributes';
-import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
-import { withEngineImpl } from './utils';
-import { emitModelEvent, registerModelListener } from './listeners';
-import { ensureInverseRelationsBooted } from './relations';
-import type { Attributes } from './attributes';
-import type { BootedFieldDefinition, BootedFieldsDefinition, FieldsDefinition } from './fields';
-import type { ModelClassEvents, ModelEmitArgs, ModelEvents, ModelListener } from './listeners';
-import type { ModelConstructor, SchemaDefinition } from './inference';
-import type { ModelHooks } from './hooks';
 import type { Relation } from './relations/Relation';
+import SingleModelRelation from './relations/SingleModelRelation';
+import { TIMESTAMP_FIELDS, TimestampField } from './timestamps';
 import type { TimestampFieldValue, TimestampsDefinition } from './timestamps';
+import { withEngineImpl } from './utils';
 
 const modelsWithMintedCollections = new WeakSet();
 const modelLocks = new WeakMap<typeof Model, Semaphore>();
@@ -60,7 +59,6 @@ export type ModelCastAttributeOptions = {
 };
 
 export class Model {
-
     public static collection: string;
     public static primaryKey: string = 'id';
     public static timestamps: TimestampsDefinition;
@@ -150,6 +148,7 @@ export class Model {
     public static async findOrFail<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T> {
         const instance = await this.find(id);
 
+        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
         return instance ?? fail(`Failed getting required model ${id}`);
     }
 
@@ -161,7 +160,7 @@ export class Model {
             const instance = await this.createFromEngineDocument(id, document);
 
             return instance;
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -310,11 +309,12 @@ export class Model {
     }
 
     protected static bootCollection(): string {
+        // oxlint-disable-next-line typescript/no-this-alias
         let modelClass = this;
 
         while (
             modelClass !== Model &&
-            // eslint-disable-next-line no-prototype-builtins
+            // oxlint-disable-next-line no-prototype-builtins
             (!modelClass.hasOwnProperty('collection') || modelsWithMintedCollections.has(modelClass))
         ) {
             modelClass = Object.getPrototypeOf(modelClass);
@@ -419,7 +419,7 @@ export class Model {
         relations: string[];
         attributeGetters: Map<string, () => unknown>;
         attributeSetters: Map<string, (value: unknown) => void>;
-        } {
+    } {
         const instance = this.pureInstance();
         const builtInClassFields = ['_engine', '_recentlyDeletedPrimaryKey'];
         const classFields: string[] = Object.getOwnPropertyNames(instance).concat(builtInClassFields);
@@ -432,6 +432,7 @@ export class Model {
             if (prototype.constructor.classFields) classFields.push(...prototype.constructor.classFields);
 
             for (const [p, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(prototype))) {
+                // oxlint-disable-next-line typescript/no-redundant-type-constituents
                 const property = p as keyof typeof instance & string;
 
                 if (typeof descriptor.value !== 'function') continue;
@@ -505,7 +506,7 @@ export class Model {
 
         // This fixes an undiagnosed Firefox bug where the second argument wouldn't be assigned
         // to the default value.
-        // eslint-disable-next-line prefer-rest-params
+        // oxlint-disable-next-line prefer-rest-params
         const exists = arguments[1] ?? false;
 
         this.initialize(attributes, exists);
@@ -540,6 +541,7 @@ export class Model {
 
         if (!freshInstance)
             throw new SoukaiError(
+                // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
                 `Couldn't get fresh instance for ${this.static('modelName')} with id '${primaryKey}'`,
             );
 
@@ -597,8 +599,10 @@ export class Model {
     public async loadRelation<T extends Model | null | Model[] = Model | null | Model[]>(relation: string): Promise<T> {
         const relationInstance = this.requireRelation(relation);
         const related = await relationInstance.relatedClass.withEngine(this.requireEngine(), () =>
-            relationInstance.load());
+            relationInstance.load(),
+        );
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         this.emit('relation-loaded', relationInstance);
 
         return related as T;
@@ -620,7 +624,7 @@ export class Model {
         const relationInstance = this.requireRelation(relation);
 
         if (relationInstance instanceof MultiModelRelation) {
-            // eslint-disable-next-line no-console
+            // oxlint-disable-next-line no-console
             console.warn(
                 `You're getting a single model from the multi-model '${relation}' relation ` +
                     `in the '${this.static('modelName')}' model.`,
@@ -646,7 +650,7 @@ export class Model {
         const relationInstance = this.requireRelation(relation);
 
         if (relationInstance instanceof MultiModelRelation) {
-            // eslint-disable-next-line no-console
+            // oxlint-disable-next-line no-console
             console.warn(
                 `You're setting a single model for the multi-model '${relation}' relation ` +
                     `in the '${this.static('modelName')}' model.`,
@@ -669,7 +673,7 @@ export class Model {
 
             if (models.length > 0) {
                 throw new SoukaiError(
-                    'Can\'t set multiple models for SingleModelRelation, use setRelationModel instead',
+                    "Can't set multiple models for SingleModelRelation, use setRelationModel instead",
                 );
             }
 
@@ -706,6 +710,7 @@ export class Model {
             this.setAttribute(alias, value);
         }
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         this.attributeValueChanged(previousValue, value) && this.emit('modified', field);
     }
 
@@ -844,7 +849,7 @@ export class Model {
             validateRequiredAttributes(this._attributes, this.static('fields'));
 
             return false;
-        } catch (error) {
+        } catch {
             return true;
         }
     }
@@ -946,8 +951,8 @@ export class Model {
         const constructorsOption = options.constructors;
         const constructors = Array.isArray(constructorsOption)
             ? tap(new WeakMap(), (map) => {
-                constructorsOption.forEach(([original, substitute]) => map.set(original, substitute));
-            })
+                  constructorsOption.forEach(([original, substitute]) => map.set(original, substitute));
+              })
             : (constructorsOption ?? new WeakMap<typeof Model, typeof Model>());
         const classConstructor = constructors.get(this.static()) ?? this.static();
         const clone = new classConstructor(this.getAttributes());
@@ -1096,7 +1101,8 @@ export class Model {
     protected async createManyFromEngineDocuments(documents: Record<string, EngineDocument>): Promise<this[]> {
         return Promise.all(
             Object.entries(documents).map(([id, document]) =>
-                this.createFromEngineDocument(this.parseKey(id), document)),
+                this.createFromEngineDocument(this.parseKey(id), document),
+            ),
         );
     }
 
@@ -1356,7 +1362,8 @@ export class Model {
                             this.castAttribute(attributeValue, {
                                 field: field && `${field}.${index}`,
                                 malformedAttributes,
-                            }));
+                            }),
+                        );
 
                     if (value instanceof Date || value instanceof ModelKey) return value;
 
@@ -1374,6 +1381,7 @@ export class Model {
             case FieldType.Date:
                 if (!['string', 'number'].includes(typeof value) && !(value instanceof Date)) {
                     throw new SoukaiError(
+                        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
                         `Invalid Date value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
                     );
                 }
@@ -1382,6 +1390,7 @@ export class Model {
             case FieldType.Object:
                 if (!isObject(value)) {
                     throw new SoukaiError(
+                        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
                         `Invalid Object value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
                     );
                 }
@@ -1395,6 +1404,7 @@ export class Model {
             case FieldType.Array:
                 if (!Array.isArray(value)) {
                     throw new SoukaiError(
+                        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
                         `Invalid Array value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
                     );
                 }
@@ -1404,7 +1414,8 @@ export class Model {
                         field: field && `${field}.${index}`,
                         definition: definition.items as BootedFieldDefinition,
                         malformedAttributes,
-                    }));
+                    }),
+                );
             case FieldType.Boolean:
                 return !!value;
             case FieldType.Number: {
@@ -1412,6 +1423,7 @@ export class Model {
 
                 if (isNaN(number)) {
                     throw new SoukaiError(
+                        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
                         `Invalid Number value (${value}) found in ${this.static('modelName')} ${this.getPrimaryKey()}.`,
                     );
                 }
@@ -1494,5 +1506,4 @@ export class Model {
     protected parseKey(key: string): Key {
         return key;
     }
-
 }

@@ -1,15 +1,14 @@
 import { arrayDiff, isInstanceOf, objectWithoutEmpty, requireUrlParentDirectory, tap } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 import { SoukaiError } from 'soukai';
 import type { EngineAttributeUpdate, EngineAttributeUpdateOperation, EngineAttributeValueMap } from 'soukai';
-import type { Nullable } from '@noeldemartin/utils';
-
-import type Operation from 'soukai-solid/models/history/Operation';
-import { bootSolidSchemaDecoupled } from 'soukai-solid/models/internals/helpers';
-import { operationClass } from 'soukai-solid/models/history/operations';
-import { CRDT_PROPERTY, CRDT_RESOURCE } from 'soukai-solid/solid/constants';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
-import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 import type { SolidSchemaDefinition } from 'soukai-solid/models/fields';
+import type Operation from 'soukai-solid/models/history/Operation';
+import { operationClass } from 'soukai-solid/models/history/operations';
+import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import { bootSolidSchemaDecoupled } from 'soukai-solid/models/internals/helpers';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import { CRDT_PROPERTY, CRDT_RESOURCE } from 'soukai-solid/solid/constants';
 
 export interface MigrateSchemaOptions {
     mintOperationUrl?(operation: Operation): Nullable<string>;
@@ -18,14 +17,13 @@ export interface MigrateSchemaOptions {
 export type This = SolidModel;
 
 export default class MigratesSchemas {
-
     public async migrateSchema<T extends SolidModel>(
         this: This,
         schema: SolidSchemaDefinition | SolidModelConstructor<T>,
         options: MigrateSchemaOptions = {},
     ): Promise<T> {
         if (this.isDirty()) {
-            throw new SoukaiError('Can\'t migrate dirty model, call save() before proceeding.');
+            throw new SoukaiError("Can't migrate dirty model, call save() before proceeding.");
         }
 
         const bootedSchema = bootSolidSchemaDecoupled(schema, this.static());
@@ -258,5 +256,4 @@ export default class MigratesSchemas {
                 : { '@graph': { $apply: graphUpdates } },
         );
     }
-
 }

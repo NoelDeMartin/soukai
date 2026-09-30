@@ -1,20 +1,17 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
-import { bootModels } from 'soukai';
+import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { uuid } from '@noeldemartin/utils';
-import type { EngineDocument } from 'soukai';
 import type { Tuple } from '@noeldemartin/utils';
-
+import { bootModels } from 'soukai';
+import type { EngineDocument } from 'soukai';
 import IRI from 'soukai-solid/solid/utils/IRI';
-
+import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
 import { stubMovieJsonLD, stubWatchActionJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
-import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
-import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { beforeAll, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('SolidHasManyRelation', () => {
-
     beforeAll(() => bootModels({ Movie, WatchAction }));
     beforeEach(() => FakeSolidEngine.use());
 
@@ -61,7 +58,7 @@ describe('SolidHasManyRelation', () => {
         expect(movieActions[1].startTime).toEqual(new Date('2010-02-15T23:42:00.000Z'));
 
         expect(FakeSolidEngine.readMany).toHaveBeenCalledWith(expect.anything(), {
-            '$in': [secondActionUrl],
+            $in: [secondActionUrl],
             '@graph': {
                 $contains: {
                     '@type': {
@@ -92,5 +89,4 @@ describe('SolidHasManyRelation', () => {
         expect(relationClone.__newModels).toHaveLength(3);
         expect(relationClone.useSameDocument).toBe(true);
     });
-
 });

@@ -1,7 +1,6 @@
 import { SoukaiError } from 'soukai';
 
 export default class ResourceNotFound extends SoukaiError {
-
     constructor(resourceId: string, documentUrl?: string) {
         super(
             documentUrl
@@ -9,5 +8,4 @@ export default class ResourceNotFound extends SoukaiError {
                 : `Couldn't find resource with id '${resourceId}' in document.`,
         );
     }
-
 }

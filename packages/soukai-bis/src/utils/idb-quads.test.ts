@@ -1,10 +1,9 @@
 import { RDFLiteral, RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { parseIDBQuads, serializeIDBQuads } from './idb-quads';
 
 describe('IDB quad helpers', () => {
-
     it('serializes and deserializes named nodes, plain literals, typed literals, and language tags', () => {
         const quads = [
             new RDFQuad('https://example.com/alice', 'https://example.com/name', new RDFLiteral('Alice')),
@@ -27,7 +26,10 @@ describe('IDB quad helpers', () => {
         expect(serialized).toEqual({
             'https://example.com/alice': [
                 { p: 'https://example.com/name', o: { v: 'Alice' } },
-                { p: 'https://example.com/age', o: { v: '42', dt: 'http://www.w3.org/2001/XMLSchema#integer' } },
+                {
+                    p: 'https://example.com/age',
+                    o: { v: '42', dt: 'http://www.w3.org/2001/XMLSchema#integer' },
+                },
                 { p: 'https://example.com/bio', o: { v: 'Hello', lang: 'en' } },
                 { p: 'https://example.com/friend', o: 'https://example.com/bob' },
             ],
@@ -71,5 +73,4 @@ describe('IDB quad helpers', () => {
             'Blank nodes are not supported for quad IDB serialization',
         );
     });
-
 });

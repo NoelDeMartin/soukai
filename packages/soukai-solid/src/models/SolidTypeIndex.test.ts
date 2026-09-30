@@ -1,13 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { setEngine } from 'soukai';
-
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import SolidTypeIndex from './SolidTypeIndex';
 
 describe('SolidTypeIndex', () => {
-
     beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
 
     it('reads type registrations', async () => {
@@ -51,5 +49,4 @@ describe('SolidTypeIndex', () => {
         expect(typeIndex).not.toBeNull();
         expect(typeIndex?.registrations).toHaveLength(4);
     });
-
 });

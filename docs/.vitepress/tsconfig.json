@@ -1,0 +1,7 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        // VitePress 1 bundles an esbuild version that doesn't recognize newer targets.
+        "target": "ES2022"
+    }
+}

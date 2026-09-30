@@ -1,9 +1,9 @@
-import HasOneRelation from './HasOneRelation';
-import BelongsToOneRelation from './BelongsToOneRelation';
 import BelongsToManyRelation from './BelongsToManyRelation';
-import HasManyRelation from './HasManyRelation';
-import IsContainedByRelation from './IsContainedByRelation';
+import BelongsToOneRelation from './BelongsToOneRelation';
 import ContainsRelation from './ContainsRelation';
+import HasManyRelation from './HasManyRelation';
+import HasOneRelation from './HasOneRelation';
+import IsContainedByRelation from './IsContainedByRelation';
 
 export function bootCoreRelations(): void {
     if (BelongsToManyRelation.inverseHasRelationClasses.length > 0) {

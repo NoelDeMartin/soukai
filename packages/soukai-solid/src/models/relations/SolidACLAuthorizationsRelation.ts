@@ -2,7 +2,6 @@ import { fetchSolidDocumentACL, quadsToJsonLD } from '@noeldemartin/solid-utils'
 import { fail } from '@noeldemartin/utils';
 import { MultiModelRelation, requireBootedModel } from 'soukai';
 import type { EngineDocument } from 'soukai';
-
 import type SolidACLAuthorization from 'soukai-solid/models/SolidACLAuthorization';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
@@ -11,7 +10,6 @@ export default class SolidACLAuthorizationsRelation<Parent extends SolidModel = 
     SolidACLAuthorization,
     typeof SolidACLAuthorization
 > {
-
     declare public aclUrl: string | undefined;
     declare public effectiveACLUrl: string | undefined;
 
@@ -51,7 +49,8 @@ export default class SolidACLAuthorizationsRelation<Parent extends SolidModel = 
                         acl.effectiveUrl,
                         jsonld as EngineDocument,
                         subject.value,
-                    )),
+                    ),
+                ),
         );
 
         this.aclUrl = acl.url;
@@ -60,5 +59,4 @@ export default class SolidACLAuthorizationsRelation<Parent extends SolidModel = 
 
         return authorizations;
     }
-
 }

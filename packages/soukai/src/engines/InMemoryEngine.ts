@@ -1,6 +1,4 @@
 import { fail } from '@noeldemartin/utils';
-
-import { EngineHelper } from 'soukai/engines/EngineHelper';
 import type {
     Engine,
     EngineDocument,
@@ -8,7 +6,7 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai/engines/Engine';
-
+import { EngineHelper } from 'soukai/engines/EngineHelper';
 import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 
@@ -25,7 +23,6 @@ export interface InMemoryEngineDatabase {
  * get an [[InMemoryEngineDatabase]].
  */
 export class InMemoryEngine implements Engine {
-
     private helper: EngineHelper;
     private _database: InMemoryEngineDatabase = {};
 
@@ -94,5 +91,4 @@ export class InMemoryEngine implements Engine {
     private collection(name: string): InMemoryEngineCollection {
         return (this._database[name] ??= {});
     }
-
 }

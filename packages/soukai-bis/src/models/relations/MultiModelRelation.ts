@@ -1,12 +1,11 @@
 import { arrayRemove, tap, uuid } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
-
 import { emitModelEvent } from 'soukai-bis/models/concerns/events';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
-import Relation from './Relation';
 import { classMarker } from './helpers';
+import Relation from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default abstract class MultiModelRelation<
@@ -15,7 +14,6 @@ export default abstract class MultiModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > extends Relation<Parent, Related, RelatedClass, ForeignKeyName> {
-
     public static [classMarker] = ['MultiModelRelation'];
 
     declare public __newModels?: Related[];
@@ -37,7 +35,7 @@ export default abstract class MultiModelRelation<
     public attach(model: Related, options?: { mintUrl?: boolean }): Related;
     public attach(
         attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>,
-        options?: { mintUrl?: boolean }
+        options?: { mintUrl?: boolean },
     ): Related;
 
     public attach(
@@ -58,9 +56,9 @@ export default abstract class MultiModelRelation<
                 model.mintUrl(
                     this.usingSameDocument
                         ? {
-                            documentUrl: this.parent.getDocumentUrl() ?? undefined,
-                            resourceHash: uuid(),
-                        }
+                              documentUrl: this.parent.getDocumentUrl() ?? undefined,
+                              resourceHash: uuid(),
+                          }
                         : { containerUrl: this.parent.url },
                 );
             }
@@ -122,5 +120,4 @@ export default abstract class MultiModelRelation<
     }
 
     public abstract load(): Promise<Related[]>;
-
 }

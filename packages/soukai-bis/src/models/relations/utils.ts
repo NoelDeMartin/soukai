@@ -1,6 +1,6 @@
-import { isModelClass } from 'soukai-bis/models/utils';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
+import { isModelClass } from 'soukai-bis/models/utils';
 
 function _getRelatedClasses(modelClass: ModelConstructor, visited?: Set<ModelConstructor>): Set<ModelConstructor> {
     visited ??= new Set();

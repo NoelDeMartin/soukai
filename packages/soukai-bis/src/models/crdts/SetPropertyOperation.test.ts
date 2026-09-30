@@ -1,12 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { fakeDocumentUrl } from '@noeldemartin/testing';
 import { turtleToQuads } from '@noeldemartin/solid-utils';
+import { fakeDocumentUrl } from '@noeldemartin/testing';
 import type { Literal } from '@rdfjs/types';
+import { describe, expect, it } from 'vite-plus/test';
 
 import SetPropertyOperation from './SetPropertyOperation';
 
 describe('SetPropertyOperation', () => {
-
     it('preserves types on create from RDF', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
@@ -62,5 +61,4 @@ describe('SetPropertyOperation', () => {
         expect(urlOperation?.values[0]?.termType).toBe('NamedNode');
         expect(urlOperation?.values[0]?.value).toBe(`${documentUrl}#friend`);
     });
-
 });

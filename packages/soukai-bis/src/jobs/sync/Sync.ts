@@ -1,3 +1,5 @@
+import { SolidDocument } from '@noeldemartin/solid-utils';
+import type { SolidResponse, SolidUserProfile } from '@noeldemartin/solid-utils';
 import {
     Semaphore,
     arrayGroupBy,
@@ -8,28 +10,25 @@ import {
     parseDate,
     round,
 } from '@noeldemartin/utils';
-import { SolidDocument } from '@noeldemartin/solid-utils';
-import type { SolidResponse, SolidUserProfile } from '@noeldemartin/solid-utils';
-
-import Container from 'soukai-bis/models/ldp/Container';
+import type Engine from 'soukai-bis/engines/Engine';
+import type SolidEngine from 'soukai-bis/engines/SolidEngine';
+import { engineFulfillsContract } from 'soukai-bis/engines/utils';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import JobFailedError from 'soukai-bis/errors/JobFailedError';
-import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
 import Job from 'soukai-bis/jobs/Job';
-import { engineFulfillsContract } from 'soukai-bis/engines/utils';
-import { safeContainerUrl } from 'soukai-bis/utils/urls';
-import { getContainerName } from 'soukai-bis/models/utils';
-import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
-import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
-import type Engine from 'soukai-bis/engines/Engine';
-import type Operation from 'soukai-bis/models/crdts/Operation';
-import type Resource from 'soukai-bis/models/ldp/Resource';
-import type SolidEngine from 'soukai-bis/engines/SolidEngine';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
+import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
+import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import Container from 'soukai-bis/models/ldp/Container';
+import type Resource from 'soukai-bis/models/ldp/Resource';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import { getContainerName } from 'soukai-bis/models/utils';
+import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
+import { safeContainerUrl } from 'soukai-bis/utils/urls';
 
 import { syncContainerRegistration } from './concerns/sync-container-registration';
 import { syncDocumentOperations } from './concerns/sync-document-operations';
@@ -74,7 +73,6 @@ export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResul
 }
 
 export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
-
     public static async run(config: SyncConfig & SyncJobListener): Promise<void> {
         const job = new Sync(config);
 
@@ -294,6 +292,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
                     ongoing++;
 
+                    // oxlint-disable-next-line typescript/no-floating-promises
                     this.runPullTask(pullTask, queue, {
                         onFinished: () => {
                             ongoing--;
@@ -650,7 +649,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                         (quad) =>
                             quad.predicate.equals(RDF_TYPE_PREDICATE) && this.syncRdfClasses.has(quad.object.value),
                     )
-                    .map((quad) => quad.subject.value)),
+                    .map((quad) => quad.subject.value),
+            ),
         );
         const localOperations = await this.getDocumentOperations(localDocument, resourceUrls);
         const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
@@ -731,5 +731,4 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             throw new JobFailedError(`Too many errors during sync (${this.documentsWithErrors.size}).`);
         }
     }
-
 }

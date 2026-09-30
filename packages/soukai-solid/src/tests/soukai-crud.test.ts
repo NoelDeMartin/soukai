@@ -1,17 +1,15 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { InMemoryEngine, bootModels, setEngine } from 'soukai';
-import { tap } from '@noeldemartin/utils';
 import { faker } from '@noeldemartin/faker';
+import { tap } from '@noeldemartin/utils';
+import { InMemoryEngine, bootModels, setEngine } from 'soukai';
 import type { EngineDocument, InMemoryEngineCollection } from 'soukai';
-
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import Task from 'soukai-solid/testing/lib/stubs/Task';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 let engine: InMemoryEngine;
 
 describe('Soukai CRUD', () => {
-
     beforeEach(() => {
         engine = new InMemoryEngine();
 
@@ -35,7 +33,7 @@ describe('Soukai CRUD', () => {
                     '@context': { '@vocab': 'https://schema.org/' },
                     '@id': movie.url,
                     '@type': 'Movie',
-                    'name': title,
+                    name: title,
                 },
             ],
         });
@@ -72,7 +70,7 @@ describe('Soukai CRUD', () => {
                     '@context': { '@vocab': 'https://schema.org/' },
                     '@id': stub.url,
                     '@type': 'Movie',
-                    'name': title,
+                    name: title,
                 },
             ],
         });
@@ -103,7 +101,6 @@ describe('Soukai CRUD', () => {
         expect(movie.exists()).toBe(false);
         expect(Object.values(engine.database[Movie.collection] as InMemoryEngineCollection)).toHaveLength(0);
     });
-
 });
 
 function createStub(title?: string): Movie {

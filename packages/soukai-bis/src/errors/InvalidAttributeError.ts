@@ -3,7 +3,6 @@ import type { ZodError, core } from 'zod';
 import SoukaiError from './SoukaiError';
 
 export default class InvalidAttributeError extends SoukaiError {
-
     public readonly modelName: string;
     public readonly field: string;
     public readonly issues: core.$ZodIssue[];
@@ -15,5 +14,4 @@ export default class InvalidAttributeError extends SoukaiError {
         this.field = field;
         this.issues = cause.issues;
     }
-
 }

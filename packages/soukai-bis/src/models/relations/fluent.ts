@@ -8,7 +8,7 @@ import IsContainedByRelation from './IsContainedByRelation';
 import { SchemaRelationDefinition } from './schema';
 import type { RelatedContainerDefinition, RelatedModelDefinition } from './schema';
 
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+/* oxlint-disable typescript/explicit-module-boundary-types */
 
 export function belongsToMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
     return new SchemaRelationDefinition(relatedClass, BelongsToManyRelation, { foreignKey });

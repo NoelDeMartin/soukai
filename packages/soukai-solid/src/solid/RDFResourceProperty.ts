@@ -1,8 +1,7 @@
 import type { Literal, Quad } from '@rdfjs/types';
-
-import IRI from 'soukai-solid/solid/utils/IRI';
 import { RDF_TYPE, XSD_DATE_TIME } from 'soukai-solid/solid/constants';
 import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
+import IRI from 'soukai-solid/solid/utils/IRI';
 
 export type LiteralValue = string | number | boolean | Date;
 
@@ -13,13 +12,11 @@ export const enum RDFResourcePropertyType {
 }
 
 class RDFResourcePropertyVariable {
-
     public name: string;
 
     constructor(value: string) {
         this.name = value;
     }
-
 }
 
 const DataTypes = {
@@ -32,7 +29,6 @@ const DataTypes = {
 };
 
 abstract class RDFResourceProperty {
-
     public readonly resourceUrl: string | null;
     public readonly name: string;
     public readonly value: unknown;
@@ -173,11 +169,9 @@ abstract class RDFResourceProperty {
     }
 
     protected abstract getTurtleObject(documentUrl: string | null): string;
-
 }
 
 class RDFResourceLiteralProperty extends RDFResourceProperty {
-
     declare public readonly value: LiteralValue;
     declare public readonly originalValue?: unknown;
     public readonly type = RDFResourcePropertyType.Literal;
@@ -190,6 +184,7 @@ class RDFResourceLiteralProperty extends RDFResourceProperty {
 
     protected getTurtleObject(): string {
         if (this.originalValue && this.value instanceof Date) {
+            // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions
             return `"${this.originalValue}"^^<${XSD_DATE_TIME}>`;
         }
 
@@ -199,11 +194,9 @@ class RDFResourceLiteralProperty extends RDFResourceProperty {
 
         return JSON.stringify(this.value);
     }
-
 }
 
 class RDFResourceReferenceProperty extends RDFResourceProperty {
-
     declare public readonly value: string | RDFResourcePropertyVariable | null;
     public readonly type = RDFResourcePropertyType.Reference;
 
@@ -216,11 +209,9 @@ class RDFResourceReferenceProperty extends RDFResourceProperty {
 
         return this.getTurtleReference(this.value, documentUrl);
     }
-
 }
 
 class RDFResourceTypeProperty extends RDFResourceProperty {
-
     declare public readonly value: string;
     public readonly type = RDFResourcePropertyType.Type;
 
@@ -235,7 +226,6 @@ class RDFResourceTypeProperty extends RDFResourceProperty {
     protected getTurtleObject(): string {
         return `<${encodeURI(this.value)}>`;
     }
-
 }
 
 export default RDFResourceProperty;

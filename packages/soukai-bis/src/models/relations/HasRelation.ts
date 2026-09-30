@@ -1,9 +1,8 @@
 import { arrayFrom, objectOnly } from '@noeldemartin/utils';
-import { ZodArray } from 'zod';
-
-import { getFinalType } from 'soukai-bis/zod/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
+import { getFinalType } from 'soukai-bis/zod/utils';
+import { ZodArray } from 'zod';
 
 import type Relation from './Relation';
 import type { GetRelatedModelInput } from './types';
@@ -14,7 +13,6 @@ export default class HasRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > {
-
     public addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, ForeignKeyName>>(
         this: Relation<Parent, Related, RelatedClass, ForeignKeyName>,
         attributes: T,
@@ -51,5 +49,4 @@ export default class HasRelation<
 
         related.setAttribute(foreignKeyName, attributes[foreignKeyName]);
     }
-
 }

@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 export interface JobListener<Result = any, PartialResult = any> {
     onUpdated?(progress: number): unknown;
     onFinished?(result: Result): unknown;

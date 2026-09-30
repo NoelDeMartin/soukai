@@ -1,8 +1,7 @@
-import { array, string, url } from 'zod';
-
 import { belongsToMany } from 'soukai-bis/models/relations/fluent';
 import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty, useAsSlug } from 'soukai-bis/zod/soukai';
+import { array, string, url } from 'zod';
 
 import Resource from './Resource';
 

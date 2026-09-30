@@ -1,7 +1,6 @@
 import { safeContainerUrl } from 'soukai-bis/utils/urls';
 
 export default class ContainersIndex {
-
     private childrenByParent: Map<string, Set<string>> | null = null;
 
     public constructor(private urls: Set<string>) {}
@@ -49,5 +48,4 @@ export default class ContainersIndex {
 
         return childrenByParent;
     }
-
 }

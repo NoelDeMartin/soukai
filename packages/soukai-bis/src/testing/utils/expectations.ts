@@ -1,7 +1,6 @@
 import { deepEquals } from '@noeldemartin/utils';
-import { expect } from 'vitest';
-
 import type Operation from 'soukai-bis/models/crdts/Operation';
+import { expect } from 'vite-plus/test';
 
 export function expectOperations(actual: unknown, expected: Operation[]): void {
     expect(actual).toHaveLength(expected.length);

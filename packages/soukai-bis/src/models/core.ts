@@ -1,15 +1,15 @@
-import Container from './ldp/Container';
+import { coreOperationModels } from './crdts/core';
 import Metadata from './crdts/Metadata';
 import Operation from './crdts/Operation';
-import Person from './identity/Person';
-import Resource from './ldp/Resource';
 import Tombstone from './crdts/Tombstone';
+import Person from './identity/Person';
 import TypeIndex from './interop/TypeIndex';
 import TypeRegistration from './interop/TypeRegistration';
-import { coreOperationModels } from './crdts/core';
+import Container from './ldp/Container';
+import Resource from './ldp/Resource';
 import { bootModels } from './registry';
-import { bootCoreRelations } from './relations/core';
 import type { BootOptions } from './registry';
+import { bootCoreRelations } from './relations/core';
 import type { ModelConstructor } from './types';
 
 const coreModels = {

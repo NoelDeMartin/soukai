@@ -5,13 +5,13 @@ import { OperationTypes } from './Operation';
 import type Operation from './Operation';
 
 export default class UpdatePropertyOperation implements Operation {
-
     public type: typeof OperationTypes.UpdateProperty = OperationTypes.UpdateProperty;
     public propertyOrProperties: RDFResourceProperty | ([RDFResourceProperty] & RDFResourceProperty[]);
 
     constructor(propertyOrProperties: RDFResourceProperty | RDFResourceProperty[]) {
         this.propertyOrProperties = propertyOrProperties as
-            RDFResourceProperty | ([RDFResourceProperty] & RDFResourceProperty[]);
+            | RDFResourceProperty
+            | ([RDFResourceProperty] & RDFResourceProperty[]);
 
         if (!Array.isArray(propertyOrProperties)) return;
 
@@ -44,5 +44,4 @@ export default class UpdatePropertyOperation implements Operation {
             ? this.propertyOrProperties[0].type
             : this.propertyOrProperties.type;
     }
-
 }

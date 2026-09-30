@@ -1,9 +1,10 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
-import { uuid } from '@noeldemartin/utils';
 import type { SparqlUpdate } from '@noeldemartin/solid-utils';
+import { uuid } from '@noeldemartin/utils';
 import type { Quad, Quad_Object, Quad_Subject } from '@rdfjs/types';
-
+import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type { MintUrlOptions } from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import {
     CRDT_DATE,
@@ -13,13 +14,10 @@ import {
     RDF_TYPE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/utils/rdf';
-import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
-import type { MintUrlOptions } from 'soukai-bis/models/Model';
 
 import Model from './Operation.schema';
 
 export default class Operation extends Model implements EngineOperation {
-
     private _subject: Quad_Subject | null = null;
 
     public get subject(): Quad_Subject {
@@ -34,12 +32,12 @@ export default class Operation extends Model implements EngineOperation {
         return this;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // oxlint-disable-next-line typescript/no-unused-vars
     public applyToQuads(quads: Quad[]): Quad[] {
         throw new SoukaiError(`applyToQuads not implemented in ${this.static('modelName')}.`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // oxlint-disable-next-line typescript/no-unused-vars
     public applyToSparql(sparql: SparqlUpdate): void {
         throw new SoukaiError(`applyToSparql not implemented in ${this.static('modelName')}.`);
     }
@@ -89,5 +87,4 @@ export default class Operation extends Model implements EngineOperation {
     protected getTypeQuads(): Quad_Object[] {
         return [];
     }
-
 }

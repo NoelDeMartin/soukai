@@ -1,12 +1,8 @@
 import 'soukai-bis/patch-zod';
 import 'fake-indexeddb/auto';
-
-import { beforeEach, vi } from 'vitest';
-import { FakeServer } from '@noeldemartin/testing';
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
-
+import { FakeServer } from '@noeldemartin/testing';
 import { ComputedAttribute, InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
-
 import Episode from 'soukai-bis/testing/stubs/Episode';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import MoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
@@ -16,6 +12,7 @@ import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { afterEach, beforeEach, vi } from 'vite-plus/test';
 
 beforeEach(() => {
     setEngine(new InMemoryEngine());
@@ -38,6 +35,10 @@ beforeEach(() => {
     FakeServer.reset();
     vi.resetAllMocks();
     ComputedAttribute.disableLoadingRelations();
+});
+
+afterEach(() => {
+    vi.useRealTimers();
 });
 
 installVitestSolidMatchers();

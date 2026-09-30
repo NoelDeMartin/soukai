@@ -1,5 +1,5 @@
-import { array, email, number, string, url } from 'zod';
 import { belongsToMany, defineSchema, hasMany, hasOne } from 'soukai-bis';
+import { array, email, number, string, url } from 'zod';
 
 import Post from './Post';
 import User from './User';

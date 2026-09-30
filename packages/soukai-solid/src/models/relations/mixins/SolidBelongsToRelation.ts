@@ -1,11 +1,10 @@
-import { EngineHelper } from 'soukai';
-import { urlRoute } from '@noeldemartin/utils';
-import type { EngineDocument, EngineDocumentsCollection, Relation } from 'soukai';
 import type { JsonLDGraph } from '@noeldemartin/solid-utils';
-
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import { urlRoute } from '@noeldemartin/utils';
+import { EngineHelper } from 'soukai';
+import type { EngineDocument, EngineDocumentsCollection, Relation } from 'soukai';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
 
 import type SolidDocumentRelation from './SolidDocumentRelation';
 
@@ -22,7 +21,6 @@ export interface ProtectedSolidBelongsToRelation<Related extends SolidModel = So
 }
 
 export default class SolidBelongsToRelation {
-
     protected get protectedSolidBelongsTo(): ProtectedSolidBelongsToRelation {
         return this as unknown as ProtectedSolidBelongsToRelation;
     }
@@ -43,7 +41,8 @@ export default class SolidBelongsToRelation {
 
         const modelsInSameDocument = await Promise.all(
             Object.keys(helper.filterDocuments(documents, filters)).map((id) =>
-                this.relatedClass.createFromEngineDocument(documentUrl, reducedDocument, id)),
+                this.relatedClass.createFromEngineDocument(documentUrl, reducedDocument, id),
+            ),
         );
 
         const modelsInOtherDocumentIds = modelIds.filter(
@@ -53,5 +52,4 @@ export default class SolidBelongsToRelation {
 
         this.protectedSolidBelongsTo.loadDocumentModels(modelsInSameDocument, modelsInOtherDocumentIds);
     }
-
 }

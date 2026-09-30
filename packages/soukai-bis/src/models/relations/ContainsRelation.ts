@@ -1,12 +1,11 @@
 import { isInstanceOf, tap } from '@noeldemartin/utils';
-
-import Container from 'soukai-bis/models/ldp/Container';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import Container from 'soukai-bis/models/ldp/Container';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
-import MultiModelRelation from './MultiModelRelation';
 import { classMarker } from './helpers';
+import MultiModelRelation from './MultiModelRelation';
 import type { GetRelatedModelInput } from './types';
 
 export default class ContainsRelation<
@@ -14,7 +13,6 @@ export default class ContainsRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass, never> {
-
     public static [classMarker] = ['ContainsRelation', ...MultiModelRelation[classMarker]];
 
     public constructor(parent: Parent, relatedClass: RelatedClass) {
@@ -94,7 +92,7 @@ export default class ContainsRelation<
             return;
         }
 
-        throw new SoukaiError('Cannot save a model because the container doesn\'t exist');
+        throw new SoukaiError("Cannot save a model because the container doesn't exist");
     }
 
     private async loadContainedModels(): Promise<Related[]> {
@@ -120,5 +118,4 @@ export default class ContainsRelation<
 
         return models.flat();
     }
-
 }

@@ -1,14 +1,13 @@
-import SingleModelRelation from 'soukai/models/relations/SingleModelRelation';
 import { arrayWithout } from '@noeldemartin/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Model } from 'soukai/models/Model';
+import SingleModelRelation from 'soukai/models/relations/SingleModelRelation';
 
 export default class HasOneRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends SingleModelRelation<Parent, Related, RelatedClass> {
-
     public async load(): Promise<Related | null> {
         const localKey = this.parent.getAttribute<string>(this.localKeyName);
 
@@ -66,5 +65,4 @@ export default class HasOneRelation<
 
         related.setAttribute(this.foreignKeyName, arrayWithout(foreignValue, foreignKey));
     }
-
 }

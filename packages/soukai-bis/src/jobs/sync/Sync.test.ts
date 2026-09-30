@@ -1,19 +1,18 @@
-import { arrayFilter, requireUrlDirectoryName } from '@noeldemartin/utils';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
 import type { SolidUserProfile } from '@noeldemartin/solid-utils';
-
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { arrayFilter, requireUrlDirectoryName } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import Movie from 'soukai-bis/testing/stubs/Movie';
-import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
-import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
-import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import type { ModelConstructor } from 'soukai-bis/models/types';
+import Movie from 'soukai-bis/testing/stubs/Movie';
+import User from 'soukai-bis/testing/stubs/User';
+import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
+import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import Sync from './Sync';
 import type { SyncConfig } from './Sync';
@@ -22,7 +21,6 @@ const fixture = <T = string>(name: string, replacements: Record<string, string> 
     loadFixture<T>(new URL(`./Sync.test.ts-fixtures/${name}`, import.meta.url), replacements);
 
 describe('Sync', () => {
-
     let localEngine: InMemoryEngine;
     let remoteEngine: SolidEngine;
     let typeIndex: TypeIndex;
@@ -163,7 +161,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
 
-        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
     });
 
     it('syncs old operations', async () => {
@@ -201,7 +199,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
 
-        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-third-name.sparql'));
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-third-name.sparql'));
     });
 
     it('syncs remote and local operations', async () => {
@@ -246,7 +244,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
 
         await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
-        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-third-name.sparql'));
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-third-name.sparql'));
     });
 
     it('handles missing remote documents', async () => {
@@ -286,11 +284,11 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, documentUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA { ${fixture('person.ttl')} }
         `);
 
-        await expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(
+        expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(
             fixture('register-container.sparql', { containerUrl }),
         );
     });
@@ -335,7 +333,7 @@ describe('Sync', () => {
 
         expect(FakeServer.fetch).toHaveBeenCalledTimes(8);
 
-        await expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(
+        expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(
             fixture('register-container.sparql', { containerUrl: rootContainerUrl }),
         );
     });
@@ -357,7 +355,9 @@ describe('Sync', () => {
         FakeServer.respond(containerUrl, containerTurtle({ [documentUrl]: { lastModifiedAt } }));
         FakeServer.respond(
             documentUrl,
-            FakeResponse.success(fixture('person.ttl'), { 'Last-Modified': lastModifiedAt.toUTCString() }),
+            FakeResponse.success(fixture('person.ttl'), {
+                'Last-Modified': lastModifiedAt.toUTCString(),
+            }),
         );
 
         // Act - First sync
@@ -435,7 +435,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
 
-        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-watch-action.sparql'));
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-watch-action.sparql'));
     });
 
     it('syncs local deletions', async () => {
@@ -492,7 +492,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.anything());
 
-        await expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('remove-watch-action.sparql'));
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('remove-watch-action.sparql'));
     });
 
     it('pulls containers with metadata', async () => {
@@ -560,7 +560,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, expect.objectContaining({ method: 'PATCH' }));
 
-        await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
+        expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
     });
 
     it('reports progress updates', async () => {
@@ -730,7 +730,10 @@ describe('Sync', () => {
         FakeServer.respond(document3Url, fixture('person.ttl', { documentUrl: document3Url }));
 
         // Act
-        const result = { syncedDocumentUrls: new Set<string>(), documentsWithErrors: new Set<string>() };
+        const result = {
+            syncedDocumentUrls: new Set<string>(),
+            documentsWithErrors: new Set<string>(),
+        };
 
         await Sync.run({
             ...config,
@@ -748,5 +751,4 @@ describe('Sync', () => {
         expect(result.documentsWithErrors.has(document1Url)).toBe(true);
         expect(result.documentsWithErrors.size).toBe(1);
     });
-
 });

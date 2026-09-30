@@ -1,9 +1,8 @@
 import { arrayFrom } from '@noeldemartin/utils';
 import type { Constructor, Nullable } from '@noeldemartin/utils';
-
-import { isModelClassOrSubclass } from 'soukai/models/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Model } from 'soukai/models/Model';
+import { isModelClassOrSubclass } from 'soukai/models/utils';
 
 export type RelationDeleteStrategy = null | 'cascade';
 export type RelationConstructor<T extends Relation = Relation> = Constructor<T> & typeof Relation;
@@ -18,7 +17,6 @@ export abstract class Relation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > {
-
     public static inverseHasRelationClasses: Constructor<Relation>[] = [];
     public static inverseBelongsToRelationClasses: Constructor<Relation>[] = [];
 
@@ -179,9 +177,8 @@ export abstract class Relation<
         return false;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // oxlint-disable-next-line typescript/no-unused-vars
     protected onRelatedUpdated(oldValue: Nullable<Model[] | Model>, newValue: Nullable<Model[] | Model>): void {
         //
     }
-
 }

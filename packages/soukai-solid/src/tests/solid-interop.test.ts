@@ -1,27 +1,22 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { bootModels, setEngine } from 'soukai';
-import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
-
+import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
+import { bootModels, setEngine } from 'soukai';
+import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
 import SolidContainer from 'soukai-solid/models/SolidContainer';
 import SolidDocument from 'soukai-solid/models/SolidDocument';
 import SolidTypeIndex from 'soukai-solid/models/SolidTypeIndex';
-import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
 import { loadFixture } from 'soukai-solid/testing/utils';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 class MovieWithTimestamps extends Movie {
-
     public static timestamps = true;
-
 }
 
 const fixture = (name: string) => loadFixture(`solid-interop/${name}`);
 
 describe('Solid Interoperability', () => {
-
     beforeEach(() => {
         Movie.collection = 'https://my-pod.com/movies/';
 
@@ -232,5 +227,4 @@ describe('Solid Interoperability', () => {
             }
         `);
     });
-
 });

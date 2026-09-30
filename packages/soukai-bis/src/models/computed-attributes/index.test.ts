@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import ComputedAttribute from './ComputedAttribute';
 
 describe('Computed Attributes', () => {
-
     beforeEach(() => ComputedAttribute.enableLoadingRelations());
 
     it('calculates computed attributes', async () => {
@@ -42,5 +40,4 @@ describe('Computed Attributes', () => {
 
         expect(freshUser.postTitles.value).toEqual(['Hello World']);
     });
-
 });

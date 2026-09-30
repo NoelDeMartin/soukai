@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import Movie from 'soukai-bis/testing/stubs/Movie';
 import { setEngine } from 'soukai-bis/engines/state';
-import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
+import Movie from 'soukai-bis/testing/stubs/Movie';
+import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('BelongsToOneRelation', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => setEngine((engine = new InMemoryEngine())));
@@ -45,5 +43,4 @@ describe('BelongsToOneRelation', () => {
             ],
         });
     });
-
 });

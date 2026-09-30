@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeServer, fakeContainerUrl } from '@noeldemartin/testing';
 import { setEngine } from 'soukai';
-
-import { SolidContainer } from 'soukai-solid/models';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
+import { SolidContainer } from 'soukai-solid/models';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('SolidContainerDocumentsRelation', () => {
-
     beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
 
     it('Ignores non-document resources', async () => {
@@ -79,5 +77,4 @@ describe('SolidContainerDocumentsRelation', () => {
 
         expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
     });
-
 });

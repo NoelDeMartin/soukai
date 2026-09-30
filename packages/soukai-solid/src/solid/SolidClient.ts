@@ -1,4 +1,10 @@
-import { DocumentNotFound, SoukaiError } from 'soukai';
+import type { JsonLD } from '@noeldemartin/solid-utils';
+import {
+    NetworkRequestFailed,
+    UnsuccessfulNetworkRequest,
+    quadsToJsonLD,
+    turtleToQuads,
+} from '@noeldemartin/solid-utils';
 import {
     arrayDiff,
     arrayFilter,
@@ -9,26 +15,19 @@ import {
     urlFileName,
     urlResolve,
 } from '@noeldemartin/utils';
-import type { JsonLD } from '@noeldemartin/solid-utils';
-import {
-    NetworkRequestFailed,
-    UnsuccessfulNetworkRequest,
-    quadsToJsonLD,
-    turtleToQuads,
-} from '@noeldemartin/solid-utils';
 import type { Quad_Object } from '@rdfjs/types';
-
-import IRI from 'soukai-solid/solid/utils/IRI';
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import RDFResourceProperty, { RDFResourcePropertyType } from 'soukai-solid/solid/RDFResourceProperty';
+import { DocumentNotFound, SoukaiError } from 'soukai';
+import { LDP_CONTAINER, LDP_CONTAINS } from 'soukai-solid/solid/constants';
+import { OperationTypes } from 'soukai-solid/solid/operations/Operation';
+import type { UpdateOperation } from 'soukai-solid/solid/operations/Operation';
 import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
 import ShieldPropertyOperation from 'soukai-solid/solid/operations/ShieldPropertyOperation';
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
 import { decantUpdateOperations, decantUpdateOperationsData } from 'soukai-solid/solid/operations/utils';
-import { LDP_CONTAINER, LDP_CONTAINS } from 'soukai-solid/solid/constants';
-import { OperationTypes } from 'soukai-solid/solid/operations/Operation';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
+import RDFResourceProperty, { RDFResourcePropertyType } from 'soukai-solid/solid/RDFResourceProperty';
 import type { LiteralValue } from 'soukai-solid/solid/RDFResourceProperty';
-import type { UpdateOperation } from 'soukai-solid/solid/operations/Operation';
+import IRI from 'soukai-solid/solid/utils/IRI';
 
 const RESERVED_CONTAINER_PROPERTIES = [LDP_CONTAINS, IRI('posix:mtime'), IRI('posix:size'), IRI('purl:modified')];
 
@@ -38,7 +37,7 @@ const containerDescriptionUrls: Map<string, string> = new Map();
 
 // TODO extract file to @noeldemartin/solid-utils
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 export declare type AnyFetch = (input: any, options?: any) => Promise<any>;
 export declare type TypedFetch = (input: RequestInfo, options?: RequestInit) => Promise<Response>;
 export declare type Fetch = TypedFetch | AnyFetch;
@@ -57,7 +56,6 @@ export interface ResponseMetadata {
 }
 
 export default class SolidClient {
-
     private fetch: TypedFetch;
     private config: SolidClientConfig;
 
@@ -254,7 +252,7 @@ export default class SolidClient {
         const response = await this.fetch(url, {
             method: 'PUT',
             headers: {
-                'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
                 'If-None-Match': '*',
             },
         });
@@ -278,8 +276,8 @@ export default class SolidClient {
         const response = await this.fetch(parentUrl, {
             method: 'POST',
             headers: {
-                'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
-                'Slug': requireUrlDirectoryName(url),
+                Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                Slug: requireUrlDirectoryName(url),
                 'If-None-Match': '*',
             },
         });
@@ -405,7 +403,8 @@ export default class SolidClient {
                             (typeof nameOrShields === 'string' && nameOrShields === property.name) ||
                             (Array.isArray(nameOrShields) && !nameOrShields.includes(property.name))) &&
                         (!value || value === property.value),
-                ))
+                ),
+            )
             .map((property) => property.toTurtle(document.url) + ' .');
 
         if (inserts.length === 0 && deletes.length === 0) {
@@ -497,7 +496,8 @@ export default class SolidClient {
 
                 operation.propertyOrProperties = Array.isArray(operation.propertyOrProperties)
                     ? (operation.propertyOrProperties.map((property) =>
-                        property.clone(changeUrlOperation.newResourceUrl)) as RDFResourceProperties)
+                          property.clone(changeUrlOperation.newResourceUrl),
+                      ) as RDFResourceProperties)
                     : operation.propertyOrProperties.clone(changeUrlOperation.newResourceUrl);
             });
             removePropertyOperations.forEach(
@@ -583,17 +583,18 @@ export default class SolidClient {
                     new UpdatePropertyOperation(
                         isLiteralProperty
                             ? RDFResourceProperty.literal(
-                                operation.propertyResourceUrl,
-                                operation.propertyName,
+                                  operation.propertyResourceUrl,
+                                  operation.propertyName,
                                   addedProperty.value as LiteralValue,
-                            )
+                              )
                             : RDFResourceProperty.reference(
-                                operation.propertyResourceUrl,
-                                operation.propertyName,
+                                  operation.propertyResourceUrl,
+                                  operation.propertyName,
                                   addedProperty.value as string,
-                            ),
+                              ),
                     ),
-                ));
+                ),
+            );
 
             removed.forEach((removedProperty) =>
                 operations.push(
@@ -602,7 +603,8 @@ export default class SolidClient {
                         operation.propertyName,
                         removedProperty.value,
                     ),
-                ));
+                ),
+            );
 
             arrayOperations.push(operation);
             arrayProperties.push(`${operation.propertyResourceUrl}-${operation.propertyName}`);
@@ -668,5 +670,4 @@ export default class SolidClient {
     private isInternalErrorResponse(response: Response): boolean {
         return Math.floor(response.status / 100) === 5;
     }
-
 }

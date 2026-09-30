@@ -3,7 +3,6 @@ export interface SoukaiErrorOptions {
 }
 
 export default class SoukaiError extends Error {
-
     constructor(message?: string, options?: SoukaiErrorOptions) {
         super(...(options ? ([message, options] as unknown as [string]) : [message]));
 
@@ -11,5 +10,4 @@ export default class SoukaiError extends Error {
         this.name = new.target.name;
         Object.setPrototypeOf(this, new.target.prototype);
     }
-
 }

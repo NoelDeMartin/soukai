@@ -1,17 +1,15 @@
-import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 import { findContainerRegistrations } from '@noeldemartin/solid-utils';
 import type { Fetch } from '@noeldemartin/solid-utils';
-
-import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import type { MintUrlOptions } from 'soukai-bis/models/Model';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './Container.schema';
 
 export default class Container extends Model {
-
     public static async createFromTypeIndex<T extends Container>(
         this: ModelConstructor<T>,
         typeIndex: string | ModelWithUrl<TypeIndex>,
@@ -78,5 +76,4 @@ export default class Container extends Model {
     protected newUrl(options: MintUrlOptions = {}): string {
         return urlResolveDirectory(this.newUrlDocumentUrl(options));
     }
-
 }

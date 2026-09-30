@@ -1,13 +1,12 @@
-import SingleModelRelation from 'soukai/models/relations/SingleModelRelation';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Key, Model } from 'soukai/models/Model';
+import SingleModelRelation from 'soukai/models/relations/SingleModelRelation';
 
 export default class BelongsToOneRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends SingleModelRelation<Parent, Related, RelatedClass> {
-
     public isEmpty(): boolean | null {
         return !this.parent.getAttribute<Key>(this.foreignKeyName);
     }
@@ -18,8 +17,8 @@ export default class BelongsToOneRelation<
         this.related = this.isEmpty()
             ? null
             : this.localKeyName === this.relatedClass.primaryKey
-                ? await this.relatedClass.find(foreignKey)
-                : await this.relatedClass.first({ [this.localKeyName]: foreignKey });
+              ? await this.relatedClass.find(foreignKey)
+              : await this.relatedClass.first({ [this.localKeyName]: foreignKey });
 
         return this.related;
     }
@@ -43,5 +42,4 @@ export default class BelongsToOneRelation<
 
         this.parent.setAttribute(this.foreignKeyName, null);
     }
-
 }

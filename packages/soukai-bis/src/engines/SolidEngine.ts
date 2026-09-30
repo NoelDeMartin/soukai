@@ -1,17 +1,16 @@
 import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import { Semaphore, isDevelopment, isTesting } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
-import type { Fetch, JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
-
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 
 import Engine from './Engine';
-import { classMarker } from './utils';
-import type EngineOperation from './operations/EngineOperation';
 import type { EngineMetadata } from './Engine';
+import type EngineOperation from './operations/EngineOperation';
+import { classMarker } from './utils';
 
 export interface SolidEngineConfig {
     fetch?: Nullable<Fetch>;
@@ -19,7 +18,6 @@ export interface SolidEngineConfig {
 }
 
 export default class SolidEngine extends Engine {
-
     public static readonly engineName = 'SolidEngine';
     public static [classMarker] = 'SolidEngine';
 
@@ -51,7 +49,7 @@ export default class SolidEngine extends Engine {
                     throw new SoukaiError(message);
                 }
 
-                // eslint-disable-next-line no-console
+                // oxlint-disable-next-line no-console
                 console.warn(message);
             }
 
@@ -83,7 +81,7 @@ export default class SolidEngine extends Engine {
                     throw new SoukaiError(message);
                 }
 
-                // eslint-disable-next-line no-console
+                // oxlint-disable-next-line no-console
                 console.warn(message);
             }
 
@@ -120,9 +118,9 @@ export default class SolidEngine extends Engine {
                 url,
                 url.endsWith('/')
                     ? {
-                        cache: 'reload',
-                        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-                    }
+                          cache: 'reload',
+                          headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+                      }
                     : undefined,
             );
 
@@ -137,5 +135,4 @@ export default class SolidEngine extends Engine {
     public deleteDocument(url: string): Promise<SolidResponse> {
         return this.lock.run(() => this.client.delete(url));
     }
-
 }

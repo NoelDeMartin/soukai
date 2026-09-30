@@ -1,19 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { deleteDB, openDB } from 'idb';
 import { faker } from '@noeldemartin/faker';
 import { range, resetMemo, uuid } from '@noeldemartin/utils';
+import { deleteDB, openDB } from 'idb';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
-
+import { IndexedDBEngine } from 'soukai/engines/IndexedDBEngine';
 import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 import { bootModels } from 'soukai/models';
-import { IndexedDBEngine } from 'soukai/engines/IndexedDBEngine';
-
 import User from 'soukai/testing/stubs/User';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('IndexedDBEngine', () => {
-
     let databaseName: string;
     let databaseCollections: string[];
     let engine: IndexedDBEngine;
@@ -32,6 +28,7 @@ describe('IndexedDBEngine', () => {
     });
 
     afterEach(async () => {
+        // oxlint-disable-next-line typescript/no-floating-promises
         engine.closeConnections();
         closeConnections();
 
@@ -50,6 +47,7 @@ describe('IndexedDBEngine', () => {
             await engine.create(collection, {});
         }
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         engine.closeConnections();
 
         // Assert
@@ -93,6 +91,7 @@ describe('IndexedDBEngine', () => {
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, id, { name });
 
         // Assert
@@ -104,6 +103,7 @@ describe('IndexedDBEngine', () => {
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, id, { name });
 
         // Act
@@ -124,7 +124,9 @@ describe('IndexedDBEngine', () => {
         const secondId = faker.datatype.uuid();
         const secondName = faker.name.firstName();
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, firstId, { name: firstName });
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, secondId, { name: secondName });
 
         // Act
@@ -141,7 +143,9 @@ describe('IndexedDBEngine', () => {
         const id = faker.datatype.uuid();
         const name = faker.name.firstName();
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, id, { name });
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, faker.datatype.uuid(), { name: faker.name.firstName() });
 
         // Act
@@ -159,7 +163,12 @@ describe('IndexedDBEngine', () => {
         const newName = faker.name.firstName();
         const age = faker.datatype.number();
 
-        setDatabaseDocument(User.collection, id, { name: initialName, surname: faker.name.lastName(), age });
+        // oxlint-disable-next-line typescript/no-floating-promises
+        setDatabaseDocument(User.collection, id, {
+            name: initialName,
+            surname: faker.name.lastName(),
+            age,
+        });
 
         // Act
         await engine.update(User.collection, id, { name: newName, surname: { $unset: true } });
@@ -180,7 +189,9 @@ describe('IndexedDBEngine', () => {
         const secondId = faker.datatype.uuid();
         const name = faker.name.firstName();
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, firstId, { name: faker.name.firstName() });
+        // oxlint-disable-next-line typescript/no-floating-promises
         setDatabaseDocument(User.collection, secondId, { name });
 
         // Act
@@ -211,7 +222,8 @@ describe('IndexedDBEngine', () => {
         // Act
         await Promise.all(
             range(concurrency).map((i) =>
-                engine.create(`${User.collection}-${i % tables}`, { name: faker.random.word() })),
+                engine.create(`${User.collection}-${i % tables}`, { name: faker.random.word() }),
+            ),
         );
 
         // Assert
@@ -266,6 +278,7 @@ describe('IndexedDBEngine', () => {
         const transaction = metadataConnection.transaction('collections', 'readwrite');
 
         for (const collection of databaseCollections) {
+            // oxlint-disable-next-line typescript/no-floating-promises
             transaction.store.add({ name: collection });
         }
 
@@ -328,6 +341,7 @@ describe('IndexedDBEngine', () => {
     ): Promise<void> {
         const transaction = getCollectionTransaction(collection, 'readwrite');
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         transaction.store.put(document, id);
 
         await transaction.done;
@@ -339,5 +353,4 @@ describe('IndexedDBEngine', () => {
     ): IDBPTransaction<unknown, [string], T> {
         return (collectionsConnection as IDBPDatabase).transaction(collection, mode);
     }
-
 });

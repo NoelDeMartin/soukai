@@ -1,6 +1,4 @@
 import { isObject } from '@noeldemartin/utils';
-
-import { EngineHelper } from 'soukai/engines/EngineHelper';
 import type {
     Engine,
     EngineAttributeValue,
@@ -9,12 +7,11 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai/engines/Engine';
-
+import { EngineHelper } from 'soukai/engines/EngineHelper';
 import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 
 export class LocalStorageEngine implements Engine {
-
     private prefix: string;
 
     private helper: EngineHelper;
@@ -145,5 +142,4 @@ export class LocalStorageEngine implements Engine {
 
         return value as EngineAttributeValue;
     }
-
 }

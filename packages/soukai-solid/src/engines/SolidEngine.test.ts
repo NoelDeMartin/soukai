@@ -1,31 +1,25 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
-import { DocumentAlreadyExists, DocumentNotFound, InMemoryEngine, SoukaiError } from 'soukai';
+import { faker } from '@noeldemartin/faker';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { requireUrlParentDirectory, stringToSlug, urlResolve, urlResolveDirectory, uuid } from '@noeldemartin/utils';
+import { DocumentAlreadyExists, DocumentNotFound, InMemoryEngine, SoukaiError } from 'soukai';
 import type { EngineFilters } from 'soukai';
-
-import { faker } from '@noeldemartin/faker';
-
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-
+import { LDP_CONTAINER, LDP_CONTAINS, PURL_MODIFIED } from 'soukai-solid/solid/constants';
+import FakeSolidClient from 'soukai-solid/solid/fakes/FakeSolidClient';
 import ChangeUrlOperation from 'soukai-solid/solid/operations/ChangeUrlOperation';
-import IRI from 'soukai-solid/solid/utils/IRI';
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
 import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
-import DocumentsCache from 'soukai-solid/utils/DocumentsCache';
-import { LDP_CONTAINER, LDP_CONTAINS, PURL_MODIFIED } from 'soukai-solid/solid/constants';
-import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
+import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 import type { Fetch } from 'soukai-solid/solid/SolidClient';
-
-import { jsonLDGraph, stubMoviesCollectionJsonLD, stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
-import FakeSolidClient from 'soukai-solid/solid/fakes/FakeSolidClient';
 import type SolidClient from 'soukai-solid/solid/SolidClient';
+import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
+import IRI from 'soukai-solid/solid/utils/IRI';
+import { jsonLDGraph, stubMoviesCollectionJsonLD, stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
+import DocumentsCache from 'soukai-solid/utils/DocumentsCache';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('SolidEngine', () => {
-
     let engine: SolidEngine;
 
     beforeEach(() => {
@@ -120,7 +114,7 @@ describe('SolidEngine', () => {
         await expect(document).toEqualJsonLD(stubMoviesCollectionJsonLD(documentUrl, name));
     });
 
-    it('fails reading when document doesn\'t exist', async () => {
+    it("fails reading when document doesn't exist", async () => {
         const documentUrl = fakeDocumentUrl();
 
         await expect(engine.readOne(requireUrlParentDirectory(documentUrl), documentUrl)).rejects.toBeInstanceOf(
@@ -468,7 +462,7 @@ describe('SolidEngine', () => {
                         $where: { '@id': secondResourceUrl },
                         $update: {
                             '@id': newSecondResourceUrl,
-                            'reference': { '@id': newFirstResourceUrl },
+                            reference: { '@id': newFirstResourceUrl },
                         },
                     },
                 ],
@@ -489,7 +483,7 @@ describe('SolidEngine', () => {
         );
     });
 
-    it('fails updating when document doesn\'t exist', async () => {
+    it("fails updating when document doesn't exist", async () => {
         const documentUrl = fakeDocumentUrl();
 
         await expect(engine.readOne(requireUrlParentDirectory(documentUrl), documentUrl)).rejects.toBeInstanceOf(
@@ -543,7 +537,10 @@ describe('SolidEngine', () => {
 
         await persistentCache.remember(containerUrl, documentUrl, modifiedAt);
         await persistentCache.remember(containerUrl, tombstoneDocumentUrl, modifiedAt, {
-            tombstone: { url: `${tombstoneDocumentUrl}#it-metadata`, resourceUrl: `${tombstoneDocumentUrl}#it` },
+            tombstone: {
+                url: `${tombstoneDocumentUrl}#it-metadata`,
+                resourceUrl: `${tombstoneDocumentUrl}#it`,
+            },
         });
         await inMemoryEngine.create(containerUrl, { foo: 'bar' }, documentUrl);
         await FakeSolidClient.createDocument(parentContainerUrl, containerUrl, [
@@ -580,7 +577,6 @@ describe('SolidEngine', () => {
             ],
         });
     });
-
 });
 
 function modelFilters(types: string[], extraFilters: Record<string, unknown> = {}): EngineFilters {

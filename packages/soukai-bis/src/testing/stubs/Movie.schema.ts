@@ -1,5 +1,5 @@
-import { string } from 'zod';
 import { defineSchema, hasOne } from 'soukai-bis';
+import { string } from 'zod';
 
 import WatchAction from './WatchAction';
 

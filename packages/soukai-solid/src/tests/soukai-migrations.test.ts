@@ -1,18 +1,15 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { FieldType, InMemoryEngine, bootModels, setEngine } from 'soukai';
-import { toString } from '@noeldemartin/utils';
 import type { JsonLDGraph } from '@noeldemartin/solid-utils';
-
+import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { toString } from '@noeldemartin/utils';
+import { FieldType, InMemoryEngine, bootModels, setEngine } from 'soukai';
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
-
-import SchemaTaskSchema from 'soukai-solid/testing/lib/stubs/SchemaTask.schema';
 import ICalTaskSchema, { ICAL_TASK_FIELDS } from 'soukai-solid/testing/lib/stubs/ICalTask.schema';
+import SchemaTaskSchema from 'soukai-solid/testing/lib/stubs/SchemaTask.schema';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 class Task extends SchemaTaskSchema {}
 
 describe('Solid Schema Migrations', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => {
@@ -82,10 +79,10 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'http://www.w3.org/2002/12/cal/ical#' },
             '@type': 'Vtodo',
             '@id': `${documentUrl}#it`,
-            'summary': 'Updated name',
-            'description': 'Updated name',
-            'priority': 1,
-            'completed': {
+            summary: 'Updated name',
+            description: 'Updated name',
+            priority: 1,
+            completed: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.completedAt?.toISOString(),
             },
@@ -95,12 +92,12 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
             '@type': 'Metadata',
             '@id': `${documentUrl}#metadata`,
-            'resource': { '@id': `${documentUrl}#it` },
-            'createdAt': {
+            resource: { '@id': `${documentUrl}#it` },
+            createdAt: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.createdAt?.toISOString(),
             },
-            'updatedAt': {
+            updatedAt: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.updatedAt?.toISOString(),
             },
@@ -110,10 +107,10 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
             '@type': 'SetPropertyOperation',
             '@id': task.operations[0]?.url,
-            'resource': { '@id': `${documentUrl}#it` },
-            'property': { '@id': 'http://www.w3.org/2002/12/cal/ical#summary' },
-            'value': 'Initial name',
-            'date': {
+            resource: { '@id': `${documentUrl}#it` },
+            property: { '@id': 'http://www.w3.org/2002/12/cal/ical#summary' },
+            value: 'Initial name',
+            date: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.createdAt?.toISOString(),
             },
@@ -123,13 +120,13 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
             '@type': 'SetPropertyOperation',
             '@id': task.operations[2]?.url,
-            'resource': { '@id': `${documentUrl}#it` },
-            'property': { '@id': 'http://www.w3.org/2002/12/cal/ical#completed' },
-            'value': {
+            resource: { '@id': `${documentUrl}#it` },
+            property: { '@id': 'http://www.w3.org/2002/12/cal/ical#completed' },
+            value: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.completedAt?.toISOString(),
             },
-            'date': {
+            date: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.createdAt?.toISOString(),
             },
@@ -139,10 +136,10 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
             '@type': 'SetPropertyOperation',
             '@id': task.operations[3]?.url,
-            'resource': { '@id': `${documentUrl}#it` },
-            'property': { '@id': 'http://www.w3.org/2002/12/cal/ical#summary' },
-            'value': 'Updated name',
-            'date': {
+            resource: { '@id': `${documentUrl}#it` },
+            property: { '@id': 'http://www.w3.org/2002/12/cal/ical#summary' },
+            value: 'Updated name',
+            date: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.updatedAt?.toISOString(),
             },
@@ -152,10 +149,10 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
             '@type': 'SetPropertyOperation',
             '@id': newOperationResources[0]?.['@id'],
-            'resource': { '@id': `${documentUrl}#it` },
-            'property': { '@id': 'http://www.w3.org/2002/12/cal/ical#description' },
-            'value': 'Updated name',
-            'date': {
+            resource: { '@id': `${documentUrl}#it` },
+            property: { '@id': 'http://www.w3.org/2002/12/cal/ical#description' },
+            value: 'Updated name',
+            date: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.updatedAt?.toISOString(),
             },
@@ -165,14 +162,13 @@ describe('Solid Schema Migrations', () => {
             '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
             '@type': 'SetPropertyOperation',
             '@id': newOperationResources[1]?.['@id'],
-            'resource': { '@id': `${documentUrl}#it` },
-            'property': { '@id': 'http://www.w3.org/2002/12/cal/ical#priority' },
-            'value': 1,
-            'date': {
+            resource: { '@id': `${documentUrl}#it` },
+            property: { '@id': 'http://www.w3.org/2002/12/cal/ical#priority' },
+            value: 1,
+            date: {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': task.updatedAt?.toISOString(),
             },
         });
     });
-
 });

@@ -1,7 +1,7 @@
-import { engineClosesConnections } from 'soukai/engines/ClosesConnections';
 import { fail, tap } from '@noeldemartin/utils';
-import { SoukaiError } from 'soukai/errors';
+import { engineClosesConnections } from 'soukai/engines/ClosesConnections';
 import type { Engine } from 'soukai/engines/Engine';
+import { SoukaiError } from 'soukai/errors';
 
 import { isProxyEngine } from './ProxyEngine';
 

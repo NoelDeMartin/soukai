@@ -1,12 +1,11 @@
 import { isEmpty, isNullable, isObject, objectDeepClone } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai/errors/SoukaiError';
 
 import { FieldType } from './fields';
 import type { BootedFieldDefinition, BootedFieldsDefinition } from './fields';
 
 export type Attributes = Record<string, AttributeValue>;
-export type AttributeValue = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type AttributeValue = any; // oxlint-disable-line typescript/no-explicit-any
 
 export function validateAttributes(attributes: Attributes, fields: BootedFieldsDefinition): Attributes {
     for (const [field, definition] of Object.entries(fields)) {

@@ -1,3 +1,4 @@
+import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
 import { fail } from '@noeldemartin/utils';
 import { ModelKey } from 'soukai';
 import type {
@@ -8,15 +9,12 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai';
-import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
-
 import ResourceNotFound from 'soukai-solid/errors/ResourceNotFound';
+import JsonLDModelSerializer from 'soukai-solid/models/internals/JsonLDModelSerializer';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import RDFDocument from 'soukai-solid/solid/RDFDocument';
 import { RDFResourcePropertyType } from 'soukai-solid/solid/RDFResourceProperty';
 import type RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
-
-import JsonLDModelSerializer from 'soukai-solid/models/internals/JsonLDModelSerializer';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
 export type This = SolidModel;
 
@@ -26,7 +24,6 @@ export type SerializeOptions = Partial<{
 }>;
 
 export default class SerializesToJsonLD {
-
     protected serializeToJsonLD(this: This, options: SerializeOptions = {}): JsonLD {
         options.includeRelations ??= true;
 
@@ -57,7 +54,8 @@ export default class SerializesToJsonLD {
                     [] as RDFResourceProperty[],
                 );
             const propertyValues = properties.map((property) =>
-                property.type === RDFResourcePropertyType.Reference ? new ModelKey(property.value) : property.value);
+                property.type === RDFResourcePropertyType.Reference ? new ModelKey(property.value) : property.value,
+            );
             const [firstValue, ...otherValues] = propertyValues;
 
             if (typeof firstValue === 'undefined') continue;
@@ -141,5 +139,4 @@ export default class SerializesToJsonLD {
             attributes,
         });
     }
-
 }

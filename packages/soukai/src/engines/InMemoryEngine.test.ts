@@ -1,17 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
 import { faker } from '@noeldemartin/faker';
-
+import { InMemoryEngine } from 'soukai/engines/InMemoryEngine';
+import type { InMemoryEngineCollection } from 'soukai/engines/InMemoryEngine';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 import { bootModels } from 'soukai/models';
-import { InMemoryEngine } from 'soukai/engines/InMemoryEngine';
 import { Model } from 'soukai/models/Model';
-import type { InMemoryEngineCollection } from 'soukai/engines/InMemoryEngine';
-
 import User from 'soukai/testing/stubs/User';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('InMemoryEngine', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => {
@@ -59,9 +55,7 @@ describe('InMemoryEngine', () => {
         } while (User.collection === otherCollection);
 
         class StubModel extends Model {
-
             public static collection = otherCollection;
-        
         }
 
         const firstName = faker.name.firstName();
@@ -128,5 +122,4 @@ describe('InMemoryEngine', () => {
     it('delete non existent', async () => {
         await expect(engine.delete(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
-
 });

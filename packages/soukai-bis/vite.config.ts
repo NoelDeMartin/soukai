@@ -1,37 +1,20 @@
 import { URL, fileURLToPath } from 'node:url';
 
-import dts from 'unplugin-dts/vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
-    build: {
+    pack: {
+        entry: {
+            'soukai-bis': 'src/index.ts',
+            'patch-zod': 'src/patch-zod.ts',
+        },
+        unbundle: true,
         sourcemap: true,
-        minify: false,
-        lib: {
-            entry: {
-                'soukai-bis': fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-                'patch-zod': fileURLToPath(new URL('./src/patch-zod.ts', import.meta.url)),
-            },
-            formats: ['es'],
-        },
-        rollupOptions: {
-            external(source) {
-                return !source.startsWith('.') && !source.startsWith('soukai-bis/') && !source.includes('/soukai-bis/');
-            },
-            output: {
-                preserveModules: true,
-                preserveModulesRoot: 'src',
-                entryFileNames: '[name].js',
-            },
-        },
+        dts: true,
+        fixedExtension: false,
+        publint: true,
+        attw: { profile: 'esm-only' },
     },
-    plugins: [
-        dts({
-            bundleTypes: true,
-            tsconfigPath: './tsconfig.json',
-            insertTypesEntry: true,
-        }),
-    ],
     resolve: {
         alias: {
             'soukai-bis': fileURLToPath(new URL('./src/', import.meta.url)),

@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
-import User from 'soukai-bis/testing/stubs/User';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
-import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
 import type Post from 'soukai-bis/testing/stubs/Post';
+import User from 'soukai-bis/testing/stubs/User';
+import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('HasManyRelation', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => setEngine((engine = new InMemoryEngine())));
@@ -38,5 +36,4 @@ describe('HasManyRelation', () => {
             ],
         });
     });
-
 });

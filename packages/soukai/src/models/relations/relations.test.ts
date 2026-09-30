@@ -1,23 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
 import { faker } from '@noeldemartin/faker';
 import { type Tuple, uuid } from '@noeldemartin/utils';
-
+import { Model, bootModels, defineModelSchema } from 'soukai/models';
+import { FieldType } from 'soukai/models/fields';
 import BelongsToOneRelation from 'soukai/models/relations/BelongsToOneRelation';
 import HasManyRelation from 'soukai/models/relations/HasManyRelation';
 import HasOneRelation from 'soukai/models/relations/HasOneRelation';
 import type { Relation } from 'soukai/models/relations/Relation';
-
-import { FieldType } from 'soukai/models/fields';
-import { Model, bootModels, defineModelSchema } from 'soukai/models';
-
+import FakeEngine from 'soukai/testing/fakes/FakeEngine';
 import City from 'soukai/testing/stubs/City';
 import Post from 'soukai/testing/stubs/Post';
 import User from 'soukai/testing/stubs/User';
-import FakeEngine from 'soukai/testing/fakes/FakeEngine';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('Model Relations', () => {
-
     beforeEach(() => {
         FakeEngine.reset();
         FakeEngine.use();
@@ -193,19 +188,15 @@ describe('Model Relations', () => {
     it('keeps relations in local class', () => {
         // Arrange
         class Parent extends Model {
-
             public fooRelationship(): Relation {
                 return this.belongsToOne(Model, 'id');
             }
-        
         }
 
         class Child extends Parent {
-
             public barRelationship(): Relation {
                 return this.belongsToOne(Model, 'id');
             }
-        
         }
 
         // Act
@@ -244,27 +235,23 @@ describe('Model Relations', () => {
         const ParentSchema = defineModelSchema({});
 
         class Parent extends ParentSchema {
-
             declare public children?: Child[];
             declare public relatedChildren: HasManyRelation<this, Child, typeof Child>;
 
             public childrenRelationship(): Relation {
                 return this.hasMany(Child, 'parentId');
             }
-        
         }
 
         const ChildSchema = defineModelSchema({ fields: { parentId: FieldType.Key } });
 
         class Child extends ChildSchema {
-
             declare public parent?: Parent;
             declare public relatedParent: HasOneRelation<this, Parent, typeof Parent>;
 
             public parentRelationship(): Relation {
                 return this.belongsToOne(Parent, 'parentId');
             }
-        
         }
 
         const parent = new Parent({ id: 'parent' });
@@ -309,5 +296,4 @@ describe('Model Relations', () => {
         expect(post.author).toBeInstanceOf(User);
         expect(post.author?.name).toBe(name);
     });
-
 });

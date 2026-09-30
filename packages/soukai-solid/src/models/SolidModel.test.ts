@@ -1,8 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-
-/* eslint-disable max-len */
+import { faker } from '@noeldemartin/faker';
+import { expandIRI as defaultExpandIRI, turtleToQuadsSync } from '@noeldemartin/solid-utils';
+import type { JsonLDGraph, JsonLDResource } from '@noeldemartin/solid-utils';
+import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl, tt } from '@noeldemartin/testing';
+import type { Expect } from '@noeldemartin/testing';
 import {
-    after,
     arrayWithout,
     range,
     stringToSlug,
@@ -13,46 +14,44 @@ import {
     urlRoute,
     uuid,
 } from '@noeldemartin/utils';
-import dayjs from 'dayjs';
-import { expandIRI as defaultExpandIRI, turtleToQuadsSync } from '@noeldemartin/solid-utils';
-import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl, tt } from '@noeldemartin/testing';
-import { FieldType, InMemoryEngine, ModelKey, TimestampField, bootModels, setEngine } from 'soukai';
-import { faker } from '@noeldemartin/faker';
-import type { EngineDocument, Relation } from 'soukai';
 import type { Equals, Tuple } from '@noeldemartin/utils';
-import type { Expect } from '@noeldemartin/testing';
-import type { JsonLDGraph, JsonLDResource } from '@noeldemartin/solid-utils';
-
+import dayjs from 'dayjs';
+import { FieldType, InMemoryEngine, ModelKey, TimestampField, bootModels, setEngine } from 'soukai';
+import type { EngineDocument, Relation } from 'soukai';
 import AddPropertyOperation from 'soukai-solid/models/history/AddPropertyOperation';
 import DeleteOperation from 'soukai-solid/models/history/DeleteOperation';
-import IRI from 'soukai-solid/solid/utils/IRI';
 import PropertyOperation from 'soukai-solid/models/history/PropertyOperation';
 import RemovePropertyOperation from 'soukai-solid/models/history/RemovePropertyOperation';
 import SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperation';
-import SolidContainer from 'soukai-solid/models/SolidContainer';
 import UnsetPropertyOperation from 'soukai-solid/models/history/UnsetPropertyOperation';
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
+import SolidContainer from 'soukai-solid/models/SolidContainer';
 import { XSD_DATE_TIME } from 'soukai-solid/solid/constants';
-
-import Group from 'soukai-solid/testing/lib/stubs/Group';
-import Movie from 'soukai-solid/testing/lib/stubs/Movie';
-import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
-import Person from 'soukai-solid/testing/lib/stubs/Person';
-import PersonSchema from 'soukai-solid/testing/lib/stubs/Person.schema';
-import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
+import IRI from 'soukai-solid/solid/utils/IRI';
 import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
-import { assertInstanceOf, solidModelWithHistory, solidModelWithTimestamps } from 'soukai-solid/testing/utils';
+import Group from 'soukai-solid/testing/lib/stubs/Group';
 import {
     stubMovieJsonLD,
     stubMoviesCollectionJsonLD,
     stubPersonJsonLD,
     stubWatchActionJsonLD,
 } from 'soukai-solid/testing/lib/stubs/helpers';
+import Movie from 'soukai-solid/testing/lib/stubs/Movie';
+import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
+import Person from 'soukai-solid/testing/lib/stubs/Person';
+import PersonSchema from 'soukai-solid/testing/lib/stubs/Person.schema';
+import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
+import {
+    assertInstanceOf,
+    solidModelWithHistory,
+    solidModelWithTimestamps,
+    useFakeClock,
+} from 'soukai-solid/testing/utils';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import { SolidModel } from './SolidModel';
 
 describe('SolidModel', () => {
-
     beforeAll(() => {
         bootModels({
             Group,
@@ -75,7 +74,6 @@ describe('SolidModel', () => {
 
     it('resolves contexts when booting', () => {
         class StubModel extends SolidModel {
-
             public static timestamps = false;
 
             public static rdfContexts = {
@@ -90,7 +88,6 @@ describe('SolidModel', () => {
                     rdfProperty: 'foaf:givenname',
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -114,7 +111,6 @@ describe('SolidModel', () => {
     it('aliases RDF prefixes', () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static rdfContexts = {
                 schema: 'https://schema.org/',
             };
@@ -127,7 +123,6 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -149,7 +144,6 @@ describe('SolidModel', () => {
     it('replaces RDF prefixes', () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static rdfContexts = {
                 schema: 'https://schema.org/',
             };
@@ -162,7 +156,6 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -184,7 +177,6 @@ describe('SolidModel', () => {
     it('resets RDF Aliases', () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static rdfContexts = {
                 schema: 'https://schema.org/',
             };
@@ -197,7 +189,6 @@ describe('SolidModel', () => {
                     rdfProperty: 'schema:name',
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -220,15 +211,11 @@ describe('SolidModel', () => {
 
     it('defaults to rdfsClass context if default rdfContext is missing', () => {
         class A extends SolidModel {
-
             public static rdfsClass = 'http://xmlns.com/foaf/0.1/A';
-        
         }
 
         class B extends SolidModel {
-
             public static rdfsClass = 'foaf:B';
-        
         }
 
         bootModels({ A, B });
@@ -239,7 +226,6 @@ describe('SolidModel', () => {
 
     it('defaults to first context if rdfProperty is missing', () => {
         class StubModel extends SolidModel {
-
             public static timestamps = false;
 
             public static rdfContexts = {
@@ -249,7 +235,6 @@ describe('SolidModel', () => {
             public static fields = {
                 name: FieldType.String,
             };
-        
         }
 
         bootModels({ StubModel });
@@ -290,7 +275,9 @@ describe('SolidModel', () => {
 
         await StubModel.at(containerUrl).create({ nickname: 'Johnny' });
 
-        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as { '@graph': [{ nickname: string }] };
+        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as {
+            '@graph': [{ nickname: string }];
+        };
 
         expect(document['@graph'][0].nickname).toEqual('Johnny');
     });
@@ -298,9 +285,7 @@ describe('SolidModel', () => {
     it('defines custom class fields', () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static classFields = ['stubField'];
-        
         }
 
         bootModels({ StubModel });
@@ -324,7 +309,9 @@ describe('SolidModel', () => {
 
         await StubModel.create({});
 
-        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as { '@graph': [{ '@type': string }] };
+        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as {
+            '@graph': [{ '@type': string }];
+        };
 
         expect(document['@graph'][0]['@type']).not.toBeUndefined();
     });
@@ -377,7 +364,9 @@ describe('SolidModel', () => {
         const directorName = faker.name.firstName();
         const movieUrl = urlResolve(containerUrl, stringToSlug(movieName));
         const movie = new Movie({ url: movieUrl, name: movieName });
-        const action = await movie.relatedActions.create({ startTime: new Date('1997-07-21T23:42:00Z') });
+        const action = await movie.relatedActions.create({
+            startTime: new Date('1997-07-21T23:42:00Z'),
+        });
         const director = await movie.relatedDirector.create({
             name: directorName,
             createdAt: new Date('1998-07-21T23:42:00.000Z'),
@@ -424,7 +413,9 @@ describe('SolidModel', () => {
         const containerUrl = fakeContainerUrl();
         const movieName = faker.lorem.sentence();
         const movie = new Movie({ name: movieName });
-        const action = await movie.relatedActions.create({ startTime: new Date('1997-07-21T23:42:00Z') });
+        const action = await movie.relatedActions.create({
+            startTime: new Date('1997-07-21T23:42:00Z'),
+        });
 
         // Act
         await movie.save(containerUrl);
@@ -433,7 +424,7 @@ describe('SolidModel', () => {
         const movieUrl = movie.url as string;
 
         expect(FakeSolidEngine.create).toHaveBeenCalledWith(containerUrl, expect.anything(), movie.getDocumentUrl());
-        expect(FakeSolidEngine.createSpy.mock.calls[0]?.[1]).toEqualJsonLD({
+        await expect(FakeSolidEngine.createSpy.mock.calls[0]?.[1]).toEqualJsonLD({
             '@graph': [
                 ...stubMovieJsonLD(movieUrl, movieName)['@graph'],
                 ...stubWatchActionJsonLD(action.url as string, movieUrl, '1997-07-21T23:42:00.000Z')['@graph'],
@@ -456,9 +447,7 @@ describe('SolidModel', () => {
     it('finds resource ids with partial class matches', () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static rdfsClasses = ['https://schema.org/Action', 'http://www.w3.org/2002/12/cal/ical#Vtodo'];
-        
         }
         const documentUrl = fakeDocumentUrl();
         const quads = turtleToQuadsSync('<#it> a <https://schema.org/Action> .', {
@@ -525,7 +514,7 @@ describe('SolidModel', () => {
         });
     });
 
-    it('doesn\'t find model if classes don\'t match', async () => {
+    it("doesn't find model if classes don't match", async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
@@ -587,12 +576,10 @@ describe('SolidModel', () => {
     it('converts updates to JSON-LD', async () => {
         // Arrange.
         class StubModel extends SolidModel {
-
             public static timestamps = false;
 
             declare public name: string | undefined;
             declare public surname: string | undefined;
-        
         }
 
         bootModels({ StubModel });
@@ -607,7 +594,9 @@ describe('SolidModel', () => {
             true,
         );
 
-        FakeSolidEngine.database[containerUrl] = { [documentUrl]: { '@graph': [model.toJsonLD()] } as EngineDocument };
+        FakeSolidEngine.database[containerUrl] = {
+            [documentUrl]: { '@graph': [model.toJsonLD()] } as EngineDocument,
+        };
 
         // Act.
         model.name = 'John';
@@ -711,9 +700,7 @@ describe('SolidModel', () => {
     it('uses default hash to mint urls for new models', async () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static defaultResourceHash = 'foobar';
-        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -853,12 +840,10 @@ describe('SolidModel', () => {
         expect(StubPerson.rdfsClasses).toEqual(['https://schema.org/Person']);
     });
 
-    it('doesn\'t mint urls for new models if disabled', async () => {
+    it("doesn't mint urls for new models if disabled", async () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static mintsUrls = false;
-        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -882,12 +867,12 @@ describe('SolidModel', () => {
                         '@context': { '@vocab': 'https://vocab.noeldemartin.com/crdt/' },
                         '@id': '#it-metadata',
                         '@type': 'Metadata',
-                        'resource': { '@id': '#it' },
-                        'createdAt': {
+                        resource: { '@id': '#it' },
+                        createdAt: {
                             '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                             '@value': expect.anything(),
                         },
-                        'updatedAt': {
+                        updatedAt: {
                             '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                             '@value': expect.anything(),
                         },
@@ -903,14 +888,12 @@ describe('SolidModel', () => {
         expect(model.metadata.resourceUrl).toEqual(`${documentUrl}#it`);
     });
 
-    it('doesn\'t mint urls nor hashes for new models if disabled', async () => {
+    it("doesn't mint urls nor hashes for new models if disabled", async () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static timestamps = false;
             public static mintsUrls = false;
             public static defaultResourceHash = null;
-        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -947,7 +930,9 @@ describe('SolidModel', () => {
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const resourceUrl = fakeResourceUrl({ documentUrl });
 
-        FakeSolidEngine.database[containerUrl] = { [documentUrl]: stubMovieJsonLD(resourceUrl, faker.random.word()) };
+        FakeSolidEngine.database[containerUrl] = {
+            [documentUrl]: stubMovieJsonLD(resourceUrl, faker.random.word()),
+        };
 
         bootModels({ StubModel });
 
@@ -978,8 +963,11 @@ describe('SolidModel', () => {
         // Act
         const movie = new Movie({ url: resourceUrl });
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         movie.relatedActions.create({});
+        // oxlint-disable-next-line typescript/no-floating-promises
         movie.relatedActors.create({});
+        // oxlint-disable-next-line typescript/no-floating-promises
         movie.relatedActors.create({});
 
         await movie.save();
@@ -1047,7 +1035,9 @@ describe('SolidModel', () => {
 
         movie.setRelationModels('actions', []);
 
-        FakeSolidEngine.database[containerUrl] = { [movieUrl]: { '@graph': [movie.toJsonLD()] } as EngineDocument };
+        FakeSolidEngine.database[containerUrl] = {
+            [movieUrl]: { '@graph': [movie.toJsonLD()] } as EngineDocument,
+        };
 
         // Act
         const action = await movie.relatedActions.create({});
@@ -1063,7 +1053,7 @@ describe('SolidModel', () => {
                     '@context': { '@vocab': 'https://schema.org/' },
                     '@id': action.url,
                     '@type': 'WatchAction',
-                    'object': { '@id': movie.url },
+                    object: { '@id': movie.url },
                 },
             },
         });
@@ -1101,7 +1091,9 @@ describe('SolidModel', () => {
 
         movie.title = movieName;
 
-        FakeSolidEngine.database[containerUrl] = { [documentUrl]: { '@graph': [movie.toJsonLD()] } as EngineDocument };
+        FakeSolidEngine.database[containerUrl] = {
+            [documentUrl]: { '@graph': [movie.toJsonLD()] } as EngineDocument,
+        };
 
         // Act
         await movie.save();
@@ -1269,13 +1261,15 @@ describe('SolidModel', () => {
 
     it('soft deletes', async () => {
         // Arrange
+        useFakeClock();
+
         class TrackedPerson extends solidModelWithHistory(Person) {}
 
         const name = faker.random.word();
         const person = await TrackedPerson.create({ name });
 
         // Act
-        await after({ ms: 10 });
+        await vi.advanceTimersByTimeAsync(10);
         await person.softDelete();
 
         // Assert
@@ -1340,7 +1334,7 @@ describe('SolidModel', () => {
 
         expect(FakeSolidEngine.readMany).toHaveBeenCalledTimes(2);
         expect(FakeSolidEngine.readMany).toHaveBeenCalledWith('https://example.com/', {
-            '$in': ['https://example.com/alice'],
+            $in: ['https://example.com/alice'],
             '@graph': {
                 $contains: {
                     '@type': {
@@ -1355,7 +1349,7 @@ describe('SolidModel', () => {
             },
         });
         expect(FakeSolidEngine.readMany).toHaveBeenCalledWith('https://example.org/', {
-            '$in': ['https://example.org/bob'],
+            $in: ['https://example.org/bob'],
             '@graph': {
                 $contains: {
                     '@type': {
@@ -1450,15 +1444,15 @@ describe('SolidModel', () => {
             '@id': person.url,
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'crdt': 'https://vocab.noeldemartin.com/crdt/',
-                'metadata': { '@reverse': 'crdt:resource' },
-                'vcard': 'http://www.w3.org/2006/vcard/ns#',
+                crdt: 'https://vocab.noeldemartin.com/crdt/',
+                metadata: { '@reverse': 'crdt:resource' },
+                vcard: 'http://www.w3.org/2006/vcard/ns#',
             },
             '@type': 'Person',
-            'name': name,
+            name: name,
             'vcard:nickname': nickName,
-            'knows': friendUrls.map((url) => ({ '@id': url })),
-            'metadata': {
+            knows: friendUrls.map((url) => ({ '@id': url })),
+            metadata: {
                 '@id': person.url + '#metadata',
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
@@ -1493,16 +1487,16 @@ describe('SolidModel', () => {
         expect(jsonld).toEqual({
             '@context': {
                 '@vocab': 'https://schema.org/',
-                'actions': { '@reverse': 'object' },
+                actions: { '@reverse': 'object' },
             },
             '@type': 'Movie',
             '@id': movieUrl,
-            'name': movieName,
-            'actions': [
+            name: movieName,
+            actions: [
                 {
                     '@type': 'WatchAction',
                     '@id': watchActionUrl,
-                    'startTime': {
+                    startTime: {
                         '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                         '@value': '1997-07-21T23:42:00.000Z',
                     },
@@ -1526,20 +1520,20 @@ describe('SolidModel', () => {
         expect(jsonLd).toEqual({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'crdt': 'https://vocab.noeldemartin.com/crdt/',
-                'metadata': { '@reverse': 'crdt:resource' },
-                'vcard': 'http://www.w3.org/2006/vcard/ns#',
+                crdt: 'https://vocab.noeldemartin.com/crdt/',
+                metadata: { '@reverse': 'crdt:resource' },
+                vcard: 'http://www.w3.org/2006/vcard/ns#',
             },
             '@type': 'Group',
             '@id': mugiwara.url,
-            'name': 'Straw Hat Pirates',
-            'member': [
+            name: 'Straw Hat Pirates',
+            member: [
                 {
                     '@id': luffy.url,
                     '@type': 'Person',
-                    'name': 'Luffy',
-                    'lastName': 'Monkey D.',
-                    'metadata': {
+                    name: 'Luffy',
+                    lastName: 'Monkey D.',
+                    metadata: {
                         '@id': `${luffy.url}-metadata`,
                         '@type': 'crdt:Metadata',
                         'crdt:createdAt': {
@@ -1551,9 +1545,9 @@ describe('SolidModel', () => {
                 {
                     '@id': zoro.url,
                     '@type': 'Person',
-                    'name': 'Zoro',
-                    'lastName': 'Roronoa',
-                    'metadata': {
+                    name: 'Zoro',
+                    lastName: 'Roronoa',
+                    metadata: {
                         '@id': `${zoro.url}-metadata`,
                         '@type': 'crdt:Metadata',
                         'crdt:createdAt': {
@@ -1563,7 +1557,7 @@ describe('SolidModel', () => {
                     },
                 },
             ],
-            'metadata': {
+            metadata: {
                 '@id': `${mugiwara.url}-metadata`,
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
@@ -1580,7 +1574,9 @@ describe('SolidModel', () => {
 
     it('serializes to minimal JSON-LD', async () => {
         // Arrange
-        const mugiwara = await GroupWithHistoryAndPersonsInSameDocument.create({ name: 'Straw Hat Pirates' });
+        const mugiwara = await GroupWithHistoryAndPersonsInSameDocument.create({
+            name: 'Straw Hat Pirates',
+        });
 
         await mugiwara.relatedMembers.create({ name: 'Luffy', lastName: 'Monkey D.' });
         await mugiwara.relatedMembers.create({ name: 'Zoro', lastName: 'Roronoa' });
@@ -1597,20 +1593,20 @@ describe('SolidModel', () => {
         expect(jsonLd).toEqual({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'vcard': 'http://www.w3.org/2006/vcard/ns#',
+                vcard: 'http://www.w3.org/2006/vcard/ns#',
             },
             '@type': 'Group',
-            'name': 'Mugiwara',
-            'member': [
+            name: 'Mugiwara',
+            member: [
                 {
                     '@type': 'Person',
-                    'name': 'Luffy',
-                    'lastName': 'Monkey D.',
+                    name: 'Luffy',
+                    lastName: 'Monkey D.',
                 },
                 {
                     '@type': 'Person',
-                    'name': 'Zoro',
-                    'lastName': 'Roronoa',
+                    name: 'Zoro',
+                    lastName: 'Roronoa',
                 },
             ],
         });
@@ -1632,7 +1628,7 @@ describe('SolidModel', () => {
             '@id': fakeDocumentUrl({ containerUrl }),
             '@type': ['http://xmlns.com/foaf/0.1/Person'],
             name,
-            'knows': friendUrls.map((url) => ({ '@id': url })),
+            knows: friendUrls.map((url) => ({ '@id': url })),
             'http://purl.org/dc/terms/created': {
                 '@type': 'http://www.w3.org/2001/XMLSchema#dateTime',
                 '@value': '1997-07-21T23:42:00.000Z',
@@ -1665,19 +1661,19 @@ describe('SolidModel', () => {
         const movie = await Movie.newFromJsonLD({
             '@context': {
                 '@vocab': 'https://schema.org/',
-                'foaf': 'http://xmlns.com/foaf/0.1/',
-                'director': { '@reverse': 'foaf:made' },
-                'actions': { '@reverse': 'object' },
+                foaf: 'http://xmlns.com/foaf/0.1/',
+                director: { '@reverse': 'foaf:made' },
+                actions: { '@reverse': 'object' },
             },
             '@id': movieUrl,
             '@type': 'Movie',
-            'name': movieName,
-            'director': {
+            name: movieName,
+            director: {
                 '@id': `${documentUrl}#director`,
                 '@type': 'foaf:Person',
                 'foaf:name': directorName,
             },
-            'actions': actions.map((index) => ({
+            actions: actions.map((index) => ({
                 '@id': `${documentUrl}#action-${index}`,
                 '@type': 'WatchAction',
             })),
@@ -1690,16 +1686,16 @@ describe('SolidModel', () => {
             },
             '@id': groupUrl,
             '@type': 'Group',
-            'name': groupName,
-            'maker': {
+            name: groupName,
+            maker: {
                 '@id': `${documentUrl}#creator`,
                 '@type': 'Person',
-                'name': creatorName,
+                name: creatorName,
             },
-            'member': memberNames.map((memberName, index) => ({
+            member: memberNames.map((memberName, index) => ({
                 '@id': `${documentUrl}#member-${index}`,
                 '@type': 'Person',
-                'name': memberName,
+                name: memberName,
             })),
         });
 
@@ -1782,7 +1778,7 @@ describe('SolidModel', () => {
             '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@id': 'john#it',
             '@type': 'Person',
-            'name': name,
+            name: name,
         });
 
         // Assert
@@ -1799,7 +1795,7 @@ describe('SolidModel', () => {
         const person = await Person.createFromJsonLD({
             '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@type': 'Person',
-            'name': name,
+            name: name,
         });
 
         // Assert
@@ -1813,19 +1809,17 @@ describe('SolidModel', () => {
             '@context': { '@vocab': 'https://schema.org/' },
             '@type': 'Movie',
             '@id': fakeDocumentUrl(),
-            'name': faker.random.word(),
+            name: faker.random.word(),
         });
 
-        await expect(promisedPerson).rejects.toThrowError('Couldn\'t find matching resource in JSON-LD');
+        await expect(promisedPerson).rejects.toThrowError("Couldn't find matching resource in JSON-LD");
     });
 
     it('Does not create operations on create', async () => {
         // Arrange
         class TrackedPerson extends Person {
-
             public static timestamps = true;
             public static history = true;
-        
         }
 
         // Act
@@ -1837,6 +1831,8 @@ describe('SolidModel', () => {
 
     it('Tracks operations with history enabled', async () => {
         // Arrange
+        useFakeClock();
+
         const firstName = faker.random.word();
         const secondName = faker.random.word();
         const firstLastName = faker.random.word();
@@ -1845,9 +1841,9 @@ describe('SolidModel', () => {
         // Act
         const person = await PersonWithHistory.create({ name: firstName });
 
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await person.update({ name: secondName, lastName: firstLastName, age: 42 });
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await person.update({ lastName: secondLastName, age: null });
 
         // Assert
@@ -1899,11 +1895,13 @@ describe('SolidModel', () => {
 
     it('Tracks history properly for array fields', async () => {
         // Arrange
-        const firstName = faker.random.word();
-        const secondName = faker.random.word();
-        const initialMembers = [faker.random.word(), faker.random.word(), faker.random.word(), undefined];
-        const firstAddedMembers = [faker.random.word(), faker.random.word()];
-        const secondAddedMember = faker.random.word();
+        useFakeClock();
+
+        const words = faker.helpers.uniqueArray(() => faker.random.word(), 8);
+        const [firstName, secondName, ...members] = words as Tuple<string, 8>;
+        const initialMembers = [members[0], members[1], members[2], undefined];
+        const firstAddedMembers = [members[3], members[4]];
+        const secondAddedMember = members[5];
         const removedMembers = [initialMembers[1], firstAddedMembers[1]];
 
         // Act
@@ -1912,13 +1910,13 @@ describe('SolidModel', () => {
             memberUrls: initialMembers,
         });
 
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await group.update({
             name: secondName,
             memberUrls: [...group.memberUrls, ...firstAddedMembers],
         });
 
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await group.update({
             memberUrls: arrayWithout([...group.memberUrls, secondAddedMember], removedMembers),
         });
@@ -1994,12 +1992,12 @@ describe('SolidModel', () => {
         const jsonld = {
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'purl': 'http://purl.org/dc/terms/',
-                'xls': 'http://www.w3.org/2001/XMLSchema#',
+                purl: 'http://purl.org/dc/terms/',
+                xls: 'http://www.w3.org/2001/XMLSchema#',
             },
             '@id': fakeResourceUrl(),
             '@type': 'Person',
-            'name': faker.random.word(),
+            name: faker.random.word(),
             'purl:created': {
                 '@type': 'xls:dateTime',
                 '@value': date.toISOString(),
@@ -2169,18 +2167,27 @@ describe('SolidModel', () => {
 
     it('Synchronizes models history', async () => {
         // Arrange
-        const inception = await PersonWithHistory.create({ name: 'Initial Name', lastName: 'Initial last name' });
+        useFakeClock();
 
+        vi.advanceTimersByTime(1);
+        const inception = await PersonWithHistory.create({
+            name: 'Initial Name',
+            lastName: 'Initial last name',
+        });
+
+        vi.advanceTimersByTime(1);
         await inception.update({ name: 'Second name' });
 
         const versionA = inception.clone({ clean: true });
         const versionB = inception.clone({ clean: true });
 
+        vi.advanceTimersByTime(1);
         await versionA.update({ name: 'Name A' });
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionB.update({ lastName: 'Last name B' });
 
         // Act
+        vi.advanceTimersByTime(1);
         await SolidModel.synchronize(versionA, versionB);
 
         // Assert
@@ -2233,18 +2240,25 @@ describe('SolidModel', () => {
 
     it('Does not recreate operations for synchronized changes', async () => {
         // Arrange
-        const inception = await PersonWithHistory.create({ name: 'Initial Name', lastName: 'Initial last name' });
+        useFakeClock();
 
+        const inception = await PersonWithHistory.create({
+            name: 'Initial Name',
+            lastName: 'Initial last name',
+        });
+
+        vi.advanceTimersByTime(1);
         await inception.update({ name: 'Second name' });
 
         const versionA = inception.clone({ clean: true });
         const versionB = inception.clone({ clean: true });
 
+        vi.advanceTimersByTime(1);
         await versionA.update({ name: 'Name A' });
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionB.update({ lastName: 'Last name B' });
         await SolidModel.synchronize(versionA, versionB);
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
 
         FakeSolidEngine.resetSpies();
 
@@ -2303,12 +2317,18 @@ describe('SolidModel', () => {
 
     it('Avoids duplicating inception operations when synchronizing models', async () => {
         // Arrange
-        const inception = await PersonWithHistory.create({ name: 'Initial Name', lastName: 'Initial last name' });
+        useFakeClock();
+
+        const inception = await PersonWithHistory.create({
+            name: 'Initial Name',
+            lastName: 'Initial last name',
+        });
         const versionA = inception.clone({ clean: true });
         const versionB = inception.clone({ clean: true });
 
+        vi.advanceTimersByTime(1);
         await versionA.update({ name: 'Name A' });
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionB.update({ lastName: 'Last name B' });
 
         // Act
@@ -2361,13 +2381,18 @@ describe('SolidModel', () => {
 
     it('Reconciles synchronized operations on save', async () => {
         // Arrange
-        const inception = await PersonWithHistory.create({ name: 'Initial Name', lastName: 'Initial last name' });
+        useFakeClock();
+
+        const inception = await PersonWithHistory.create({
+            name: 'Initial Name',
+            lastName: 'Initial last name',
+        });
         const versionA = inception.clone({ clean: true });
         const versionB = inception.clone({ clean: true });
 
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionA.update({ name: 'Name A' });
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionB.update({ lastName: 'Last name B' });
 
         const originalInceptionOperationUrls = new WeakMap<PersonWithHistory, Record<string, string>>();
@@ -2381,7 +2406,8 @@ describe('SolidModel', () => {
                             operation.date.getTime() === model.createdAt.getTime(),
                     )
                     .reduce((map, operation) => ({ ...map, [operation.property]: operation.url }), {}),
-            ));
+            ),
+        );
 
         await SolidModel.synchronize(versionA, versionB);
 
@@ -2509,14 +2535,16 @@ describe('SolidModel', () => {
 
     it('Synchronizes models history with relations', async () => {
         // Arrange
+        useFakeClock();
+
         const group = await GroupWithHistoryAndPersonsInSameDocument.create({ name: 'Group' });
 
         const versionA = group.clone({ clean: true });
         const versionB = group.clone({ clean: true });
 
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionA.relatedMembers.create({ name: 'John' });
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
         await versionB.relatedMembers.create({ name: 'Amy' });
 
         // Act
@@ -2616,20 +2644,21 @@ describe('SolidModel', () => {
         await Recipe.create({ name: 'Chickpeas Stew' });
 
         // Assert
-        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as { '@graph': [{ nickname: string }] };
+        const document = FakeSolidEngine.createSpy.mock.calls[0]?.[1] as {
+            '@graph': [{ nickname: string }];
+        };
 
-        expect(document['@graph'][0]).toEqualJsonLD({
+        await expect(document['@graph'][0]).toEqualJsonLD({
             '@context': { '@vocab': 'https://schema.org/' },
             '@id': 'solid://recipes/chickpeas-stew#it',
             '@type': 'Recipe',
-            'name': 'Chickpeas Stew',
+            name: 'Chickpeas Stew',
         });
     });
 
     it('serializes and deserializes fields', async () => {
         // Arrange
         class StubModel extends SolidModel {
-
             public static history = true;
             public static rdfContext = 'https://schema.org/';
             public static fields = {
@@ -2639,7 +2668,6 @@ describe('SolidModel', () => {
                     deserialize: (value?: string) => value && value.toLowerCase(),
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -2669,11 +2697,9 @@ describe('SolidModel', () => {
         // Arrange
         class StubMovie extends SolidModel {}
         class StubMoviesCollection extends SolidContainer {
-
             public moviesRelationship(): Relation {
                 return this.contains(StubMovie);
             }
-        
         }
 
         bootModels({ StubMovie, StubMoviesCollection });
@@ -2691,11 +2717,9 @@ describe('SolidModel', () => {
         expect(collectionRelated).toHaveLength(3);
         expect(movieRelated).toHaveLength(2);
     });
-
 });
 
 describe('SolidModel types', () => {
-
     it('has correct types', async () => {
         // Arrange
         const STATUSES = ['pending', 'completed', 'failed'] as const;
@@ -2737,7 +2761,6 @@ describe('SolidModel types', () => {
             | true
         >();
     });
-
 });
 
 function expandIRI(iri: string) {
@@ -2756,17 +2779,13 @@ class MovieWithHistory extends solidModelWithHistory(Movie) {}
 class GroupWithHistory extends solidModelWithHistory(Group) {}
 
 class GroupWithPersonsInSameDocument extends solidModelWithTimestamps(Group) {
-
     public membersRelationship(): Relation {
         return this.belongsToMany(Person, 'memberUrls').usingSameDocument(true).onDelete('cascade');
     }
-
 }
 
 class GroupWithHistoryAndPersonsInSameDocument extends solidModelWithHistory(Group) {
-
     public membersRelationship(): Relation {
         return this.belongsToMany(Person, 'memberUrls').usingSameDocument(true).onDelete('cascade');
     }
-
 }

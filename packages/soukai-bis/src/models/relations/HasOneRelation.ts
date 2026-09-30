@@ -1,6 +1,5 @@
 import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
@@ -13,7 +12,6 @@ export default class HasOneRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > extends mixed(SingleModelRelation, [HasRelation])<Parent, Related, RelatedClass, ForeignKeyName> {
-
     public async load(): Promise<Related | null> {
         this.related = await this.loadRelatedModel();
 
@@ -66,5 +64,4 @@ export default class HasOneRelation<
 
         return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;
     }
-
 }

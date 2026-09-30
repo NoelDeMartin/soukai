@@ -1,16 +1,14 @@
 import { findInstanceRegistrations } from '@noeldemartin/solid-utils';
 import { requireUrlParentDirectory, uuid } from '@noeldemartin/utils';
-
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
 
-import Model from './SolidDocument.schema';
-import SolidTypeRegistration from './SolidTypeRegistration';
-import type SolidTypeIndex from './SolidTypeIndex';
-import type { SolidModel } from './SolidModel';
 import type { SolidModelConstructor } from './inference';
+import Model from './SolidDocument.schema';
+import type { SolidModel } from './SolidModel';
+import type SolidTypeIndex from './SolidTypeIndex';
+import SolidTypeRegistration from './SolidTypeRegistration';
 
 export default class SolidDocument extends Model {
-
     public static async fromTypeIndex<T extends SolidDocument>(
         this: SolidModelConstructor<T>,
         typeIndexUrl: string,
@@ -33,7 +31,8 @@ export default class SolidDocument extends Model {
             typeRegistration.mintUrl(typeIndex, true, uuid());
 
             await typeRegistration.withEngine(this.requireEngine(), () =>
-                typeRegistration.save(requireUrlParentDirectory(typeIndex)));
+                typeRegistration.save(requireUrlParentDirectory(typeIndex)),
+            );
 
             return;
         }
@@ -43,5 +42,4 @@ export default class SolidDocument extends Model {
             await typeIndex.relatedRegistrations.create(typeRegistration);
         });
     }
-
 }

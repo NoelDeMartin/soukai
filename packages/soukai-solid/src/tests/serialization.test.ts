@@ -1,13 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-
+import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { InMemoryEngine, bootModels, setEngine } from 'soukai';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-
 import Recipe from 'soukai-solid/testing/lib/stubs/Recipe';
 import RecipeInstructionsStep from 'soukai-solid/testing/lib/stubs/RecipeInstructionsStep';
 import { loadFixture } from 'soukai-solid/testing/utils';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 function expectRamen(ramen: Recipe) {
     expect(ramen.name).toEqual('Ramen');
@@ -15,7 +13,6 @@ function expectRamen(ramen: Recipe) {
 }
 
 describe('Serialization', () => {
-
     beforeEach(() => {
         setEngine(new InMemoryEngine());
         bootModels({ Recipe, RecipeInstructionsStep });
@@ -76,5 +73,4 @@ describe('Serialization', () => {
         expect(freshRamen.name).toEqual('ラーメン');
         expect(freshRamen.instructionsStepUrls[0]).toEqual('https://pod.com/cookbook/垂れ');
     });
-
 });

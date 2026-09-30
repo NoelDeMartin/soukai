@@ -1,20 +1,18 @@
 import { ListenersManager, PromisedValue, fail, round, tap, toError, uuid } from '@noeldemartin/utils';
 import type { Listeners } from '@noeldemartin/utils';
-
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 
 import type { JobListener, JobStatus } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 type AnyListenersManager = ListenersManager<JobListener<any, any>>;
 
 export default abstract class Job<
-    Result = any, // eslint-disable-line @typescript-eslint/no-explicit-any
-    PartialResult = any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    Result = any, // oxlint-disable-line typescript/no-explicit-any
+    PartialResult = any, // oxlint-disable-line typescript/no-explicit-any
     Status extends JobStatus = JobStatus,
     Listener extends JobListener<Result, PartialResult> = JobListener<Result, PartialResult>,
 > {
-
     public readonly id: string;
     protected status?: Status;
     protected _listeners: ListenersManager<Listener>;
@@ -55,6 +53,7 @@ export default abstract class Job<
             throw tap(toError(error), (realError) => {
                 this._completed.reject(realError);
 
+                // oxlint-disable-next-line typescript/no-floating-promises
                 (this._listeners as AnyListenersManager).emit('onFailed', realError);
             });
         }
@@ -150,5 +149,4 @@ export default abstract class Job<
 
         await (this._listeners as AnyListenersManager).emit('onUpdated', progress);
     }
-
 }

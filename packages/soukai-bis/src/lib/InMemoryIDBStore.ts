@@ -5,6 +5,7 @@ import SoukaiIndexedDB from './SoukaiIndexedDB';
 import type { SoukaiIndexedDBSchema } from './SoukaiIndexedDB';
 
 export type InMemoryIDBStoreCursor<
+    // oxlint-disable-next-line typescript/no-redundant-type-constituents
     TStoreName extends keyof SoukaiIndexedDBSchema & StoreNames<SoukaiIndexedDBSchema>,
     TMode extends IDBTransactionMode,
 > = IDBPCursorWithValue<
@@ -16,9 +17,9 @@ export type InMemoryIDBStoreCursor<
 >;
 
 export default class InMemoryIDBStore<
+    // oxlint-disable-next-line typescript/no-redundant-type-constituents
     TStoreName extends keyof SoukaiIndexedDBSchema & StoreNames<SoukaiIndexedDBSchema>,
 > {
-
     private cache: PromisedValue<Map<string, SoukaiIndexedDBSchema[TStoreName]['value']>> | null = null;
     private clearListener: (() => void) | null = null;
 
@@ -98,6 +99,7 @@ export default class InMemoryIDBStore<
         if (!this.cache) {
             this.cache = new PromisedValue();
 
+            // oxlint-disable-next-line typescript/no-floating-promises
             this.initializeCache(this.cache);
         }
 
@@ -165,7 +167,7 @@ export default class InMemoryIDBStore<
     }
 
     private inMemoryKey(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         key: IndexKey<SoukaiIndexedDBSchema, TStoreName, any> | StoreKey<SoukaiIndexedDBSchema, TStoreName>,
     ): string {
         if (Array.isArray(key)) {
@@ -174,5 +176,4 @@ export default class InMemoryIDBStore<
 
         return String(key);
     }
-
 }

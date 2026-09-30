@@ -1,14 +1,13 @@
-import MultiModelRelation from 'soukai/models/relations/MultiModelRelation';
 import { arrayWithout } from '@noeldemartin/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Model } from 'soukai/models/Model';
+import MultiModelRelation from 'soukai/models/relations/MultiModelRelation';
 
 export default class HasManyRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass> {
-
     public async load(): Promise<Related[]> {
         const localKey = this.parent.getAttribute<string>(this.localKeyName);
 
@@ -66,5 +65,4 @@ export default class HasManyRelation<
 
         related.setAttribute(this.foreignKeyName, arrayWithout(foreignValue, foreignKey));
     }
-
 }

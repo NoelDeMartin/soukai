@@ -1,5 +1,4 @@
 import { FieldType } from 'soukai';
-
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
 
 export const ICAL_TASK_FIELDS = {

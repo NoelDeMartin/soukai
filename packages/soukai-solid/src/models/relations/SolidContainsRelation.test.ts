@@ -1,19 +1,17 @@
-import { beforeAll, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
 import { fakeContainerUrl } from '@noeldemartin/testing';
 import { InMemoryEngine, bootModels, setEngine } from 'soukai';
-
+import { SolidEngine } from 'soukai-solid/engines';
+import { SolidModel } from 'soukai-solid/models/SolidModel';
+import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 import PersonsCollection from 'soukai-solid/testing/lib/stubs/PersonsCollection';
-import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
-import { SolidModel } from 'soukai-solid/models/SolidModel';
 import { solidModelWithHistory } from 'soukai-solid/testing/utils';
-import { SolidEngine } from 'soukai-solid/engines';
+import { beforeAll, describe, expect, it } from 'vite-plus/test';
 
 describe('SolidContainsRelation', () => {
-
     beforeAll(() => bootModels({ MoviesCollection, Movie, PersonsCollection, Person }));
 
     it('creates related models for solid engines', async () => {
@@ -113,7 +111,10 @@ describe('SolidContainsRelation', () => {
         bootModels({ MoviesCollectionWithHistory });
         setEngine(new InMemoryEngine());
 
-        const collectionA = await MoviesCollectionWithHistory.create({ url: fakeContainerUrl(), name: 'Movies' });
+        const collectionA = await MoviesCollectionWithHistory.create({
+            url: fakeContainerUrl(),
+            name: 'Movies',
+        });
         const movie = await collectionA.relatedMovies.create({ title: faker.lorem.sentence() });
         const collectionB = new MoviesCollectionWithHistory(
             {
@@ -134,7 +135,6 @@ describe('SolidContainsRelation', () => {
         expect(collectionA.resourceUrls).toHaveLength(1);
         expect(collectionB.resourceUrls).toHaveLength(1);
     });
-
 });
 
 class MoviesCollectionWithHistory extends solidModelWithHistory(MoviesCollection) {}

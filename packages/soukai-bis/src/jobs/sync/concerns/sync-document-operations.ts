@@ -1,14 +1,18 @@
-import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
 import type { SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
+import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
+import type Engine from 'soukai-bis/engines/Engine';
+import type { EngineMetadata } from 'soukai-bis/engines/Engine';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
+import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
+import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
+import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
+import type Operation from 'soukai-bis/models/crdts/Operation';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import Tombstone from 'soukai-bis/models/crdts/Tombstone';
-import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
-import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import type { ModelWithUrl } from 'soukai-bis/models/types';
 import {
     CRDT_METADATA_OBJECT,
     CRDT_RESOURCE_PREDICATE,
@@ -18,11 +22,6 @@ import {
     CRDT_UPDATED_AT_PREDICATE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/utils/rdf';
-import type Engine from 'soukai-bis/engines/Engine';
-import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
-import type Operation from 'soukai-bis/models/crdts/Operation';
-import type { EngineMetadata } from 'soukai-bis/engines/Engine';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
 
 function getMetadataUpdates({
     documentMetadatas,
@@ -189,7 +188,8 @@ function getNewResourcesDocumentOperations({
                 .map((quad) =>
                     otherDocument.statement(quad.subject.value, RDF_TYPE_PREDICATE, CRDT_METADATA_OBJECT)
                         ? otherDocument.statements(quad.subject.value)
-                        : [])
+                        : [],
+                )
                 .flat(),
         ];
 
@@ -236,7 +236,8 @@ function getDeletedResourcesDocumentOperations({
 }): EngineOperation[] {
     const documentOperations: EngineOperation[] = [];
     const createdTombstones = otherDocumentTombstones.filter((tombstone) =>
-        deletedResourceUrls.includes(tombstone.resourceUrl));
+        deletedResourceUrls.includes(tombstone.resourceUrl),
+    );
     const deletedMetadatas = documentMetadatas.filter(
         (metadata) => metadata.resourceUrl && deletedResourceUrls.includes(metadata.resourceUrl),
     );
@@ -246,7 +247,9 @@ function getDeletedResourcesDocumentOperations({
     ]
         .filter((quad) =>
             deletedResourceUrls.some((resourceUrl) =>
-                document.contains(quad.subject, CRDT_RESOURCE_PREDICATE, resourceUrl)))
+                document.contains(quad.subject, CRDT_RESOURCE_PREDICATE, resourceUrl),
+            ),
+        )
         .map((quad) => quad.subject.value);
 
     for (const tombstone of createdTombstones) {
@@ -299,7 +302,8 @@ export async function syncDocumentOperations({
         (url) => !document.contains(url) && !documentTombstonesByResourceUrl[url],
     );
     const deletedResourceUrls = Object.keys(otherDocumentTombstonesByResourceUrl).filter((url) =>
-        document.contains(url));
+        document.contains(url),
+    );
 
     const documentOperations = ([] as EngineOperation[])
         .concat(

@@ -3,7 +3,6 @@ import type { SolidDocument } from '@noeldemartin/solid-utils';
 import SoukaiError from './SoukaiError';
 
 export default class DocumentAlreadyExists extends SoukaiError {
-
     public readonly url: string;
     public readonly document?: SolidDocument;
 
@@ -13,5 +12,4 @@ export default class DocumentAlreadyExists extends SoukaiError {
         this.url = url;
         this.document = document;
     }
-
 }

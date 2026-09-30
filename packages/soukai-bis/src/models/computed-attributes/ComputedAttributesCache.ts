@@ -1,14 +1,12 @@
 import { facade, objectWithout, urlRoute } from '@noeldemartin/utils';
-
 import InMemoryIDBStore from 'soukai-bis/lib/InMemoryIDBStore';
 import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import { getBootedModels } from 'soukai-bis/models/registry';
-import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
 import type { SchemaComputedAttributeDefinition } from 'soukai-bis/models/relations/schema';
+import type { ModelWithUrl } from 'soukai-bis/models/types';
+import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
 
 export class ComputedAttributesCache {
-
     private store = new InMemoryIDBStore('computedAttributes');
 
     public async set<T extends ModelWithUrl>(model: T, name: string, value: unknown): Promise<void> {
@@ -85,7 +83,6 @@ export class ComputedAttributesCache {
             }
         }
     }
-
 }
 
 export default facade(ComputedAttributesCache);

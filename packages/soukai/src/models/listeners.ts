@@ -1,12 +1,13 @@
 import type { ClosureArgs } from '@noeldemartin/utils';
 import { arrayRemove, memo, tap } from '@noeldemartin/utils';
 
-import type { Model } from './Model';
 import type { ModelConstructor, SchemaDefinition } from './inference';
+import type { Model } from './Model';
 import type { Relation } from './relations/Relation';
 
 const EMPTY_OBJECT = {};
 const UNKNOWN_OBJECT = {};
+// oxlint-disable-next-line typescript/no-wrapper-object-types
 const eventTargets: WeakMap<String, WeakMap<object, WeakSet<Model | typeof Model>>> = new WeakMap();
 let listeners: WeakMap<typeof Model, Record<string, ModelListener[]>> = new WeakMap();
 
@@ -90,7 +91,6 @@ export function registerModelListener<TModel extends Model, TEvent extends keyof
     return () => arrayRemove(eventListeners, listener);
 }
 
-/* eslint-disable max-len */
 export async function emitModelEvent<T extends keyof ModelClassEvents>(
     modelClass: ModelConstructor,
     ...args: ModelEmitArgs<T>
@@ -99,7 +99,6 @@ export async function emitModelEvent<T extends keyof ModelEvents>(
     model: Model,
     ...args: ModelEmitArgs<T>
 ): Promise<void>;
-/* eslint-enable max-len */
 
 export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
     const modelClass = '__attributeGetters' in args[0] ? args[0] : args[0].static();
@@ -108,6 +107,7 @@ export async function emitModelEvent(...args: ClosureArgs): Promise<void> {
     const payload = args[2];
     const target = model ?? modelClass;
     const modelListeners = listeners.get(modelClass)?.[event];
+    // oxlint-disable-next-line typescript/no-wrapper-object-types
     const eventKey = makeKey(event) as String;
     const payloadKey = makeKey(payload);
     const events = eventTargets.has(eventKey)

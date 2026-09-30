@@ -1,6 +1,5 @@
 import { urlParentDirectory, urlRoot } from '@noeldemartin/utils';
 import type { EngineDocument } from 'soukai';
-
 import type Tombstone from 'soukai-solid/models/history/Tombstone';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
@@ -12,13 +11,13 @@ type DecantedContainerDocuments = Record<string, DocumentModels[]>;
 export type This = SolidModel;
 
 export default class DeletesModels {
-
     protected async deleteModels(this: This, models: SolidModel[]): Promise<void> {
         const containersDocuments = this.decantDocumentModelsByContainer(models);
 
         await Promise.all(
             Object.entries(containersDocuments).map(([containerUrl, containerDocuments]) =>
-                this.deleteContainerDocumentsModels(containerUrl, containerDocuments)),
+                this.deleteContainerDocumentsModels(containerUrl, containerDocuments),
+            ),
         );
     }
 
@@ -57,7 +56,8 @@ export default class DeletesModels {
 
         await Promise.all(
             documentsModels.map(({ documentUrl, models }) =>
-                this.deleteDocumentModels(engineDocuments, containerUrl, documentUrl, models)),
+                this.deleteDocumentModels(engineDocuments, containerUrl, documentUrl, models),
+            ),
         );
     }
 
@@ -83,11 +83,12 @@ export default class DeletesModels {
             tombstones.length === 0
                 ? await engine.delete(containerUrl, documentUrl)
                 : await engine.update(containerUrl, documentUrl, {
-                    $overwrite: {
-                        '@graph': tombstones.map((tombstone) =>
-                            tombstone.serializeToJsonLD({ includeRelations: false })),
-                    } as EngineDocument,
-                });
+                      $overwrite: {
+                          '@graph': tombstones.map((tombstone) =>
+                              tombstone.serializeToJsonLD({ includeRelations: false }),
+                          ),
+                      } as EngineDocument,
+                  });
 
             models.forEach((model) => model.setDocumentExists(false));
 
@@ -103,5 +104,4 @@ export default class DeletesModels {
             },
         });
     }
-
 }

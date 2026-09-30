@@ -2,7 +2,6 @@ import { bootModels } from 'soukai';
 import type { Model } from 'soukai';
 
 import { historyModels } from './history/index';
-
 import SolidACLAuthorization from './SolidACLAuthorization';
 import SolidContainer from './SolidContainer';
 import SolidDocument from './SolidDocument';

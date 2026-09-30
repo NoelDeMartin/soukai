@@ -1,7 +1,6 @@
 import { Semaphore, isInstanceOf } from '@noeldemartin/utils';
-
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
@@ -27,7 +26,6 @@ export type ComputedAttributeListener<TValue = unknown> = (value: TValue | undef
 export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (target: TTarget) => TValue;
 
 export default class ComputedAttribute<TValue = unknown> {
-
     private static relationsDisabled: boolean = false;
     private static refreshesDisabled: boolean = false;
 
@@ -74,6 +72,7 @@ export default class ComputedAttribute<TValue = unknown> {
     public subscribe(listener: ComputedAttributeListener<TValue>): () => void {
         this.listeners.add(listener);
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         this.updateValue().then(listener);
 
         return () => this.listeners.delete(listener);
@@ -195,5 +194,4 @@ export default class ComputedAttribute<TValue = unknown> {
 
         return ComputedAttributesCache.get(this.target, this.name);
     }
-
 }

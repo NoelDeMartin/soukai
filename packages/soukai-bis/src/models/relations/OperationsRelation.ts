@@ -1,20 +1,18 @@
 import type { Quad } from '@rdfjs/types';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Model from 'soukai-bis/models/Model';
+import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 
 import HasManyRelation from './HasManyRelation';
-import { requireBootedModel } from 'soukai-bis/models/registry';
 
 export default class OperationsRelation<Parent extends Model> extends HasManyRelation<
     Parent,
     Operation,
     typeof Operation
 > {
-
     protected async loadRelatedModels(): Promise<Operation[]> {
         const parentUrl = this.parent.url;
 
@@ -54,5 +52,4 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
 
         return allOperations.flat().filter((model) => model.resourceUrl === parentUrl);
     }
-
 }

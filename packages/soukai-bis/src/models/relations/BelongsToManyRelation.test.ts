@@ -1,23 +1,21 @@
-import z from 'zod';
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-
-import User from 'soukai-bis/testing/stubs/User';
-import Show from 'soukai-bis/testing/stubs/Show';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import { setEngine } from 'soukai-bis/engines/state';
-import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
-import { defineSchema } from 'soukai-bis/models/schema';
-import { bootModels } from 'soukai-bis/models/registry';
-import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
-import type { MintUrlOptions } from 'soukai-bis/models/Model';
-
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { belongsToMany, hasOne } from './fluent';
+import { setEngine } from 'soukai-bis/engines/state';
+import type { MintUrlOptions } from 'soukai-bis/models/Model';
+import { bootModels } from 'soukai-bis/models/registry';
+import { defineSchema } from 'soukai-bis/models/schema';
+import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
+import Show from 'soukai-bis/testing/stubs/Show';
+import User from 'soukai-bis/testing/stubs/User';
+import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import z from 'zod';
+
 import type BelongsToManyRelation from './BelongsToManyRelation';
+import { belongsToMany, hasOne } from './fluent';
 
 describe('BelongsToManyRelation', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => setEngine((engine = new InMemoryEngine())));
@@ -35,7 +33,7 @@ describe('BelongsToManyRelation', () => {
         expect(user?.friends).toHaveLength(0);
     });
 
-    it('doesn\'t initialize non-empty relations', async () => {
+    it("doesn't initialize non-empty relations", async () => {
         // Arrange
         const alice = await User.create({ name: 'Bob' });
         const bob = await User.create({ name: 'Bob', friendUrls: [alice.url] });
@@ -82,7 +80,6 @@ describe('BelongsToManyRelation', () => {
                 season: hasOne(() => Season, 'episodeUrls'),
             },
         }) {
-
             protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
                 if (!this.season?.getDocumentUrl()) {
                     return super.newUrlDocumentUrl(options);
@@ -90,7 +87,6 @@ describe('BelongsToManyRelation', () => {
 
                 return this.season.getDocumentUrl() + '-episode';
             }
-        
         }
 
         class Season extends defineSchema({
@@ -102,9 +98,7 @@ describe('BelongsToManyRelation', () => {
                 episodes: belongsToMany(Episode, 'episodeUrls'),
             },
         }) {
-
             declare public relatedEpisodes: BelongsToManyRelation<this, Episode, typeof Episode>;
-        
         }
 
         bootModels({ Episode, Season });
@@ -170,5 +164,4 @@ describe('BelongsToManyRelation', () => {
         expect(alice.friends).toHaveLength(1);
         expect(alice.friends?.[0]?.url).toEqual(bob.url);
     });
-
 });

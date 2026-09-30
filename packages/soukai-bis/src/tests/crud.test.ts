@@ -1,13 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
-
-import User from 'soukai-bis/testing/stubs/User';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { setEngine } from 'soukai-bis/engines';
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import User from 'soukai-bis/testing/stubs/User';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('CRUD', () => {
-
     beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('Creates models', async () => {
@@ -28,7 +26,7 @@ describe('CRUD', () => {
 
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
                 @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
@@ -91,7 +89,7 @@ describe('CRUD', () => {
         expect(user.name).toBe(newName);
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <#it> <http://xmlns.com/foaf/0.1/name> "${name}" .
                 <#it-metadata> <https://vocab.noeldemartin.com/crdt/updatedAt>
@@ -158,5 +156,4 @@ describe('CRUD', () => {
             }),
         );
     });
-
 });

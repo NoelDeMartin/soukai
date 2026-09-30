@@ -1,6 +1,5 @@
 import { RDFLiteral, RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Object } from '@rdfjs/types';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 
 function serializeObject(quad: Quad): IDBTerm {

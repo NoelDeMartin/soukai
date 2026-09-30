@@ -1,14 +1,13 @@
-import { HasOneRelation } from 'soukai';
 import { mixedWithoutTypes, tap } from '@noeldemartin/utils';
+import { HasOneRelation } from 'soukai';
 import type { Model, RelationCloneOptions } from 'soukai';
-
+import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 import SolidHasRelation from 'soukai-solid/models/relations/mixins/SolidHasRelation';
 import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
-import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 
-import SolidSingleModelDocumentRelation from './mixins/SolidSingleModelDocumentRelation';
 import type { BeforeParentCreateRelation } from './guards';
 import type { ISolidDocumentRelation } from './mixins/SolidDocumentRelation';
+import SolidSingleModelDocumentRelation from './mixins/SolidSingleModelDocumentRelation';
 
 export const SolidHasOneRelationBase = mixedWithoutTypes(HasOneRelation, [
     SolidSingleModelDocumentRelation,
@@ -29,7 +28,6 @@ export default class SolidHasOneRelation<
     extends SolidHasOneRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation
 {
-
     public async load(): Promise<Related | null> {
         if (this.isEmpty()) {
             return (this.related = null);
@@ -127,5 +125,4 @@ export default class SolidHasOneRelation<
             return;
         }
     }
-
 }

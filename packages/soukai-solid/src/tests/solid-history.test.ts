@@ -1,11 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { after, randomInt, range, toString, urlParse } from '@noeldemartin/utils';
 import { expandIRI as defaultExpandIRI } from '@noeldemartin/solid-utils';
+import { FakeResponse, FakeServer } from '@noeldemartin/testing';
+import { after, randomInt, range, toString, urlParse } from '@noeldemartin/utils';
+import type { Tuple } from '@noeldemartin/utils';
 import { InMemoryEngine, ModelKey, ProxyEngine, bootModels, setEngine } from 'soukai';
 import type { Relation } from 'soukai';
-import type { Tuple } from '@noeldemartin/utils';
-
-import IRI from 'soukai-solid/solid/utils/IRI';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
 import {
     AddPropertyOperation,
@@ -15,14 +13,14 @@ import {
     SolidModel,
 } from 'soukai-solid/models';
 import type { SolidBelongsToManyRelation } from 'soukai-solid/models';
-
+import IRI from 'soukai-solid/solid/utils/IRI';
 import BaseGroup from 'soukai-solid/testing/lib/stubs/Group';
+import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import BaseMoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
 import BasePerson from 'soukai-solid/testing/lib/stubs/Person';
-import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
-import { assertInstanceOf, loadFixture } from 'soukai-solid/testing/utils';
-import { FakeResponse, FakeServer } from '@noeldemartin/testing';
+import { assertInstanceOf, loadFixture, useFakeClock } from 'soukai-solid/testing/utils';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const expandIRI = (iri: string) =>
     defaultExpandIRI(iri, {
@@ -33,14 +31,11 @@ const expandIRI = (iri: string) =>
     });
 
 class Person extends BasePerson {
-
     public static timestamps = true;
     public static history = true;
-
 }
 
 class Group extends BaseGroup {
-
     public static timestamps = true;
     public static history = true;
 
@@ -54,26 +49,24 @@ class Group extends BaseGroup {
     public membersRelationship(): Relation {
         return this.belongsToMany(Person, 'memberUrls').usingSameDocument(true);
     }
-
 }
 
 class MoviesCollection extends BaseMoviesCollection {
-
     public static timestamps = true;
     public static history = true;
-
 }
 
 const fixture = <T = string>(name: string) => loadFixture<T>(`solid-history/${name}`);
 
 describe('Solid history tracking', () => {
-
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
         bootModels({ Movie, WatchAction, Person, Group, MoviesCollection });
     });
 
     it('Updates metadata and creates operations', async () => {
+        useFakeClock();
+
         // Arrange - stub create requests
         FakeServer.respondOnce('*', FakeResponse.notFound());
         FakeServer.respondOnce('*', FakeResponse.success());
@@ -89,7 +82,9 @@ describe('Solid history tracking', () => {
         // Act
         const griffith = await Person.create({ name: 'Griffith' });
 
+        vi.advanceTimersByTime(1);
         await griffith.update({ name: 'Femto', givenName: 'Wings of Darkness', lastName: null });
+        vi.advanceTimersByTime(1);
         await griffith.update({ name: 'Griffith', givenName: 'Falcon of Light' });
 
         // Assert
@@ -100,6 +95,8 @@ describe('Solid history tracking', () => {
     });
 
     it('Tracks list operations', async () => {
+        useFakeClock();
+
         // Arrange - stub create requests
         FakeServer.respondOnce('*', FakeResponse.notFound());
         FakeServer.respondOnce('*', FakeResponse.success());
@@ -135,6 +132,7 @@ describe('Solid history tracking', () => {
         // Act - Guts joins the band
         band.relatedMembers.associate('https://berserk.fandom.com/wiki/Guts');
 
+        vi.advanceTimersByTime(1);
         await band.save();
 
         // Act - Judeau, Pippin and Corkus are expelled from the band; Griffith becomes Femto
@@ -144,6 +142,7 @@ describe('Solid history tracking', () => {
 
         griffith.name = 'Femto';
 
+        vi.advanceTimersByTime(1);
         await band.save();
 
         // Act - Guts and Casca leave the band, Zodd joins; Femto becomes Griffith again
@@ -153,6 +152,7 @@ describe('Solid history tracking', () => {
 
         griffith.name = 'Griffith';
 
+        vi.advanceTimersByTime(1);
         await band.save();
 
         // Assert
@@ -278,6 +278,8 @@ describe('Solid history tracking', () => {
 
     it('Synchronizes relations history in different models', async () => {
         // Arrange
+        useFakeClock();
+
         FakeServer.respondOnce('*', FakeResponse.success(fixture('mugiwara-1.ttl')));
         FakeServer.respondOnce('*', FakeResponse.success(fixture('mugiwara-1.ttl')));
         FakeServer.respondOnce('*', FakeResponse.success());
@@ -307,6 +309,7 @@ describe('Solid history tracking', () => {
         luffy.givenName = 'The King of Pirates';
         zoro.givenName = 'The Greatest Swordsman';
 
+        vi.advanceTimersByTime(1);
         await mugiwara.save();
 
         // Assert
@@ -318,6 +321,8 @@ describe('Solid history tracking', () => {
     });
 
     it('Synchronizes models with related models', async () => {
+        useFakeClock();
+
         // -------------- Part I --------------
 
         // Arrange - prepare network stubs
@@ -329,7 +334,6 @@ describe('Solid history tracking', () => {
         const localEngine = new InMemoryEngine();
 
         class LocalGroup extends Group {
-
             public creatorRelationship(): Relation {
                 return this.belongsToOne(LocalPerson, 'creatorUrl').usingSameDocument(true).onDelete('cascade');
             }
@@ -337,7 +341,6 @@ describe('Solid history tracking', () => {
             public membersRelationship(): Relation {
                 return this.belongsToMany(LocalPerson, 'memberUrls').usingSameDocument(true);
             }
-        
         }
 
         class LocalPerson extends Person {}
@@ -364,6 +367,7 @@ describe('Solid history tracking', () => {
             age: 19,
         });
 
+        vi.advanceTimersByTime(1);
         const nami = await localMugiwara.relatedMembers.create({ name: 'Nami' });
 
         const inceptionRemoteOperationUrls = remoteMugiwara.operations.slice(0, 2).map((operation) => operation.url);
@@ -428,6 +432,7 @@ describe('Solid history tracking', () => {
         FakeServer.respondOnce('*', FakeResponse.success(fixture('mugiwara-4.ttl')));
         FakeServer.respondOnce('*', FakeResponse.success());
 
+        vi.advanceTimersByTime(1);
         await nami.update({ givenName: 'Cat Burglar' });
 
         // Act
@@ -528,10 +533,8 @@ describe('Solid history tracking', () => {
         const engine = new InMemoryEngine();
 
         class MovieWithTimestamps extends Movie {
-
             public static timestamps = true;
             public static history = true;
-        
         }
 
         setEngine(engine);
@@ -561,6 +564,8 @@ describe('Solid history tracking', () => {
     });
 
     it('Works with containers', async () => {
+        useFakeClock();
+
         // Arrange - Create
         FakeServer.respondOnce('*', FakeResponse.notFound()); // Check if container exists
         FakeServer.respondOnce('*', FakeResponse.success()); // Create container
@@ -582,6 +587,7 @@ describe('Solid history tracking', () => {
         await movies.relatedMovies.create({ name: 'Spirited Away' });
 
         // Act - Update name
+        vi.advanceTimersByTime(1);
         await movies.update({ name: 'Great Movies' });
 
         // Assert
@@ -592,5 +598,4 @@ describe('Solid history tracking', () => {
         expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('create-movies.sparql'));
         expect(FakeServer.fetchSpy.mock.calls[7]?.[1]?.body).toEqualSparql(fixture('update-movies.sparql'));
     });
-
 });

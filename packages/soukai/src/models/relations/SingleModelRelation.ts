@@ -1,18 +1,16 @@
 import { stringToCamelCase, tap } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai/errors/SoukaiError';
-import { Relation } from 'soukai/models/relations/Relation';
 import type { Attributes } from 'soukai/models/attributes';
 import type { ModelConstructor } from 'soukai/models/inference';
 import type { Model } from 'soukai/models/Model';
+import { Relation } from 'soukai/models/relations/Relation';
 
 export default abstract class SingleModelRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends Relation<Parent, Related, RelatedClass> {
-
     public constructor(parent: Parent, relatedClass: RelatedClass, foreignKeyName?: string, localKeyName?: string) {
         super(
             parent,
@@ -77,9 +75,8 @@ export default abstract class SingleModelRelation<
 
     public abstract load(): Promise<Related | null>;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // oxlint-disable-next-line typescript/no-unused-vars
     protected onRelatedUpdated(oldValue: Nullable<Model>, newValue: Nullable<Model>): void {
         //
     }
-
 }

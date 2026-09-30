@@ -1,24 +1,23 @@
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
-import z from 'zod';
-
+import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import { setEngine } from 'soukai-bis/engines/state';
+import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
-import { setEngine } from 'soukai-bis/engines/state';
-import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
+import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
 import { metadataJsonLD, tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
+import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
+import z from 'zod';
 
 import SetPropertyOperation from './crdts/SetPropertyOperation';
-import { defineSchema } from './schema';
 import { bootModels } from './registry';
+import { defineSchema } from './schema';
 import type { ModelWithTimestamps, ModelWithUrl } from './types';
 
 describe('Model', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => setEngine((engine = new InMemoryEngine())));
@@ -144,7 +143,12 @@ describe('Model', () => {
         const user = new User({ name: 'John Doe' });
 
         expect(user.name).toEqual('John Doe');
-        expectTypeOf(user).toExtend<{ name: string; email?: string; age?: number; friendUrls?: string[] }>();
+        expectTypeOf(user).toExtend<{
+            name: string;
+            email?: string;
+            age?: number;
+            friendUrls?: string[];
+        }>();
     });
 
     it('validates attributes in constructor', () => {
@@ -159,19 +163,22 @@ describe('Model', () => {
     });
 
     it('serializes to JsonLD', async () => {
-        const user = await User.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const user = await User.create({
+            name: 'John Doe',
+            friendUrls: ['https://example.pod/alice#me'],
+        });
 
         await expect(await user.toJsonLD()).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'crdt': 'https://vocab.noeldemartin.com/crdt/',
-                'metadata': { '@reverse': 'crdt:resource' },
+                crdt: 'https://vocab.noeldemartin.com/crdt/',
+                metadata: { '@reverse': 'crdt:resource' },
             },
             '@id': user.url,
             '@type': 'Person',
-            'name': 'John Doe',
-            'knows': [{ '@id': 'https://example.pod/alice#me' }],
-            'metadata': {
+            name: 'John Doe',
+            knows: [{ '@id': 'https://example.pod/alice#me' }],
+            metadata: {
                 '@id': user.url + '-metadata',
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
@@ -187,7 +194,10 @@ describe('Model', () => {
     });
 
     it('serializes to Turtle', async () => {
-        const user = await User.create({ name: 'John Doe', friendUrls: ['https://example.pod/alice#me'] });
+        const user = await User.create({
+            name: 'John Doe',
+            friendUrls: ['https://example.pod/alice#me'],
+        });
         const documentUrl = user.requireDocumentUrl();
 
         expect(await user.toTurtle()).toEqualTurtle(`
@@ -224,13 +234,13 @@ describe('Model', () => {
         await expect(engine.documents[mintedUser.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'crdt': 'https://vocab.noeldemartin.com/crdt/',
-                'metadata': { '@reverse': 'crdt:resource' },
+                crdt: 'https://vocab.noeldemartin.com/crdt/',
+                metadata: { '@reverse': 'crdt:resource' },
             },
             '@id': user.url,
             '@type': 'Person',
-            'name': 'John Doe',
-            'metadata': {
+            name: 'John Doe',
+            metadata: {
                 '@id': user.url + '-metadata',
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
@@ -247,11 +257,14 @@ describe('Model', () => {
 
     it('updates instances with dirty attributes', async () => {
         // Arrange
+        useFakeClock();
+
         const user = (await User.create({ name: 'John Doe', age: 30 })) as ModelWithTimestamps<User> &
             ModelWithUrl<User>;
         const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
 
         // Act
+        vi.advanceTimersByTime(1);
         await user.update({ name: 'Jane Doe' });
 
         // Assert
@@ -260,14 +273,14 @@ describe('Model', () => {
         await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'crdt': 'https://vocab.noeldemartin.com/crdt/',
-                'metadata': { '@reverse': 'crdt:resource' },
+                crdt: 'https://vocab.noeldemartin.com/crdt/',
+                metadata: { '@reverse': 'crdt:resource' },
             },
             '@id': user.url,
             '@type': 'Person',
-            'name': 'Jane Doe',
-            'age': 30,
-            'metadata': {
+            name: 'Jane Doe',
+            age: 30,
+            metadata: {
                 '@id': user.url + '-metadata',
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
@@ -301,8 +314,10 @@ describe('Model', () => {
     it('saves instances when document exists', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
-        const firstUser = new User({ url: `${documentUrl}#first`, name: 'John Doe' }) as ModelWithTimestamps<User> &
-            ModelWithUrl<User>;
+        const firstUser = new User({
+            url: `${documentUrl}#first`,
+            name: 'John Doe',
+        }) as ModelWithTimestamps<User> & ModelWithUrl<User>;
         const secondUser = new User({
             url: `${documentUrl}#second`,
             name: 'Jane Doe',
@@ -425,13 +440,13 @@ describe('Model', () => {
         await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@context': {
                 '@vocab': 'http://xmlns.com/foaf/0.1/',
-                'crdt': 'https://vocab.noeldemartin.com/crdt/',
-                'metadata': { '@reverse': 'crdt:resource' },
+                crdt: 'https://vocab.noeldemartin.com/crdt/',
+                metadata: { '@reverse': 'crdt:resource' },
             },
             '@id': user.url,
             '@type': 'Person',
-            'name': 'John Doe',
-            'metadata': {
+            name: 'John Doe',
+            metadata: {
                 '@id': user.url + '-metadata',
                 '@type': 'crdt:Metadata',
                 'crdt:createdAt': {
@@ -612,7 +627,7 @@ describe('Model', () => {
         await alice.delete();
 
         expect(alice.exists()).toBe(false);
-        expect(engine.documents[documentUrl]?.graph).toEqualJsonLD(await bob.toJsonLD());
+        await expect(engine.documents[documentUrl]?.graph).toEqualJsonLD(await bob.toJsonLD());
     });
 
     it('leaves tombstones behind when deleting instances', async () => {
@@ -620,12 +635,14 @@ describe('Model', () => {
 
         bootModels({ UserWithTombstone });
 
-        const user = (await UserWithTombstone.create({ name: 'John Doe' })) as ModelWithUrl<UserWithTombstone>;
+        const user = (await UserWithTombstone.create({
+            name: 'John Doe',
+        })) as ModelWithUrl<UserWithTombstone>;
 
         await user.delete();
 
         expect(user.exists()).toBe(false);
-        expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
+        await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
             '@graph': [tombstoneJsonLD(user)],
         });
     });
@@ -763,5 +780,4 @@ describe('Model', () => {
         expect(user).not.toBeInstanceOf(Guest);
         expect(guest).toBeInstanceOf(Guest);
     });
-
 });

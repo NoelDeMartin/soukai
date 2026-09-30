@@ -1,18 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-
+import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import InMemoryEngine from './InMemoryEngine';
 
 describe('InMemoryEngine', () => {
-
     let engine: InMemoryEngine;
 
     beforeEach(() => {
@@ -370,5 +368,4 @@ describe('InMemoryEngine', () => {
         // Assert
         await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
     });
-
 });

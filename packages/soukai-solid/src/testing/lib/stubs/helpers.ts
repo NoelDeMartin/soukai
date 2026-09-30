@@ -1,5 +1,5 @@
-import type { EngineDocument } from 'soukai';
 import type { JsonLDGraph, JsonLDResource } from '@noeldemartin/solid-utils';
+import type { EngineDocument } from 'soukai';
 
 export function stubPersonJsonLD(
     url: string,
@@ -17,7 +17,7 @@ export function stubPersonJsonLD(
         },
         '@id': url,
         '@type': 'Person',
-        'name': name,
+        name: name,
     };
 
     if (optional.birthDate) {
@@ -87,7 +87,7 @@ export function stubGroupJsonLD(
         '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
         '@id': url,
         '@type': 'Group',
-        'name': name,
+        name: name,
     };
 
     if (options.members) {
@@ -108,7 +108,7 @@ export function stubMovieJsonLD(
         },
         '@id': url,
         '@type': ['Movie'],
-        'name': name,
+        name: name,
     };
 
     if (actions.length > 0) {
@@ -126,7 +126,7 @@ export function stubWatchActionJsonLD(url: string, movieUrl: string, startTime?:
         },
         '@id': url,
         '@type': 'WatchAction',
-        'object': { '@id': movieUrl },
+        object: { '@id': movieUrl },
     };
 
     if (startTime) {
@@ -143,8 +143,8 @@ export function stubSolidDocumentJsonLD(url: string, updatedAt: string): JsonLDG
     return jsonLDGraph({
         '@context': {
             '@vocab': 'http://www.w3.org/ns/iana/media-types/text/turtle#',
-            'ldp': 'http://www.w3.org/ns/ldp#',
-            'purl': 'http://purl.org/dc/terms/',
+            ldp: 'http://www.w3.org/ns/ldp#',
+            purl: 'http://purl.org/dc/terms/',
         },
         '@id': url,
         '@type': ['ldp:Resource', 'http://www.w3.org/ns/iana/media-types/text/turtle#Resource'],

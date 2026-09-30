@@ -38,17 +38,15 @@ export type RDFContexts = {
     default?: string | null;
 } & Record<string, string>;
 
-/* eslint-disable max-len */
 export function inferFieldDefinition(
-    value: unknown
+    value: unknown,
 ): Omit<SolidBootedFieldDefinition, 'required' | 'rdfProperty' | 'rdfPropertyAliases'>;
 export function inferFieldDefinition(
     value: unknown,
     rdfProperty: string,
     rdfPropertyAliases: string[],
-    required: boolean
+    required: boolean,
 ): SolidBootedFieldDefinition;
-/* eslint-enable max-len */
 
 export function inferFieldDefinition(
     value: unknown,

@@ -1,7 +1,6 @@
-import { deleteDB, openDB } from 'idb';
 import { PromisedValue, arrayRemove, facade } from '@noeldemartin/utils';
+import { deleteDB, openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { getNamespace } from 'soukai-bis/lib/namespace';
 import type { IDBGraph } from 'soukai-bis/utils/idb-quads';
@@ -40,7 +39,6 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
 }
 
 export class SoukaiIndexedDB {
-
     private promisedConnection: PromisedValue<IDBPDatabase<SoukaiIndexedDBSchema>> | null = null;
     private clearListeners: (() => void)[] = [];
 
@@ -107,9 +105,8 @@ export class SoukaiIndexedDB {
     }
 
     private throwDatabaseBlockedError(): void {
-        throw new SoukaiError('An attempt to open Soukai\'s IndexedDB connection has been blocked');
+        throw new SoukaiError("An attempt to open Soukai's IndexedDB connection has been blocked");
     }
-
 }
 
 export default facade(SoukaiIndexedDB);

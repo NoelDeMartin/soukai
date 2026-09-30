@@ -1,11 +1,10 @@
-import { describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
+import { fakeDocumentUrl } from '@noeldemartin/testing';
+import { describe, expect, it } from 'vite-plus/test';
 
 import RDFDocument from './RDFDocument';
-import { fakeDocumentUrl } from '@noeldemartin/testing';
 
 describe('RDFDocument', () => {
-
     it('parses Turtle', async () => {
         // Arrange
         const url = fakeDocumentUrl();
@@ -41,7 +40,7 @@ describe('RDFDocument', () => {
             '@id': url,
             '@context': { '@vocab': 'http://xmlns.com/foaf/0.1/' },
             '@type': ['Person'],
-            'name': name,
+            name: name,
         });
 
         // Assert
@@ -51,5 +50,4 @@ describe('RDFDocument', () => {
         expect(document.requireResource(url).isType('foaf:Person')).toBe(true);
         expect(document.requireResource(url).getPropertyValue('foaf:name')).toEqual(name);
     });
-
 });

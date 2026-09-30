@@ -1,7 +1,6 @@
 import SoukaiError from 'soukai/errors/SoukaiError';
 
 export default class DocumentAlreadyExists extends SoukaiError {
-
     public readonly id: string;
 
     constructor(id: string) {
@@ -9,5 +8,4 @@ export default class DocumentAlreadyExists extends SoukaiError {
 
         this.id = id;
     }
-
 }

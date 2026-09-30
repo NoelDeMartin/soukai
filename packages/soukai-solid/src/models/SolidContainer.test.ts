@@ -1,29 +1,26 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
-import { FieldType, bootModels } from 'soukai';
+import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { stringToSlug, urlResolve, urlResolveDirectory } from '@noeldemartin/utils';
-import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
-import type { EngineDocument } from 'soukai';
 import type { Tuple } from '@noeldemartin/utils';
-
-import IRI from 'soukai-solid/solid/utils/IRI';
+import { FieldType, bootModels } from 'soukai';
+import type { EngineDocument } from 'soukai';
 import { LDP_CONTAINER } from 'soukai-solid/solid/constants';
-
+import IRI from 'soukai-solid/solid/utils/IRI';
+import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
 import {
     stubMovieJsonLD,
     stubMoviesCollectionJsonLD,
     stubSolidDocumentJsonLD,
 } from 'soukai-solid/testing/lib/stubs/helpers';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
-import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
 import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
+import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
+import { beforeAll, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import SolidContainer from './SolidContainer';
 import SolidDocument from './SolidDocument';
-import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 
 describe('SolidContainer', () => {
-
     beforeAll(() => bootModels({ Movie, MoviesCollection, WatchAction }));
     beforeEach(() => FakeSolidEngine.use());
 
@@ -38,9 +35,7 @@ describe('SolidContainer', () => {
     it('adds resourceUrls field', () => {
         // Arrange
         class StubModel extends SolidContainer {
-
             public static timestamps = false;
-        
         }
 
         // Act
@@ -159,7 +154,7 @@ describe('SolidContainer', () => {
 
         expect(FakeSolidEngine.readMany).toHaveBeenCalledTimes(1);
         expect(FakeSolidEngine.readMany).toHaveBeenCalledWith(containerUrl, {
-            '$in': [theLordOfTheRingsUrl, spiritedAwayUrl],
+            $in: [theLordOfTheRingsUrl, spiritedAwayUrl],
             '@graph': {
                 $contains: {
                     '@type': {
@@ -178,11 +173,9 @@ describe('SolidContainer', () => {
     it('uses name for minting url for new containers', async () => {
         // Arrange
         class StubModel extends SolidContainer {
-
             public static rdfContexts = {
                 foaf: 'http://xmlns.com/foaf/0.1/',
             };
-        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -203,13 +196,11 @@ describe('SolidContainer', () => {
     it('overrides slugField', async () => {
         // Arrange
         class StubModel extends SolidContainer {
-
             public static slugField = 'label';
 
             public static rdfContexts = {
                 rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
             };
-        
         }
 
         const containerUrl = fakeContainerUrl();
@@ -229,11 +220,9 @@ describe('SolidContainer', () => {
 
     it('mints unique urls when urls are already in use', async () => {
         class StubModel extends SolidContainer {
-
             public static rdfContexts = {
                 foaf: 'http://xmlns.com/foaf/0.1/',
             };
-        
         }
 
         const name = faker.random.word();
@@ -261,7 +250,9 @@ describe('SolidContainer', () => {
     });
 
     it('empty documents relation gets initialized', async () => {
-        const collection = (await MoviesCollection.create({ name: faker.random.word() })) as MoviesCollection;
+        const collection = (await MoviesCollection.create({
+            name: faker.random.word(),
+        })) as MoviesCollection;
 
         expect(collection.isRelationLoaded('documents')).toBe(true);
         expect(collection.documents).toEqual([]);
@@ -322,5 +313,4 @@ describe('SolidContainer', () => {
             'http://www.w3.org/ns/iana/media-types/image/png#Resource',
         ]);
     });
-
 });

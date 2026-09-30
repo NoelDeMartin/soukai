@@ -1,32 +1,28 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
-import { bootModels } from 'soukai';
 import { expandIRI, normalizeJsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { uuid } from '@noeldemartin/utils';
-import type { EngineDocument, Relation } from 'soukai';
 import type { Tuple } from '@noeldemartin/utils';
-
+import { bootModels } from 'soukai';
+import type { EngineDocument, Relation } from 'soukai';
 import { SolidModel } from 'soukai-solid/models/SolidModel';
-
-import Person from 'soukai-solid/testing/lib/stubs/Person';
 import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import { stubGroupJsonLD, stubPersonJsonLD } from 'soukai-solid/testing/lib/stubs/helpers';
+import Person from 'soukai-solid/testing/lib/stubs/Person';
+import { useFakeClock } from 'soukai-solid/testing/utils';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 class PersonWithHistory extends Person {
-
     public static timestamps = true;
     public static history = true;
 
     public friendsRelationship(): Relation {
         return this.belongsToMany(Person, 'friendUrls').usingSameDocument(true).onDelete('cascade');
     }
-
 }
 
 describe('SolidBelongsToManyRelation', () => {
-
     beforeAll(() => bootModels({ Group, Person, PersonWithHistory }));
     beforeEach(() => FakeSolidEngine.use());
 
@@ -102,6 +98,8 @@ describe('SolidBelongsToManyRelation', () => {
 
     it('synchronizes from different operations', async () => {
         // Arrange
+        useFakeClock();
+
         const source = await PersonWithHistory.create({ name: 'Luffy' });
         const target = source.clone({ clean: true });
 
@@ -111,6 +109,7 @@ describe('SolidBelongsToManyRelation', () => {
         source.relatedFriends.attach({ name: 'Nami' });
         source.relatedFriends.attach({ name: 'Usopp' });
 
+        vi.advanceTimersByTime(1);
         await source.save();
         await SolidModel.synchronize(source, target);
 
@@ -147,5 +146,4 @@ describe('SolidBelongsToManyRelation', () => {
         expect(person?.group?.members).toHaveLength(1);
         expect(person?.group?.members?.[0]).toBe(person);
     });
-
 });

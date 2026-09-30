@@ -1,27 +1,24 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
-import { after, seconds, uuid } from '@noeldemartin/utils';
 import { faker } from '@noeldemartin/faker';
 import { tt } from '@noeldemartin/testing';
 import type { Assert, Expect, Extends, HasKey, Not } from '@noeldemartin/testing';
+import { after, seconds, uuid } from '@noeldemartin/utils';
 import type { Equals } from '@noeldemartin/utils';
-
-import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
-import { FieldType, Model, TimestampField, bootModels, defineModelSchema } from 'soukai/models/index';
 import { InMemoryEngine, setEngine } from 'soukai/engines';
 import { SoukaiError } from 'soukai/errors';
+import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
+import { FieldType, Model, TimestampField, bootModels, defineModelSchema } from 'soukai/models/index';
 import type { Key, ModelCastAttributeOptions, TimestampFieldValue } from 'soukai/models/index';
-
+import FakeEngine from 'soukai/testing/fakes/FakeEngine';
+import type Action from 'soukai/testing/stubs/Action';
+import type { ActionStatus } from 'soukai/testing/stubs/Action.schema';
 import City from 'soukai/testing/stubs/City';
 import Post from 'soukai/testing/stubs/Post';
 import User from 'soukai/testing/stubs/User';
 import UserSchema from 'soukai/testing/stubs/User.schema';
-import FakeEngine from 'soukai/testing/fakes/FakeEngine';
-import type Action from 'soukai/testing/stubs/Action';
-import type { ActionStatus } from 'soukai/testing/stubs/Action.schema';
+import { useFakeClock } from 'soukai/testing/utils';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 describe('Model', () => {
-
     beforeEach(() => {
         FakeEngine.reset();
         FakeEngine.use();
@@ -57,6 +54,8 @@ describe('Model', () => {
 
     it('emits events', async () => {
         // Arrange
+        useFakeClock();
+
         const modifiedHistory: string[] = [];
         let createCount = 0;
         let updateCount = 0;
@@ -74,16 +73,16 @@ describe('Model', () => {
         post.title = faker.random.words();
         post.body = faker.lorem.paragraphs();
 
-        await after({ ms: 10 });
+        await vi.advanceTimersByTimeAsync(10);
         await post.update({ title: faker.random.words() });
 
-        await after({ ms: 10 });
+        await vi.advanceTimersByTimeAsync(10);
         await post.update({ title: faker.random.words() });
 
-        await after({ ms: 10 });
+        await vi.advanceTimersByTimeAsync(10);
         await post.update({ title: faker.random.words() });
 
-        await after({ ms: 10 });
+        await vi.advanceTimersByTimeAsync(10);
         await Post.create({ title: faker.random.words() });
         await post.delete();
 
@@ -122,11 +121,9 @@ describe('Model', () => {
 
         expect(User.getEngine()).not.toBe(inMemoryEngine);
     });
-
 });
 
 describe('Models definition', () => {
-
     it('instanceOf', () => {
         class StubModel extends Model {}
 
@@ -137,9 +134,7 @@ describe('Models definition', () => {
 
     it('collection', () => {
         class StubModel extends Model {
-
             public static collection = 'collection';
-        
         }
 
         bootModels({ StubModel });
@@ -157,9 +152,7 @@ describe('Models definition', () => {
 
     it('inherited collection', () => {
         class StubModel extends Model {
-
             public static collection = 'stubs';
-        
         }
 
         class Person extends StubModel {}
@@ -186,9 +179,7 @@ describe('Models definition', () => {
 
     it('timestamps', () => {
         class StubModel extends Model {
-
             public static timestamps = [TimestampField.CreatedAt];
-        
         }
 
         bootModels({ StubModel });
@@ -224,9 +215,7 @@ describe('Models definition', () => {
 
     it('empty timestamps', () => {
         class StubModel extends Model {
-
             public static timestamps = false;
-        
         }
 
         bootModels({ StubModel });
@@ -241,9 +230,7 @@ describe('Models definition', () => {
 
     it('invalid timestamps', () => {
         class StubModel extends Model {
-
             public static timestamps = ['foobar'] as unknown as TimestampFieldValue[];
-        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -253,7 +240,6 @@ describe('Models definition', () => {
 
     it('fields', () => {
         class StubModel extends Model {
-
             public static fields = {
                 name: {
                     type: FieldType.String,
@@ -275,7 +261,6 @@ describe('Models definition', () => {
                     totalFriends: FieldType.Number,
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -358,11 +343,9 @@ describe('Models definition', () => {
 
     it('invalid array field', () => {
         class StubModel extends Model {
-
             public static fields = {
                 tags: FieldType.Array,
             };
-        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -372,11 +355,9 @@ describe('Models definition', () => {
 
     it('invalid object field', () => {
         class StubModel extends Model {
-
             public static fields = {
                 meta: FieldType.Object,
             };
-        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -386,7 +367,6 @@ describe('Models definition', () => {
 
     it('invalid timestamp field', () => {
         class StubModel extends Model {
-
             public static timestamps = [TimestampField.CreatedAt];
 
             public static fields = {
@@ -395,7 +375,6 @@ describe('Models definition', () => {
                     required: true,
                 },
             };
-        
         }
 
         const bootModel = () => bootModels({ StubModel });
@@ -407,9 +386,7 @@ describe('Models definition', () => {
 
     it('accessing class properties', () => {
         class StubModel extends Model {
-
             public myArray = [];
-        
         }
 
         bootModels({ StubModel });
@@ -421,9 +398,7 @@ describe('Models definition', () => {
 
     it('setting class properties', () => {
         class StubModel extends Model {
-
             public myArray: string[] = [];
-        
         }
 
         bootModels({ StubModel });
@@ -440,9 +415,7 @@ describe('Models definition', () => {
         class ChildA extends Parent {}
         class ChildB extends Parent {}
         class ChildAA extends ChildA {
-
             public static modelName = 'CustomChildAA';
-        
         }
         class ChildAB extends ChildA {}
 
@@ -455,19 +428,15 @@ describe('Models definition', () => {
         expect(ChildAB.modelName).toEqual('ChildAB');
     });
 
-    it('class properties don\'t modify parent models', () => {
+    it("class properties don't modify parent models", () => {
         class Parent extends Model {
-
             public static classFields = ['parentField'];
             public parentProp: string[] = [];
-        
         }
 
         class Child extends Parent {
-
             public static classFields = ['childField'];
             public childProp: string[] = [];
-        
         }
 
         bootModels({ Parent, Child });
@@ -486,11 +455,9 @@ describe('Models definition', () => {
         expect(Child.classFields).toContain('childProp');
         expect(Child.classFields).toContain('childField');
     });
-
 });
 
 describe('Models CRUD', () => {
-
     beforeEach(() => {
         FakeEngine.reset();
         FakeEngine.use();
@@ -700,6 +667,8 @@ describe('Models CRUD', () => {
 
     it('update', async () => {
         // Arrange
+        useFakeClock();
+
         const surname = faker.name.lastName();
         const initialName = faker.name.firstName();
         const newName = faker.name.firstName();
@@ -707,7 +676,7 @@ describe('Models CRUD', () => {
         const model = await User.create({ name: initialName, surname });
 
         // Act
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
 
         await model.update({ name: newName });
 
@@ -741,6 +710,8 @@ describe('Models CRUD', () => {
 
     it('set attribute', async () => {
         // Arrange
+        useFakeClock();
+
         const surname = faker.name.lastName();
         const initialName = faker.name.firstName();
         const newName = faker.name.firstName();
@@ -749,7 +720,7 @@ describe('Models CRUD', () => {
         const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
 
         model.setAttribute('name', newName);
 
@@ -772,13 +743,15 @@ describe('Models CRUD', () => {
 
     it('unset attribute', async () => {
         // Arrange
+        useFakeClock();
+
         const name = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name, surname: faker.name.lastName() });
         const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
 
         model.unsetAttribute('surname');
 
@@ -854,11 +827,9 @@ describe('Models CRUD', () => {
         // Assert
         expect(User.collection).toBe(originalCollection);
     });
-
 });
 
 describe('Model attributes', () => {
-
     beforeEach(() => {
         FakeEngine.reset();
         FakeEngine.use();
@@ -936,7 +907,6 @@ describe('Model attributes', () => {
         });
 
         class StubModel extends Schema {
-
             protected castAttribute(value: unknown, options: ModelCastAttributeOptions = {}): unknown {
                 switch (options.definition?.type) {
                     case FieldType.Array:
@@ -947,7 +917,6 @@ describe('Model attributes', () => {
 
                 return super.castAttribute(value, options);
             }
-        
         }
 
         // Act
@@ -1116,6 +1085,8 @@ describe('Model attributes', () => {
 
     it('attribute setter', async () => {
         // Arrange
+        useFakeClock();
+
         const surname = faker.name.lastName();
         const initialName = faker.name.firstName();
         const newName = faker.name.firstName();
@@ -1124,7 +1095,7 @@ describe('Model attributes', () => {
         const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
 
         model.name = newName;
 
@@ -1147,13 +1118,15 @@ describe('Model attributes', () => {
 
     it('attribute deleter', async () => {
         // Arrange
+        useFakeClock();
+
         const name = faker.name.firstName();
         const now = seconds();
         const model = await User.create({ name, surname: faker.name.lastName() });
         const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
 
         // Act
-        await after({ ms: 100 });
+        await vi.advanceTimersByTimeAsync(100);
 
         delete model.surname;
 
@@ -1261,7 +1234,6 @@ describe('Model attributes', () => {
     it('serializes and deserializes fields', async () => {
         // Arrange
         class StubModel extends Model {
-
             public static fields = {
                 name: {
                     type: FieldType.String,
@@ -1269,7 +1241,6 @@ describe('Model attributes', () => {
                     deserialize: (value?: string) => value && value.toLowerCase(),
                 },
             };
-        
         }
 
         bootModels({ StubModel });
@@ -1286,11 +1257,9 @@ describe('Model attributes', () => {
         expect(freshCollectionModel?.getAttribute('name')).toEqual('john doe');
         expect(freshDocument?.name).toEqual('JOHN DOE');
     });
-
 });
 
 describe('Model types', () => {
-
     it(
         'infers magic attributes',
         tt<
@@ -1314,5 +1283,4 @@ describe('Model types', () => {
             | Expect<Not<HasKey<User, 'undefinedProperty'>>>
         >(),
     );
-
 });

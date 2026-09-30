@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import RDF from './RDF';
 
 describe('RDF helper', () => {
-
     it('Gets jsonld properties', () => {
         // Arrange
         const jsonlds = [
@@ -14,7 +13,7 @@ describe('RDF helper', () => {
                 '@context': {
                     '@vocab': 'https://schema.org/',
                 },
-                'name': 'Jackpot',
+                name: 'Jackpot',
             },
             {
                 '@context': {
@@ -42,5 +41,4 @@ describe('RDF helper', () => {
         // Assert
         results.forEach((result) => expect(result).toEqual('Jackpot'));
     });
-
 });

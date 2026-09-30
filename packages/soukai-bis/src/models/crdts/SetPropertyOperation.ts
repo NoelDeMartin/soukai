@@ -1,7 +1,6 @@
 import { RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
-import type { Quad, Quad_Object } from '@rdfjs/types';
 import type { SparqlUpdate } from '@noeldemartin/solid-utils';
-
+import type { Quad, Quad_Object } from '@rdfjs/types';
 import {
     CRDT_SET_PROPERTY_OPERATION_OBJECT,
     CRDT_VALUE,
@@ -9,11 +8,10 @@ import {
     createRDFLiteral,
 } from 'soukai-bis/utils/rdf';
 
-import SetPropertyOperationModel from './SetPropertyOperation.schema';
 import type Operation from './Operation';
+import SetPropertyOperationModel from './SetPropertyOperation.schema';
 
 export default class SetPropertyOperation extends SetPropertyOperationModel {
-
     private _isNamedNode: boolean = false;
     private _values: Quad_Object[] | null = null;
 
@@ -28,7 +26,8 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
 
     public get values(): Quad_Object[] {
         this._values ??= this.value.map((value) =>
-            this._isNamedNode ? new RDFNamedNode(value) : createRDFLiteral(value));
+            this._isNamedNode ? new RDFNamedNode(value) : createRDFLiteral(value),
+        );
 
         return this._values;
     }
@@ -76,5 +75,4 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
     protected getTypeQuads(): Quad_Object[] {
         return [CRDT_SET_PROPERTY_OPERATION_OBJECT];
     }
-
 }

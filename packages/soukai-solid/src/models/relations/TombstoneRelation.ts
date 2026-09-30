@@ -1,5 +1,4 @@
 import { SingleModelRelation, requireBootedModel } from 'soukai';
-
 import type Tombstone from 'soukai-solid/models/history/Tombstone';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
@@ -8,7 +7,6 @@ export default class TombstoneRelation<Parent extends SolidModel = SolidModel> e
     Tombstone,
     typeof Tombstone
 > {
-
     constructor(parent: Parent) {
         super(parent, requireBootedModel('Tombstone'));
     }
@@ -42,5 +40,4 @@ export default class TombstoneRelation<Parent extends SolidModel = SolidModel> e
         // Tombstones are not meant to coexist with models in storage, this relation is only used
         // as a temporary mechanism to mark a model before deletion.
     }
-
 }

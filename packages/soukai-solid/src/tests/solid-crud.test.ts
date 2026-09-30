@@ -1,24 +1,21 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { bootModels, setEngine } from 'soukai';
+import { faker } from '@noeldemartin/faker';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { tap, uuid } from '@noeldemartin/utils';
-import { faker } from '@noeldemartin/faker';
-
+import { bootModels, setEngine } from 'soukai';
+import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
+import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
+import IRI from 'soukai-solid/solid/utils/IRI';
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
-
 import { loadFixture } from 'soukai-solid/testing/utils';
-import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-import IRI from 'soukai-solid/solid/utils/IRI';
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 const fixture = (name: string) => loadFixture(`solid-crud/${name}`);
 
 describe('Solid CRUD', () => {
-
     beforeEach(() => {
         Movie.collection = 'https://my-pod.com/movies/';
 
@@ -38,6 +35,7 @@ describe('Solid CRUD', () => {
         // Act
         const movie = new Movie({ title, releaseDate });
 
+        // oxlint-disable-next-line typescript/no-floating-promises
         movie.relatedActions.create({ startTime: watchDate });
 
         await movie.save();
@@ -107,9 +105,7 @@ describe('Solid CRUD', () => {
     it('Creates model without url minting', async () => {
         // Arrange
         class MovieWithoutUrlMinting extends Movie {
-
             public static mintsUrls = false;
-        
         }
 
         const title = faker.lorem.sentence();
@@ -141,10 +137,8 @@ describe('Solid CRUD', () => {
     it('Creates model without url minting nor hash', async () => {
         // Arrange
         class MovieWithoutUrlMinting extends Movie {
-
             public static mintsUrls = false;
             public static defaultResourceHash = null;
-        
         }
 
         const title = faker.lorem.sentence();
@@ -290,7 +284,8 @@ describe('Solid CRUD', () => {
         // Assert
         expect(movies).toHaveLength(2);
         const theTaleOfPrincessKaguya = movies.find((movie) =>
-            movie.url.endsWith('the-tale-of-princess-kaguya#it')) as Movie;
+            movie.url.endsWith('the-tale-of-princess-kaguya#it'),
+        ) as Movie;
         const spiritedAway = movies.find((movie) => movie.url.endsWith('spirited-away#it')) as Movie;
 
         expect(theTaleOfPrincessKaguya).not.toBeUndefined();
@@ -464,7 +459,6 @@ describe('Solid CRUD', () => {
             }
         `);
     });
-
 });
 
 async function createStub(title?: string): Promise<Movie> {

@@ -1,18 +1,15 @@
-import { describe, expect, it } from 'vitest';
-
+import { InMemoryEngine, setEngine } from 'soukai/engines';
 import { bootModels } from 'soukai/models';
 import { emitModelEvent } from 'soukai/models/listeners';
-import { InMemoryEngine, setEngine } from 'soukai/engines';
 import { Model } from 'soukai/models/Model';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('Model listeners', () => {
-
     it('prevents circular calls', async () => {
         // Arrange
         let count = 0;
 
         class A extends Model {
-
             public static boot(name?: string): void {
                 super.boot(name);
 
@@ -24,11 +21,9 @@ describe('Model listeners', () => {
             }
 
             public b?: B;
-        
         }
 
         class B extends Model {
-
             public static boot(name?: string): void {
                 super.boot(name);
 
@@ -40,7 +35,6 @@ describe('Model listeners', () => {
             }
 
             public a?: A;
-        
         }
 
         bootModels({ A, B });
@@ -58,5 +52,4 @@ describe('Model listeners', () => {
         // Assert
         expect(count).toBe(1);
     });
-
 });

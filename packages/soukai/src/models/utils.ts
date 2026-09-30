@@ -1,6 +1,5 @@
 import { tap } from '@noeldemartin/utils';
 import type { ClosureArgs } from '@noeldemartin/utils';
-
 import type { Engine } from 'soukai/engines/Engine';
 import type { ModelConstructor } from 'soukai/models/inference';
 

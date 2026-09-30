@@ -1,11 +1,10 @@
 import { arrayFrom, required, tap } from '@noeldemartin/utils';
-import type { Quad } from '@rdfjs/types';
 import type { Constructor, Nullable } from '@noeldemartin/utils';
-
+import type { Quad } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
+import { isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
 
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
 import type { GetRelatedModelInput, RelationConstructor } from './types';
@@ -20,7 +19,6 @@ export default abstract class Relation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > {
-
     public static inverseHasRelationClasses: Constructor<Relation>[] = [];
     public static inverseBelongsToRelationClasses: Constructor<Relation>[] = [];
 
@@ -30,7 +28,7 @@ export default abstract class Relation<
         relatedClass: ModelConstructor,
         options?: { foreignKeyName?: string; localKeyName?: string; usingSameDocument?: boolean },
     ): T {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         return new (this as any)(parent, relatedClass, options);
     }
 
@@ -66,9 +64,9 @@ export default abstract class Relation<
         this.relatedClass = relatedClass;
         this.foreignKeyName = this.requiresForeignKey()
             ? required(
-                options.foreignKeyName,
-                `foreignKeyName missing from relation in ${parent.static().modelName} for ${relatedClass.modelName}.`,
-            )
+                  options.foreignKeyName,
+                  `foreignKeyName missing from relation in ${parent.static().modelName} for ${relatedClass.modelName}.`,
+              )
             : (options.foreignKeyName ?? null);
         this.localKeyName = options.localKeyName ?? 'url';
         this.usingSameDocument = options.usingSameDocument ?? false;
@@ -126,13 +124,13 @@ export default abstract class Relation<
     public abstract attach(model: Related, options?: AttachOptions): Related;
     public abstract attach(
         attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>,
-        options?: AttachOptions
+        options?: AttachOptions,
     ): Related;
 
     public abstract isRelated(model: Related): boolean;
 
     public abstract addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, ForeignKeyName>>(
-        attributes: T
+        attributes: T,
     ): T;
 
     protected requiresForeignKey(): boolean {
@@ -194,5 +192,4 @@ export default abstract class Relation<
 
         return false;
     }
-
 }

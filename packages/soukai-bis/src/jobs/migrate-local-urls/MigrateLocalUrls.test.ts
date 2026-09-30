@@ -1,13 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
 import { quadsToTurtle } from '@noeldemartin/solid-utils';
-
+import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import Movie from 'soukai-bis/testing/stubs/Movie';
 import { setEngine } from 'soukai-bis/engines/state';
+import Movie from 'soukai-bis/testing/stubs/Movie';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import MigrateLocalUrls from './MigrateLocalUrls';
 import type { MigrateLocalUrlsConfig } from './MigrateLocalUrls';
@@ -16,7 +15,6 @@ const fixture = <T = string>(name: string, replacements: Record<string, string> 
     loadFixture<T>(new URL(`./MigrateLocalUrls.test.ts-fixtures/${name}`, import.meta.url), replacements);
 
 describe('MigrateLocalUrls', () => {
-
     let engine: InMemoryEngine;
     let config: Pick<MigrateLocalUrlsConfig, 'engine'>;
 
@@ -35,7 +33,9 @@ describe('MigrateLocalUrls', () => {
             containerUrl: fakeContainerUrl({ baseUrl: Movie.defaultContainerUrl }),
         });
         const nestedMovieUrl = fakeResourceUrl({ documentUrl: nestedMovieDocumentUrl });
-        const remoteContainerUrl = fakeContainerUrl({ baseUrl: `https://${faker.internet.domainName()}` });
+        const remoteContainerUrl = fakeContainerUrl({
+            baseUrl: `https://${faker.internet.domainName()}`,
+        });
 
         await Movie.create({ url: movieUrl, title: 'The Phantom of Baker Street' });
         await Movie.create({ url: nestedMovieUrl, title: 'The Cat' });
@@ -81,5 +81,4 @@ describe('MigrateLocalUrls', () => {
             ]),
         );
     });
-
 });

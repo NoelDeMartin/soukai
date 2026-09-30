@@ -1,30 +1,19 @@
 import { URL, fileURLToPath } from 'node:url';
 
-import dts from 'unplugin-dts/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
-    build: {
+    pack: {
+        entry: {
+            soukai: 'src/index.ts',
+            testing: 'src/testing/index.ts',
+        },
         sourcemap: true,
-        lib: {
-            entry: {
-                soukai: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-                testing: fileURLToPath(new URL('./src/testing/index.ts', import.meta.url)),
-            },
-            formats: ['es'],
-            fileName: (_, entry) => (entry.includes('testing') ? 'testing.js' : 'soukai.js'),
-        },
-        rollupOptions: {
-            external: ['@noeldemartin/utils', 'idb', 'vitest'],
-        },
+        dts: true,
+        fixedExtension: false,
+        publint: true,
+        attw: { profile: 'esm-only' },
     },
-    plugins: [
-        dts({
-            bundleTypes: true,
-            tsconfigPath: './tsconfig.json',
-            insertTypesEntry: true,
-        }),
-    ],
     resolve: {
         alias: {
             soukai: fileURLToPath(new URL('./src/', import.meta.url)),

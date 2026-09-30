@@ -1,17 +1,14 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { FieldType, bootModels, setEngine } from 'soukai';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
-
 import { defineSolidModelSchema } from 'soukai-solid/models/schema';
-
-import SchemaTaskSchema from 'soukai-solid/testing/lib/stubs/SchemaTask.schema';
 import ICalTaskSchema, { ICAL_TASK_FIELDS } from 'soukai-solid/testing/lib/stubs/ICalTask.schema';
+import SchemaTaskSchema from 'soukai-solid/testing/lib/stubs/SchemaTask.schema';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 class Task extends SchemaTaskSchema {}
 
 describe('Solid Schema Migrations', () => {
-
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
         bootModels({ Task });
@@ -252,5 +249,4 @@ describe('Solid Schema Migrations', () => {
             } .
         `);
     });
-
 });

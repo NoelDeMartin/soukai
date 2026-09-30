@@ -1,14 +1,13 @@
+import type { JsonLD } from '@noeldemartin/solid-utils';
 import { arrayFilter, tap, toString } from '@noeldemartin/utils';
 import { FieldType, SoukaiError } from 'soukai';
 import type { Attributes, BootedArrayFieldDefinition } from 'soukai';
-import type { JsonLD } from '@noeldemartin/solid-utils';
-
-import { inferFieldDefinition } from 'soukai-solid/models/fields';
-import { isSolidDocumentRelation, isSolidHasRelation } from 'soukai-solid/models/relations/guards';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
+import { inferFieldDefinition } from 'soukai-solid/models/fields';
 import type { SolidBootedFieldDefinition, SolidBootedFieldsDefinition } from 'soukai-solid/models/fields';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import { isSolidDocumentRelation, isSolidHasRelation } from 'soukai-solid/models/relations/guards';
 import type { SolidRelation } from 'soukai-solid/models/relations/inference';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
 class EmptyJsonLDValue {}
 
@@ -25,7 +24,6 @@ enum IRIFormat {
 }
 
 class JsonLDContext {
-
     public static fromRdfClasses(rdfContexts: Record<string, string>, rdfsProperties: string[]): JsonLDContext {
         const [defaultContext, ...otherContexts] = Object.entries(rdfContexts);
         const defaultTerm = {
@@ -113,7 +111,6 @@ class JsonLDContext {
 
         return rendered;
     }
-
 }
 
 export type SerializeOptions = Partial<{
@@ -127,7 +124,6 @@ export type SerializeOptions = Partial<{
 }>;
 
 export default class JsonLDModelSerializer {
-
     public static forModel(model: typeof SolidModel, compactsIRIs: boolean = true): JsonLDModelSerializer {
         const bootedFields = model.fields as SolidBootedFieldsDefinition;
         const fieldsRdfProperties = arrayFilter(
@@ -257,9 +253,9 @@ export default class JsonLDModelSerializer {
         const serializeRelatedModel = !solidHasRelation
             ? (model: SolidModel) => this.serialize(model, serializeOptions)
             : (model: SolidModel) =>
-                tap(this.serialize(model, serializeOptions), (_jsonld) => {
-                    delete _jsonld[foreignProperty];
-                });
+                  tap(this.serialize(model, serializeOptions), (_jsonld) => {
+                      delete _jsonld[foreignProperty];
+                  });
 
         if (!relatedModels) {
             return;
@@ -326,7 +322,7 @@ export default class JsonLDModelSerializer {
                 );
 
                 if (inferredFieldDefinition.type === FieldType.Any) {
-                    throw new SoukaiError('Couldn\'t infer field definition for a field declared as any');
+                    throw new SoukaiError("Couldn't infer field definition for a field declared as any");
                 }
 
                 return this.castJsonLDValue(value, inferredFieldDefinition);
@@ -361,5 +357,4 @@ export default class JsonLDModelSerializer {
                 return JSON.parse(JSON.stringify(value));
         }
     }
-
 }

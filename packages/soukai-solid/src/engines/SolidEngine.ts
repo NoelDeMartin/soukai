@@ -1,3 +1,5 @@
+import { compactJsonLDGraph, quadsToJsonLD } from '@noeldemartin/solid-utils';
+import type { JsonLD } from '@noeldemartin/solid-utils';
 import {
     ListenersManager,
     arrayFrom,
@@ -9,6 +11,7 @@ import {
     urlParentDirectory,
     urlRoot,
 } from '@noeldemartin/utils';
+import type { Listeners } from '@noeldemartin/utils';
 import { DocumentAlreadyExists, DocumentNotFound, EngineHelper, SoukaiError } from 'soukai';
 import type {
     Engine,
@@ -20,24 +23,20 @@ import type {
     EngineUpdateItemsOperatorData,
     EngineUpdates,
 } from 'soukai';
-import { compactJsonLDGraph, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import type { JsonLD } from '@noeldemartin/solid-utils';
-import type { Listeners } from '@noeldemartin/utils';
-
-import ChangeUrlOperation from 'soukai-solid/solid/operations/ChangeUrlOperation';
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
-import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
-import SolidClient from 'soukai-solid/solid/SolidClient';
-import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import { LDP_CONTAINER, LDP_CONTAINS, PURL_MODIFIED } from 'soukai-solid/solid/constants';
-import { toDate } from 'soukai-solid/utils/object_helpers';
-import type DocumentsCache from 'soukai-solid/utils/DocumentsCache';
-import type { Fetch, ResponseMetadata } from 'soukai-solid/solid/SolidClient';
-import type { LiteralValue } from 'soukai-solid/solid/RDFResourceProperty';
-import type { RDFDocumentMetadata } from 'soukai-solid/solid/RDFDocument';
+import ChangeUrlOperation from 'soukai-solid/solid/operations/ChangeUrlOperation';
 import type { UpdateOperation } from 'soukai-solid/solid/operations/Operation';
+import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
+import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
+import type { RDFDocumentMetadata } from 'soukai-solid/solid/RDFDocument';
+import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
+import type { LiteralValue } from 'soukai-solid/solid/RDFResourceProperty';
+import SolidClient from 'soukai-solid/solid/SolidClient';
+import type { Fetch, ResponseMetadata } from 'soukai-solid/solid/SolidClient';
+import type DocumentsCache from 'soukai-solid/utils/DocumentsCache';
+import { toDate } from 'soukai-solid/utils/object_helpers';
 
 export interface SolidEngineConfig {
     concurrentFetchBatchSize: number | null;
@@ -56,7 +55,6 @@ export interface SolidEngineListener {
 }
 
 export class SolidEngine implements Engine {
-
     public __isSolidEngine = true;
 
     private config: SolidEngineConfig;
@@ -105,9 +103,9 @@ export class SolidEngine implements Engine {
             properties,
             usingExperimentalActivityPods()
                 ? {
-                    method: 'post',
-                    format: 'application/ld+json',
-                }
+                      method: 'post',
+                      format: 'application/ld+json',
+                  }
                 : {},
         );
 
@@ -124,7 +122,7 @@ export class SolidEngine implements Engine {
                 return cachedDocument;
             }
 
-            // eslint-disable-next-line no-console
+            // oxlint-disable-next-line no-console
             console.warn(`[Soukai] Document '${id}' not found in persistent cache, fetching from server`);
         }
 
@@ -303,7 +301,7 @@ export class SolidEngine implements Engine {
     private validateJsonLDGraph(document: EngineDocument): void {
         if (!Array.isArray(document['@graph']))
             throw new SoukaiError(
-                'Invalid JSON-LD graph provided for SolidEngine. ' + 'Are you using a model that isn\'t a SolidModel?',
+                'Invalid JSON-LD graph provided for SolidEngine. ' + "Are you using a model that isn't a SolidModel?",
             );
     }
 
@@ -311,7 +309,7 @@ export class SolidEngine implements Engine {
         if (!this.isJsonLDGraphUpdate(updates))
             throw new SoukaiError(
                 'Invalid JSON-LD graph updates provided for SolidEngine. ' +
-                    'Are you using a model that isn\'t a SolidModel?',
+                    "Are you using a model that isn't a SolidModel?",
             );
 
         const changedUrls = new Map<string, string>();
@@ -349,7 +347,7 @@ export class SolidEngine implements Engine {
         if (!$where || !('@id' in $where)) {
             throw new SoukaiError(
                 'Invalid JSON-LD graph updates provided for SolidEngine. ' +
-                    'Are you using a model that isn\'t a SolidModel?',
+                    "Are you using a model that isn't a SolidModel?",
             );
         }
 
@@ -383,7 +381,7 @@ export class SolidEngine implements Engine {
         if (typeof $where['@id'] !== 'string') {
             throw new SoukaiError(
                 'Invalid JSON-LD graph updates provided for SolidEngine. ' +
-                    'Are you using a model that isn\'t a SolidModel?',
+                    "Are you using a model that isn't a SolidModel?",
             );
         }
 
@@ -393,7 +391,7 @@ export class SolidEngine implements Engine {
 
         for (const [attribute, value] of Object.entries(updates as Record<string, EngineAttributeLeafValue>)) {
             if (value === null) {
-                throw new SoukaiError('SolidEngine doesn\'t support setting properties to null, delete');
+                throw new SoukaiError("SolidEngine doesn't support setting properties to null, delete");
             }
 
             if (typeof value === 'object' && '$unset' in value) {
@@ -416,27 +414,25 @@ export class SolidEngine implements Engine {
         return operations;
     }
 
-    /* eslint-disable max-len */
     private getUpdatePropertyOperationProperty(
         resourceUrl: string,
         attribute: string,
-        value: unknown
+        value: unknown,
     ): RDFResourceProperty | RDFResourceProperty[];
 
     private getUpdatePropertyOperationProperty(
         resourceUrl: string,
         attribute: string,
         value: unknown,
-        allowArrays: true
+        allowArrays: true,
     ): RDFResourceProperty | RDFResourceProperty[];
 
     private getUpdatePropertyOperationProperty(
         resourceUrl: string,
         attribute: string,
         value: unknown,
-        allowArrays: false
+        allowArrays: false,
     ): RDFResourceProperty;
-    /* eslint-enable max-len */
 
     private getUpdatePropertyOperationProperty(
         resourceUrl: string,
@@ -531,5 +527,4 @@ export class SolidEngine implements Engine {
             Array.isArray(graphFilter.$contains['@type'].$or)
         );
     }
-
 }

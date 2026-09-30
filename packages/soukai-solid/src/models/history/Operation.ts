@@ -1,12 +1,10 @@
 import { uuid } from '@noeldemartin/utils';
-
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
 import Model from './Operation.schema';
 
 export default class Operation extends Model {
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // oxlint-disable-next-line typescript/no-unused-vars
     public apply(model: SolidModel): void {
         //
     }
@@ -26,5 +24,4 @@ export default class Operation extends Model {
             ? `${this.resourceUrl}-operation-${hashSuffix}`
             : `${this.resourceUrl}#operation-${hashSuffix}`;
     }
-
 }

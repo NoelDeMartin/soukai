@@ -1,15 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeLocalStorage } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
-
+import { FakeLocalStorage } from '@noeldemartin/testing';
+import { LocalStorageEngine } from 'soukai/engines/LocalStorageEngine';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 import { bootModels } from 'soukai/models';
-import { LocalStorageEngine } from 'soukai/engines/LocalStorageEngine';
-
 import User from 'soukai/testing/stubs/User';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('LocalStorageEngine', () => {
-
     let engine: LocalStorageEngine;
     let prefix: string;
 
@@ -143,5 +140,4 @@ describe('LocalStorageEngine', () => {
     it('delete non existent', async () => {
         await expect(engine.delete(User.collection, faker.datatype.uuid())).rejects.toThrow(DocumentNotFound);
     });
-
 });

@@ -1,14 +1,12 @@
-import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
 import { createPrivateTypeIndex } from '@noeldemartin/solid-utils';
 import type { SolidUserProfile } from '@noeldemartin/solid-utils';
-
+import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
 import Container from 'soukai-bis/models/ldp/Container';
 import type { ContainerConstructor, ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './TypeIndex.schema';
 
 export default class TypeIndex extends Model {
-
     public async findContainer<T extends Container = Container>(
         modelClass: ModelConstructor,
         containerClass?: ContainerConstructor<T>,
@@ -29,7 +27,8 @@ export default class TypeIndex extends Model {
         return asyncFirst(containerRegistrations, async (registration) =>
             registration?.instanceContainer
                 ? ((containerClass ?? Container).find(registration.instanceContainer) as Promise<T>)
-                : null);
+                : null,
+        );
     }
 
     public static async createPrivate<T extends TypeIndex>(
@@ -43,5 +42,4 @@ export default class TypeIndex extends Model {
 
         return instance;
     }
-
 }

@@ -1,13 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-
-import BaseMoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
-import BaseUser from 'soukai-bis/testing/stubs/User';
+import { setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
-import { setEngine } from 'soukai-bis/engines';
+import BaseMoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
+import BaseUser from 'soukai-bis/testing/stubs/User';
+import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const fixture = <T = string>(name: string) => loadFixture<T>(`crdts/${name}`);
 const User = defineSchema(BaseUser, { history: true });
@@ -17,10 +17,10 @@ const MoviesCollection = defineSchema(BaseMoviesCollection, {
 });
 
 describe('CRDTs', () => {
-
     beforeEach(() => {
         setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
         bootModels({ User, MoviesCollection }, { reset: true });
+        useFakeClock();
     });
 
     it('Updates metadata and creates operations', async () => {
@@ -39,7 +39,9 @@ describe('CRDTs', () => {
         // Act
         const griffith = await User.create({ name: 'Griffith' });
 
+        vi.advanceTimersByTime(1);
         await griffith.update({ name: 'Femto', givenName: 'Wings of Darkness', lastName: null });
+        vi.advanceTimersByTime(1);
         await griffith.update({ name: 'Griffith', givenName: 'Falcon of Light' });
 
         // Assert
@@ -70,6 +72,7 @@ describe('CRDTs', () => {
         await movies.relatedMovies.create({ title: 'Spirited Away' });
 
         // Act - Update name
+        vi.advanceTimersByTime(1);
         await movies.update({ name: 'Great Movies' });
 
         // Assert
@@ -80,5 +83,4 @@ describe('CRDTs', () => {
         expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(fixture('create-movies.sparql'));
         expect(FakeServer.fetchSpy.mock.calls[6]?.[1]?.body).toEqualSparql(fixture('update-movies.sparql'));
     });
-
 });

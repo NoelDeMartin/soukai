@@ -1,11 +1,9 @@
 import type { Quad } from '@rdfjs/types';
-
-import IRI from 'soukai-solid/solid/utils/IRI';
 import RDFResourceProperty, { RDFResourcePropertyType } from 'soukai-solid/solid/RDFResourceProperty';
 import type { LiteralValue } from 'soukai-solid/solid/RDFResourceProperty';
+import IRI from 'soukai-solid/solid/utils/IRI';
 
 export default class RDFResource {
-
     public readonly url: string;
     public readonly types: string[];
     public readonly properties: RDFResourceProperty[];
@@ -55,5 +53,4 @@ export default class RDFResource {
         this.properties.push(property);
         this.propertiesIndex[property.name] = (this.propertiesIndex[property.name] || []).concat([property]);
     }
-
 }

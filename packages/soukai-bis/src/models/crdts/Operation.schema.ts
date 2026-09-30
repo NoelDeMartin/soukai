@@ -1,7 +1,6 @@
-import { date, url } from 'zod';
-
 import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty } from 'soukai-bis/zod/soukai';
+import { date, url } from 'zod';
 
 export const OPERATION_FIELDS = {
     resourceUrl: rdfProperty(url(), 'resource'),

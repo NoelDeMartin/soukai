@@ -4,7 +4,6 @@ import type { NamedNode, Quad, Quad_Subject } from '@rdfjs/types';
 import type EngineOperation from './EngineOperation';
 
 export default class DeleteResourceOperation implements EngineOperation {
-
     private resource: Quad_Subject;
 
     public constructor(resourceUrl: NamedNode | string) {
@@ -18,5 +17,4 @@ export default class DeleteResourceOperation implements EngineOperation {
     public applyToSparql(sparql: SparqlUpdate): void {
         sparql.delete(this.resource);
     }
-
 }

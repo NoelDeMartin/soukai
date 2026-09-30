@@ -1,8 +1,8 @@
 import type { Constructor, Pretty } from '@noeldemartin/utils';
 import type { GetArrayFields, GetFieldsDefinition, MagicAttributeProperties, MagicAttributes } from 'soukai';
 
-import type SolidContainer from './SolidContainer';
 import type { SolidFieldsDefinition, SolidSchemaDefinition } from './fields';
+import type SolidContainer from './SolidContainer';
 import type { SolidModel } from './SolidModel';
 
 export type SolidMagicAttributes<

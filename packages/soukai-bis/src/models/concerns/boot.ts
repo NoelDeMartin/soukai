@@ -1,10 +1,9 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import { tap } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { getContainerName } from 'soukai-bis/models/utils';
 import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
 import type { ModelConstructor } from 'soukai-bis/models/types';
+import { getContainerName } from 'soukai-bis/models/utils';
 
 const store = new WeakMap<ModelConstructor, ModelMeta>();
 

@@ -1,9 +1,8 @@
 import { RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
 import type { Term } from '@rdfjs/types';
-
-import Job from 'soukai-bis/jobs/Job';
-import type Engine from 'soukai-bis/engines/Engine';
 import type ManagesContainers from 'soukai-bis/engines/contracts/ManagesContainers';
+import type Engine from 'soukai-bis/engines/Engine';
+import Job from 'soukai-bis/jobs/Job';
 import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 
 export interface MigrateLocalUrlsConfig {
@@ -12,7 +11,6 @@ export interface MigrateLocalUrlsConfig {
 }
 
 export default class MigrateLocalUrls extends Job {
-
     public static async run(config: MigrateLocalUrlsConfig): Promise<void> {
         const job = new MigrateLocalUrls(config);
 
@@ -98,5 +96,4 @@ export default class MigrateLocalUrls extends Job {
 
         return new RDFNamedNode(migratedUrl) as T;
     }
-
 }

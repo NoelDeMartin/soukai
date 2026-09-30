@@ -1,10 +1,9 @@
 import type { Quad } from '@rdfjs/types';
-
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
-import MultiModelRelation from './MultiModelRelation';
 import { classMarker } from './helpers';
+import MultiModelRelation from './MultiModelRelation';
 import type { GetRelatedModelInput } from './types';
 
 export default class DocumentContainsManyRelation<
@@ -12,7 +11,6 @@ export default class DocumentContainsManyRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass, never> {
-
     public static [classMarker] = ['DocumentContainsManyRelation', ...MultiModelRelation[classMarker]];
 
     public async load(): Promise<Related[]> {
@@ -40,5 +38,4 @@ export default class DocumentContainsManyRelation<
     protected requiresForeignKey(): boolean {
         return false;
     }
-
 }

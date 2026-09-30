@@ -1,6 +1,5 @@
 import { arrayFrom, isTruthy, mixed, urlRoute } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
@@ -12,7 +11,6 @@ export default class BelongsToManyRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends mixed(MultiModelRelation, [BelongsToRelation])<Parent, Related, RelatedClass> {
-
     public async load(): Promise<Related[]> {
         this.related = await this.loadRelatedModels();
 
@@ -21,10 +19,12 @@ export default class BelongsToManyRelation<
 
     public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: ModelsCache } = {}): Promise<void> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
+        // oxlint-disable-next-line typescript/no-base-to-string
         const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true }).map((value) => String(value));
         const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
         const related = allRelated.filter((model) =>
-            foreignKeys.includes(model.getAttribute(this.localKeyName) as string));
+            foreignKeys.includes(model.getAttribute(this.localKeyName) as string),
+        );
         const relatedKeys = related.map((model) => model.getAttribute(this.localKeyName));
 
         this.__modelsInSameDocument = related;
@@ -85,5 +85,4 @@ export default class BelongsToManyRelation<
 
         return models.filter(isTruthy);
     }
-
 }

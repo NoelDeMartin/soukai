@@ -1,7 +1,7 @@
 import { IndexedDBMap } from '@noeldemartin/utils';
 import { DocumentNotFound } from 'soukai';
-import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
 import type { Engine, EngineDocument } from 'soukai';
+import { renderRDFDateValue } from 'soukai-solid/solid/utils/dates';
 
 interface DocumentMetadata {
     modifiedAt: number;
@@ -12,7 +12,6 @@ interface DocumentMetadata {
 }
 
 export default class DocumentsCache {
-
     protected engine: Engine;
     protected metadata: IndexedDBMap<DocumentMetadata>;
     protected active: Partial<Record<string, boolean>> = {};
@@ -103,5 +102,4 @@ export default class DocumentsCache {
     protected getDocumentKey(collection: string, id: string): string {
         return `${collection}-${id}`;
     }
-
 }

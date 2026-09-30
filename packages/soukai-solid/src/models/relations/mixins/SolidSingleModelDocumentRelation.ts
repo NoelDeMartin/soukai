@@ -1,12 +1,11 @@
-import { SingleModelRelation, SoukaiError } from 'soukai';
 import { overridePrototypeMethod, tap } from '@noeldemartin/utils';
-import type { Attributes, Model } from 'soukai';
 import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
-
-import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
+import { SingleModelRelation, SoukaiError } from 'soukai';
+import type { Attributes, Model } from 'soukai';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
-import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
+import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 
 import SolidDocumentRelation from './SolidDocumentRelation';
 
@@ -29,7 +28,6 @@ export default class SolidSingleModelDocumentRelation<
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
 > extends SolidDocumentRelation<Related> {
-
     declare public __modelInSameDocument?: Related;
     declare public __modelInOtherDocumentId?: string;
     declare private __newModelValue?: Related;
@@ -139,7 +137,7 @@ export default class SolidSingleModelDocumentRelation<
         modelsInOtherDocumentIds: string[],
     ): void {
         if (modelsInSameDocument.length + modelsInOtherDocumentIds.length > 1)
-            // eslint-disable-next-line no-console
+            // oxlint-disable-next-line no-console
             console.warn(
                 `The ${this.name} relationship in ${this.parent.static('modelName')} has been declared as hasOne, ` +
                     'but more than one related model were found.',
@@ -223,16 +221,15 @@ export default class SolidSingleModelDocumentRelation<
                 'use a hasMany relationship if you want to support multiple related models.',
         );
     }
-
 }
 
 // This is necessary because otherwise, Typescript gives an error when this is extended,
 // for example in SolidHasOneRelation.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 overridePrototypeMethod<any, string>(
     SolidSingleModelDocumentRelation,
     'onRelatedUpdated',
-    function(this: This, oldValue: Nullable<SolidModel>, newValue: Nullable<SolidModel>): void {
+    function (this: This, oldValue: Nullable<SolidModel>, newValue: Nullable<SolidModel>): void {
         if (this !== this.parent.requireRelation(this.name)) {
             return;
         }

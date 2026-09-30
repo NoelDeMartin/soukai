@@ -1,21 +1,19 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { MalformedSolidDocument } from '@noeldemartin/solid-utils';
 import { faker } from '@noeldemartin/faker';
+import { MalformedSolidDocument } from '@noeldemartin/solid-utils';
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { range, stringToSlug, urlResolveDirectory, uuid } from '@noeldemartin/utils';
 import type { Tuple } from '@noeldemartin/utils';
-
-import ChangeUrlOperation from 'soukai-solid/solid/operations/ChangeUrlOperation';
-import IRI from 'soukai-solid/solid/utils/IRI';
-import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
-import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
-import SolidClient from 'soukai-solid/solid/SolidClient';
-import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
 import { LDP_CONTAINER, RDF_TYPE } from 'soukai-solid/solid/constants';
+import ChangeUrlOperation from 'soukai-solid/solid/operations/ChangeUrlOperation';
+import RemovePropertyOperation from 'soukai-solid/solid/operations/RemovePropertyOperation';
+import UpdatePropertyOperation from 'soukai-solid/solid/operations/UpdatePropertyOperation';
 import type RDFDocument from 'soukai-solid/solid/RDFDocument';
+import RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
+import SolidClient from 'soukai-solid/solid/SolidClient';
+import IRI from 'soukai-solid/solid/utils/IRI';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('SolidClient', () => {
-
     let client: SolidClient;
 
     beforeEach(() => (client = new SolidClient(FakeServer.fetch)));
@@ -108,12 +106,14 @@ describe('SolidClient', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, {
             method: 'PUT',
             headers: {
-                'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
                 'If-None-Match': '*',
             },
         });
 
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, containerUrl, { headers: { Accept: 'text/turtle' } });
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, containerUrl, {
+            headers: { Accept: 'text/turtle' },
+        });
 
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, `${containerUrl}.meta`, {
             method: 'PATCH',
@@ -141,7 +141,9 @@ describe('SolidClient', () => {
         FakeServer.respondOnce('*', FakeResponse.created()); // POST new container
         FakeServer.respondOnce(
             '*',
-            FakeResponse.success(`<> a <${LDP_CONTAINER}> .`, { Link: `<${metaUrl}>; rel="describedby"` }),
+            FakeResponse.success(`<> a <${LDP_CONTAINER}> .`, {
+                Link: `<${metaUrl}>; rel="describedby"`,
+            }),
         ); // GET container describedBy
         FakeServer.respondOnce('*', FakeResponse.resetContent()); // PATCH container meta
 
@@ -161,8 +163,8 @@ describe('SolidClient', () => {
             expect(FakeServer.fetchSpy.mock.calls[index]?.[1]).toEqual({
                 method: 'POST',
                 headers: {
-                    'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
-                    'Slug': stringToSlug(label),
+                    Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                    Slug: stringToSlug(label),
                     'If-None-Match': '*',
                 },
             });
@@ -173,8 +175,8 @@ describe('SolidClient', () => {
             expect(FakeServer.fetchSpy.mock.calls[index]?.[1]).toEqual({
                 method: 'POST',
                 headers: {
-                    'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
-                    'Slug': parentSlug,
+                    Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                    Slug: parentSlug,
                     'If-None-Match': '*',
                 },
             });
@@ -184,13 +186,15 @@ describe('SolidClient', () => {
         expect(FakeServer.fetchSpy.mock.calls[3]?.[1]).toEqual({
             method: 'POST',
             headers: {
-                'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
-                'Slug': grandParentSlug,
+                Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                Slug: grandParentSlug,
                 'If-None-Match': '*',
             },
         });
 
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(7, containerUrl, { headers: { Accept: 'text/turtle' } });
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(7, containerUrl, {
+            headers: { Accept: 'text/turtle' },
+        });
 
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(8, metaUrl, {
             method: 'PATCH',
@@ -464,7 +468,9 @@ describe('SolidClient', () => {
         ]);
 
         // Assert
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, { headers: { Accept: 'text/turtle' } });
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, {
+            headers: { Accept: 'text/turtle' },
+        });
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, descriptionDocumentUrl, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/sparql-update' },
@@ -801,8 +807,12 @@ describe('SolidClient', () => {
 
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, { headers: { Accept: 'text/turtle' } });
-        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, { headers: { Accept: 'text/turtle' } });
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, {
+            headers: { Accept: 'text/turtle' },
+        });
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, {
+            headers: { Accept: 'text/turtle' },
+        });
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, documentUrl, { method: 'DELETE' });
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, containerUrl, { method: 'DELETE' });
     });
@@ -873,5 +883,4 @@ describe('SolidClient', () => {
             `Malformed Turtle document found at ${containerUrl} - Unexpected "this" on line 1.`,
         );
     });
-
 });

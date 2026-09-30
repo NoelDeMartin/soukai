@@ -1,11 +1,10 @@
 import { InvalidationStrategies, loaded } from 'soukai-bis';
 import type { BelongsToManyRelation, ComputedAttribute } from 'soukai-bis';
 
-import Model from './Show.schema';
 import type Season from './Season';
+import Model from './Show.schema';
 
 export default class Show extends Model {
-
     declare public readonly pendingEpisodeDates: ComputedAttribute<Date[]>;
     declare public readonly relatedSeasons: BelongsToManyRelation<this, Season, typeof Season>;
     declare public readonly seasons?: Season[];
@@ -21,5 +20,4 @@ export default class Show extends Model {
             },
         },
     };
-
 }

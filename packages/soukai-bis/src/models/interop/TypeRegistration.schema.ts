@@ -1,6 +1,5 @@
-import { array, url } from 'zod';
-
 import { defineSchema } from 'soukai-bis/models/schema';
+import { array, url } from 'zod';
 
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/solid/terms#',

@@ -1,3 +1,5 @@
+import { jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import {
     MagicObject,
     applyStrictChecks,
@@ -19,36 +21,36 @@ import {
     uuid,
     weakMemo,
 } from '@noeldemartin/utils';
-import { jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
-import { ZodError } from 'zod';
-import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
-import type { Quad } from '@rdfjs/types';
 import type { Nullable } from '@noeldemartin/utils';
-
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type { Quad } from '@rdfjs/types';
+import type Engine from 'soukai-bis/engines/Engine';
+import { getEngine, requireEngine } from 'soukai-bis/engines/state';
+import { isSolidEngine } from 'soukai-bis/engines/utils';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
-import { getEngine, requireEngine } from 'soukai-bis/engines/state';
+import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/utils/rdf';
-import { isSolidEngine } from 'soukai-bis/engines/utils';
-import type Engine from 'soukai-bis/engines/Engine';
+import { ZodError } from 'zod';
 
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
-import { getRelatedClass } from './relations/utils';
-import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
-import { buildRDFTypeIndex, createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
-import { emitModelEvent, onModelEvent } from './concerns/events';
-import { deleteModel, getDirtyDocumentsUpdates, syncDocumentOperations } from './concerns/crdts';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
-import type HasManyRelation from './relations/HasManyRelation';
-import type HasOneRelation from './relations/HasOneRelation';
+import { deleteModel, getDirtyDocumentsUpdates, syncDocumentOperations } from './concerns/crdts';
+import { emitModelEvent, onModelEvent } from './concerns/events';
+import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
+import { buildRDFTypeIndex, createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
-import type Relation from './relations/Relation';
 import type Tombstone from './crdts/Tombstone';
+import type HasManyRelation from './relations/HasManyRelation';
+import type HasOneRelation from './relations/HasOneRelation';
+import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
+import type Relation from './relations/Relation';
+import type { SchemaComputedAttributeDefinition } from './relations/schema';
+import { getRelatedClass } from './relations/utils';
+import type { Schema } from './schema';
 import type {
     ModelComputedAttributeDefinitions,
     ModelConstructor,
@@ -58,9 +60,6 @@ import type {
     ModelWithUrl,
     ModelsCache,
 } from './types';
-import type { SchemaComputedAttributeDefinition } from './relations/schema';
-import type { Schema } from './schema';
-import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 
 export interface MintUrlOptions {
     containerUrl?: Nullable<string>;
@@ -80,7 +79,6 @@ export default class Model<
     FieldName extends string = string & keyof Attributes,
     RelationName extends string = string & keyof Relations,
 > extends MagicObject {
-
     public static schema: Schema;
     private static __engine: Engine | null = null;
 
@@ -136,7 +134,7 @@ export default class Model<
                 throw new SoukaiError(message);
             }
 
-            // eslint-disable-next-line no-console
+            // oxlint-disable-next-line no-console
             console.warn(message);
         }
 
@@ -334,7 +332,7 @@ export default class Model<
     public static<T extends ModelConstructor<this>>(): T;
     public static<T extends ModelConstructor<this>, K extends keyof T>(property: K): T[K];
     public static<T extends ModelConstructor<this>, K extends keyof T>(property?: K): T | T[K] {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         return super.static<any, any>(property);
     }
 
@@ -429,6 +427,7 @@ export default class Model<
         Object.keys(newAttributes).forEach((field) => this._dirtyAttributes.add(field as FieldName));
 
         for (const field of modifiedFields) {
+            // oxlint-disable-next-line typescript/no-floating-promises
             emitModelEvent(this, 'modified', field);
         }
     }
@@ -1044,5 +1043,4 @@ export default class Model<
             relation.getLoadedModels().forEach((model) => model.populateRelatedModels(relatedModels));
         }
     }
-
 }

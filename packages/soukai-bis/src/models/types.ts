@@ -1,13 +1,13 @@
 import type { Constructor, Pretty } from '@noeldemartin/utils';
 
-import type Container from './ldp/Container';
-import type HasManyRelation from './relations/HasManyRelation';
-import type HasOneRelation from './relations/HasOneRelation';
+import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
 import type Metadata from './crdts/Metadata';
-import type Model from './Model';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
-import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
+import type Container from './ldp/Container';
+import type Model from './Model';
+import type HasManyRelation from './relations/HasManyRelation';
+import type HasOneRelation from './relations/HasOneRelation';
 import type { SchemaComputedAttributeDefinition } from './relations/schema';
 
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
@@ -40,7 +40,7 @@ export type ModelWithTombstones<T extends Model> = Model &
 
 export type ModelComputedAttributeDefinitions = Record<
     string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     ComputedAttributeCompute<any, unknown> | SchemaComputedAttributeDefinition
 >;
 

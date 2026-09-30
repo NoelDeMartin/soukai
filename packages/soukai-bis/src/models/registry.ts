@@ -1,10 +1,9 @@
 import { fail } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 
-import { isModelClass } from './utils';
 import type Model from './Model';
 import type { ModelConstructor } from './types';
+import { isModelClass } from './utils';
 
 const bootedModels: Map<string, ModelConstructor> = new Map();
 

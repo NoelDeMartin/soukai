@@ -1,7 +1,6 @@
 import Model from './Metadata.schema';
 
 export default class Metadata extends Model {
-
     public getCreatedAtAttribute(): Date {
         return this.getAttributeValue('createdAt');
     }
@@ -17,5 +16,4 @@ export default class Metadata extends Model {
 
         return this.resourceUrl.includes('#') ? `${this.resourceUrl}-metadata` : `${this.resourceUrl}#metadata`;
     }
-
 }

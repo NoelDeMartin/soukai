@@ -1,5 +1,4 @@
 import { arrayRemove } from '@noeldemartin/utils';
-
 import type Model from 'soukai-bis/models/Model';
 import type Relation from 'soukai-bis/models/relations/Relation';
 import type { ModelConstructor } from 'soukai-bis/models/types';

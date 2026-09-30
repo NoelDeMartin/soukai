@@ -1,7 +1,6 @@
-import { arrayWithout, tap, urlParse, uuid } from '@noeldemartin/utils';
 import { SolidDocument, SolidDocumentPermission, expandIRI } from '@noeldemartin/solid-utils';
+import { arrayWithout, tap, urlParse, uuid } from '@noeldemartin/utils';
 import { requireBootedModel } from 'soukai';
-
 import type { SolidEngine } from 'soukai-solid/engines/SolidEngine';
 import type SolidACLAuthorization from 'soukai-solid/models/SolidACLAuthorization';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
@@ -14,7 +13,6 @@ export interface PermissionsTracker {
 export type This = SolidModel;
 
 export default class ManagesPermissions {
-
     declare protected _publicPermissions: SolidDocumentPermission[] | undefined;
 
     public get isPublic(): boolean | null {
@@ -83,9 +81,11 @@ export default class ManagesPermissions {
         const authorizations = await this.loadRelationIfUnloaded<SolidACLAuthorization[]>('authorizations');
         const aclAuthorizationClass = requireBootedModel<typeof SolidACLAuthorization>('SolidACLAuthorization');
         const modes = permissions.map((permission) =>
-            aclAuthorizationClass.modeFromSolidDocumentPermission(permission));
+            aclAuthorizationClass.modeFromSolidDocumentPermission(permission),
+        );
         const publicAuthorizations = authorizations.filter((authorization) =>
-            authorization.agentClasses.includes(expandIRI('foaf:Agent')));
+            authorization.agentClasses.includes(expandIRI('foaf:Agent')),
+        );
         const publicModes = publicAuthorizations.map((authorization) => authorization.modes).flat();
 
         if (modes.length === publicModes.length && !modes.some((mode) => publicModes.includes(mode))) return;
@@ -134,7 +134,8 @@ export default class ManagesPermissions {
                         false,
                         urlParse(authorization.url)?.fragment ?? uuid(),
                     );
-                }));
+                }),
+            );
 
         for (const authorization of ownerAuthorizations) {
             await authorization.save();
@@ -162,5 +163,4 @@ export default class ManagesPermissions {
 
         this.relatedAuthorizations.related?.push(publicAuthorization);
     }
-
 }

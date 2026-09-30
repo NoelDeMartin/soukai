@@ -1,20 +1,18 @@
 import { arrayDiff, arrayWithout, tap } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 import { BelongsToManyRelation, SoukaiError } from 'soukai';
 import type { Attributes, Model } from 'soukai';
-import type { Nullable } from '@noeldemartin/utils';
-
-import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
+import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 import type SolidContainer from 'soukai-solid/models/SolidContainer';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
-import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 
 export default class SolidContainsRelation<
     Parent extends SolidContainer = SolidContainer,
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
 > extends BelongsToManyRelation<Parent, Related, RelatedClass> {
-
     public constructor(parent: Parent, relatedClass: RelatedClass) {
         super(parent, relatedClass, 'resourceUrls', 'url');
     }
@@ -55,8 +53,8 @@ export default class SolidContainsRelation<
         this.related = this.isEmpty()
             ? []
             : await this.relatedClass.from(this.parent.url).all<Related>({
-                $in: this.parent.resourceUrls,
-            });
+                  $in: this.parent.resourceUrls,
+              });
 
         return this.related;
     }
@@ -107,7 +105,7 @@ export default class SolidContainsRelation<
             return;
         }
 
-        throw new SoukaiError('Cannot save a model because the container doesn\'t exist');
+        throw new SoukaiError("Cannot save a model because the container doesn't exist");
     }
 
     protected onRelatedUpdated(oldValue: Nullable<Model[]>, newValue: Nullable<Model[]>): void {
@@ -124,5 +122,4 @@ export default class SolidContainsRelation<
         removed.forEach((model) => this.clearInverseRelations(model as Related));
         added.forEach((model) => this.initializeInverseRelations(model as Related));
     }
-
 }

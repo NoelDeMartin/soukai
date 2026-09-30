@@ -1,9 +1,8 @@
 import { objectOnly, requireUrlParentDirectory } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type Container from 'soukai-bis/models/ldp/Container';
 import { isContainerClass } from 'soukai-bis/models/ldp/utils';
 import type Model from 'soukai-bis/models/Model';
-import type Container from 'soukai-bis/models/ldp/Container';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import SingleModelRelation from './SingleModelRelation';
@@ -14,7 +13,6 @@ export default class IsContainedByRelation<
     Related extends Container = Container,
     RelatedClass extends ModelConstructor<Related> & typeof Container = ModelConstructor<Related> & typeof Container,
 > extends SingleModelRelation<Parent, Related, RelatedClass, 'resourceUrls'> {
-
     public static validateRelatedClass(parentClass: ModelConstructor, relatedClass: unknown): void {
         if (isContainerClass(relatedClass)) {
             return;
@@ -70,5 +68,4 @@ export default class IsContainedByRelation<
 
         related.setAttribute('resourceUrls', attributes['resourceUrls']);
     }
-
 }

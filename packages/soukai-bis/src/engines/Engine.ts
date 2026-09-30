@@ -1,9 +1,8 @@
-import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
 import { RDFNamedNode, isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
+import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
@@ -16,6 +15,7 @@ import {
     LDP_CONTAINS,
     LDP_CONTAINS_PREDICATE,
 } from 'soukai-bis/utils/rdf';
+
 import type EngineOperation from './operations/EngineOperation';
 
 export interface EngineMetadata {
@@ -23,7 +23,6 @@ export interface EngineMetadata {
 }
 
 export default abstract class Engine {
-
     public static readonly engineName: string = 'Engine';
 
     public static(): typeof Engine {
@@ -33,7 +32,7 @@ export default abstract class Engine {
     public abstract createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: EngineMetadata
+        metadata?: EngineMetadata,
     ): Promise<SolidDocument>;
 
     public abstract readDocument(url: string): Promise<SolidDocument>;
@@ -41,7 +40,7 @@ export default abstract class Engine {
     public abstract updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: EngineMetadata
+        metadata?: EngineMetadata,
     ): Promise<SolidResponse | null>;
 
     public abstract deleteDocument(url: string): Promise<SolidResponse>;
@@ -180,5 +179,4 @@ export default abstract class Engine {
             graph['@type'] = types.filter((type) => type !== LDP_CONTAINER && type !== LDP_BASIC_CONTAINER);
         }
     }
-
 }

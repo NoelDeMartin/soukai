@@ -1,13 +1,11 @@
-import { ListenersManager, facade } from '@noeldemartin/utils';
 import { normalizeJsonLD } from '@noeldemartin/solid-utils';
-import { FakeEngineInstance } from 'soukai/testing';
 import { FakeServer } from '@noeldemartin/testing';
+import { ListenersManager, facade } from '@noeldemartin/utils';
 import type { EngineDocument } from 'soukai';
-
 import type { Fetch, SolidEngineListener } from 'soukai-solid/engines';
+import { FakeEngineInstance } from 'soukai/testing';
 
 export class FakeSolidEngineInstance extends FakeEngineInstance {
-
     public __isSolidEngine = true;
     public listeners = new ListenersManager<SolidEngineListener>();
 
@@ -28,7 +26,6 @@ export class FakeSolidEngineInstance extends FakeEngineInstance {
     public clearCache(): void {
         // Nothing to do here.
     }
-
 }
 
 export default facade(FakeSolidEngineInstance);

@@ -1,15 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-
 import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
+import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
 
 describe('ComputedAttributesCache', () => {
-
     beforeEach(async () => {
         ComputedAttributesCache.reset();
 
@@ -99,5 +97,4 @@ describe('ComputedAttributesCache', () => {
         expect(await ComputedAttributesCache.get(firstShow, 'pendingEpisodeDates')).toBeUndefined();
         expect(await ComputedAttributesCache.get(secondShow, 'pendingEpisodeDates')).toEqual([now]);
     });
-
 });

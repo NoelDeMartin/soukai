@@ -1,11 +1,10 @@
 import { type Nullable, tap, uuid } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
-import Relation from './Relation';
 import { classMarker } from './helpers';
+import Relation from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default abstract class SingleModelRelation<
@@ -14,7 +13,6 @@ export default abstract class SingleModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > extends Relation<Parent, Related, RelatedClass, ForeignKeyName> {
-
     public static [classMarker] = ['SingleModelRelation'];
 
     declare public __newModel?: Related;
@@ -34,7 +32,7 @@ export default abstract class SingleModelRelation<
     public attach(model: Related, options?: { mintUrl?: boolean }): Related;
     public attach(
         attributes: GetRelatedModelInput<RelatedClass, ForeignKeyName>,
-        options?: { mintUrl?: boolean }
+        options?: { mintUrl?: boolean },
     ): Related;
 
     public attach(
@@ -58,9 +56,9 @@ export default abstract class SingleModelRelation<
                 model.mintUrl(
                     this.usingSameDocument
                         ? {
-                            documentUrl: this.parent.getDocumentUrl() ?? undefined,
-                            resourceHash: uuid(),
-                        }
+                              documentUrl: this.parent.getDocumentUrl() ?? undefined,
+                              resourceHash: uuid(),
+                          }
                         : { containerUrl: this.parent.url },
                 );
             }
@@ -108,5 +106,4 @@ export default abstract class SingleModelRelation<
     }
 
     public abstract load(): Promise<Related | null>;
-
 }

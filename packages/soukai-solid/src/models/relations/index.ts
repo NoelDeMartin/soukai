@@ -1,4 +1,5 @@
 import DocumentContainsManyRelation from './DocumentContainsManyRelation';
+import type { DocumentContainsRelation } from './DocumentContainsRelation';
 import OperationsRelation from './OperationsRelation';
 import SolidACLAuthorizationsRelation from './SolidACLAuthorizationsRelation';
 import SolidBelongsToManyRelation from './SolidBelongsToManyRelation';
@@ -10,7 +11,6 @@ import SolidHasManyRelation from './SolidHasManyRelation';
 import SolidHasOneRelation from './SolidHasOneRelation';
 import SolidIsContainedByRelation from './SolidIsContainedByRelation';
 import TombstoneRelation from './TombstoneRelation';
-import type { DocumentContainsRelation } from './DocumentContainsRelation';
 
 SolidContainsRelation.inverseHasRelationClasses = [SolidIsContainedByRelation];
 SolidIsContainedByRelation.inverseBelongsToRelationClasses = [SolidContainsRelation];

@@ -1,9 +1,4 @@
-import type { MockInstance } from 'vitest';
-import { vi } from 'vitest';
 import { facade, fail } from '@noeldemartin/utils';
-
-import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
-import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 import { EngineHelper, setEngine } from 'soukai/engines';
 import type {
     Engine,
@@ -12,6 +7,10 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai/engines/Engine';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
+import type { MockInstance } from 'vitest';
+import { vi } from 'vitest';
 
 export interface FakeEngineCollection {
     [id: string]: EngineDocument;
@@ -22,7 +21,6 @@ export interface FakeEngineDatabase {
 }
 
 export class FakeEngineInstance implements Engine {
-
     public database: FakeEngineDatabase = {};
     public readonly createSpy: MockInstance;
     public readonly readOneSpy: MockInstance;
@@ -110,7 +108,6 @@ export class FakeEngineInstance implements Engine {
     private collection(name: string): FakeEngineCollection {
         return (this.database[name] ??= {});
     }
-
 }
 
 export default facade(FakeEngineInstance);

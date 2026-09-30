@@ -1,12 +1,13 @@
-import type { ContainerConstructor, ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
 import type { ComputedAttributeCompute, InvalidationStrategy } from 'soukai-bis/models/computed-attributes';
+import type { ContainerConstructor, ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
 
 import type { AnyMultiModelRelation, RelationConstructor } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> = TRelated | (() => any);
 export type RelatedContainerDefinition<TRelated extends ContainerConstructor = ContainerConstructor> =
-    TRelated | (() => any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    | TRelated
+    | (() => any); // oxlint-disable-line typescript/no-explicit-any
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
 export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = {
@@ -25,7 +26,6 @@ export class SchemaRelationDefinition<
     TRelated extends RelatedModelDefinition = RelatedModelDefinition,
     TRelationClass extends RelationConstructor = RelationConstructor,
 > {
-
     constructor(
         public relatedClass: TRelated,
         public relationClass: TRelationClass,
@@ -41,11 +41,10 @@ export class SchemaRelationDefinition<
 
         return this;
     }
-
 }
 
 export type SchemaComputedAttributeDefinition = {
     invalidationStrategy: InvalidationStrategy;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     compute: ComputedAttributeCompute<any, unknown>;
 };

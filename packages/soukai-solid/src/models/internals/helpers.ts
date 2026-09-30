@@ -1,8 +1,7 @@
 import { fail } from '@noeldemartin/utils';
-import { SoukaiError, defineModelSchema } from 'soukai';
 import type { Constructor } from '@noeldemartin/utils';
+import { SoukaiError, defineModelSchema } from 'soukai';
 import type { SchemaDefinition } from 'soukai';
-
 import type { RDFContexts, SolidSchemaDefinition } from 'soukai-solid/models/fields';
 import type { SolidMagicAttributes, SolidModelConstructor } from 'soukai-solid/models/inference';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
@@ -54,7 +53,7 @@ export function bootSolidSchemaDecoupled<BaseModel extends SolidModel, Schema ex
         bootedSchemas.set(schema, bootedSchema);
     }
 
-    return bootedSchemas.get(schema) ?? fail('Couldn\'t boot schema');
+    return bootedSchemas.get(schema) ?? fail("Couldn't boot schema");
 }
 
 export function defineSolidModelSchemaDecoupled<BaseModel extends SolidModel, Schema extends SchemaDefinition>(

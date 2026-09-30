@@ -2,12 +2,12 @@ import AddPropertyOperation from './AddPropertyOperation';
 import DeleteOperation from './DeleteOperation';
 import Metadata from './Metadata';
 import Operation from './Operation';
+import type { Operations } from './operations';
 import PropertyOperation from './PropertyOperation';
 import RemovePropertyOperation from './RemovePropertyOperation';
 import SetPropertyOperation from './SetPropertyOperation';
 import Tombstone from './Tombstone';
 import UnsetPropertyOperation from './UnsetPropertyOperation';
-import type { Operations } from './operations';
 
 export const historyModels = {
     AddPropertyOperation,

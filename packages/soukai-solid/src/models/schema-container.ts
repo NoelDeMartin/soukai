@@ -1,19 +1,17 @@
 import type { Constructor } from '@noeldemartin/utils';
 
-import SolidContainer from './SolidContainer';
-import { defineSolidModelSchema } from './schema';
-import type { SolidContainerConstructor, SolidMagicAttributes } from './inference';
 import type { SolidSchemaDefinition } from './fields';
+import type { SolidContainerConstructor, SolidMagicAttributes } from './inference';
+import { defineSolidModelSchema } from './schema';
+import SolidContainer from './SolidContainer';
 
-/* eslint-disable max-len */
 export function defineSolidContainerSchema<Schema extends SolidSchemaDefinition>(
-    definition: Schema
+    definition: Schema,
 ): Constructor<SolidMagicAttributes<Schema>> & SolidContainerConstructor;
 export function defineSolidContainerSchema<BaseModel extends SolidContainer, Schema extends SolidSchemaDefinition>(
     baseModel: SolidContainerConstructor<BaseModel>,
-    definition: Schema
+    definition: Schema,
 ): Constructor<SolidMagicAttributes<Schema>> & SolidContainerConstructor<BaseModel>;
-/* eslint-disable max-len */
 
 export function defineSolidContainerSchema<BaseModel extends SolidContainer, Schema extends SolidSchemaDefinition>(
     baseModelOrDefinition: SolidContainerConstructor<BaseModel> | Schema,

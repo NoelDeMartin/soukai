@@ -1,28 +1,26 @@
 {
     "name": "soukai-solid",
     "version": "0.7.1",
+    "license": "MIT",
+    "author": "Noel De Martin",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/NoelDeMartin/soukai.git",
+        "directory": "packages/soukai-solid"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
     "type": "module",
     "sideEffects": false,
     "exports": {
         "types": "./dist/soukai-solid.d.ts",
         "default": "./dist/soukai-solid.js"
     },
-    "files": [
-        "src",
-        "dist"
-    ],
-    "license": "MIT",
-    "author": "Noel De Martin",
-    "repository": "github:NoelDeMartin/soukai",
     "scripts": {
-        "build": "vite build && ./scripts/fix-types.sh",
-        "lint": "noeldemartin-lint src",
-        "test": "vitest --run",
-        "test:ci": "vitest --run --reporter verbose --retry=3",
-        "verify": "noeldemartin-verify"
-    },
-    "peerDependencies": {
-        "soukai": "*"
+        "build": "vp pack",
+        "test": "vp test"
     },
     "dependencies": {
         "@noeldemartin/solid-utils": "catalog:",
@@ -30,20 +28,16 @@
         "@rdfjs/types": "catalog:"
     },
     "devDependencies": {
-        "@arethetypeswrong/cli": "catalog:",
+        "@arethetypeswrong/core": "catalog:",
         "@noeldemartin/faker": "catalog:",
         "@noeldemartin/scripts": "catalog:",
         "dayjs": "^1.11.13",
-        "eslint": "catalog:",
         "fake-indexeddb": "catalog:",
-        "prettier-eslint-cli": "^8.0.1",
         "publint": "catalog:",
         "soukai": "workspace:*",
-        "vitest": "catalog:"
+        "vite-plus": "catalog:"
     },
-    "eslintConfig": {
-        "extends": [
-            "@noeldemartin/eslint-config-typescript"
-        ]
+    "peerDependencies": {
+        "soukai": "*"
     }
 }

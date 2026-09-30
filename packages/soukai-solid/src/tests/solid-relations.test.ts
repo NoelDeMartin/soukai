@@ -1,17 +1,14 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { bootModels, setEngine } from 'soukai';
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-
+import { bootModels, setEngine } from 'soukai';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-
-import { loadFixture } from 'soukai-solid/testing/utils';
 import Group from 'soukai-solid/testing/lib/stubs/Group';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
+import { loadFixture } from 'soukai-solid/testing/utils';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 const fixture = (name: string) => loadFixture(`solid-relations/${name}`);
 
 describe('Solid Relations', () => {
-
     beforeEach(() => {
         setEngine(new SolidEngine(FakeServer.fetch));
         bootModels({ Group, Person });
@@ -46,5 +43,4 @@ describe('Solid Relations', () => {
             expect.anything(),
         );
     });
-
 });

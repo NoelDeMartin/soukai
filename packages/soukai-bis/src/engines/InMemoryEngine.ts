@@ -1,22 +1,21 @@
-import { fail, urlParentDirectory } from '@noeldemartin/utils';
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
+import { fail, urlParentDirectory } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 
-import Engine from './Engine';
-import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
-import type PurgesMetadata from './contracts/PurgesMetadata';
 import type ManagesDocuments from './contracts/ManagesDocuments';
 import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
-import type { EngineMetadata } from './Engine';
+import type PurgesMetadata from './contracts/PurgesMetadata';
 import type { PurgesMetadataOptions } from './contracts/PurgesMetadata';
+import Engine from './Engine';
+import type { EngineMetadata } from './Engine';
+import type EngineOperation from './operations/EngineOperation';
 
 export interface InMemoryDocument {
     graph: JsonLD;
@@ -24,7 +23,6 @@ export interface InMemoryDocument {
 }
 
 export default class InMemoryEngine extends Engine implements ManagesContainers, PurgesMetadata, ManagesDocuments {
-
     public static readonly engineName = 'InMemoryEngine';
 
     public documents: Record<string, InMemoryDocument> = {};
@@ -74,6 +72,7 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         }
 
         if (url.endsWith('/')) {
+            // oxlint-disable-next-line typescript/no-floating-promises
             this.populateContainer(document);
         }
 
@@ -215,5 +214,4 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
 
         document.addQuads(quads);
     }
-
 }

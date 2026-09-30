@@ -1,11 +1,10 @@
-import { fail, objectMap, tap, urlResolve, urlRoute } from '@noeldemartin/utils';
 import { jsonldToQuads, parseTurtle, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import { SoukaiError } from 'soukai';
 import type { JsonLD, JsonLDGraph, JsonLDResource } from '@noeldemartin/solid-utils';
+import { fail, objectMap, tap, urlResolve, urlRoute } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
-import RDFResource from 'soukai-solid/solid/RDFResource';
+import { SoukaiError } from 'soukai';
 import ResourceNotFound from 'soukai-solid/errors/ResourceNotFound';
+import RDFResource from 'soukai-solid/solid/RDFResource';
 import type RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 
 export interface TurtleParsingOptions {
@@ -25,7 +24,6 @@ export interface RDFDocumentMetadata {
 }
 
 export default class RDFDocument {
-
     private static documentsCache: WeakMap<JsonLD, RDFDocument> = new WeakMap();
 
     public static async fromTurtle(turtle: string, options: Partial<TurtleParsingOptions> = {}): Promise<RDFDocument> {
@@ -170,7 +168,6 @@ export default class RDFDocument {
             document.resourcesIndex = objectMap(document.resources, 'url');
         });
     }
-
 }
 
 function getDescribedBy(options: Partial<TurtleParsingOptions> = {}): string | undefined {

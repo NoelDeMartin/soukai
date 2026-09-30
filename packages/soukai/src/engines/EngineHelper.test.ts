@@ -1,15 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-
 import { faker } from '@noeldemartin/faker';
-
 import type { EngineDocument, EngineDocumentsCollection, EngineUpdates } from 'soukai/engines/Engine';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import { EngineHelper } from './EngineHelper';
 
 let helper: EngineHelper;
 
 describe('EngineHelper', () => {
-
     beforeEach(() => {
         helper = new EngineHelper();
     });
@@ -142,9 +139,13 @@ describe('EngineHelper', () => {
     it('filters nested array values', () => {
         // Arrange
         const documents: EngineDocumentsCollection = {
-            spiritedaway: { releases: [{ title: 'Spirited Away', actors: ['Rumi Hiiragi', 'Miyu Irino'] }] },
+            spiritedaway: {
+                releases: [{ title: 'Spirited Away', actors: ['Rumi Hiiragi', 'Miyu Irino'] }],
+            },
             thetrumanshow: { releases: [{ title: 'The Truman Show', stars: 'Jim Carrey' }] },
-            yesman: { releases: [{ title: 'The Truman Show', stars: ['Jim Carrey', 'Zooey Deschanel'] }] },
+            yesman: {
+                releases: [{ title: 'The Truman Show', stars: ['Jim Carrey', 'Zooey Deschanel'] }],
+            },
         };
 
         // Act
@@ -459,7 +460,6 @@ describe('EngineHelper', () => {
             bounty: 438000000,
         });
     });
-
 });
 
 function assertDocumentUpdate({

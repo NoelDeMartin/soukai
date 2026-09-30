@@ -1,5 +1,4 @@
 import { arrayWithoutIndexes, deepEquals, isObject, uuid } from '@noeldemartin/utils';
-
 import type {
     EngineAttributeFilter,
     EngineAttributeUpdate,
@@ -17,20 +16,19 @@ type Handler<T = unknown> = (...params: any[]) => T;
 type Operation<T extends Record<string, unknown> = Record<string, unknown>> = Record<keyof T, unknown>;
 type AttributesMap = Record<string, EngineAttributeValue>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 type RootFilterHandler = (id: string, document: EngineDocument, filterData: any) => boolean;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 type RootUpdateHandler = (document: EngineDocument, updateData: any) => void;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 type AttributeFilterHandler = (attributes: AttributesMap, attribute: string, filterData: any) => boolean;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 type AttributeUpdateHandler = (attributes: AttributesMap, attribute: string, updateData: any) => void;
 
 export class EngineHelper {
-
     private rootFilters: Record<'$in', RootFilterHandler>;
     private rootUpdates: Record<'$overwrite', RootUpdateHandler>;
     private attributeFilters: Record<'$eq' | '$contains' | '$or' | '$in', AttributeFilterHandler>;
@@ -233,6 +231,7 @@ export class EngineHelper {
 
         for (const { $where, $update, $override, $unset } of updateData) {
             if ($where && $where.$in) {
+                // oxlint-disable-next-line typescript/no-base-to-string
                 $where.$in = $where.$in.map((index) => index.toString());
             }
 
@@ -344,5 +343,4 @@ export class EngineHelper {
 
         return value[property] as EngineAttributeValue[];
     }
-
 }

@@ -1,21 +1,20 @@
+import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
 import { arrayFilter, arrayFrom, fail, urlRoute } from '@noeldemartin/utils';
 import { SoukaiError } from 'soukai';
 import type { Attributes, EngineDocument } from 'soukai';
-
-import JsonLDModelSerializer from 'soukai-solid/models/internals/JsonLDModelSerializer';
-import RDF from 'soukai-solid/solid/utils/RDF';
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import { operationClass, operationClasses } from 'soukai-solid/models/history/operations';
+import type { SolidBootedFieldsDefinition } from 'soukai-solid/models/fields';
 import type AddPropertyOperation from 'soukai-solid/models/history/AddPropertyOperation';
 import type DeleteOperation from 'soukai-solid/models/history/DeleteOperation';
 import type Operation from 'soukai-solid/models/history/Operation';
+import { operationClass, operationClasses } from 'soukai-solid/models/history/operations';
+import type { Operations } from 'soukai-solid/models/history/operations';
 import type RemovePropertyOperation from 'soukai-solid/models/history/RemovePropertyOperation';
 import type SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperation';
 import type UnsetPropertyOperation from 'soukai-solid/models/history/UnsetPropertyOperation';
-import type { JsonLD, JsonLDGraph } from '@noeldemartin/solid-utils';
-import type { Operations } from 'soukai-solid/models/history/operations';
-import type { SolidBootedFieldsDefinition } from 'soukai-solid/models/fields';
+import JsonLDModelSerializer from 'soukai-solid/models/internals/JsonLDModelSerializer';
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
+import RDF from 'soukai-solid/solid/utils/RDF';
 
 import SolidHasManyRelation from './SolidHasManyRelation';
 
@@ -30,7 +29,6 @@ export default class OperationsRelation<Parent extends SolidModel = SolidModel> 
     Operation,
     typeof Operation
 > {
-
     private static operationMatchers: OperationRdfsMatcher[];
 
     constructor(parent: Parent) {
@@ -102,7 +100,8 @@ export default class OperationsRelation<Parent extends SolidModel = SolidModel> 
                         documentUrl,
                         reducedDocument,
                         resource['@id'],
-                    )),
+                    ),
+                ),
             ),
         );
         const modelsInOtherDocumentIds = resources
@@ -142,5 +141,4 @@ export default class OperationsRelation<Parent extends SolidModel = SolidModel> 
             };
         }));
     }
-
 }

@@ -1,11 +1,10 @@
 import { fail } from '@noeldemartin/utils';
-
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 
-import { engineFulfillsContract } from './utils';
-import type Engine from './Engine';
 import type ManagesContainers from './contracts/ManagesContainers';
 import type PurgesMetadata from './contracts/PurgesMetadata';
+import type Engine from './Engine';
+import { engineFulfillsContract } from './utils';
 
 let _engine: Engine | undefined;
 let _asyncContextManager: AsyncContextManager<Engine> | undefined;
@@ -25,7 +24,7 @@ export function setEngine(engine: Engine): void {
 
 export function runWithEngine<T>(engine: Engine, operation: () => T): T {
     if (!_asyncContextManager) {
-        throw new SoukaiError('Async context manager hasn\'t been initialized');
+        throw new SoukaiError("Async context manager hasn't been initialized");
     }
 
     return _asyncContextManager.runWithValue(engine, operation);
@@ -39,7 +38,7 @@ export function requireEngine(): Engine;
 export function requireEngine(contract: 'ManagesContainers'): Engine & ManagesContainers;
 export function requireEngine(contract: 'PurgesMetadata'): Engine & PurgesMetadata;
 export function requireEngine(contract?: string): Engine {
-    const engine = getEngine() ?? fail<never>(SoukaiError, 'Default engine hasn\'t been initialized');
+    const engine = getEngine() ?? fail<never>(SoukaiError, "Default engine hasn't been initialized");
 
     if (contract && !engineFulfillsContract(engine, contract as 'ManagesContainers')) {
         throw new SoukaiError(

@@ -1,7 +1,7 @@
 {
     "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter"],
     "entryPointStrategy": "packages",
-    "entryPoints": ["../packages/*"],
+    "entryPoints": ["../packages/soukai", "../packages/soukai-solid"],
     "packageOptions": {
         "entryPoints": ["src/index.ts"],
         "compilerOptions": {

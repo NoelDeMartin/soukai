@@ -1,14 +1,13 @@
-import { HasManyRelation } from 'soukai';
 import { map, mixedWithoutTypes, tap } from '@noeldemartin/utils';
+import { HasManyRelation } from 'soukai';
 import type { Model, RelationCloneOptions } from 'soukai';
-
-import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 
-import SolidHasRelation from './mixins/SolidHasRelation';
-import SolidMultiModelDocumentRelation from './mixins/SolidMultiModelDocumentRelation';
 import type { BeforeParentCreateRelation } from './guards';
 import type { ISolidDocumentRelation } from './mixins/SolidDocumentRelation';
+import SolidHasRelation from './mixins/SolidHasRelation';
+import SolidMultiModelDocumentRelation from './mixins/SolidMultiModelDocumentRelation';
 
 export const SolidHasManyRelationBase = mixedWithoutTypes(HasManyRelation, [
     SolidMultiModelDocumentRelation,
@@ -29,7 +28,6 @@ export default class SolidHasManyRelation<
     extends SolidHasManyRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation
 {
-
     public async load(): Promise<Related[]> {
         if (this.isEmpty()) {
             return (this.related = []);
@@ -101,7 +99,8 @@ export default class SolidHasManyRelation<
                 model.clone({
                     clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
                     ...cloneOptions,
-                })),
+                }),
+            ),
         );
 
         other.related = Array.from(otherRelatedMap.items()).concat(
@@ -109,12 +108,12 @@ export default class SolidHasManyRelation<
                 model.clone({
                     clones: tap(new WeakMap<Model, Model>(), (clones) => clones.set(other.parent, this.parent)),
                     ...cloneOptions,
-                })),
+                }),
+            ),
         );
     }
 
     protected loadRelatedModels(documentIds: string[]): Promise<Related[]> {
         return this.relatedClass.all<Related>({ $in: documentIds });
     }
-
 }

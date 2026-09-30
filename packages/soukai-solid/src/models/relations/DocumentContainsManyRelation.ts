@@ -1,12 +1,11 @@
+import type { JsonLDGraph } from '@noeldemartin/solid-utils';
 import { arrayFilter, tap } from '@noeldemartin/utils';
 import { MultiModelRelation } from 'soukai';
 import type { Attributes, EngineDocument } from 'soukai';
-
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
-import type { JsonLDGraph } from '@noeldemartin/solid-utils';
 import type { DocumentContainsRelation } from 'soukai-solid/models/relations/DocumentContainsRelation';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
 
 export default class DocumentContainsManyRelation<
     Parent extends SolidModel = SolidModel,
@@ -16,7 +15,6 @@ export default class DocumentContainsManyRelation<
     extends MultiModelRelation<Parent, Related, RelatedClass>
     implements DocumentContainsRelation
 {
-
     constructor(parent: Parent, relatedClass: RelatedClass) {
         super(parent, relatedClass);
     }
@@ -45,6 +43,7 @@ export default class DocumentContainsManyRelation<
 
         this.related = arrayFilter(
             await Promise.all(
+                // oxlint-disable-next-line typescript/await-thenable
                 this.relatedClass.findMatchingResourceIds(rdfDocument.statements).map((resourceId) => {
                     const resource = reducedDocument['@graph'].find((_resource) => _resource['@id'] === resourceId);
 
@@ -60,5 +59,4 @@ export default class DocumentContainsManyRelation<
             ),
         );
     }
-
 }

@@ -1,19 +1,17 @@
 import { tap } from '@noeldemartin/utils';
+import type { Constructor } from '@noeldemartin/utils';
 
+import type { MagicAttributes, ModelConstructor, SchemaDefinition } from './inference';
 import { Model } from './Model';
 import type { Key } from './Model';
-import type { Constructor } from '@noeldemartin/utils';
-import type { MagicAttributes, ModelConstructor, SchemaDefinition } from './inference';
 
-/* eslint-disable max-len */
 export function defineModelSchema<Schema extends SchemaDefinition>(
-    definition: Schema
+    definition: Schema,
 ): Constructor<MagicAttributes<Schema, Key>> & ModelConstructor;
 export function defineModelSchema<BaseModel extends Model, Schema extends SchemaDefinition>(
     baseModel: ModelConstructor<BaseModel>,
-    definition: Schema
+    definition: Schema,
 ): Constructor<MagicAttributes<Schema, Key>> & ModelConstructor<BaseModel>;
-/* eslint-disable max-len */
 
 export function defineModelSchema<BaseModel extends Model, Schema extends SchemaDefinition>(
     baseModelOrDefinition: ModelConstructor<BaseModel> | Schema,

@@ -12,10 +12,9 @@ import {
 } from '@noeldemartin/utils';
 import { FieldType, ModelKey, SoukaiError, TimestampField, isArrayFieldDefinition } from 'soukai';
 import type { Attributes } from 'soukai';
-
+import type Operation from 'soukai-solid/models/history/Operation';
 import { operationClass } from 'soukai-solid/models/history/operations';
 import { synchronizesRelatedModels } from 'soukai-solid/models/relations/guards';
-import type Operation from 'soukai-solid/models/history/Operation';
 import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 
 const historyDisabled = new WeakMap<SolidModel, void>();
@@ -40,7 +39,7 @@ export async function synchronizeModels(
     options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
 ): Promise<void> {
     if (a.getPrimaryKey() !== b.getPrimaryKey()) {
-        throw new SoukaiError('Can\'t synchronize different models');
+        throw new SoukaiError("Can't synchronize different models");
     }
 
     if (options.models.has(a) || options.models.has(b)) {
@@ -72,7 +71,6 @@ export async function synchronizeModels(
 }
 
 export default class TracksHistory {
-
     declare private _history?: boolean;
     declare private _tombstone?: boolean;
 
@@ -134,7 +132,7 @@ export default class TracksHistory {
 
     public rebuildAttributesFromHistory(this: This): void {
         if (!this.hasRelation('operations') || !this.isRelationLoaded('operations')) {
-            throw new SoukaiError('Can\'t rebuild attributes from history if \'operations\'  relation isn\'t loaded');
+            throw new SoukaiError("Can't rebuild attributes from history if 'operations'  relation isn't loaded");
         }
 
         if (this.operations.length === 0) {
@@ -245,7 +243,7 @@ export default class TracksHistory {
 
         if ('url' in get(this, '_dirtyAttributes')) {
             throw new SoukaiError(
-                'It wasn\'t possible to generate the changes history for a model because ' +
+                "It wasn't possible to generate the changes history for a model because " +
                     `its primary key was modified from '${this.url}' to '${get(this, '_originalAttributes').url}'.`,
             );
         }
@@ -350,7 +348,8 @@ export default class TracksHistory {
         if (isArrayFieldDefinition(definition)) {
             return arrayFilter(
                 arrayFrom(value, { ignoreEmptyValues: true }).map((itemValue) =>
-                    this.getOperationValue(`${field}.*`, itemValue)),
+                    this.getOperationValue(`${field}.*`, itemValue),
+                ),
             );
         }
 
@@ -432,5 +431,4 @@ export default class TracksHistory {
 
         this.setAttribute(TimestampField.UpdatedAt, originalUpdatedAt);
     }
-
 }

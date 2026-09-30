@@ -1,16 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
-import { bootModels, setEngine } from 'soukai';
-import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { SolidDocumentPermission } from '@noeldemartin/solid-utils';
-
+import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
+import { bootModels, setEngine } from 'soukai';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
 import { SolidACLAuthorization } from 'soukai-solid/models';
-
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('WAC', () => {
-
     beforeEach(() => {
         Movie.collection = 'https://my-pod.com/movies/';
 
@@ -70,5 +67,4 @@ describe('WAC', () => {
             }
         `);
     });
-
 });

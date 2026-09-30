@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
-
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import { setEngine } from 'soukai-bis/engines/state';
+import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('DocumentContainsManyRelation', () => {
-
     beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('loads documents models', async () => {
@@ -42,5 +40,4 @@ describe('DocumentContainsManyRelation', () => {
         expect(typeIndex).not.toBeNull();
         expect(typeIndex?.registrations).toHaveLength(2);
     });
-
 });

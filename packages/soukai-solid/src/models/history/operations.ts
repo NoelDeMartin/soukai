@@ -1,9 +1,9 @@
 import { requireBootedModel } from 'soukai';
 
-import type Operation from './Operation';
-import type PropertyOperation from './PropertyOperation';
 import type AddPropertyOperation from './AddPropertyOperation';
 import type DeleteOperation from './DeleteOperation';
+import type Operation from './Operation';
+import type PropertyOperation from './PropertyOperation';
 import type RemovePropertyOperation from './RemovePropertyOperation';
 import type SetPropertyOperation from './SetPropertyOperation';
 import type UnsetPropertyOperation from './UnsetPropertyOperation';

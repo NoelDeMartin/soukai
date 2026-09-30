@@ -1,8 +1,7 @@
 import { expandIRI } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-
-import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models';
+import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 
 export function metadataJsonLD(model: ModelWithTimestamps & ModelWithUrl): JsonLD {
     return {
@@ -42,13 +41,13 @@ export function containerTurtle(documents: string[] | Record<string, { lastModif
             ldp:contains ${documentUrls.map((url) => `<${url}>`).join(', ')} .
 
         ${documentMetadatas
-        .map(
-            (metadata) => `
+            .map(
+                (metadata) => `
             <${metadata.url}>
                 a ldp:Resource ;
                 purl:modified "${metadata.lastModifiedAt.toISOString()}"^^xsd:dateTime .
         `,
-        )
-        .join('\n')}
+            )
+            .join('\n')}
     `;
 }

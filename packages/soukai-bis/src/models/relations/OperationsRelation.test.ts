@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
-
-import User from 'soukai-bis/testing/stubs/User';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { defineSchema } from 'soukai-bis/models/schema';
-import { bootModels } from 'soukai-bis/models/registry';
 import { setEngine } from 'soukai-bis/engines/state';
+import { bootModels } from 'soukai-bis/models/registry';
+import { defineSchema } from 'soukai-bis/models/schema';
+import User from 'soukai-bis/testing/stubs/User';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('OperationsRelation', () => {
-
     beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('loads document operations', async () => {
@@ -65,5 +63,4 @@ describe('OperationsRelation', () => {
         // Assert
         expect(user.operations).toHaveLength(3);
     });
-
 });

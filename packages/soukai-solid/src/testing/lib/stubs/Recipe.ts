@@ -1,12 +1,10 @@
 import type { Relation } from 'soukai';
-
 import type { SolidBelongsToManyRelation } from 'soukai-solid/models';
 
 import Model from './Recipe.schema';
 import RecipeInstructionsStep from './RecipeInstructionsStep';
 
 export default class Recipe extends Model {
-
     declare public instructionsSteps?: RecipeInstructionsStep[];
     declare public relatedInstructionsSteps: SolidBelongsToManyRelation<
         Recipe,
@@ -19,5 +17,4 @@ export default class Recipe extends Model {
             .usingSameDocument(true)
             .onDelete('cascade');
     }
-
 }

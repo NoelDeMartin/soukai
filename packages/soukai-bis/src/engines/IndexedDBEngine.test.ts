@@ -1,21 +1,19 @@
-import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
-import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-
+import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
-import { serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
 import type { LocalDocument } from 'soukai-bis/lib/SoukaiIndexedDB';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import { serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import IndexedDBEngine from './IndexedDBEngine';
 
 describe('IndexedDBEngine', () => {
-
     let engine: IndexedDBEngine;
 
     beforeEach(async () => {
@@ -884,5 +882,4 @@ describe('IndexedDBEngine', () => {
 
         await transaction.done;
     }
-
 });

@@ -1,23 +1,18 @@
-import { beforeAll, describe, expect, it } from 'vitest';
-import { InMemoryEngine, bootModels, setEngine } from 'soukai';
 import type { JsonLD } from '@noeldemartin/solid-utils';
+import { InMemoryEngine, bootModels, setEngine } from 'soukai';
 import type { Relation } from 'soukai';
-
 import { bootSolidModels } from 'soukai-solid/models';
-
 import Recipe from 'soukai-solid/testing/lib/stubs/Recipe';
 import RecipeInstructionsStep from 'soukai-solid/testing/lib/stubs/RecipeInstructionsStep';
 import { loadFixture } from 'soukai-solid/testing/utils';
+import { beforeAll, describe, expect, it } from 'vite-plus/test';
 
 class RecipeInstructionsStepWithHistory extends RecipeInstructionsStep {
-
     public static timestamps = true;
     public static history = true;
-
 }
 
 class RecipeWithHistory extends Recipe {
-
     public static timestamps = true;
     public static history = true;
 
@@ -26,11 +21,9 @@ class RecipeWithHistory extends Recipe {
             .usingSameDocument(true)
             .onDelete('cascade');
     }
-
 }
 
 describe('Performance', () => {
-
     beforeAll(() => {
         bootSolidModels();
         bootModels({ RecipeWithHistory, RecipeInstructionsStepWithHistory });
@@ -49,7 +42,6 @@ describe('Performance', () => {
         expect(cookies.operations).toHaveLength(13);
         expect(cookies.instructionsSteps?.[0]?.operations).toHaveLength(58);
     });
-
 });
 
 interface PerformanceTestOptions {
@@ -57,7 +49,7 @@ interface PerformanceTestOptions {
     maxDuration: number;
 }
 
-function testPerformance(name: string, options: PerformanceTestOptions, test: () => unknown | Promise<unknown>) {
+function testPerformance(name: string, options: PerformanceTestOptions, test: () => unknown) {
     it(`${name} (${options.runs} runs, max ${options.maxDuration}ms)`, async () => {
         const times: number[] = [];
 

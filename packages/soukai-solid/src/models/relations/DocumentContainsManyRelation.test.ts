@@ -1,13 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { faker } from '@noeldemartin/faker';
+import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { setEngine } from 'soukai';
-
-import SolidTypeIndex from 'soukai-solid/models/SolidTypeIndex';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
+import SolidTypeIndex from 'soukai-solid/models/SolidTypeIndex';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('DocumentContainsManyRelation', () => {
-
     beforeEach(() => setEngine(new SolidEngine(FakeServer.fetch)));
 
     it('loads related documents', async () => {
@@ -82,5 +80,4 @@ describe('DocumentContainsManyRelation', () => {
     it.todo('adds models in existing documents');
     it.todo('updates models in existing documents');
     it.todo('removes models in existing documents');
-
 });

@@ -1,10 +1,9 @@
-import type { EngineDocument } from 'soukai';
 import type { JsonLDGraph } from '@noeldemartin/solid-utils';
-
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
+import type { EngineDocument } from 'soukai';
 import SolidBelongsToManyRelation from 'soukai-solid/models/relations/SolidBelongsToManyRelation';
-import SolidResource from 'soukai-solid/models/SolidResource';
 import type SolidContainer from 'soukai-solid/models/SolidContainer';
+import SolidResource from 'soukai-solid/models/SolidResource';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
 
 interface GraphDocument {
     'purl:modified'?: { '@value': string };
@@ -18,7 +17,6 @@ export default class SolidContainerResourcesRelation extends SolidBelongsToManyR
     SolidResource,
     typeof SolidResource
 > {
-
     constructor(container: SolidContainer) {
         super(container, SolidResource, 'resourceUrls');
     }
@@ -85,5 +83,4 @@ export default class SolidContainerResourcesRelation extends SolidBelongsToManyR
 
         return new Date(latestUpdateTime);
     }
-
 }

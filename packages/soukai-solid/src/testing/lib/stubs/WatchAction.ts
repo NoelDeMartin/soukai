@@ -1,11 +1,10 @@
 import type { Relation } from 'soukai';
 
-import Model from './WatchAction.schema';
 import Movie from './Movie';
 import Show from './Show';
+import Model from './WatchAction.schema';
 
 export default class WatchAction extends Model {
-
     declare public movie?: Movie;
     declare public show?: Show;
 
@@ -16,5 +15,4 @@ export default class WatchAction extends Model {
     public showRelationship(): Relation {
         return this.belongsToOne(Show, 'object');
     }
-
 }

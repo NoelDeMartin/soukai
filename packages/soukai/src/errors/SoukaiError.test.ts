@@ -1,10 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { faker } from '@noeldemartin/faker';
+import { describe, expect, it } from 'vite-plus/test';
 
 import SoukaiError from './SoukaiError';
 
 describe('SoukaiError', () => {
-
     it('behaves like an error', () => {
         // Arrange
         const message = faker.lorem.sentence();
@@ -33,11 +32,9 @@ describe('SoukaiError', () => {
     it('can be subclassed', () => {
         // Arrange
         class CustomSoukaiError extends SoukaiError {
-
             constructor(m: string) {
                 super(`Custom message: ${m}`);
             }
-        
         }
 
         const message = faker.lorem.sentence();
@@ -63,5 +60,4 @@ describe('SoukaiError', () => {
         expect(customSoukaiError.stack).not.toBeNull();
         expect(customSoukaiError.stack).toContain('SoukaiError.test');
     });
-
 });

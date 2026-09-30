@@ -1,11 +1,7 @@
-import { deleteDB, openDB } from 'idb';
 import { Semaphore, memo } from '@noeldemartin/utils';
+import { deleteDB, openDB } from 'idb';
 import type { DBSchema, IDBPCursorWithValue, IDBPDatabase, IDBPTransaction } from 'idb';
-
-import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
-import DocumentNotFound from 'soukai/errors/DocumentNotFound';
-import SoukaiError from 'soukai/errors/SoukaiError';
-
+import type { ClosesConnections } from 'soukai/engines/ClosesConnections';
 import type {
     Engine,
     EngineDocument,
@@ -13,9 +9,10 @@ import type {
     EngineFilters,
     EngineUpdates,
 } from 'soukai/engines/Engine';
-
 import { EngineHelper } from 'soukai/engines/EngineHelper';
-import type { ClosesConnections } from 'soukai/engines/ClosesConnections';
+import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai/errors/DocumentNotFound';
+import SoukaiError from 'soukai/errors/SoukaiError';
 
 interface CollectionMetadata {
     name: string;
@@ -38,7 +35,6 @@ interface DocumentsSchema extends DBSchema {
 }
 
 export class IndexedDBEngine implements Engine, ClosesConnections {
-
     private database: string;
     private helper: EngineHelper;
     private lock: Semaphore;
@@ -60,6 +56,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         await this.lock.run(async () => {
             await this.withMetadataTransaction('readwrite', (transaction) => {
                 collections.forEach((collection) => {
+                    // oxlint-disable-next-line typescript/no-floating-promises
                     transaction.store.put({
                         name: collection,
                         dropped: true,
@@ -70,6 +67,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                 return transaction.done;
             });
 
+            // oxlint-disable-next-line typescript/no-floating-promises
             this.closeConnections();
 
             await this.getDocumentsConnection();
@@ -78,6 +76,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     public async purgeDatabase(): Promise<void> {
         await this.lock.run(async () => {
+            // oxlint-disable-next-line typescript/no-floating-promises
             this.closeConnections();
 
             await Promise.all([
@@ -212,10 +211,11 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
             }
 
             const document = await this.withDocumentsTransaction(collection, 'readonly', (transaction) =>
-                transaction.store.get(id));
+                transaction.store.get(id),
+            );
 
             return document || null;
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -230,6 +230,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         }
 
         return this.withDocumentsTransaction(collection, 'readwrite', (transaction) => {
+            // oxlint-disable-next-line typescript/no-floating-promises
             transaction.store.add(document, id);
 
             return transaction.done;
@@ -244,6 +245,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         }
 
         return this.withDocumentsTransaction(collection, 'readwrite', (transaction) => {
+            // oxlint-disable-next-line typescript/no-floating-promises
             transaction.store.put(document, id);
 
             return transaction.done;
@@ -258,6 +260,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
         }
 
         return this.withDocumentsTransaction(collection, 'readwrite', (transaction) => {
+            // oxlint-disable-next-line typescript/no-floating-promises
             transaction.store.delete(id);
 
             return transaction.done;
@@ -360,6 +363,7 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
 
     private async createCollection(collection: string): Promise<void> {
         await this.withMetadataTransaction('readwrite', (transaction) => {
+            // oxlint-disable-next-line typescript/no-floating-promises
             transaction.store.add({ name: collection });
 
             return transaction.done;
@@ -381,5 +385,4 @@ export class IndexedDBEngine implements Engine, ClosesConnections {
                 'Learn more at https://developer.mozilla.org/en-US/docs/Web/API/IDBOpenDBRequest/blocked_event',
         );
     }
-
 }

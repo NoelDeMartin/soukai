@@ -1,5 +1,4 @@
 export default class ModelKey {
-
     public static from(value: unknown): ModelKey {
         if (value instanceof ModelKey) {
             return value;
@@ -21,5 +20,4 @@ export default class ModelKey {
     public toString(): string {
         return this.value;
     }
-
 }

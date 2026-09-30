@@ -13,24 +13,19 @@ on:
                 type: boolean
                 default: false
 
-permissions:
-    id-token: write
-
 jobs:
     publish:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
         steps:
-            - uses: actions/checkout@v4
-            - uses: pnpm/action-setup@v4
+            - uses: actions/checkout@v7
+            - uses: voidzero-dev/setup-vp@v1.21.1
               with:
-                  run_install: false
-            - uses: actions/setup-node@v4
-              with:
-                  node-version-file: '.nvmrc'
-                  registry-url: 'https://registry.npmjs.org'
-                  cache: 'pnpm'
-            - run: pnpm install
-            - run: pnpm build
+                  node-version-file: '.node-version'
+                  cache: true
+            - run: vp run -r build
             - name: Publish packages
               run: |
                   if [ "${{ github.event.inputs.packages }}" = "*" ]; then
@@ -43,9 +38,9 @@ jobs:
                     echo "Publishing $package..."
                     cd "packages/$package"
                     if [ "${{ github.event.inputs.latest }}" = "true" ]; then
-                      pnpm exec noeldemartin-publish-package --latest
+                      vp exec noeldemartin-publish-package --latest
                     else
-                      pnpm exec noeldemartin-publish-package
+                      vp exec noeldemartin-publish-package
                     fi
                     cd ../..
                   done

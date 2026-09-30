@@ -1,22 +1,21 @@
-import { object, url } from 'zod';
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
-import type { NamedNode, Quad } from '@rdfjs/types';
 import type { Override } from '@noeldemartin/utils';
-import type { ZodObject, ZodType, z } from 'zod';
-
+import type { NamedNode, Quad } from '@rdfjs/types';
 import { deepMeta, rdfProperty } from 'soukai-bis/zod/soukai';
 import type { SafeInferObject } from 'soukai-bis/zod/types';
+import { object, url } from 'zod';
+import type { ZodObject, ZodType, z } from 'zod';
 
-import HasOneRelation from './relations/HasOneRelation';
 import Model from './Model';
+import type { ModelConstructorOptions } from './Model';
+import { requireBootedModel } from './registry';
+import HasOneRelation from './relations/HasOneRelation';
 import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
-import { isModelClass } from './utils';
-import { requireBootedModel } from './registry';
-import type { ModelConstructorOptions } from './Model';
-import type { ModelConstructor, ModelInstanceType, ModelWithUrl, ModelsCache } from './types';
 import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRelations } from './relations/schema';
+import type { ModelConstructor, ModelInstanceType, ModelWithUrl, ModelsCache } from './types';
+import { isModelClass } from './utils';
 
 export type Schema<
     TFields extends SchemaFields = SchemaFields,
@@ -65,35 +64,35 @@ export type SchemaModelClass<
     {
         new (
             attributes?: SchemaModelInput<TFields, TBaseClass>,
-            options?: ModelConstructorOptions
+            options?: ModelConstructorOptions,
         ): SchemaModel<TFields, TRelations, TBaseClass>;
         newInstance<This>(
             this: This,
             attributes?: SchemaModelInput<TFields, TBaseClass>,
-            options?: ModelConstructorOptions
+            options?: ModelConstructorOptions,
         ): ModelInstanceType<This>;
         create<This>(
             this: This,
-            attributes?: SchemaModelInput<TFields, TBaseClass>
+            attributes?: SchemaModelInput<TFields, TBaseClass>,
         ): Promise<ModelWithUrl<ModelInstanceType<This>>>;
         createAt<This>(
             this: This,
             containerUrl: string,
-            attributes?: SchemaModelInput<TFields, TBaseClass>
+            attributes?: SchemaModelInput<TFields, TBaseClass>,
         ): Promise<ModelWithUrl<ModelInstanceType<This>>>;
         createFromJsonLD<This>(
             this: This,
             json: JsonLD,
-            options?: { url?: string }
+            options?: { url?: string },
         ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createFromRDF<This>(
             this: This,
             quads: Quad[],
-            options: { url: string; modelsCache?: ModelsCache }
+            options: { url: string; modelsCache?: ModelsCache },
         ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createManyFromDocument<This>(
             this: This,
-            document: SolidDocument
+            document: SolidDocument,
         ): Promise<ModelWithUrl<ModelInstanceType<This>>[]>;
     }
 >;
@@ -118,7 +117,7 @@ export function defineSchema<
     TBaseClass extends ModelConstructor = typeof Model,
 >(baseClass: TBaseClass, config?: SchemaConfig<TFields, TRelations>): SchemaModelClass<TFields, TRelations, TBaseClass>;
 export function defineSchema<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}>(
-    config: SchemaConfig<TFields, TRelations>
+    config: SchemaConfig<TFields, TRelations>,
 ): SchemaModelClass<TFields, TRelations>;
 export function defineSchema<
     TFields extends SchemaFields = {},
@@ -165,7 +164,6 @@ export function defineSchema<
     }
 
     return class extends (baseClass ?? Model) {
-
         public static schema = {
             fields: baseSchema?.fields.extend(fields) ?? object(fields).extend({ url: url().optional() }),
             relations,
@@ -182,13 +180,13 @@ export function defineSchema<
                 ...(baseSchema?.rdfClasses ?? []),
                 ...(config.rdfClass
                     ? [
-                        new RDFNamedNode(
-                            expandIRI(config.rdfClass, {
-                                defaultPrefix,
-                                extraContext,
-                            }),
-                        ),
-                    ]
+                          new RDFNamedNode(
+                              expandIRI(config.rdfClass, {
+                                  defaultPrefix,
+                                  extraContext,
+                              }),
+                          ),
+                      ]
                     : []),
             ],
             rdfFieldProperties: {
@@ -206,6 +204,5 @@ export function defineSchema<
                 ),
             },
         };
-    
     } as unknown as SchemaModelClass<TFields, TRelations, TBaseClass>;
 }

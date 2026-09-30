@@ -1,12 +1,11 @@
-import { hasItems, tap, weakMemo } from '@noeldemartin/utils';
 import { RDFNamedNode, RDFQuad, SolidStore } from '@noeldemartin/solid-utils';
+import { hasItems, tap, weakMemo } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
-import { castToJavaScript, castToRDF, getFinalType } from 'soukai-bis/zod/utils';
-import { RDF_TYPE } from 'soukai-bis/utils/rdf';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import type { Relation } from 'soukai-bis/models/relations';
+import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import { RDF_TYPE } from 'soukai-bis/utils/rdf';
+import { castToJavaScript, castToRDF, getFinalType } from 'soukai-bis/zod/utils';
 
 function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
     const subjectQuadsIndex = weakMemo('subject-quads-index', quads, () => {

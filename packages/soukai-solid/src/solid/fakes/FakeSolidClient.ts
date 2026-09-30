@@ -1,14 +1,12 @@
-import { vi } from 'vitest';
-import type { MockInstance } from 'vitest';
-
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
 import { facade, urlResolve, uuid } from '@noeldemartin/utils';
-import SolidClient from 'soukai-solid/solid/SolidClient';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
 import type RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
+import SolidClient from 'soukai-solid/solid/SolidClient';
 import type { Fetch, ResponseMetadata } from 'soukai-solid/solid/SolidClient';
+import { vi } from 'vite-plus/test';
+import type { MockInstance } from 'vite-plus/test';
 
 export class FakeSolidClientInstance extends SolidClient {
-
     public getDocumentSpy: MockInstance;
     public getDocumentsSpy: MockInstance;
     public updateDocumentSpy: MockInstance;
@@ -103,7 +101,6 @@ export class FakeSolidClientInstance extends SolidClient {
                 url.startsWith(documentUrl) && urlDocuments.some((document) => document.url === url),
         );
     }
-
 }
 
 export default facade(FakeSolidClientInstance);

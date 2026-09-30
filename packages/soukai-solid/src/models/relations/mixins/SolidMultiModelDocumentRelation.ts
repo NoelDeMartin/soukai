@@ -1,13 +1,12 @@
 import { arrayDiff, arrayUnique, overridePrototypeMethod, tap } from '@noeldemartin/utils';
+import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
 import { MultiModelRelation } from 'soukai';
 import type { Attributes, Key } from 'soukai';
-import type { ClosureArgs, Nullable } from '@noeldemartin/utils';
-
-import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
-import { isSolidBelongsToRelation, isSolidHasRelation } from 'soukai-solid/models/relations/guards';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
-import type { SolidModel } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import { isSolidBelongsToRelation, isSolidHasRelation } from 'soukai-solid/models/relations/guards';
+import type { SolidModel } from 'soukai-solid/models/SolidModel';
+import { bustWeakMemoModelCache } from 'soukai-solid/models/utils';
 
 import SolidDocumentRelation from './SolidDocumentRelation';
 
@@ -34,7 +33,6 @@ export default class SolidMultiModelDocumentRelation<
     Related extends SolidModel = SolidModel,
     RelatedClass extends SolidModelConstructor<Related> = SolidModelConstructor<Related>,
 > extends SolidDocumentRelation<Related> {
-
     public __removedDocumentModels: Related[] = [];
     declare public __modelsInSameDocument?: Related[];
     declare public __modelsInOtherDocumentIds?: string[];
@@ -217,16 +215,15 @@ export default class SolidMultiModelDocumentRelation<
 
         this.documentModelsLoaded = true;
     }
-
 }
 
 // This is necessary because otherwise, Typescript gives an error when this is extended,
 // for example in SolidHasManyRelation.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 overridePrototypeMethod<any, string>(
     SolidMultiModelDocumentRelation,
     'onRelatedUpdated',
-    function(this: This, oldValue: Nullable<SolidModel[]>, newValue: Nullable<SolidModel[]>): void {
+    function (this: This, oldValue: Nullable<SolidModel[]>, newValue: Nullable<SolidModel[]>): void {
         if (this !== this.parent.requireRelation(this.name)) {
             return;
         }

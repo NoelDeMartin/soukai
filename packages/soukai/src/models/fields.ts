@@ -1,5 +1,4 @@
 import { objectHasOwnProperty } from '@noeldemartin/utils';
-
 import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
 
 import type { Model } from './Model';
@@ -47,10 +46,10 @@ export type FieldDefinitionBase<T = unknown> = T & {
     set?: (this: Model, value: unknown) => void;
     get?: (this: Model) => unknown;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     serialize?: (value: any) => unknown;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     deserialize?: (value: any) => unknown;
 };
 
@@ -70,7 +69,9 @@ export type ObjectFieldDefinition<T = unknown> = FieldDefinitionBase<T> & {
 
 export type BootedFieldsDefinition<T = unknown> = Record<string, BootedFieldDefinition<T>>;
 export type BootedFieldDefinition<T = unknown> =
-    BootedBasicFieldDefinition<T> | BootedArrayFieldDefinition<T> | BootedObjectFieldDefinition<T>;
+    | BootedBasicFieldDefinition<T>
+    | BootedArrayFieldDefinition<T>
+    | BootedObjectFieldDefinition<T>;
 
 export type BootedFieldDefinitionBase<T = unknown> = T & {
     required: boolean;
@@ -79,10 +80,10 @@ export type BootedFieldDefinitionBase<T = unknown> = T & {
     set?: (this: Model, value: unknown) => void;
     get?: (this: Model) => unknown;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     serialize?: (value: any) => unknown;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     deserialize?: (value: any) => unknown;
 };
 
@@ -106,7 +107,7 @@ export function bootFieldDefinition(
     definition: FieldDefinition,
     isArrayItem: boolean = false,
 ): BootedFieldDefinition {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     let fieldDefinition = {} as any;
 
     if (typeof definition === 'string' && FIELD_TYPES.indexOf(definition) !== -1) fieldDefinition.type = definition;
@@ -151,27 +152,23 @@ export function bootFieldDefinition(
     return fieldDefinition;
 }
 
-/* eslint-disable max-len */
 export function isArrayFieldDefinition(
-    fieldDefinition: BootedFieldDefinition
+    fieldDefinition: BootedFieldDefinition,
 ): fieldDefinition is BootedArrayFieldDefinition;
 export function isArrayFieldDefinition(
-    fieldDefinition: Omit<BootedFieldDefinition, 'required'>
+    fieldDefinition: Omit<BootedFieldDefinition, 'required'>,
 ): fieldDefinition is Omit<BootedArrayFieldDefinition, 'required'>;
-/* eslint-enable max-len */
 
 export function isArrayFieldDefinition(fieldDefinition: { type: FieldTypeValue }): boolean {
     return fieldDefinition.type === FieldType.Array;
 }
 
-/* eslint-disable max-len */
 export function isObjectFieldDefinition(
-    fieldDefinition: BootedFieldDefinition
+    fieldDefinition: BootedFieldDefinition,
 ): fieldDefinition is BootedObjectFieldDefinition;
 export function isObjectFieldDefinition(
-    fieldDefinition: Omit<BootedFieldDefinition, 'required'>
+    fieldDefinition: Omit<BootedFieldDefinition, 'required'>,
 ): fieldDefinition is Omit<BootedObjectFieldDefinition, 'required'>;
-/* eslint-enable max-len */
 
 export function isObjectFieldDefinition(fieldDefinition: { type: FieldTypeValue }): boolean {
     return fieldDefinition.type === FieldType.Object;

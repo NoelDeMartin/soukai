@@ -1,7 +1,5 @@
 import type { Constructor, Pretty } from '@noeldemartin/utils';
 
-import type { Key, Model } from './Model';
-
 import type {
     ArrayFieldDefinition,
     BasicFieldDefinition,
@@ -12,6 +10,7 @@ import type {
     ObjectFieldDefinition,
 } from './fields';
 import type { ModelHooks } from './hooks';
+import type { Key, Model } from './Model';
 import type { TimestampField, TimestampsDefinition } from './timestamps';
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -53,7 +52,7 @@ export type NestedMagicAttributes<T extends FieldsDefinition, TKey extends Key> 
     Partial<MagicAttributeProperties<Pick<T, GetDefinedFields<T>>, TKey>>;
 
 export type MagicAttributeProperties<T extends FieldsDefinition, TKey extends Key> = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     -readonly [K in keyof T]: T[K] extends { deserialize: (value: any) => infer TValue }
         ? TValue
         : MagicAttributeValue<GetFieldType<T[K]>, TKey>;
@@ -80,7 +79,7 @@ export type ResolveFieldType<T extends FieldTypeValue, TKey extends Key> = T ext
           : T extends typeof FieldType.Key
             ? TKey
             : T extends typeof FieldType.Any
-              ? any // eslint-disable-line @typescript-eslint/no-explicit-any
+              ? any // oxlint-disable-line typescript/no-explicit-any
               : never;
 
 export type GetFieldType<T extends FieldDefinition> = T extends FieldTypeValue

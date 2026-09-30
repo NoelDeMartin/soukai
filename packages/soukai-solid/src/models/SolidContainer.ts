@@ -1,3 +1,4 @@
+import { findContainerRegistrations } from '@noeldemartin/solid-utils';
 import {
     arrayFrom,
     requireUrlParentDirectory,
@@ -6,27 +7,23 @@ import {
     urlResolveDirectory,
     uuid,
 } from '@noeldemartin/utils';
-import { findContainerRegistrations } from '@noeldemartin/solid-utils';
 import type { Relation, TimestampFieldValue } from 'soukai';
-
-import { LDP_CONTAINS } from 'soukai-solid/solid/constants';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
-
-import SolidContainerDocumentsRelation from './relations/SolidContainerDocumentsRelation';
-import SolidContainerResourcesRelation from 'soukai-solid/models/relations/SolidContainerResourcesRelation';
-import SolidContainsRelation from './relations/SolidContainsRelation';
-
-import Model from './SolidContainer.schema';
-import SolidTypeRegistration from './SolidTypeRegistration';
-import type SolidDocument from './SolidDocument';
-import type SolidTypeIndex from './SolidTypeIndex';
-import type SolidResource from 'soukai-solid/models/SolidResource';
-import type { SolidModel } from './SolidModel';
-import type { SolidModelConstructor } from './inference';
 import type { SolidBootedFieldsDefinition } from 'soukai-solid/models/fields';
+import SolidContainerResourcesRelation from 'soukai-solid/models/relations/SolidContainerResourcesRelation';
+import type SolidResource from 'soukai-solid/models/SolidResource';
+import { LDP_CONTAINS } from 'soukai-solid/solid/constants';
+
+import type { SolidModelConstructor } from './inference';
+import SolidContainerDocumentsRelation from './relations/SolidContainerDocumentsRelation';
+import SolidContainsRelation from './relations/SolidContainsRelation';
+import Model from './SolidContainer.schema';
+import type SolidDocument from './SolidDocument';
+import type { SolidModel } from './SolidModel';
+import type SolidTypeIndex from './SolidTypeIndex';
+import SolidTypeRegistration from './SolidTypeRegistration';
 
 export default class SolidContainer extends Model {
-
     public static defaultResourceHash = null;
 
     public static boot(name?: string): void {
@@ -83,7 +80,8 @@ export default class SolidContainer extends Model {
             typeRegistration.mintUrl(typeIndex, true, uuid());
 
             await typeRegistration.withEngine(this.requireEngine(), () =>
-                typeRegistration.save(requireUrlParentDirectory(typeIndex)));
+                typeRegistration.save(requireUrlParentDirectory(typeIndex)),
+            );
 
             return;
         }
@@ -135,5 +133,4 @@ export default class SolidContainer extends Model {
 
         return urlResolveDirectory(requireUrlParentDirectory(url), `${directoryName}-${shortId()}`);
     }
-
 }

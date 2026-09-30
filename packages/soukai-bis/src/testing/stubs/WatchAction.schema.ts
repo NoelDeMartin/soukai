@@ -1,8 +1,8 @@
-import { date, url } from 'zod';
 import { belongsToOne, defineSchema } from 'soukai-bis';
+import { date, url } from 'zod';
 
-import Movie from './Movie';
 import Episode from './Episode';
+import Movie from './Movie';
 
 export default defineSchema({
     rdfContext: 'https://schema.org/',

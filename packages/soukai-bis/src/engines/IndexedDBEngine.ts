@@ -1,4 +1,5 @@
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads } from '@noeldemartin/solid-utils';
+import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import {
     PromisedValue,
     arrayUnique,
@@ -8,14 +9,14 @@ import {
     silenced,
     tap,
 } from '@noeldemartin/utils';
-import type { IDBPTransaction } from 'idb';
-import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
-
+import type { IDBPTransaction } from 'idb';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
+import ContainersIndex from 'soukai-bis/lib/ContainersIndex';
+import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
+import type { LocalDocument, SoukaiIndexedDBSchema } from 'soukai-bis/lib/SoukaiIndexedDB';
 import { parseIDBQuads, serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
 import {
     LDP_BASIC_CONTAINER_OBJECT,
@@ -23,21 +24,18 @@ import {
     LDP_CONTAINS_PREDICATE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/utils/rdf';
+import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
 
-import Engine from './Engine';
-import ContainersIndex from 'soukai-bis/lib/ContainersIndex';
-import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
-import type EngineOperation from './operations/EngineOperation';
 import type ManagesContainers from './contracts/ManagesContainers';
-import type PurgesMetadata from './contracts/PurgesMetadata';
 import type ManagesDocuments from './contracts/ManagesDocuments';
 import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
-import type { EngineMetadata } from './Engine';
+import type PurgesMetadata from './contracts/PurgesMetadata';
 import type { PurgesMetadataOptions } from './contracts/PurgesMetadata';
-import type { LocalDocument, SoukaiIndexedDBSchema } from 'soukai-bis/lib/SoukaiIndexedDB';
+import Engine from './Engine';
+import type { EngineMetadata } from './Engine';
+import type EngineOperation from './operations/EngineOperation';
 
 export default class IndexedDBEngine extends Engine implements ManagesContainers, PurgesMetadata, ManagesDocuments {
-
     public static readonly engineName = 'IndexedDBEngine';
 
     private containersIndexCache: PromisedValue<ContainersIndex> | null = null;
@@ -125,8 +123,8 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         const document = containerExists
             ? await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                return transaction.objectStore('documents').get(url);
-            })
+                  return transaction.objectStore('documents').get(url);
+              })
             : undefined;
 
         if (!document) {
@@ -448,13 +446,14 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const childDocuments =
             options.deep === true
                 ? await transaction
-                    .objectStore('documents')
-                    .index('containerUrl')
-                    .getAll(IDBKeyRange.bound(containerUrl, containerUrl + '\uffff'))
+                      .objectStore('documents')
+                      .index('containerUrl')
+                      .getAll(IDBKeyRange.bound(containerUrl, containerUrl + '\uffff'))
                 : await Promise.all(
-                    Array.from(containerUrls).map((url) =>
-                        transaction.objectStore('documents').index('containerUrl').getAll(url)),
-                ).then((results) => results.flat());
+                      Array.from(containerUrls).map((url) =>
+                          transaction.objectStore('documents').index('containerUrl').getAll(url),
+                      ),
+                  ).then((results) => results.flat());
 
         await transaction.done;
 
@@ -523,9 +522,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
                 localDocument
                     ? parseIDBQuads(localDocument.resources)
                     : [
-                        new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
-                        new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
-                    ],
+                          new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
+                          new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
+                      ],
             );
 
             if (localDocument?.lastModifiedAt) {
@@ -575,8 +574,8 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const subject = new RDFNamedNode(document.url);
         const childrenUrls = exists
             ? await this.withDocumentsTransaction(document.url, 'readonly', (transaction) => {
-                return transaction.objectStore('documents').index('containerUrl').getAllKeys(document.url);
-            })
+                  return transaction.objectStore('documents').index('containerUrl').getAllKeys(document.url);
+              })
             : [];
 
         childrenUrls.push(...(childContainerUrls ?? []));
@@ -626,7 +625,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         containerUrl: string,
         mode: TMode,
         operation: (
-            transaction: IDBPTransaction<SoukaiIndexedDBSchema, readonly ['documents', 'containers'], TMode>
+            transaction: IDBPTransaction<SoukaiIndexedDBSchema, readonly ['documents', 'containers'], TMode>,
         ) => Promise<TResult>,
     ): Promise<TResult> {
         const containerExists = await this.containerExists(containerUrl);
@@ -653,5 +652,4 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         return result;
     }
-
 }

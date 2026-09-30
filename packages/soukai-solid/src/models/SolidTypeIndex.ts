@@ -1,18 +1,16 @@
-import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
 import { SolidDocumentPermission, createPrivateTypeIndex, createPublicTypeIndex } from '@noeldemartin/solid-utils';
-import type { Relation } from 'soukai';
 import type { SolidUserProfile } from '@noeldemartin/solid-utils';
-
+import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
+import type { Relation } from 'soukai';
+import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
 
 import DocumentContainsManyRelation from './relations/DocumentContainsManyRelation';
-import Model from './SolidTypeIndex.schema';
 import SolidContainer from './SolidContainer';
+import Model from './SolidTypeIndex.schema';
 import SolidTypeRegistration from './SolidTypeRegistration';
-import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
 
 export default class SolidTypeIndex extends Model {
-
     public static async createPublic<T extends SolidTypeIndex>(
         this: SolidModelConstructor<T>,
         user: SolidUserProfile,
@@ -63,7 +61,7 @@ export default class SolidTypeIndex extends Model {
         return asyncFirst(containerRegistrations, async (registration) =>
             registration?.instanceContainer
                 ? ((containerClass ?? SolidContainer).find(registration.instanceContainer) as Promise<T>)
-                : null);
+                : null,
+        );
     }
-
 }

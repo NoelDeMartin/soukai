@@ -18,7 +18,6 @@ export interface IProxyEngine {
 }
 
 export class ProxyEngine<SubjectEngine extends Engine = Engine> implements Engine, IProxyEngine {
-
     public readonly subject: SubjectEngine;
     private overrides: Engine;
 
@@ -57,5 +56,4 @@ export class ProxyEngine<SubjectEngine extends Engine = Engine> implements Engin
     public async delete(collection: string, id: string): Promise<void> {
         return this.overrides.delete(collection, id);
     }
-
 }

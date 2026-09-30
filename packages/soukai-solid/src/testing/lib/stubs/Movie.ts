@@ -1,8 +1,6 @@
 import type { Relation } from 'soukai';
-
 import type SolidHasManyRelation from 'soukai-solid/models/relations/SolidHasManyRelation';
 import type SolidHasOneRelation from 'soukai-solid/models/relations/SolidHasOneRelation';
-
 import MoviesCollection from 'soukai-solid/testing/lib/stubs/MoviesCollection';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
@@ -10,7 +8,6 @@ import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
 import Model from './Movie.schema';
 
 export default class Movie extends Model {
-
     declare public director: Person | undefined;
     declare public relatedDirector: SolidHasOneRelation<Movie, Person, typeof Person>;
     declare public actions: WatchAction[] | undefined;
@@ -34,5 +31,4 @@ export default class Movie extends Model {
     public collectionRelationship(): Relation {
         return this.isContainedBy(MoviesCollection);
     }
-
 }

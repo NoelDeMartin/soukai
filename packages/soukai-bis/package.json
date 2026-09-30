@@ -1,6 +1,17 @@
 {
     "name": "soukai-bis",
     "version": "0.0.0",
+    "license": "MIT",
+    "author": "Noel De Martin",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/NoelDeMartin/soukai.git",
+        "directory": "packages/soukai-bis"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
     "type": "module",
     "sideEffects": [
         "./dist/patch-zod.js",
@@ -16,53 +27,37 @@
             "default": "./dist/patch-zod.js"
         }
     },
-    "files": [
-        "src",
-        "dist"
-    ],
-    "license": "MIT",
-    "author": "Noel De Martin",
-    "repository": "github:NoelDeMartin/soukai",
     "scripts": {
-        "build": "vite build && ./scripts/fix-types.sh",
-        "docs:dev": "vitepress dev",
-        "lint": "noeldemartin-lint src",
-        "test": "vitest --run",
-        "test:ci": "vitest --run --reporter verbose --retry=3",
-        "verify": "noeldemartin-verify"
-    },
-    "peerDependencies": {
-        "zod": "^4.3.4"
+        "build": "vp pack",
+        "test": "vp test",
+        "docs:dev": "vitepress dev"
     },
     "dependencies": {
         "@noeldemartin/solid-utils": "catalog:",
         "@noeldemartin/utils": "catalog:",
+        "@rdfjs/types": "catalog:",
         "idb": "^8.0.3"
     },
     "devDependencies": {
-        "@arethetypeswrong/cli": "catalog:",
+        "@arethetypeswrong/core": "catalog:",
         "@braintree/sanitize-url": "^7.1.1",
         "@noeldemartin/faker": "catalog:",
         "@noeldemartin/scripts": "catalog:",
         "@noeldemartin/testing": "catalog:",
-        "@rdfjs/types": "catalog:",
         "cytoscape": "^3.33.1",
         "cytoscape-cose-bilkent": "^4.1.0",
         "dayjs": "^1.11.19",
         "debug": "^4.4.3",
-        "eslint": "catalog:",
         "fake-indexeddb": "catalog:",
         "mermaid": "^11.12.2",
-        "prettier-eslint-cli": "^8.0.1",
+        "oxc-minify": "^0.152.0",
         "publint": "catalog:",
+        "vite-plus": "catalog:",
         "vitepress": "2.0.0-alpha.15",
         "vitepress-plugin-mermaid": "^2.0.17",
-        "vitest": "catalog:",
         "zod": "^4.3.4"
     },
-    "eslintConfig": {
-        "extends": [
-            "@noeldemartin/eslint-config-typescript"
-        ]
+    "peerDependencies": {
+        "zod": "^4.3.4"
     }
 }

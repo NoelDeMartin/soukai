@@ -1,7 +1,6 @@
 import SoukaiError from 'soukai/errors/SoukaiError';
 
 export default class DocumentNotFound extends SoukaiError {
-
     public readonly id: string;
     public readonly collection?: string;
 
@@ -15,5 +14,4 @@ export default class DocumentNotFound extends SoukaiError {
         this.id = id;
         this.collection = collection;
     }
-
 }

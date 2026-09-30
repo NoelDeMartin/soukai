@@ -1,6 +1,5 @@
 import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
@@ -12,7 +11,6 @@ export default class BelongsToOneRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends mixed(SingleModelRelation, [BelongsToRelation])<Parent, Related, RelatedClass> {
-
     public async load(): Promise<Related | null> {
         this.related = await this.loadRelatedModel();
 
@@ -23,9 +21,10 @@ export default class BelongsToOneRelation<
         const foreignKey = this.parent.getAttribute(this.requireForeignKeyName());
         const related = foreignKey
             ? await this.relatedClass.createFromRDF(quads, {
-                url: String(foreignKey),
-                modelsCache: options.modelsCache,
-            })
+                  // oxlint-disable-next-line typescript/no-base-to-string
+                  url: String(foreignKey),
+                  modelsCache: options.modelsCache,
+              })
             : null;
 
         this.documentModelsLoaded = true;
@@ -34,6 +33,7 @@ export default class BelongsToOneRelation<
             this.__modelInSameDocument = related;
             this.related = related;
         } else if (foreignKey) {
+            // oxlint-disable-next-line typescript/no-base-to-string
             this.__modelInOtherDocumentId = String(foreignKey);
         }
     }
@@ -61,7 +61,7 @@ export default class BelongsToOneRelation<
             return null;
         }
 
+        // oxlint-disable-next-line typescript/no-base-to-string
         return this.relatedClass.find(String(foreignKey));
     }
-
 }

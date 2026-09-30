@@ -1,7 +1,6 @@
 import { getWeakMemo, resetWeakMemo } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Model } from 'soukai';
-
 import type { SolidModel } from 'soukai-solid/models/SolidModel';
 
 export function bustWeakMemoModelCache(model: Nullable<Model>): void {

@@ -10,7 +10,6 @@ export default class BelongsToRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > {
-
     public addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, ForeignKeyName>>(
         this: Relation<Parent, Related, RelatedClass, ForeignKeyName>,
         attributes: T,
@@ -19,5 +18,4 @@ export default class BelongsToRelation<
 
         return attributes;
     }
-
 }

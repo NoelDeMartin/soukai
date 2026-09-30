@@ -1,14 +1,12 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Predicate } from '@rdfjs/types';
-
-import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/utils/rdf';
 import { requireBootedModel } from 'soukai-bis/models/registry';
+import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/utils/rdf';
 
-import Model from './PropertyOperation.schema';
 import type Operation from './Operation';
+import Model from './PropertyOperation.schema';
 
 export default class PropertyOperation extends Model {
-
     private _predicate: Quad_Predicate | null = null;
 
     public get predicate(): Quad_Predicate {
@@ -46,5 +44,4 @@ export default class PropertyOperation extends Model {
     protected filterQuads(quads: Quad[]): Quad[] {
         return quads.filter((q) => !this.subject.equals(q.subject) || !this.predicate.equals(q.predicate));
     }
-
 }

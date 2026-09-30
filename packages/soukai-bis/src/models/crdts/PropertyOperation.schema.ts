@@ -1,7 +1,6 @@
-import { url } from 'zod';
-
 import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty } from 'soukai-bis/zod/soukai';
+import { url } from 'zod';
 
 import Operation from './Operation';
 import { OPERATION_FIELDS } from './Operation.schema';

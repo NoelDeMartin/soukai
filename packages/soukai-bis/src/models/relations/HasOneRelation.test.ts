@@ -1,13 +1,11 @@
-import { describe, expect, it } from 'vitest';
 import { fakeResourceUrl } from '@noeldemartin/testing';
-
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('HasOneRelation', () => {
-
     it('loads related model', async () => {
         // Arrange
         const user = await User.create({ name: 'Alice' });
@@ -87,5 +85,4 @@ describe('HasOneRelation', () => {
         // Assert
         expect(action).toBeNull();
     });
-
 });

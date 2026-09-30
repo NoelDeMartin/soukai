@@ -1,9 +1,8 @@
 import { usesMixin } from '@noeldemartin/utils';
 import type { Relation } from 'soukai';
-
 import SolidBelongsToRelation from 'soukai-solid/models/relations/mixins/SolidBelongsToRelation';
-import SolidHasRelation from 'soukai-solid/models/relations/mixins/SolidHasRelation';
 import type { SolidDocumentRelationInstance } from 'soukai-solid/models/relations/mixins/SolidDocumentRelation';
+import SolidHasRelation from 'soukai-solid/models/relations/mixins/SolidHasRelation';
 import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 
 export interface BeforeParentCreateRelation extends Relation {
@@ -17,7 +16,7 @@ export interface AfterParentSaveRelation extends Relation {
 export interface SynchronizesRelatedModels extends Relation {
     __synchronizeRelated(
         other: Relation,
-        options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions
+        options: { models: WeakSet<SolidModel> } & SynchronizeCloneOptions,
     ): Promise<void>;
 }
 

@@ -1,7 +1,6 @@
-import { date } from 'zod';
-
 import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty } from 'soukai-bis/zod/soukai';
+import { date } from 'zod';
 
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/ldp#',

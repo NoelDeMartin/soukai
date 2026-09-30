@@ -1,13 +1,11 @@
-import { describe, expect, it } from 'vitest';
-
 import { tt } from '@noeldemartin/testing';
-import type { Equals } from '@noeldemartin/utils';
 import type { Expect } from '@noeldemartin/testing';
-
-import User from 'soukai/testing/stubs/User';
-import Post from 'soukai/testing/stubs/Post';
-import City from 'soukai/testing/stubs/City';
+import type { Equals } from '@noeldemartin/utils';
 import type { ModelConstructor } from 'soukai/models/inference';
+import City from 'soukai/testing/stubs/City';
+import Post from 'soukai/testing/stubs/Post';
+import User from 'soukai/testing/stubs/User';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { bootModels, requireBootedModel } from './index';
 
@@ -18,7 +16,6 @@ declare module './index' {
 }
 
 describe('Models helpers', () => {
-
     it('registers booted models', () => {
         bootModels({ User, Post, City });
 
@@ -36,5 +33,4 @@ describe('Models helpers', () => {
             | Expect<Equals<typeof city, typeof City>>
         >();
     });
-
 });

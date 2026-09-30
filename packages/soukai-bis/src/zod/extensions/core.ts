@@ -1,7 +1,6 @@
-import type { ZodType } from 'zod';
-
 import type { SoukaiZodMeta } from 'soukai-bis/zod/soukai';
 import { deepMeta as _deepMeta, rdfProperty as _rdfProperty, useAsSlug as _useAsSlug } from 'soukai-bis/zod/soukai';
+import type { ZodType } from 'zod';
 
 export function deepMeta<T extends ZodType, TKey extends keyof SoukaiZodMeta>(
     this: T,

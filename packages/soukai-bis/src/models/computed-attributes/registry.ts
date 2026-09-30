@@ -1,16 +1,15 @@
 import { isInstanceOf, tap } from '@noeldemartin/utils';
-
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { getRelatedClass, getRelatedClasses } from 'soukai-bis/models/relations/utils';
-import { isMultiModelRelationClass } from 'soukai-bis/models/relations/helpers';
-import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor } from 'soukai-bis/models/types';
 import type { Nullable, Obj } from '@noeldemartin/utils';
+import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type Model from 'soukai-bis/models/Model';
+import type { SchemaRelationDefinition } from 'soukai-bis/models/relations';
+import { isMultiModelRelationClass } from 'soukai-bis/models/relations/helpers';
+import { getRelatedClass, getRelatedClasses } from 'soukai-bis/models/relations/utils';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import ComputedAttribute from './ComputedAttribute';
-import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
 import type { ComputedAttributeCompute } from './ComputedAttribute';
-import type { SchemaRelationDefinition } from 'soukai-bis/models/relations';
 
 interface ComputedAttributesRegistryEntry {
     invalidationPaths: string[];
@@ -36,7 +35,7 @@ function relationPathsToTree(paths: string[][]): RelationTree {
 
 function simulatedModelProxy<T extends Model>(modelClass: ModelConstructor<T>, root: string[], visited: string[][]): T {
     return new Proxy(
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        // oxlint-disable-next-line typescript/no-empty-function
         (() => {}) as unknown as T,
         {
             get(_, property: string | symbol) {

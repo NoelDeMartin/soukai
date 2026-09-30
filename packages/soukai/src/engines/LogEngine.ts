@@ -1,9 +1,8 @@
-/* eslint-disable no-console */
-import { ProxyEngine } from 'soukai/engines/ProxyEngine';
 import type { Engine } from 'soukai/engines/Engine';
+/* oxlint-disable no-console */
+import { ProxyEngine } from 'soukai/engines/ProxyEngine';
 
 export class LogEngine<SubjectEngine extends Engine = Engine> extends ProxyEngine<SubjectEngine> {
-
     constructor(subject: SubjectEngine) {
         super(subject, {
             async create(...args) {
@@ -79,5 +78,4 @@ export class LogEngine<SubjectEngine extends Engine = Engine> extends ProxyEngin
             },
         });
     }
-
 }

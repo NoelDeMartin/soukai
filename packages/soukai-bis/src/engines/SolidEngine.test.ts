@@ -1,18 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { faker } from '@noeldemartin/faker';
+import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
-
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import SolidEngine from './SolidEngine';
 
 describe('SolidEngine', () => {
-
     let engine: SolidEngine;
 
     beforeEach(() => {
@@ -47,7 +45,7 @@ describe('SolidEngine', () => {
         );
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.objectContaining({ method: 'PATCH' }));
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 
@@ -89,7 +87,7 @@ describe('SolidEngine', () => {
             expect.objectContaining({
                 method: 'PUT',
                 headers: expect.objectContaining({
-                    'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                    Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
                     'If-None-Match': '*',
                 }),
             }),
@@ -130,7 +128,7 @@ describe('SolidEngine', () => {
             }),
         );
 
-        await expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(`
             INSERT DATA {
                 <> <http://www.w3.org/2000/01/rdf-schema#label> "My Container" .
             }
@@ -210,7 +208,7 @@ describe('SolidEngine', () => {
             }),
         );
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <#it> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
             } ;
@@ -270,7 +268,7 @@ describe('SolidEngine', () => {
             }),
         );
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <#it> <http://xmlns.com/foaf/0.1/name> "${oldName}" .
             } ;
@@ -350,7 +348,7 @@ describe('SolidEngine', () => {
             }),
         );
 
-        await expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
+        expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(`
             DELETE DATA {
                 <> <http://www.w3.org/2000/01/rdf-schema#label> "${oldName}" .
             } ;
@@ -409,5 +407,4 @@ describe('SolidEngine', () => {
         await expect(engine.createDocument(documentUrl, document, metadata)).rejects.toBeInstanceOf(SoukaiError);
         await expect(engine.updateDocument(documentUrl, [], metadata)).rejects.toBeInstanceOf(SoukaiError);
     });
-
 });

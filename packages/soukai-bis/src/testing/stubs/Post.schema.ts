@@ -1,8 +1,8 @@
-import { string, url } from 'zod';
 import { belongsToOne, defineSchema, isContainedBy } from 'soukai-bis';
+import { string, url } from 'zod';
 
-import User from './User';
 import PostsCollection from './PostsCollection';
+import User from './User';
 
 export default defineSchema({
     rdfContext: 'https://schema.org/',

@@ -1,13 +1,11 @@
 import { arrayFilter, arrayUnique, urlParse } from '@noeldemartin/utils';
-
 import type { MultiModelRelation, Relation, SingleModelRelation } from 'soukai/models/index';
 
-import Model from './User.schema';
-import Post from './Post';
 import City from './City';
+import Post from './Post';
+import Model from './User.schema';
 
 export default class User extends Model {
-
     declare public alias: string;
     declare public posts: Post[] | null;
     declare public birthPlace: City | null;
@@ -29,5 +27,4 @@ export default class User extends Model {
     public birthPlaceRelationship(): Relation {
         return this.hasOne(City, 'birthRecords');
     }
-
 }

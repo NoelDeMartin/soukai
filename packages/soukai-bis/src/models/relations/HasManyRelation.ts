@@ -1,6 +1,5 @@
 import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
@@ -12,7 +11,6 @@ export default class HasManyRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends mixed(MultiModelRelation, [HasRelation])<Parent, Related, RelatedClass> {
-
     public async load(): Promise<Related[]> {
         this.related = await this.loadRelatedModels();
 
@@ -68,5 +66,4 @@ export default class HasManyRelation<
 
         return allRelated.filter((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
     }
-
 }

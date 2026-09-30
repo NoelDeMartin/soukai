@@ -1,7 +1,6 @@
-import { any, array } from 'zod';
-
 import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty } from 'soukai-bis/zod/soukai';
+import { any, array } from 'zod';
 
 import PropertyOperation from './PropertyOperation';
 import { PROPERTY_OPERATION_FIELDS } from './PropertyOperation.schema';

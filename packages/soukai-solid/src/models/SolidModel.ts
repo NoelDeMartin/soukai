@@ -1,4 +1,12 @@
 import {
+    expandIRI,
+    jsonldToQuads,
+    mintJsonLDIdentifiers,
+    parseResourceSubject,
+    quadsToTurtle,
+} from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, JsonLDGraph, SubjectParts } from '@noeldemartin/solid-utils';
+import {
     Semaphore,
     applyStrictChecks,
     arrayFilter,
@@ -28,6 +36,7 @@ import {
     weakMemo,
     when,
 } from '@noeldemartin/utils';
+import type { Quad } from '@rdfjs/types';
 import {
     DocumentAlreadyExists,
     DocumentNotFound,
@@ -39,13 +48,6 @@ import {
     TimestampField,
     requireBootedModel,
 } from 'soukai';
-import {
-    expandIRI,
-    jsonldToQuads,
-    mintJsonLDIdentifiers,
-    parseResourceSubject,
-    quadsToTurtle,
-} from '@noeldemartin/solid-utils';
 import type {
     Attributes,
     BootedFieldsDefinition,
@@ -64,46 +66,15 @@ import type {
     SingleModelRelation,
     TimestampFieldValue,
 } from 'soukai';
-import type { Fetch, JsonLD, JsonLDGraph, SubjectParts } from '@noeldemartin/solid-utils';
-import type { Quad } from '@rdfjs/types';
-
-import IncompleteDocument from 'soukai-solid/errors/IncompleteDocument';
-import IRI from 'soukai-solid/solid/utils/IRI';
-import RDFDocument from 'soukai-solid/solid/RDFDocument';
-import ResourceNotFound from 'soukai-solid/errors/ResourceNotFound';
 import type { SolidEngine } from 'soukai-solid/engines/SolidEngine';
+import IncompleteDocument from 'soukai-solid/errors/IncompleteDocument';
+import ResourceNotFound from 'soukai-solid/errors/ResourceNotFound';
 import { usingExperimentalActivityPods } from 'soukai-solid/experimental';
+import RDFDocument from 'soukai-solid/solid/RDFDocument';
 import type RDFResource from 'soukai-solid/solid/RDFResource';
+import IRI from 'soukai-solid/solid/utils/IRI';
 
-import DeletesModels from './mixins/DeletesModels';
-import DocumentContainsManyRelation from './relations/DocumentContainsManyRelation';
-import ManagesPermissions from './mixins/ManagesPermissions';
-import MigratesSchemas from './mixins/MigratesSchemas';
-import OperationsRelation from './relations/OperationsRelation';
-import SerializesToJsonLD from './mixins/SerializesToJsonLD';
-import SolidACLAuthorizationsRelation from './relations/SolidACLAuthorizationsRelation';
-import SolidBelongsToManyRelation from './relations/SolidBelongsToManyRelation';
-import SolidBelongsToOneRelation from './relations/SolidBelongsToOneRelation';
-import SolidHasManyRelation from './relations/SolidHasManyRelation';
-import SolidHasOneRelation from './relations/SolidHasOneRelation';
-import SolidIsContainedByRelation from './relations/SolidIsContainedByRelation';
-import TombstoneRelation from './relations/TombstoneRelation';
-import TracksHistory, { synchronizeModels } from './mixins/TracksHistory';
-import {
-    hasAfterParentSaveHook,
-    hasBeforeParentCreateHook,
-    isSolidDocumentRelation,
-    isSolidHasRelation,
-} from './relations/guards';
-import { isSolidMultiModelDocumentRelation, isSolidSingleModelDocumentRelation } from './relations/cardinality-guards';
-import { getSchemaUpdateContext, startSchemaUpdate, stopSchemaUpdate } from './internals/helpers';
 import { inferFieldDefinition, isSolidArrayFieldDefinition } from './fields';
-import type Metadata from './history/Metadata';
-import type Operation from './history/Operation';
-import type SolidACLAuthorization from './SolidACLAuthorization';
-import type SolidDocument from './SolidDocument';
-import type SolidContainer from './SolidContainer';
-import type Tombstone from './history/Tombstone';
 import type {
     RDFContexts,
     SolidBootedFieldDefinition,
@@ -111,9 +82,37 @@ import type {
     SolidFieldsDefinition,
     SolidSchemaDefinition,
 } from './fields';
-import type { SolidDocumentRelationInstance } from './relations/mixins/SolidDocumentRelation';
+import type Metadata from './history/Metadata';
+import type Operation from './history/Operation';
+import type Tombstone from './history/Tombstone';
 import type { SolidModelConstructor } from './inference';
+import { getSchemaUpdateContext, startSchemaUpdate, stopSchemaUpdate } from './internals/helpers';
+import DeletesModels from './mixins/DeletesModels';
+import ManagesPermissions from './mixins/ManagesPermissions';
+import MigratesSchemas from './mixins/MigratesSchemas';
+import SerializesToJsonLD from './mixins/SerializesToJsonLD';
+import TracksHistory, { synchronizeModels } from './mixins/TracksHistory';
+import { isSolidMultiModelDocumentRelation, isSolidSingleModelDocumentRelation } from './relations/cardinality-guards';
+import DocumentContainsManyRelation from './relations/DocumentContainsManyRelation';
+import {
+    hasAfterParentSaveHook,
+    hasBeforeParentCreateHook,
+    isSolidDocumentRelation,
+    isSolidHasRelation,
+} from './relations/guards';
 import type { SolidRelation } from './relations/inference';
+import type { SolidDocumentRelationInstance } from './relations/mixins/SolidDocumentRelation';
+import OperationsRelation from './relations/OperationsRelation';
+import SolidACLAuthorizationsRelation from './relations/SolidACLAuthorizationsRelation';
+import SolidBelongsToManyRelation from './relations/SolidBelongsToManyRelation';
+import SolidBelongsToOneRelation from './relations/SolidBelongsToOneRelation';
+import SolidHasManyRelation from './relations/SolidHasManyRelation';
+import SolidHasOneRelation from './relations/SolidHasOneRelation';
+import SolidIsContainedByRelation from './relations/SolidIsContainedByRelation';
+import TombstoneRelation from './relations/TombstoneRelation';
+import type SolidACLAuthorization from './SolidACLAuthorization';
+import type SolidContainer from './SolidContainer';
+import type SolidDocument from './SolidDocument';
 
 export type SynchronizeCloneOptions = Omit<ModelCloneOptions, 'clones'>;
 
@@ -132,7 +131,6 @@ export interface SolidModelSerializationOptions {
 }
 
 export class SolidModel extends SolidModelBase {
-
     public static primaryKey: string = 'url';
     public static fields: SolidFieldsDefinition;
     public static classFields = ['_history', '_publicPermissions', '_tombstone'];
@@ -161,7 +159,7 @@ export class SolidModel extends SolidModelBase {
             );
 
             if (!isSolidArrayFieldDefinition(parentDefinition)) {
-                throw new SoukaiError('Can\'t get item field definition for non-array field');
+                throw new SoukaiError("Can't get item field definition for non-array field");
             }
 
             return {
@@ -311,18 +309,17 @@ export class SolidModel extends SolidModelBase {
         }
     }
 
-    /* eslint-disable max-len */
     public static createFromEngineDocument<T extends SolidModel>(
         this: SolidModelConstructor<T>,
         id: Key,
         document: EngineDocument,
-        resourceId?: string
+        resourceId?: string,
     ): Promise<T>;
 
     public static createFromEngineDocument<T extends Model>(
         this: ModelConstructor<T>,
         id: Key,
-        document: EngineDocument
+        document: EngineDocument,
     ): Promise<T>;
 
     public static createFromEngineDocument<T extends SolidModel>(
@@ -333,7 +330,6 @@ export class SolidModel extends SolidModelBase {
     ): Promise<T> {
         return this.instance().createFromEngineDocument(id, document, resourceId);
     }
-    /* eslint-enable max-len */
 
     public static async find<T extends Model>(this: ModelConstructor<T>, id: Key): Promise<T | null>;
     public static async find<T extends SolidModel>(this: SolidModelConstructor<T>, id: Key): Promise<T | null>;
@@ -346,6 +342,7 @@ export class SolidModel extends SolidModelBase {
         this.ensureBooted();
 
         try {
+            // oxlint-disable-next-line typescript/unbound-method
             const { documentPermissions, stopTracking } = this.instance().trackPublicPermissions();
             const document = await this.requireEngine().readOne(containerUrl, documentUrl);
             const resource = await RDFDocument.resourceFromJsonLDGraph(document as JsonLDGraph, resourceUrl);
@@ -375,11 +372,10 @@ export class SolidModel extends SolidModelBase {
         }
     }
 
-    /* eslint-disable max-len */
     public static async all<T extends Model>(this: ModelConstructor<T>, filters?: EngineFilters): Promise<T[]>;
     public static async all<T extends SolidModel>(
         this: SolidModelConstructor<T>,
-        filters?: EngineFilters
+        filters?: EngineFilters,
     ): Promise<T[]>;
 
     public static async all<T extends SolidModel>(
@@ -388,6 +384,7 @@ export class SolidModel extends SolidModelBase {
     ): Promise<T[]> {
         filters = this.prepareEngineFilters(filters);
 
+        // oxlint-disable-next-line typescript/unbound-method
         const { documentPermissions, stopTracking } = this.instance().trackPublicPermissions();
 
         const models = (await super.all(filters)) as unknown as T[];
@@ -398,7 +395,6 @@ export class SolidModel extends SolidModelBase {
 
         return models;
     }
-    /* eslint-enable max-len */
 
     public static prepareEngineFilters(filters: EngineFilters = {}): EngineFilters {
         // This is necessary because a SolidEngine behaves differently than other engines.
@@ -433,7 +429,7 @@ export class SolidModel extends SolidModelBase {
         const resourceId =
             sourceResourceId ??
             this.findMatchingResourceIds(rdfDocument.statements, baseUrl)[0] ??
-            fail<string>(SoukaiError, 'Couldn\'t find matching resource in JSON-LD');
+            fail<string>(SoukaiError, "Couldn't find matching resource in JSON-LD");
         const resource = rdfDocument.resource(resourceId);
         const documentUrl = baseUrl || urlRoute(resourceId);
         const attributes = await this.instance().parseEngineDocumentAttributes(
@@ -571,7 +567,7 @@ export class SolidModel extends SolidModelBase {
             Object.getOwnPropertyDescriptor(parentModelClass, 'rdfContext')?.value ?? null,
             {
                 ...rdfContexts,
-                ...(Object.getOwnPropertyDescriptor(parentModelClass, 'rdfContexts')?.value ?? {}),
+                ...Object.getOwnPropertyDescriptor(parentModelClass, 'rdfContexts')?.value,
             },
             parentModelClass.rdfsClass,
             { modelClass: parentModelClass },
@@ -605,7 +601,7 @@ export class SolidModel extends SolidModelBase {
             Object.getOwnPropertyDescriptor(parentModelClass, 'rdfsClasses')?.value ?? null,
             {
                 ...rdfContexts,
-                ...(Object.getOwnPropertyDescriptor(parentModelClass, 'rdfContexts')?.value ?? {}),
+                ...Object.getOwnPropertyDescriptor(parentModelClass, 'rdfContexts')?.value,
             },
             parentModelClass,
         );
@@ -615,7 +611,8 @@ export class SolidModel extends SolidModelBase {
         return rdfsClassesAliases.map((rdfsClasses) =>
             arrayUnique(
                 rdfsClasses.map((name) => IRI(name, this.rdfContexts, this.getDefaultRdfContext(rdfContexts))) ?? [],
-            ));
+            ),
+        );
     }
 
     protected static bootCollection(): string {
@@ -657,10 +654,10 @@ export class SolidModel extends SolidModelBase {
                 field.rdfPropertyAliases?.map((property) => IRI(property, rdfContexts, defaultRdfContext)) ?? [];
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         delete (fieldDefinitions as any)[primaryKey]?.rdfProperty;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         delete (fieldDefinitions as any)[primaryKey]?.rdfPropertyAliases;
 
         return {
@@ -802,10 +799,10 @@ export class SolidModel extends SolidModelBase {
     public async saveInDocument(documentUrl: string, resourceHash?: string): Promise<this> {
         this.exists()
             ? assert(
-                this.getDocumentUrl() === documentUrl,
-                SoukaiError,
-                'Model already exists and is not stored in the given document',
-            )
+                  this.getDocumentUrl() === documentUrl,
+                  SoukaiError,
+                  'Model already exists and is not stored in the given document',
+              )
             : this.mintUrl(documentUrl, true, resourceHash);
 
         await this.save();
@@ -1000,7 +997,7 @@ export class SolidModel extends SolidModelBase {
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // oxlint-disable-next-line typescript/no-unused-vars
     public ignoreRdfPropertyHistory(rdfProperty: string, withSolidEngine?: boolean): boolean {
         return false;
     }
@@ -1271,7 +1268,8 @@ export class SolidModel extends SolidModelBase {
                 )
                 .map(async (relation) => {
                     return relation.relatedClass.withEngine(engine, () =>
-                        relation.__loadDocumentModels(documentUrl, document as JsonLDGraph));
+                        relation.__loadDocumentModels(documentUrl, document as JsonLDGraph),
+                    );
                 }),
         );
     }
@@ -1431,7 +1429,8 @@ export class SolidModel extends SolidModelBase {
                     !Array.isArray(foreignValue)
                         ? value
                         : tap(foreignValue.slice(0), (newForeignValue) =>
-                            arrayReplace(newForeignValue, oldValue, value)),
+                              arrayReplace(newForeignValue, oldValue, value),
+                          ),
                 );
             });
         }
@@ -1492,17 +1491,16 @@ export class SolidModel extends SolidModelBase {
         await this.deleteModels(models);
     }
 
-    /* eslint-disable max-len */
     protected hasOne<T extends typeof SolidModel>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): SolidHasOneRelation;
 
     protected hasOne<T extends typeof Model>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): Relation;
 
     protected hasOne<T extends typeof Model | typeof SolidModel>(
@@ -1512,19 +1510,17 @@ export class SolidModel extends SolidModelBase {
     ): SingleModelRelation | SolidHasOneRelation {
         return new SolidHasOneRelation(this, relatedClass as typeof SolidModel, foreignKeyField, localKeyField);
     }
-    /* eslint-enable max-len */
 
-    /* eslint-disable max-len */
     protected hasMany<T extends typeof SolidModel>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): SolidHasManyRelation;
 
     protected hasMany<T extends typeof Model>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): Relation;
 
     protected hasMany<T extends typeof Model | typeof SolidModel>(
@@ -1534,19 +1530,17 @@ export class SolidModel extends SolidModelBase {
     ): MultiModelRelation | SolidHasManyRelation {
         return new SolidHasManyRelation(this, relatedClass as typeof SolidModel, foreignKeyField, localKeyField);
     }
-    /* eslint-enable max-len */
 
-    /* eslint-disable max-len */
     protected belongsToOne<T extends typeof SolidModel>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): SolidBelongsToOneRelation;
 
     protected belongsToOne<T extends typeof Model>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): Relation;
 
     protected belongsToOne<T extends typeof Model | typeof SolidModel>(
@@ -1556,19 +1550,17 @@ export class SolidModel extends SolidModelBase {
     ): MultiModelRelation | SolidBelongsToOneRelation {
         return new SolidBelongsToOneRelation(this, relatedClass as typeof SolidModel, foreignKeyField, localKeyField);
     }
-    /* eslint-enable max-len */
 
-    /* eslint-disable max-len */
     protected belongsToMany<T extends typeof SolidModel>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): SolidBelongsToManyRelation;
 
     protected belongsToMany<T extends typeof Model>(
         relatedClass: T,
         foreignKeyField?: string,
-        localKeyField?: string
+        localKeyField?: string,
     ): Relation;
 
     protected belongsToMany<T extends typeof Model | typeof SolidModel>(
@@ -1578,7 +1570,6 @@ export class SolidModel extends SolidModelBase {
     ): MultiModelRelation | SolidBelongsToManyRelation {
         return new SolidBelongsToManyRelation(this, relatedClass as typeof SolidModel, foreignKeyField, localKeyField);
     }
-    /* eslint-enable max-len */
 
     protected isContainedBy<T extends typeof SolidContainer>(model: T): SolidIsContainedByRelation {
         return new SolidIsContainedByRelation(this, model);
@@ -1594,7 +1585,8 @@ export class SolidModel extends SolidModelBase {
                 model.serializeToJsonLD({
                     includeRelations: false,
                     includeAnonymousHashes: true,
-                })),
+                }),
+            ),
         } as EngineDocument;
     }
 
@@ -1617,7 +1609,8 @@ export class SolidModel extends SolidModelBase {
                 }
 
                 const relatedDocumentUpdates = documentModel.withEngine(engine, (model) =>
-                    model.getDirtyEngineDocumentUpdates(true)) as {
+                    model.getDirtyEngineDocumentUpdates(true),
+                ) as {
                     '@graph': EngineAttributeUpdateOperation | { $apply: EngineAttributeUpdateOperation[] };
                 };
 
@@ -1635,7 +1628,8 @@ export class SolidModel extends SolidModelBase {
                             $where: { '@id': model.url },
                             $unset: true,
                         },
-                    }));
+                    }),
+                );
             }
         }
 
@@ -1661,7 +1655,8 @@ export class SolidModel extends SolidModelBase {
                     $where: { '@id': removedResourceUrl },
                     $unset: true,
                 },
-            }));
+            }),
+        );
 
         return graphUpdates.length === 1
             ? { '@graph': graphUpdates[0] as EngineAttributeUpdateOperation }
@@ -1686,7 +1681,7 @@ export class SolidModel extends SolidModelBase {
                     const uniqueArrayValue = arrayUnique(arrayValue);
 
                     if (arrayValue.length !== uniqueArrayValue.length) {
-                        // eslint-disable-next-line no-console
+                        // oxlint-disable-next-line no-console
                         console.warn('An array field had duplicate values, this is not supported in Solid models.');
                     }
 
@@ -1841,5 +1836,4 @@ export class SolidModel extends SolidModelBase {
                 .forEach((model: SolidModel) => model.populateDocumentModels(documentModels));
         }
     }
-
 }

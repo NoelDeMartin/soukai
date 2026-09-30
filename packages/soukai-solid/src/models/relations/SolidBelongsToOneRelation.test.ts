@@ -1,16 +1,14 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { bootModels } from 'soukai';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-
+import { bootModels } from 'soukai';
 import FakeSolidEngine from 'soukai-solid/testing/fakes/FakeSolidEngine';
 import Movie from 'soukai-solid/testing/lib/stubs/Movie';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 import Post from 'soukai-solid/testing/lib/stubs/Post';
 import Show from 'soukai-solid/testing/lib/stubs/Show';
 import WatchAction from 'soukai-solid/testing/lib/stubs/WatchAction';
+import { beforeAll, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('SolidBelongsToOneRelation', () => {
-
     beforeAll(() => bootModels({ Person, Post, WatchAction, Movie, Show }));
     beforeEach(() => FakeSolidEngine.use());
 
@@ -78,5 +76,4 @@ describe('SolidBelongsToOneRelation', () => {
         expect(post?.author).toBeInstanceOf(Person);
         expect(post?.author?.posts?.[0]).toBe(post);
     });
-
 });

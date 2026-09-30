@@ -1,12 +1,9 @@
 import type { Relation } from 'soukai';
-
-import SolidContainer from 'soukai-solid/models/SolidContainer';
 import type SolidContainsRelation from 'soukai-solid/models/relations/SolidContainsRelation';
-
+import SolidContainer from 'soukai-solid/models/SolidContainer';
 import Person from 'soukai-solid/testing/lib/stubs/Person';
 
 export default class PersonsCollection extends SolidContainer {
-
     public static timestamps = false;
 
     declare public persons: Person[] | undefined;
@@ -15,5 +12,4 @@ export default class PersonsCollection extends SolidContainer {
     public personsRelationship(): Relation {
         return this.contains(Person);
     }
-
 }

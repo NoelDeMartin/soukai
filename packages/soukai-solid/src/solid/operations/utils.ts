@@ -1,13 +1,12 @@
 import { arrayFilter } from '@noeldemartin/utils';
-
 import type RDFResourceProperty from 'soukai-solid/solid/RDFResourceProperty';
 
-import { OperationTypes } from './Operation';
 import type ChangeUrlOperation from './ChangeUrlOperation';
+import { OperationTypes } from './Operation';
+import type { UpdateOperation } from './Operation';
 import type RemovePropertyOperation from './RemovePropertyOperation';
 import type ShieldPropertyOperation from './ShieldPropertyOperation';
 import type UpdatePropertyOperation from './UpdatePropertyOperation';
-import type { UpdateOperation } from './Operation';
 
 interface DecantedUpdateOperations {
     [OperationTypes.UpdateProperty]: UpdatePropertyOperation[];

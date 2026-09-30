@@ -11,18 +11,17 @@ import {
 } from '@noeldemartin/utils';
 import { BelongsToManyRelation, ModelKey } from 'soukai';
 import type { Model, RelationCloneOptions } from 'soukai';
-
-import { operationClasses } from 'soukai-solid/models/history/operations';
 import type AddPropertyOperation from 'soukai-solid/models/history/AddPropertyOperation';
+import { operationClasses } from 'soukai-solid/models/history/operations';
 import type RemovePropertyOperation from 'soukai-solid/models/history/RemovePropertyOperation';
 import type SetPropertyOperation from 'soukai-solid/models/history/SetPropertyOperation';
-import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 import type { SolidModelConstructor } from 'soukai-solid/models/inference';
+import type { SolidModel, SynchronizeCloneOptions } from 'soukai-solid/models/SolidModel';
 
-import SolidBelongsToRelation from './mixins/SolidBelongsToRelation';
-import SolidMultiModelDocumentRelation from './mixins/SolidMultiModelDocumentRelation';
 import type { BeforeParentCreateRelation, SynchronizesRelatedModels } from './guards';
+import SolidBelongsToRelation from './mixins/SolidBelongsToRelation';
 import type { ISolidDocumentRelation } from './mixins/SolidDocumentRelation';
+import SolidMultiModelDocumentRelation from './mixins/SolidMultiModelDocumentRelation';
 
 export const SolidBelongsToManyRelationBase = mixedWithoutTypes(BelongsToManyRelation, [
     SolidMultiModelDocumentRelation,
@@ -43,7 +42,6 @@ export default class SolidBelongsToManyRelation<
     extends SolidBelongsToManyRelationBase<Parent, Related, RelatedClass>
     implements ISolidDocumentRelation<Related>, BeforeParentCreateRelation, SynchronizesRelatedModels
 {
-
     public async load(): Promise<Related[]> {
         if (!this.__modelsInSameDocument || !this.__modelsInOtherDocumentIds) {
             this.__modelsInSameDocument = [];
@@ -68,7 +66,8 @@ export default class SolidBelongsToManyRelation<
 
         const results = await Promise.all(
             Object.entries(idsByContainerUrl).map(([containerUrl, ids]) =>
-                this.relatedClass.from(containerUrl).all<Related>({ $in: Array.from(ids) })),
+                this.relatedClass.from(containerUrl).all<Related>({ $in: Array.from(ids) }),
+            ),
         );
 
         const modelsInOtherDocuments = results.reduce((models: Related[], containerModels: Related[]) => {
@@ -80,14 +79,14 @@ export default class SolidBelongsToManyRelation<
         return (this.related = this.__modelsInSameDocument.concat(this.__newModels).concat(modelsInOtherDocuments));
     }
 
-    public associate(foreignKey: ModelKey | unknown): void {
+    public associate(foreignKey: unknown): void {
         const foreignKeys = this.parent.getAttribute<ModelKey[]>(this.foreignKeyName);
         const foreignKeyValue = ModelKey.from(foreignKey);
 
         this.parent.setAttribute(this.foreignKeyName, foreignKeys.concat(foreignKeyValue));
     }
 
-    public disassociate(foreignKey: ModelKey | unknown): void {
+    public disassociate(foreignKey: unknown): void {
         const foreignKeys = this.parent.getAttribute<ModelKey[]>(this.foreignKeyName);
         const foreignKeyValue = ModelKey.from(foreignKey);
 
@@ -161,7 +160,8 @@ export default class SolidBelongsToManyRelation<
             .map((operation) => arrayFrom(operation.value))
             .flat()
             .map((foreignKey) =>
-                otherRelatedMap.get(foreignKey instanceof ModelKey ? foreignKey.toString() : foreignKey))
+                otherRelatedMap.get(foreignKey instanceof ModelKey ? foreignKey.toString() : foreignKey),
+            )
             .filter((model): model is Related => !!model)
             .forEach((model) => {
                 if (thisRelatedMap.hasKey(model.getAttribute(localKeyName as string))) {
@@ -194,5 +194,4 @@ export default class SolidBelongsToManyRelation<
 
         this.related = (arrayFilter(related) as Related[]).concat(this.__newModels);
     }
-
 }

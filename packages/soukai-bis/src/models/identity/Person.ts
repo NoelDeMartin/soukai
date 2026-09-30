@@ -1,11 +1,10 @@
+import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 import { TypeIndex } from 'soukai-bis';
 import type { Container, ContainerConstructor, ModelConstructor } from 'soukai-bis';
-import type { SolidUserProfile } from '@noeldemartin/solid-utils';
 
 import Model from './Person.schema';
 
 export default class Person extends Model {
-
     public static createFromProfile(profile: SolidUserProfile): Person {
         return new Person(
             {
@@ -40,5 +39,4 @@ export default class Person extends Model {
 
         return null;
     }
-
 }

@@ -11,7 +11,6 @@ const PERMISSION_MODES: Record<SolidDocumentPermission, string> = {
 };
 
 export default class SolidACLAuthorization extends Model {
-
     /**
      * @deprecated Use requireFetch() instead.
      */
@@ -22,5 +21,4 @@ export default class SolidACLAuthorization extends Model {
     public static modeFromSolidDocumentPermission(permission: SolidDocumentPermission): string {
         return PERMISSION_MODES[permission];
     }
-
 }
