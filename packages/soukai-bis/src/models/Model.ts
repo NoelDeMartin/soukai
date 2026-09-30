@@ -23,6 +23,7 @@ import { jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid
 import { ZodError } from 'zod';
 import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad } from '@rdfjs/types';
+import type { Nullable } from '@noeldemartin/utils';
 
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -62,15 +63,15 @@ import type { Schema } from './schema';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 
 export interface MintUrlOptions {
-    containerUrl?: string;
-    documentUrl?: string;
-    documentExists?: boolean;
-    resourceHash?: string;
+    containerUrl?: Nullable<string>;
+    documentUrl?: Nullable<string>;
+    documentExists?: Nullable<boolean>;
+    resourceHash?: Nullable<string>;
 }
 
 export interface ModelConstructorOptions {
-    exists?: boolean;
-    source?: Quad[];
+    exists?: Nullable<boolean>;
+    source?: Nullable<Quad[]>;
 }
 
 export default class Model<
