@@ -14,7 +14,7 @@ catalogs:
       version: 7.6.0
     '@noeldemartin/scripts':
       specifier: next
-      version: 0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab
+      version: 0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483
     '@noeldemartin/solid-utils':
       specifier: next
       version: 0.6.1-next.112753d1b22566d5c7660cf0238f82dc825a4fb4
@@ -50,10 +50,10 @@ importers:
     devDependencies:
       '@noeldemartin/scripts':
         specifier: 'catalog:'
-        version: 0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab
+        version: 0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483
       '@noeldemartin/testing':
         specifier: 'catalog:'
-        version: 0.0.0-next.da6dd6d71fbacad1823a5e9d54e1057389e47a39(vitest@5.0.1(@types/node@26.6.3)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1(vitest@5.0.1))(@voidzero-dev/vite-plus-core@1.0.0(@arethetypeswrong/core@0.18.5)(@types/node@26.6.3)(esbuild@0.28.2)(publint@0.3.24)(typescript@6.0.3)(yaml@2.9.0)))
+        version: 0.0.0-next.da6dd6d71fbacad1823a5e9d54e1057389e47a39(vitest@5.0.1)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.7.3-next.d781b7a388963bd50ee1ae92b305ec901aaec1ca
@@ -105,7 +105,7 @@ importers:
         version: 7.6.0
       '@noeldemartin/scripts':
         specifier: 'catalog:'
-        version: 0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab
+        version: 0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.5
@@ -145,10 +145,10 @@ importers:
         version: 7.6.0
       '@noeldemartin/scripts':
         specifier: 'catalog:'
-        version: 0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab
+        version: 0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483
       '@noeldemartin/testing':
         specifier: 'catalog:'
-        version: 0.0.0-next.da6dd6d71fbacad1823a5e9d54e1057389e47a39(vitest@5.0.1(@types/node@26.6.3)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1(vitest@5.0.1))(@voidzero-dev/vite-plus-core@1.0.0(@arethetypeswrong/core@0.18.5)(@types/node@26.6.3)(esbuild@0.28.2)(publint@0.3.24)(typescript@6.0.3)(yaml@2.9.0)))
+        version: 0.0.0-next.da6dd6d71fbacad1823a5e9d54e1057389e47a39(vitest@5.0.1)
       cytoscape:
         specifier: ^3.33.1
         version: 3.34.3
@@ -206,7 +206,7 @@ importers:
         version: 7.6.0
       '@noeldemartin/scripts':
         specifier: 'catalog:'
-        version: 0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab
+        version: 0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483
       dayjs:
         specifier: ^1.11.13
         version: 1.11.20
@@ -736,8 +736,8 @@ packages:
     resolution: {integrity: sha512-OB0CeTgLM3wN3a66qHD97NsVCLKCmgilYbGl+ZzpTjavtmciL5kTQm7HKVHzfarH0s4D5fIK2OM4arRP8Nu8fw==}
     engines: {node: '>=14.0.0', npm: '>=6.0.0'}
 
-  '@noeldemartin/scripts@0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab':
-    resolution: {integrity: sha512-uwN63R+u/ef5UxUHmNobTCvbTjg1aOvj3t9w/DsKkrJlNilmAwbFxWf/XuK5qmtJVlQV7MyOtLy2XLbwYVRh1A==}
+  '@noeldemartin/scripts@0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483':
+    resolution: {integrity: sha512-9+WCkCKyh2k379sSuOLG8hV9pdgeyq1vzi3HK2bs8Tpx14K1Zp+Z3TpsQkZq/7/91PupKnyufZzSS6EU+M7xCQ==}
     hasBin: true
 
   '@noeldemartin/solid-utils@0.6.1-next.112753d1b22566d5c7660cf0238f82dc825a4fb4':
@@ -3545,7 +3545,7 @@ snapshots:
 
   '@noeldemartin/faker@7.6.0': {}
 
-  '@noeldemartin/scripts@0.4.0-next.c4947cf24d83e9a211c2705b97f764039d7863ab': {}
+  '@noeldemartin/scripts@0.4.0-next.0c508bd1c9dbc0d7a5d478ec48e3ecb3ee351483': {}
 
   '@noeldemartin/solid-utils@0.6.1-next.112753d1b22566d5c7660cf0238f82dc825a4fb4(vitest@5.0.1(@types/node@26.6.3)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1(vitest@5.0.1))(@voidzero-dev/vite-plus-core@1.0.0(@arethetypeswrong/core@0.18.5)(@types/node@26.6.3)(esbuild@0.28.2)(publint@0.3.24)(typescript@6.0.3)(yaml@2.9.0)))(web-streams-polyfill@3.3.3)':
     dependencies:
@@ -3559,7 +3559,7 @@ snapshots:
     transitivePeerDependencies:
       - web-streams-polyfill
 
-  '@noeldemartin/testing@0.0.0-next.da6dd6d71fbacad1823a5e9d54e1057389e47a39(vitest@5.0.1(@types/node@26.6.3)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1(vitest@5.0.1))(@voidzero-dev/vite-plus-core@1.0.0(@arethetypeswrong/core@0.18.5)(@types/node@26.6.3)(esbuild@0.28.2)(publint@0.3.24)(typescript@6.0.3)(yaml@2.9.0)))':
+  '@noeldemartin/testing@0.0.0-next.da6dd6d71fbacad1823a5e9d54e1057389e47a39(vitest@5.0.1)':
     dependencies:
       '@noeldemartin/faker': 7.6.0
       '@noeldemartin/utils': 0.7.3-next.d781b7a388963bd50ee1ae92b305ec901aaec1ca
