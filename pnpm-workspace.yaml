@@ -9,6 +9,7 @@ catalog:
     '@noeldemartin/solid-utils': next
     '@noeldemartin/testing': next
     '@noeldemartin/utils': next
+    '@noeldemartin/vite-plus-config': next
     '@rdfjs/types': ^2.0.1
     fake-indexeddb: ^6.0.1
     publint: ^0.3.24

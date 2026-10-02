@@ -11,6 +11,7 @@
         "@noeldemartin/scripts": "catalog:",
         "@noeldemartin/testing": "catalog:",
         "@noeldemartin/utils": "catalog:",
+        "@noeldemartin/vite-plus-config": "catalog:",
         "@tsconfig/node26": "^26.0.1",
         "@types/node": "^26.6.3",
         "@types/webpack-env": "^1.18.8",
@@ -22,5 +23,5 @@
         "vite-plus": "catalog:",
         "vitepress": "^1.6.3"
     },
-    "packageManager": "pnpm@11.5.2"
+    "packageManager": "pnpm@12.8.1"
 }

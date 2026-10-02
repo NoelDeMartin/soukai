@@ -15,8 +15,8 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
-        "types": "./dist/soukai-solid.d.ts",
-        "default": "./dist/soukai-solid.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
     },
     "scripts": {
         "build": "vp pack",

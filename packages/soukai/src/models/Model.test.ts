@@ -2,7 +2,7 @@ import { faker } from '@noeldemartin/faker';
 import { tt } from '@noeldemartin/testing';
 import type { Assert, Expect, Extends, HasKey, Not } from '@noeldemartin/testing';
 import { after, seconds, uuid } from '@noeldemartin/utils';
-import type { Equals } from '@noeldemartin/utils';
+import type { Equals, Tuple } from '@noeldemartin/utils';
 import { InMemoryEngine, setEngine } from 'soukai/engines';
 import { SoukaiError } from 'soukai/errors';
 import InvalidModelDefinition from 'soukai/errors/InvalidModelDefinition';
@@ -670,8 +670,7 @@ describe('Models CRUD', () => {
         useFakeClock();
 
         const surname = faker.name.lastName();
-        const initialName = faker.name.firstName();
-        const newName = faker.name.firstName();
+        const [initialName, newName] = faker.helpers.uniqueArray(() => faker.name.firstName(), 2) as Tuple<string, 2>;
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
 
@@ -713,8 +712,7 @@ describe('Models CRUD', () => {
         useFakeClock();
 
         const surname = faker.name.lastName();
-        const initialName = faker.name.firstName();
-        const newName = faker.name.firstName();
+        const [initialName, newName] = faker.helpers.uniqueArray(() => faker.name.firstName(), 2) as Tuple<string, 2>;
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
         const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
@@ -1088,8 +1086,7 @@ describe('Model attributes', () => {
         useFakeClock();
 
         const surname = faker.name.lastName();
-        const initialName = faker.name.firstName();
-        const newName = faker.name.firstName();
+        const [initialName, newName] = faker.helpers.uniqueArray(() => faker.name.firstName(), 2) as Tuple<string, 2>;
         const now = seconds();
         const model = await User.create({ name: initialName, surname });
         const id = Object.keys(FakeEngine.database[User.collection] ?? {})[0];
@@ -1170,19 +1167,14 @@ describe('Model attributes', () => {
     });
 
     it('smart dirty attributes on setter', () => {
-        const model = new User(
-            {
-                name: faker.name.firstName(),
-                surname: faker.name.lastName(),
-                contact: { phone: faker.phone.number() },
-            },
-            true,
-        );
+        const [name, newName] = faker.helpers.uniqueArray(() => faker.name.firstName(), 2) as Tuple<string, 2>;
+        const [surname, newSurname] = faker.helpers.uniqueArray(() => faker.name.lastName(), 2) as Tuple<string, 2>;
+        const model = new User({ name, surname, contact: { phone: faker.phone.number() } }, true);
 
         const originalSurname = model.surname;
 
-        model.name = faker.name.firstName();
-        model.surname = faker.name.lastName();
+        model.name = newName;
+        model.surname = newSurname;
         model.surname = originalSurname;
         model.social = { mastodon: faker.internet.userName() };
         model.age = 42;
@@ -1198,10 +1190,11 @@ describe('Model attributes', () => {
 
     it('smart dirty attributes on update', async () => {
         // Arrange
+        const [name, newName] = faker.helpers.uniqueArray(() => faker.name.firstName(), 2) as Tuple<string, 2>;
         const model = new User(
             {
                 id: uuid(),
-                name: faker.name.firstName(),
+                name,
                 surname: faker.name.lastName(),
                 contact: { phone: faker.phone.number() },
             },
@@ -1214,7 +1207,7 @@ describe('Model attributes', () => {
 
         // Act
         await model.update({
-            name: faker.name.firstName(),
+            name: newName,
             surname: model.surname,
             social: { twitter: faker.internet.userName() },
             contact: undefined,

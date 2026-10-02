@@ -19,8 +19,8 @@
     ],
     "exports": {
         ".": {
-            "types": "./dist/soukai-bis.d.ts",
-            "default": "./dist/soukai-bis.js"
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
         },
         "./patch-zod": {
             "types": "./dist/patch-zod.d.ts",

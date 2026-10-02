@@ -1,18 +1,15 @@
 import { URL, fileURLToPath } from 'node:url';
 
+import { pack } from '@noeldemartin/vite-plus-config';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
     pack: {
+        ...pack,
         entry: {
-            soukai: 'src/index.ts',
+            index: 'src/index.ts',
             testing: 'src/testing/index.ts',
         },
-        sourcemap: true,
-        dts: true,
-        fixedExtension: false,
-        publint: true,
-        attw: { profile: 'esm-only' },
     },
     resolve: {
         alias: {

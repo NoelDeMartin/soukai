@@ -21,7 +21,7 @@ jobs:
                   cache: true
             - run: vp run -r build
             - run: vp check
-            - run: vp test --reporter verbose --retry=3
+            - run: vp test --reporter verbose
     publish:
         if: github.ref == 'refs/heads/main'
         needs: ci

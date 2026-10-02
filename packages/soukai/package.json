@@ -16,8 +16,8 @@
     "sideEffects": false,
     "exports": {
         ".": {
-            "types": "./dist/soukai.d.ts",
-            "default": "./dist/soukai.js"
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
         },
         "./testing": {
             "types": "./dist/testing.d.ts",

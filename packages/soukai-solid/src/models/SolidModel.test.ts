@@ -1833,10 +1833,10 @@ describe('SolidModel', () => {
         // Arrange
         useFakeClock();
 
-        const firstName = faker.random.word();
-        const secondName = faker.random.word();
-        const firstLastName = faker.random.word();
-        const secondLastName = faker.random.word();
+        const [firstName, secondName, firstLastName, secondLastName] = faker.helpers.uniqueArray(
+            () => faker.random.word(),
+            4,
+        ) as Tuple<string, 4>;
 
         // Act
         const person = await PersonWithHistory.create({ name: firstName });

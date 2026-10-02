@@ -376,9 +376,11 @@ describe('Solid history tracking', () => {
         FakeServer.respondOnce(
             '*',
             FakeResponse.success(
-                fixture('mugiwara-3.ttl')
-                    .replace(/it-operation-1/g, urlParse(remoteMugiwara.operations[0]?.url ?? '')?.fragment ?? '')
-                    .replace(/it-operation-2/g, urlParse(remoteMugiwara.operations[1]?.url ?? '')?.fragment ?? ''),
+                fixture('mugiwara-3.ttl').replace(
+                    /it-operation-([12])\b/g,
+                    (_, index: string) =>
+                        urlParse(remoteMugiwara.operations[Number(index) - 1]?.url ?? '')?.fragment ?? '',
+                ),
             ),
         );
         FakeServer.respondOnce('*', FakeResponse.success());
