@@ -789,6 +789,18 @@ export default class Model<
         this.setAttribute(property, value);
     }
 
+    protected __delete(property: string): void {
+        if (!this.isField(property)) {
+            return;
+        }
+
+        this.setAttribute(property, undefined);
+    }
+
+    protected __has(property: string): boolean {
+        return this.isField(property);
+    }
+
     protected attributeValueChanged(originalValue: unknown, newValue: unknown): boolean {
         return !deepEquals(originalValue ?? null, newValue ?? null);
     }
