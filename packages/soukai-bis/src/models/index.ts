@@ -9,6 +9,7 @@ export * from './Model';
 export * from './registry';
 export * from './relations';
 export * from './schema';
+export * from './serialization';
 export * from './types';
 export * from './utils';
 export { default as Model } from './Model';

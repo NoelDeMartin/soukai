@@ -41,6 +41,8 @@ import { deleteModel, getDirtyDocumentsUpdates, syncDocumentOperations } from '.
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 import { buildRDFTypeIndex, createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
+import { hydrateModel, serializeModel } from './concerns/serialization';
+import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
@@ -51,6 +53,7 @@ import type Relation from './relations/Relation';
 import type { SchemaComputedAttributeDefinition } from './relations/schema';
 import { getRelatedClass } from './relations/utils';
 import type { Schema } from './schema';
+import type { LegacyTimestamps } from './types';
 import type {
     ModelComputedAttributeDefinitions,
     ModelConstructor,
@@ -305,6 +308,18 @@ export default class Model<
         return this.createManyFromRDF(quads);
     }
 
+    public static async hydrate<T extends Model>(this: ModelConstructor<T>, serialized: SerializedModel): Promise<T> {
+        const model = await hydrateModel(serialized);
+
+        if (!isInstanceOf(model, this)) {
+            throw new SoukaiError(
+                `Failed hydrating ${this.modelName}, serialized model has a different class (${model.static().modelName})`,
+            );
+        }
+
+        return model;
+    }
+
     public static on<TModel extends Model, TEvent extends ModelEvent>(
         this: ModelConstructor<TModel>,
         event: TEvent,
@@ -353,7 +368,7 @@ export default class Model<
     protected _dirtyAttributes: Set<FieldName>;
     protected _computedAttributes: Record<string, ComputedAttribute> = {};
     protected _relations: Record<string, Relation> = {};
-    protected _legacyTimestamps: { createdAt?: Date; updatedAt?: Date } | null = null;
+    protected _legacyTimestamps: LegacyTimestamps = null;
 
     public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
         super();
@@ -740,6 +755,10 @@ export default class Model<
         }
 
         return freshInstance as this;
+    }
+
+    public serialize(): SerializedModel {
+        return serializeModel(this);
     }
 
     public async toJsonLD(): Promise<JsonLD> {
