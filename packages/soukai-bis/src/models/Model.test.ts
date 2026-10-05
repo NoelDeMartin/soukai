@@ -4,6 +4,7 @@ import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import Post from 'soukai-bis/testing/stubs/Post';
+import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import User from 'soukai-bis/testing/stubs/User';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
@@ -707,6 +708,17 @@ describe('Model', () => {
         const post = await Post.create({ title: 'Hello World' });
 
         expect(post.url).toBe('solid://posts/hello-world#it');
+    });
+
+    it('gets urls from slugs', async () => {
+        const post = await Post.create({ title: 'Hello World' });
+        const collection = await PostsCollection.create({ name: 'Drafts' });
+
+        expect(Post.urlFromSlug('hello-world')).toEqual(post.url);
+        expect(Post.urlFromSlug('hello-world', { containerUrl: 'solid://drafts/' })).toEqual(
+            'solid://drafts/hello-world#it',
+        );
+        expect(PostsCollection.urlFromSlug('drafts')).toEqual(collection.url);
     });
 
     it('infers attribute types', () => {

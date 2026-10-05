@@ -76,6 +76,8 @@ export interface ModelConstructorOptions {
     source?: Nullable<Quad[]>;
 }
 
+export type UrlFromSlugOptions = Pick<MintUrlOptions, 'containerUrl'>;
+
 export default class Model<
     Attributes extends Record<string, unknown> = Record<string, unknown>,
     Relations extends Record<string, unknown> = Record<string, unknown>,
@@ -125,6 +127,17 @@ export default class Model<
 
     public static setEngine(engine?: Engine): void {
         this.__engine = engine ?? null;
+    }
+
+    public static urlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
+        const documentUrl = this.documentUrlFromSlug(slug, options);
+        const resourceHash = this.schema.rdfDefaultResourceHash;
+
+        return resourceHash ? `${documentUrl}#${resourceHash}` : documentUrl;
+    }
+
+    public static documentUrlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
+        return urlResolve(options.containerUrl ?? this.defaultContainerUrl, slug);
     }
 
     public static requireFetch(): Fetch {
@@ -832,9 +845,7 @@ export default class Model<
     }
 
     protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
-        const slug = this.getSlug() ?? uuid();
-
-        return urlResolve(options.containerUrl ?? this.static('defaultContainerUrl'), slug);
+        return this.static().documentUrlFromSlug(this.getSlug() ?? uuid(), options);
     }
 
     protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {

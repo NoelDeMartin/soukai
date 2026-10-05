@@ -4,12 +4,20 @@ import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from 
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
-import type { MintUrlOptions } from 'soukai-bis/models/Model';
+import type { MintUrlOptions, UrlFromSlugOptions } from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './Container.schema';
 
 export default class Container extends Model {
+    public static urlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
+        return this.documentUrlFromSlug(slug, options);
+    }
+
+    public static documentUrlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
+        return urlResolveDirectory(super.documentUrlFromSlug(slug, options));
+    }
+
     public static async createFromTypeIndex<T extends Container>(
         this: ModelConstructor<T>,
         typeIndex: string | ModelWithUrl<TypeIndex>,
