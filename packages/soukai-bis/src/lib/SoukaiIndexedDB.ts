@@ -1,4 +1,5 @@
-import { PromisedValue, arrayRemove, facade } from '@noeldemartin/utils';
+import { ListenersManager, PromisedValue, facade } from '@noeldemartin/utils';
+import type { Listeners } from '@noeldemartin/utils';
 import { deleteDB, openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -10,6 +11,10 @@ export interface LocalDocument {
     containerUrl: string;
     resources: IDBGraph;
     lastModifiedAt?: Date | null;
+}
+
+export interface SoukaiIndexedDBListener {
+    onCleared?(): unknown;
 }
 
 export interface SoukaiIndexedDBSchema extends DBSchema {
@@ -40,7 +45,11 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
 
 export class SoukaiIndexedDB {
     private promisedConnection: PromisedValue<IDBPDatabase<SoukaiIndexedDBSchema>> | null = null;
-    private clearListeners: (() => void)[] = [];
+    private _listeners = new ListenersManager<SoukaiIndexedDBListener>();
+
+    public get listeners(): Listeners<SoukaiIndexedDBListener> {
+        return this._listeners;
+    }
 
     public async connect(): Promise<IDBPDatabase<SoukaiIndexedDBSchema>> {
         if (!this.promisedConnection) {
@@ -58,6 +67,17 @@ export class SoukaiIndexedDB {
                         documentsStore.createIndex('lastModifiedAt', 'lastModifiedAt', { unique: false });
                     },
                     blocked: () => this.throwDatabaseBlockedError(),
+                    blocking: (_, blockedVersion) => {
+                        connection.close();
+
+                        if (this.promisedConnection === promised) {
+                            this.promisedConnection = null;
+                        }
+
+                        if (blockedVersion === null) {
+                            void this._listeners.emit('onCleared');
+                        }
+                    },
                 });
 
                 promised.resolve(connection);
@@ -95,13 +115,7 @@ export class SoukaiIndexedDB {
             blocked: () => this.throwDatabaseBlockedError(),
         });
 
-        this.clearListeners.forEach((listener) => listener());
-    }
-
-    public addClearListener(listener: () => void): () => void {
-        this.clearListeners.push(listener);
-
-        return () => arrayRemove(this.clearListeners, listener);
+        await this._listeners.emit('onCleared');
     }
 
     private throwDatabaseBlockedError(): void {

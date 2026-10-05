@@ -21,7 +21,7 @@ export default class InMemoryIDBStore<
     TStoreName extends keyof SoukaiIndexedDBSchema & StoreNames<SoukaiIndexedDBSchema>,
 > {
     private cache: PromisedValue<Map<string, SoukaiIndexedDBSchema[TStoreName]['value']>> | null = null;
-    private clearListener: (() => void) | null = null;
+    private listening = false;
 
     constructor(private storeName: TStoreName) {}
 
@@ -90,10 +90,10 @@ export default class InMemoryIDBStore<
     }
 
     private getCache(): PromisedValue<Map<string, SoukaiIndexedDBSchema[TStoreName]['value']>> {
-        if (!this.clearListener) {
-            this.clearListener = () => (this.cache = null);
+        if (!this.listening) {
+            this.listening = true;
 
-            SoukaiIndexedDB.addClearListener(this.clearListener);
+            SoukaiIndexedDB.listeners.add({ onCleared: () => (this.cache = null) });
         }
 
         if (!this.cache) {

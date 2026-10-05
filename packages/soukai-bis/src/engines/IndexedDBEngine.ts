@@ -39,6 +39,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     public static readonly engineName = 'IndexedDBEngine';
 
     private containersIndexCache: PromisedValue<ContainersIndex> | null = null;
+    private removeIndexedDBListener: (() => void) | null = null;
 
     public async createDocument(
         url: string,
@@ -330,6 +331,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     }
 
     public async close(): Promise<void> {
+        this.removeIndexedDBListener?.();
+        this.removeIndexedDBListener = null;
+
         await SoukaiIndexedDB.close();
     }
 
@@ -466,19 +470,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     private async getContainersIndex(): Promise<ContainersIndex> {
         if (!this.containersIndexCache) {
             const promised = (this.containersIndexCache = new PromisedValue());
-            const removeClearListener = SoukaiIndexedDB.addClearListener(() => {
-                if (this.containersIndexCache !== promised) {
-                    return;
-                }
-
-                if (!promised.isResolved()) {
-                    promised.reject(new SoukaiError('IndexedDB was cleared while loading containers index'));
-                }
-
-                this.containersIndexCache = null;
+            this.removeIndexedDBListener ??= SoukaiIndexedDB.listeners.add({
+                onCleared: () => this.onIndexedDBCleared(),
             });
-
-            promised.finally(removeClearListener);
 
             try {
                 const connection = await SoukaiIndexedDB.connect();
@@ -619,6 +613,14 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const index = await this.getContainersIndex();
 
         return index.has(url);
+    }
+
+    private onIndexedDBCleared(): void {
+        if (this.containersIndexCache && !this.containersIndexCache.isResolved()) {
+            this.containersIndexCache.reject(new SoukaiError('IndexedDB was cleared while loading containers index'));
+        }
+
+        this.containersIndexCache = null;
     }
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(

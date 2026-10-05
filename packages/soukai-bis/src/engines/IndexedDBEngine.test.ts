@@ -2,8 +2,10 @@ import { faker } from '@noeldemartin/faker';
 import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { deleteDB } from 'idb';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import { getNamespace } from 'soukai-bis/lib/namespace';
 import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
 import type { LocalDocument } from 'soukai-bis/lib/SoukaiIndexedDB';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
@@ -830,6 +832,29 @@ describe('IndexedDBEngine', () => {
                 show2Episode1DocumentUrl,
             ]),
         );
+    });
+
+    it('resets containers index when the database is deleted from another context', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+
+        await engine.createDocument(fakeDocumentUrl({ containerUrl }), {
+            '@id': `${fakeDocumentUrl({ containerUrl })}#it`,
+            '@type': expandIRI('foaf:Person'),
+        });
+
+        // Act
+        await deleteDB(getNamespace());
+        await engine.createDocument(fakeDocumentUrl({ containerUrl }), {
+            '@id': `${fakeDocumentUrl({ containerUrl })}#it`,
+            '@type': expandIRI('foaf:Person'),
+        });
+
+        // Assert
+        const db = await SoukaiIndexedDB.connect();
+        const containers = await db.getAll('containers');
+
+        expect(containers).toEqual([{ url: containerUrl }]);
     });
 
     async function resetDatabase(): Promise<void> {
