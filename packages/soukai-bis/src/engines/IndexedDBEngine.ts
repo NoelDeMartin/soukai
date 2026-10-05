@@ -10,7 +10,7 @@ import {
     tap,
 } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-import type { IDBPTransaction } from 'idb';
+import type { IDBPIndex, IDBPObjectStore, IDBPTransaction } from 'idb';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -307,6 +307,26 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         return store.index('lastModifiedAt').getAllKeys(metadata.lastModifiedAt);
     }
 
+    public async countDocuments(options: { containerUrl: string; deep?: boolean; depth?: number }): Promise<number> {
+        const { containerUrl, ...containerOptions } = options;
+        const containersIndex = await this.getContainersIndex();
+
+        if (!containersIndex.has(containerUrl) && !containersIndex.childrenOf(containerUrl)) {
+            throw new DocumentNotFound(containerUrl);
+        }
+
+        const { documents: documentUrls, containerUrls } = await this.queryContainerDocuments(
+            containerUrl,
+            containerOptions,
+            {
+                root: (store) => store.getKey(containerUrl),
+                children: (index, query) => index.getAllKeys(query),
+            },
+        );
+
+        return new Set([...containerUrls, ...documentUrls]).size;
+    }
+
     public async getDocumentsLastModifiedAt(): Promise<Record<string, Date | null>> {
         const connection = await SoukaiIndexedDB.connect();
         const transaction = connection.transaction('documents', 'readonly');
@@ -413,7 +433,10 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             throw new DocumentNotFound(containerUrl);
         }
 
-        const { documents, containerUrls } = await this.getContainerDocumentsAndUrls(containerUrl, options);
+        const { documents, containerUrls } = await this.queryContainerDocuments(containerUrl, options, {
+            root: (store) => store.get(containerUrl),
+            children: (index, query) => index.getAll(query),
+        });
         const documentsByUrl = new Map<string, LocalDocument>();
         const documentsByContainer = new Map<string, LocalDocument[]>();
 
@@ -439,25 +462,28 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         });
     }
 
-    private async getContainerDocumentsAndUrls(
+    private async queryContainerDocuments<T>(
         containerUrl: string,
-        options: { deep?: boolean; depth?: number } = {},
-    ): Promise<{ documents: LocalDocument[]; containerUrls: Set<string> }> {
+        options: { deep?: boolean; depth?: number },
+        queries: {
+            root(store: IDBPObjectStore<SoukaiIndexedDBSchema, ['documents'], 'documents'>): Promise<T | undefined>;
+            children(
+                index: IDBPIndex<SoukaiIndexedDBSchema, ['documents'], 'documents', 'containerUrl'>,
+                query: string | IDBKeyRange,
+            ): Promise<T[]>;
+        },
+    ): Promise<{ documents: T[]; containerUrls: Set<string> }> {
         const containerUrls = new Set(await this.getContainerUrls({ from: containerUrl, ...options }));
         const connection = await SoukaiIndexedDB.connect();
         const transaction = connection.transaction('documents', 'readonly');
-        const rootDocument = await transaction.objectStore('documents').get(containerUrl);
+        const index = transaction.store.index('containerUrl');
+        const rootDocument = await queries.root(transaction.store);
         const childDocuments =
             options.deep === true
-                ? await transaction
-                      .objectStore('documents')
-                      .index('containerUrl')
-                      .getAll(IDBKeyRange.bound(containerUrl, containerUrl + '\uffff'))
-                : await Promise.all(
-                      Array.from(containerUrls).map((url) =>
-                          transaction.objectStore('documents').index('containerUrl').getAll(url),
-                      ),
-                  ).then((results) => results.flat());
+                ? await queries.children(index, IDBKeyRange.bound(containerUrl, containerUrl + '\uffff'))
+                : await Promise.all(Array.from(containerUrls).map((url) => queries.children(index, url))).then(
+                      (results) => results.flat(),
+                  );
 
         await transaction.done;
 

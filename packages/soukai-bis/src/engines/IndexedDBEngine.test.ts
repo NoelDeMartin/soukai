@@ -702,9 +702,11 @@ describe('IndexedDBEngine', () => {
 
         // Act
         const documents = await engine.readDocuments({ containerUrl: rootContainerUrl, deep: true });
+        const documentsCount = await engine.countDocuments({ containerUrl: rootContainerUrl, deep: true });
 
         // Assert
         expect(Object.keys(documents)).toHaveLength(7);
+        expect(documentsCount).toEqual(7);
         expect(Object.keys(documents)).toEqual(
             expect.arrayContaining([
                 rootContainerUrl,
@@ -819,9 +821,11 @@ describe('IndexedDBEngine', () => {
 
         // Act
         const documents = await engine.readDocuments({ containerUrl: rootContainerUrl, depth: 1 });
+        const documentsCount = await engine.countDocuments({ containerUrl: rootContainerUrl, depth: 1 });
 
         // Assert
         expect(Object.keys(documents)).toHaveLength(6);
+        expect(documentsCount).toEqual(6);
         expect(Object.keys(documents)).toEqual(
             expect.arrayContaining([
                 rootContainerUrl,
