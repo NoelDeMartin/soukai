@@ -48,7 +48,7 @@ import {
     loadDocumentRelations,
     serializeToRDF,
 } from './concerns/rdf';
-import { hydrateModel, hydrateModelRelations, serializeModel } from './concerns/serialization';
+import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
@@ -93,6 +93,7 @@ export default class Model<
 > extends MagicObject {
     public static schema: Schema;
     private static __engine: Engine | null = null;
+    private static __hydrating: boolean = false;
 
     public static computed: ModelComputedAttributeDefinitions;
 
@@ -114,6 +115,20 @@ export default class Model<
 
     public static reset(): void {
         reset(this);
+    }
+
+    public static hydrating<T>(operation: () => T): T {
+        Model.__hydrating = true;
+
+        try {
+            return operation();
+        } finally {
+            Model.__hydrating = false;
+        }
+    }
+
+    protected static isHydrating(): boolean {
+        return Model.__hydrating;
     }
 
     public static newInstance<T extends Model>(
@@ -411,6 +426,15 @@ export default class Model<
         const exists = options.exists ?? false;
         this._exists = exists;
         this._documentExists = exists;
+
+        if (Model.isHydrating()) {
+            this._attributes = objectDeepClone(attributes) as Attributes;
+            this._originalAttributes = (exists ? objectDeepClone(attributes) : {}) as Attributes;
+            this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
+
+            return;
+        }
+
         this._attributes = this.parseAttributes(attributes);
         this._originalAttributes = (exists ? objectDeepClone(this._attributes) : {}) as Attributes;
         this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
@@ -541,6 +565,12 @@ export default class Model<
         }
 
         return this.getRelation(name).related as T;
+    }
+
+    public async loadComputedAttributes(): Promise<void> {
+        await Promise.all(
+            this.getMissingComputedAttributes().map((computedAttribute) => computedAttribute.updateValue()),
+        );
     }
 
     public mintUrl(options: MintUrlOptions = {}): string {
@@ -784,16 +814,8 @@ export default class Model<
         return freshInstance as this;
     }
 
-    public serialize(options: { relations?: RelationName[] } = {}): SerializedModel {
-        return serializeModel(this, options);
-    }
-
-    public async hydrateRelations(serialized: SerializedModel): Promise<void> {
-        const relations = await hydrateModelRelations(this, serialized);
-
-        for (const relation of relations) {
-            await emitModelEvent(this, 'relation-loaded', relation);
-        }
+    public serialize(): SerializedModel {
+        return serializeModel(this);
     }
 
     public async toJsonLD(): Promise<JsonLD> {
@@ -1000,17 +1022,17 @@ export default class Model<
     }
 
     protected async restoreComputedAttributes(): Promise<void> {
-        const computedAttributes = Object.keys(this.static('schema').computed);
-
         await Promise.all(
-            computedAttributes.map(async (computedAttribute) => {
-                await this.getComputedAttribute(computedAttribute).updateValue({
-                    refresh: false,
-                    useCache: true,
-                    loadRelations: false,
-                });
-            }),
+            this.getMissingComputedAttributes().map((computedAttribute) =>
+                computedAttribute.updateValue({ refresh: false, useCache: true, loadRelations: false }),
+            ),
         );
+    }
+
+    protected getMissingComputedAttributes(): ComputedAttribute[] {
+        return Object.keys(this.static('schema').computed)
+            .map((name) => this.getComputedAttribute(name))
+            .filter((computedAttribute) => computedAttribute.value === undefined);
     }
 
     protected touch(now?: Date): void {

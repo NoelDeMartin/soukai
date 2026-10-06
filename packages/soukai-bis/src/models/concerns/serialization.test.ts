@@ -1,9 +1,9 @@
 import { fakeContainerUrl } from '@noeldemartin/testing';
+import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import { clearCache } from 'soukai-bis/models/computed-attributes/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
-import Season from 'soukai-bis/testing/stubs/Season';
-import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { describe, expect, it } from 'vite-plus/test';
@@ -56,6 +56,34 @@ describe('Models serialization', () => {
         expect(freshMovie.createdAt).toEqual(movie.createdAt);
     });
 
+    it('keeps original attributes of hydrated models', async () => {
+        // Arrange
+        const movie = await Movie.create({ title: 'Spirited Away' });
+        const hydratedMovie = await Movie.hydrate(structuredClone(movie.serialize()));
+
+        // Act
+        hydratedMovie.setAttribute('title', 'Princess Mononoke');
+
+        // Assert
+        expect(hydratedMovie.title).toEqual('Princess Mononoke');
+        expect(hydratedMovie.getOriginalAttribute('title')).toEqual('Spirited Away');
+        expect(hydratedMovie.isDirty('title')).toBe(true);
+    });
+
+    it('only skips validations while hydrating', async () => {
+        // Arrange
+        const movie = await Movie.create({ title: 'Spirited Away' });
+
+        await Movie.hydrate(structuredClone(movie.serialize()));
+
+        // Act
+        const newMovie = new Movie({ title: 'Princess Mononoke' });
+
+        // Assert
+        expect(newMovie.metadata).toBeInstanceOf(Metadata);
+        expect(() => new User({ name: 'John Doe', email: 'invalid-email' })).toThrow(InvalidAttributesError);
+    });
+
     it('hydrates computed attributes and shared instances', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
@@ -76,51 +104,22 @@ describe('Models serialization', () => {
         expect(hydratedUser.isRelationLoaded('friends')).toBe(false);
     });
 
-    it('hydrates relations into existing models', async () => {
+    it('hydrates computed attributes without cache', async () => {
         // Arrange
-        const show = new Show({ name: 'House M.D.' });
+        const user = await User.create({ name: 'Alice' });
 
-        show.relatedSeasons.attach({}, { mintUrl: true });
+        await user.loadRelation('posts');
+        await user.relatedPosts.create({ title: 'Hello World' });
 
-        await show.save();
+        const serialized = structuredClone(user.serialize());
 
-        const loadedShow = await Show.findOrFail(show.requireUrl());
-        const existingShow = await Show.findOrFail(show.requireUrl());
-        const existingMetadata = existingShow.metadata;
-
-        const loadedRelations: unknown[] = [];
-
-        existingShow.relatedSeasons.unload();
-
-        const removeListener = Show.on('relation-loaded', (_, relation) => loadedRelations.push(relation));
+        await clearCache();
 
         // Act
-        const serialized = structuredClone(loadedShow.serialize({ relations: ['seasons'] }));
-
-        await existingShow.hydrateRelations(serialized);
-
-        removeListener();
+        const hydratedUser = await User.hydrate(serialized);
 
         // Assert
-        expect(Object.keys(serialized.nodes[0]?.relations ?? {})).toEqual(['seasons']);
-        expect(existingShow.metadata).toBe(existingMetadata);
-        expect(existingShow.isRelationLoaded('seasons')).toBe(true);
-        expect(existingShow.seasons).toHaveLength(1);
-        expect(existingShow.seasons?.[0]).toBeInstanceOf(Season);
-        expect(existingShow.seasons?.[0]?.url).toEqual(show.seasons?.[0]?.url);
-        expect(existingShow.seasons?.[0]?.exists()).toBe(true);
-        expect(loadedRelations).toEqual([existingShow.relatedSeasons]);
-    });
-
-    it("doesn't hydrate relations into different models", async () => {
-        // Arrange
-        const house = await Show.create({ name: 'House M.D.' });
-        const lost = await Show.create({ name: 'Lost' });
-
-        // Act
-        const hydrate = lost.hydrateRelations(house.serialize({ relations: ['seasons'] }));
-
-        // Assert
-        await expect(hydrate).rejects.toThrow("serialized model doesn't match");
+        expect(serialized.nodes[0]?.computed).toEqual({ postTitles: ['Hello World'] });
+        expect(hydratedUser.postTitles.value).toEqual(['Hello World']);
     });
 });

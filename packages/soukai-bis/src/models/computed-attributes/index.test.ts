@@ -3,6 +3,7 @@ import User from 'soukai-bis/testing/stubs/User';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import ComputedAttribute from './ComputedAttribute';
+import { clearCache } from './helpers';
 
 describe('Computed Attributes', () => {
     beforeEach(() => ComputedAttribute.enableLoadingRelations());
@@ -24,6 +25,24 @@ describe('Computed Attributes', () => {
         const freshUser = await user.fresh();
 
         expect(freshUser.postTitles.value).toEqual(['Hello World']);
+    });
+
+    it('loads missing computed attributes', async () => {
+        // Arrange
+        const user = await User.create({ name: 'Alice' });
+
+        await user.loadRelation('posts');
+        await user.relatedPosts.create({ title: 'Hello World' });
+        await clearCache();
+
+        const freshUser = await user.fresh();
+
+        // Act
+        await freshUser.loadComputedAttributes();
+
+        // Assert
+        expect(freshUser.postTitles.value).toEqual(['Hello World']);
+        expect(freshUser.isRelationLoaded('posts')).toBe(false);
     });
 
     it('recomputes after saving affected attributes', async () => {

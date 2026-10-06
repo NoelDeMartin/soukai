@@ -69,6 +69,10 @@ export default class ComputedAttribute<TValue = unknown> {
         return this._value;
     }
 
+    public setValue(value: TValue | undefined): void {
+        this._value = value;
+    }
+
     public subscribe(listener: ComputedAttributeListener<TValue>): () => void {
         this.listeners.add(listener);
 

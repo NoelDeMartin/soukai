@@ -1,8 +1,14 @@
 import { PromisedValue } from '@noeldemartin/utils';
 import type { IDBPCursorWithValue, IndexKey, StoreKey, StoreNames, StoreValue } from 'idb';
+import { getNamespace } from 'soukai-bis/lib/namespace';
 
 import SoukaiIndexedDB from './SoukaiIndexedDB';
 import type { SoukaiIndexedDBSchema } from './SoukaiIndexedDB';
+
+type InMemoryIDBStoreMessage<TValue> =
+    | { type: 'set'; key: string; value: TValue }
+    | { type: 'delete'; key: string }
+    | { type: 'clear' };
 
 export type InMemoryIDBStoreCursor<
     // oxlint-disable-next-line typescript/no-redundant-type-constituents
@@ -22,6 +28,7 @@ export default class InMemoryIDBStore<
 > {
     private cache: PromisedValue<Map<string, SoukaiIndexedDBSchema[TStoreName]['value']>> | null = null;
     private listening = false;
+    private channel: BroadcastChannel | null = null;
 
     constructor(private storeName: TStoreName) {}
 
@@ -45,7 +52,10 @@ export default class InMemoryIDBStore<
             await transaction.done;
 
             const cache = await this.getCache();
-            cache.set(this.inMemoryKey(key), value);
+            const inMemoryKey = this.inMemoryKey(key);
+
+            cache.set(inMemoryKey, value);
+            this.broadcast({ type: 'set', key: inMemoryKey, value });
         } catch (error) {
             this.cache = null;
 
@@ -61,6 +71,8 @@ export default class InMemoryIDBStore<
 
         await store.clear();
         await transaction.done;
+
+        this.broadcast({ type: 'clear' });
     }
 
     public async traverse<T extends IDBTransactionMode>(
@@ -94,6 +106,7 @@ export default class InMemoryIDBStore<
             this.listening = true;
 
             SoukaiIndexedDB.listeners.add({ onCleared: () => (this.cache = null) });
+            this.listenBroadcasts();
         }
 
         if (!this.cache) {
@@ -156,14 +169,48 @@ export default class InMemoryIDBStore<
             update: async (newValue: StoreValue<SoukaiIndexedDBSchema, TStoreName>) => {
                 await _cursor.update(newValue);
 
-                cache.set(this.inMemoryKey(_cursor.key), newValue);
+                const inMemoryKey = this.inMemoryKey(_cursor.key);
+
+                cache.set(inMemoryKey, newValue);
+                this.broadcast({ type: 'set', key: inMemoryKey, value: newValue });
             },
             delete: async () => {
                 await _cursor.delete();
 
-                cache.delete(this.inMemoryKey(_cursor.key));
+                const inMemoryKey = this.inMemoryKey(_cursor.key);
+
+                cache.delete(inMemoryKey);
+                this.broadcast({ type: 'delete', key: inMemoryKey });
             },
         } as unknown as InMemoryIDBStoreCursor<TStoreName, T>;
+    }
+
+    private listenBroadcasts(): void {
+        if (typeof BroadcastChannel === 'undefined') {
+            return;
+        }
+
+        this.channel = new BroadcastChannel(`soukai:${getNamespace()}:${this.storeName}`);
+        this.channel.addEventListener('message', ({ data }) => this.applyBroadcast(data));
+
+        (this.channel as BroadcastChannel & { unref?(): void }).unref?.();
+    }
+
+    private broadcast(message: InMemoryIDBStoreMessage<SoukaiIndexedDBSchema[TStoreName]['value']>): void {
+        this.channel?.postMessage(message);
+    }
+
+    private applyBroadcast(message: InMemoryIDBStoreMessage<SoukaiIndexedDBSchema[TStoreName]['value']>): void {
+        if (message.type === 'clear') {
+            this.cache = null;
+
+            return;
+        }
+
+        void this.cache?.then(
+            (cache) => (message.type === 'set' ? cache.set(message.key, message.value) : cache.delete(message.key)),
+            () => null,
+        );
     }
 
     private inMemoryKey(

@@ -22,6 +22,7 @@ export interface SerializedModelNode {
     documentExists: boolean;
     legacyTimestamps: LegacyTimestamps;
     relations: Record<string, SerializedRelation>;
+    computed: Record<string, unknown>;
 }
 
 export interface SerializedModel {
@@ -29,11 +30,25 @@ export interface SerializedModel {
 }
 
 function invaded(model: Model) {
-    return invade(model, ['_relations', '_legacyTimestamps', 'restoreComputedAttributes']);
+    return invade(model, ['_relations', '_legacyTimestamps', '_computedAttributes', 'restoreComputedAttributes']);
 }
 
 function nullOrUndefined(value: unknown): null | undefined {
     return value === null ? null : undefined;
+}
+
+function serializeComputedAttributes(model: Model): Record<string, unknown> {
+    const computed: Record<string, unknown> = {};
+
+    for (const [name, computedAttribute] of Object.entries(invaded(model)._computedAttributes)) {
+        if (computedAttribute.value === undefined) {
+            continue;
+        }
+
+        computed[name] = computedAttribute.value;
+    }
+
+    return computed;
 }
 
 function hasRelationState(relation: Relation): boolean {
@@ -52,12 +67,7 @@ function hasRelationState(relation: Relation): boolean {
     return false;
 }
 
-function serializeModelNode(
-    model: Model,
-    serialized: SerializedModel,
-    indexes: Map<Model, number>,
-    relationNames?: string[],
-): number {
+function serializeModelNode(model: Model, serialized: SerializedModel, indexes: Map<Model, number>): number {
     const existingIndex = indexes.get(model);
 
     if (existingIndex !== undefined) {
@@ -76,13 +86,14 @@ function serializeModelNode(
         documentExists: model.documentExists(),
         legacyTimestamps: invaded(model)._legacyTimestamps,
         relations: {},
+        computed: serializeComputedAttributes(model),
     };
 
     indexes.set(model, index);
     serialized.nodes.push(node);
 
     for (const [name, relation] of Object.entries(invaded(model)._relations)) {
-        if ((relationNames && !relationNames.includes(name)) || !hasRelationState(relation)) {
+        if (!hasRelationState(relation)) {
             continue;
         }
 
@@ -155,75 +166,41 @@ function hydrateRelation(relation: Relation, serialized: SerializedRelation, mod
     relation.documentModelsLoaded = serialized.documentModelsLoaded;
 }
 
-async function hydrateModels(
-    serialized: SerializedModel,
-    root?: Model,
-): Promise<{ models: Model[]; rootRelations: Relation[] }> {
-    const rootRelations: Relation[] = [];
-    const models = serialized.nodes.map((node, index) =>
-        root && index === 0
-            ? root
-            : requireBootedModel(node.modelName).newInstance(node.attributes, { exists: node.exists }),
-    );
-
-    serialized.nodes.forEach((node, index) => {
-        const model = requireHydratedModel(models, index);
-
-        for (const [name, serializedRelation] of Object.entries(node.relations)) {
-            const relation = model.getRelation(name);
-
-            if (model === root && relation.loaded) {
-                continue;
-            }
-
-            hydrateRelation(relation, serializedRelation, models);
-
-            if (model === root && relation.loaded) {
-                rootRelations.push(relation);
-            }
-        }
-    });
-
-    serialized.nodes.forEach((node, index) => {
-        const model = requireHydratedModel(models, index);
-
-        if (model === root) {
-            return;
-        }
-
-        model.setDocumentExists(node.documentExists);
-        invaded(model)._legacyTimestamps = node.legacyTimestamps;
-    });
-
-    await Promise.all(models.map((model) => invaded(model).restoreComputedAttributes()));
-
-    return { models, rootRelations };
-}
-
-export function serializeModel(model: Model, options: { relations?: string[] } = {}): SerializedModel {
+export function serializeModel(model: Model): SerializedModel {
     const serialized: SerializedModel = { nodes: [] };
 
-    serializeModelNode(model, serialized, new Map(), options.relations);
+    serializeModelNode(model, serialized, new Map());
 
     return serialized;
 }
 
 export async function hydrateModel(serialized: SerializedModel): Promise<Model> {
-    const { models } = await hydrateModels(serialized);
+    const models = serialized.nodes.map((node) => {
+        const modelClass = requireBootedModel(node.modelName);
+
+        return modelClass.hydrating(() => modelClass.newInstance(node.attributes, { exists: node.exists }));
+    });
+
+    serialized.nodes.forEach((node, index) => {
+        const model = requireHydratedModel(models, index);
+
+        for (const [name, serializedRelation] of Object.entries(node.relations)) {
+            hydrateRelation(model.getRelation(name), serializedRelation, models);
+        }
+    });
+
+    serialized.nodes.forEach((node, index) => {
+        const model = requireHydratedModel(models, index);
+
+        model.setDocumentExists(node.documentExists);
+        invaded(model)._legacyTimestamps = node.legacyTimestamps;
+
+        for (const [name, value] of Object.entries(node.computed)) {
+            model.getComputedAttribute(name).setValue(value);
+        }
+    });
+
+    await Promise.all(models.map((model) => invaded(model).restoreComputedAttributes()));
 
     return requireHydratedModel(models, 0);
-}
-
-export async function hydrateModelRelations(model: Model, serialized: SerializedModel): Promise<Relation[]> {
-    const rootNode = serialized.nodes[0];
-
-    if (rootNode?.modelName !== model.static().modelName || rootNode.attributes.url !== model.url) {
-        throw new SoukaiError(
-            `Failed hydrating ${model.static().modelName} relations, serialized model doesn't match ${model.url}`,
-        );
-    }
-
-    const { rootRelations } = await hydrateModels(serialized, model);
-
-    return rootRelations;
 }
