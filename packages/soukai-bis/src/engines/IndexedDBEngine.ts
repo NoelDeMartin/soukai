@@ -2,6 +2,7 @@ import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads } from '@noeldemart
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
 import {
     PromisedValue,
+    arrayChunk,
     arrayUnique,
     isTruthy,
     objectEntries,
@@ -255,6 +256,18 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         }
     }
 
+    public async *readDocumentsInBatches(
+        containerUrl: string,
+        options: { deep?: boolean; depth?: number; batchSize?: number } = {},
+    ): AsyncGenerator<Record<string, SolidDocument>> {
+        const { batchSize = 50, ...containerOptions } = options;
+        const documentUrls = await this.getContainerDocumentUrls(containerUrl, containerOptions);
+
+        for (const urls of arrayChunk(documentUrls, batchSize)) {
+            yield this.readDocumentsByUrl(urls);
+        }
+    }
+
     public async getContainerUrls(options: { from?: string; deep?: boolean; depth?: number } = {}): Promise<string[]> {
         const index = await this.getContainersIndex();
 
@@ -309,22 +322,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     public async countDocuments(options: { containerUrl: string; deep?: boolean; depth?: number }): Promise<number> {
         const { containerUrl, ...containerOptions } = options;
-        const containersIndex = await this.getContainersIndex();
+        const documentUrls = await this.getContainerDocumentUrls(containerUrl, containerOptions);
 
-        if (!containersIndex.has(containerUrl) && !containersIndex.childrenOf(containerUrl)) {
-            throw new DocumentNotFound(containerUrl);
-        }
-
-        const { documents: documentUrls, containerUrls } = await this.queryContainerDocuments(
-            containerUrl,
-            containerOptions,
-            {
-                root: (store) => store.getKey(containerUrl),
-                children: (index, query) => index.getAllKeys(query),
-            },
-        );
-
-        return new Set([...containerUrls, ...documentUrls]).size;
+        return documentUrls.length;
     }
 
     public async getDocumentsLastModifiedAt(): Promise<Record<string, Date | null>> {
@@ -460,6 +460,24 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             documentsByContainer,
             containersIndex,
         });
+    }
+
+    private async getContainerDocumentUrls(
+        containerUrl: string,
+        options: { deep?: boolean; depth?: number },
+    ): Promise<string[]> {
+        const containersIndex = await this.getContainersIndex();
+
+        if (!containersIndex.has(containerUrl) && !containersIndex.childrenOf(containerUrl)) {
+            throw new DocumentNotFound(containerUrl);
+        }
+
+        const { documents: documentUrls, containerUrls } = await this.queryContainerDocuments(containerUrl, options, {
+            root: (store) => store.getKey(containerUrl),
+            children: (index, query) => index.getAllKeys(query),
+        });
+
+        return arrayUnique([...containerUrls, ...documentUrls]);
     }
 
     private async queryContainerDocuments<T>(

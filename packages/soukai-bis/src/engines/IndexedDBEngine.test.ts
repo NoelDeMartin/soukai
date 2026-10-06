@@ -838,6 +838,51 @@ describe('IndexedDBEngine', () => {
         );
     });
 
+    it('reads documents in batches', async () => {
+        // Arrange
+        const rootContainerUrl = fakeContainerUrl();
+        const showContainerUrl = `${rootContainerUrl}show/`;
+        const showEpisodeDocumentUrl = `${showContainerUrl}episode`;
+        const movieDocumentUrls = Array.from({ length: 60 }, (_, index) => `${rootContainerUrl}movie-${index}`);
+
+        await setDatabaseDocument(rootContainerUrl, showContainerUrl, {
+            '@id': showContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+
+        await setDatabaseDocument(showContainerUrl, showEpisodeDocumentUrl, {
+            '@id': `${showEpisodeDocumentUrl}#it`,
+            '@type': 'https://schema.org/Episode',
+        });
+
+        for (const url of movieDocumentUrls) {
+            await setDatabaseDocument(rootContainerUrl, url, {
+                '@id': `${url}#it`,
+                '@type': 'https://schema.org/Movie',
+            });
+        }
+
+        // Act
+        const batches: Record<string, unknown>[] = [];
+
+        for await (const batch of engine.readDocumentsInBatches(rootContainerUrl, { depth: 1 })) {
+            batches.push(batch);
+        }
+
+        // Assert
+        const documents = await engine.readDocuments({ containerUrl: rootContainerUrl, depth: 1 });
+        const batchedDocuments = Object.assign({}, ...batches) as typeof documents;
+
+        expect(batches.map((batch) => Object.keys(batch).length)).toEqual([50, 13]);
+        expect(Object.keys(batchedDocuments).sort()).toEqual(Object.keys(documents).sort());
+
+        for (const [url, document] of Object.entries(documents)) {
+            const batchedJsonLD = await quadsToJsonLD(batchedDocuments[url]?.statements() ?? []);
+
+            await expect(batchedJsonLD).toEqualJsonLD(await quadsToJsonLD(document.statements()));
+        }
+    });
+
     it('resets containers index when the database is deleted from another context', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
