@@ -48,7 +48,7 @@ import {
     loadDocumentRelations,
     serializeToRDF,
 } from './concerns/rdf';
-import { hydrateModel, serializeModel } from './concerns/serialization';
+import { hydrateModel, hydrateModelRelations, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
@@ -784,8 +784,16 @@ export default class Model<
         return freshInstance as this;
     }
 
-    public serialize(): SerializedModel {
-        return serializeModel(this);
+    public serialize(options: { relations?: RelationName[] } = {}): SerializedModel {
+        return serializeModel(this, options);
+    }
+
+    public async hydrateRelations(serialized: SerializedModel): Promise<void> {
+        const relations = await hydrateModelRelations(this, serialized);
+
+        for (const relation of relations) {
+            await emitModelEvent(this, 'relation-loaded', relation);
+        }
     }
 
     public async toJsonLD(): Promise<JsonLD> {

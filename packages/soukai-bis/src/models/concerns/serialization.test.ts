@@ -2,6 +2,8 @@ import { fakeContainerUrl } from '@noeldemartin/testing';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
+import Season from 'soukai-bis/testing/stubs/Season';
+import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { describe, expect, it } from 'vite-plus/test';
@@ -72,5 +74,53 @@ describe('Models serialization', () => {
         expect(hydratedUser.posts?.[0]?.title).toEqual('Hello World');
         expect(hydratedUser.lastPost).toBe(hydratedUser.posts?.[0]);
         expect(hydratedUser.isRelationLoaded('friends')).toBe(false);
+    });
+
+    it('hydrates relations into existing models', async () => {
+        // Arrange
+        const show = new Show({ name: 'House M.D.' });
+
+        show.relatedSeasons.attach({}, { mintUrl: true });
+
+        await show.save();
+
+        const loadedShow = await Show.findOrFail(show.requireUrl());
+        const existingShow = await Show.findOrFail(show.requireUrl());
+        const existingMetadata = existingShow.metadata;
+
+        const loadedRelations: unknown[] = [];
+
+        existingShow.relatedSeasons.unload();
+
+        const removeListener = Show.on('relation-loaded', (_, relation) => loadedRelations.push(relation));
+
+        // Act
+        const serialized = structuredClone(loadedShow.serialize({ relations: ['seasons'] }));
+
+        await existingShow.hydrateRelations(serialized);
+
+        removeListener();
+
+        // Assert
+        expect(Object.keys(serialized.nodes[0]?.relations ?? {})).toEqual(['seasons']);
+        expect(existingShow.metadata).toBe(existingMetadata);
+        expect(existingShow.isRelationLoaded('seasons')).toBe(true);
+        expect(existingShow.seasons).toHaveLength(1);
+        expect(existingShow.seasons?.[0]).toBeInstanceOf(Season);
+        expect(existingShow.seasons?.[0]?.url).toEqual(show.seasons?.[0]?.url);
+        expect(existingShow.seasons?.[0]?.exists()).toBe(true);
+        expect(loadedRelations).toEqual([existingShow.relatedSeasons]);
+    });
+
+    it("doesn't hydrate relations into different models", async () => {
+        // Arrange
+        const house = await Show.create({ name: 'House M.D.' });
+        const lost = await Show.create({ name: 'Lost' });
+
+        // Act
+        const hydrate = lost.hydrateRelations(house.serialize({ relations: ['seasons'] }));
+
+        // Assert
+        await expect(hydrate).rejects.toThrow("serialized model doesn't match");
     });
 });

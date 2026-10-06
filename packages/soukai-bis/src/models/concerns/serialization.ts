@@ -52,7 +52,12 @@ function hasRelationState(relation: Relation): boolean {
     return false;
 }
 
-function serializeModelNode(model: Model, serialized: SerializedModel, indexes: Map<Model, number>): number {
+function serializeModelNode(
+    model: Model,
+    serialized: SerializedModel,
+    indexes: Map<Model, number>,
+    relationNames?: string[],
+): number {
     const existingIndex = indexes.get(model);
 
     if (existingIndex !== undefined) {
@@ -77,7 +82,7 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
     serialized.nodes.push(node);
 
     for (const [name, relation] of Object.entries(invaded(model)._relations)) {
-        if (!hasRelationState(relation)) {
+        if ((relationNames && !relationNames.includes(name)) || !hasRelationState(relation)) {
             continue;
         }
 
@@ -150,29 +155,41 @@ function hydrateRelation(relation: Relation, serialized: SerializedRelation, mod
     relation.documentModelsLoaded = serialized.documentModelsLoaded;
 }
 
-export function serializeModel(model: Model): SerializedModel {
-    const serialized: SerializedModel = { nodes: [] };
-
-    serializeModelNode(model, serialized, new Map());
-
-    return serialized;
-}
-
-export async function hydrateModel(serialized: SerializedModel): Promise<Model> {
-    const models = serialized.nodes.map((node) =>
-        requireBootedModel(node.modelName).newInstance(node.attributes, { exists: node.exists }),
+async function hydrateModels(
+    serialized: SerializedModel,
+    root?: Model,
+): Promise<{ models: Model[]; rootRelations: Relation[] }> {
+    const rootRelations: Relation[] = [];
+    const models = serialized.nodes.map((node, index) =>
+        root && index === 0
+            ? root
+            : requireBootedModel(node.modelName).newInstance(node.attributes, { exists: node.exists }),
     );
 
     serialized.nodes.forEach((node, index) => {
         const model = requireHydratedModel(models, index);
 
         for (const [name, serializedRelation] of Object.entries(node.relations)) {
-            hydrateRelation(model.getRelation(name), serializedRelation, models);
+            const relation = model.getRelation(name);
+
+            if (model === root && relation.loaded) {
+                continue;
+            }
+
+            hydrateRelation(relation, serializedRelation, models);
+
+            if (model === root && relation.loaded) {
+                rootRelations.push(relation);
+            }
         }
     });
 
     serialized.nodes.forEach((node, index) => {
         const model = requireHydratedModel(models, index);
+
+        if (model === root) {
+            return;
+        }
 
         model.setDocumentExists(node.documentExists);
         invaded(model)._legacyTimestamps = node.legacyTimestamps;
@@ -180,5 +197,33 @@ export async function hydrateModel(serialized: SerializedModel): Promise<Model> 
 
     await Promise.all(models.map((model) => invaded(model).restoreComputedAttributes()));
 
+    return { models, rootRelations };
+}
+
+export function serializeModel(model: Model, options: { relations?: string[] } = {}): SerializedModel {
+    const serialized: SerializedModel = { nodes: [] };
+
+    serializeModelNode(model, serialized, new Map(), options.relations);
+
+    return serialized;
+}
+
+export async function hydrateModel(serialized: SerializedModel): Promise<Model> {
+    const { models } = await hydrateModels(serialized);
+
     return requireHydratedModel(models, 0);
+}
+
+export async function hydrateModelRelations(model: Model, serialized: SerializedModel): Promise<Relation[]> {
+    const rootNode = serialized.nodes[0];
+
+    if (rootNode?.modelName !== model.static().modelName || rootNode.attributes.url !== model.url) {
+        throw new SoukaiError(
+            `Failed hydrating ${model.static().modelName} relations, serialized model doesn't match ${model.url}`,
+        );
+    }
+
+    const { rootRelations } = await hydrateModels(serialized, model);
+
+    return rootRelations;
 }
