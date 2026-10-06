@@ -9,7 +9,7 @@ import {
     XSD_DATE_TIME_TYPE,
     XSD_INTEGER,
     XSD_INTEGER_TYPE,
-} from 'soukai-bis/utils/rdf';
+} from 'soukai-bis/lib/internals/rdf';
 import { ZodArray, ZodBoolean, ZodDate, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
 import type { SomeType } from 'zod/v4/core';
 

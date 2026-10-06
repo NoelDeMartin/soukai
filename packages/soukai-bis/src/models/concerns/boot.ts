@@ -1,6 +1,7 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import { tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
@@ -18,7 +19,7 @@ function initMeta(model: ModelConstructor, name?: string): ModelMeta {
     return tap(
         {
             modelName: name,
-            defaultContainerUrl: `solid://${getContainerName(name)}/`,
+            defaultContainerUrl: `${LOCAL_URL_PROTOCOL}//${getContainerName(name)}/`,
         },
         (meta) => store.set(model, meta),
     );

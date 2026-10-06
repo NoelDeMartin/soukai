@@ -3,8 +3,8 @@ import type { Listeners } from '@noeldemartin/utils';
 import { deleteDB, openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type { IDBGraph } from 'soukai-bis/lib/internals/idb-quads';
 import { getNamespace } from 'soukai-bis/lib/namespace';
-import type { IDBGraph } from 'soukai-bis/utils/idb-quads';
 
 export interface LocalDocument {
     url: string;

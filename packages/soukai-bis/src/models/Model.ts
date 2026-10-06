@@ -31,7 +31,7 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/utils/rdf';
+import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/lib/internals/rdf';
 import { ZodError } from 'zod';
 
 import ComputedAttribute from './computed-attributes/ComputedAttribute';

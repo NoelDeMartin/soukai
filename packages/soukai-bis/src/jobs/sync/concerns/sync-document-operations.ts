@@ -5,14 +5,6 @@ import type Engine from 'soukai-bis/engines/Engine';
 import type { EngineMetadata } from 'soukai-bis/engines/Engine';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
-import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
-import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
-import Metadata from 'soukai-bis/models/crdts/Metadata';
-import type Operation from 'soukai-bis/models/crdts/Operation';
-import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
-import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import Tombstone from 'soukai-bis/models/crdts/Tombstone';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
 import {
     CRDT_METADATA_OBJECT,
     CRDT_RESOURCE_PREDICATE,
@@ -21,7 +13,15 @@ import {
     CRDT_UPDATED_AT,
     CRDT_UPDATED_AT_PREDICATE,
     RDF_TYPE_PREDICATE,
-} from 'soukai-bis/utils/rdf';
+} from 'soukai-bis/lib/internals/rdf';
+import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
+import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import Metadata from 'soukai-bis/models/crdts/Metadata';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import Tombstone from 'soukai-bis/models/crdts/Tombstone';
+import type { ModelWithUrl } from 'soukai-bis/models/types';
 
 function getMetadataUpdates({
     documentMetadatas,

@@ -1,7 +1,7 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Predicate } from '@rdfjs/types';
+import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { requireBootedModel } from 'soukai-bis/models/registry';
-import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/utils/rdf';
 
 import type Operation from './Operation';
 import Model from './PropertyOperation.schema';

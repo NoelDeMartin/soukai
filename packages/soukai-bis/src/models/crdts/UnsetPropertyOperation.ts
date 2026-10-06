@@ -1,6 +1,6 @@
 import type { SparqlUpdate } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Object } from '@rdfjs/types';
-import { CRDT_UNSET_PROPERTY_OPERATION_OBJECT } from 'soukai-bis/utils/rdf';
+import { CRDT_UNSET_PROPERTY_OPERATION_OBJECT } from 'soukai-bis/lib/internals/rdf';
 
 import Model from './UnsetPropertyOperation.schema';
 

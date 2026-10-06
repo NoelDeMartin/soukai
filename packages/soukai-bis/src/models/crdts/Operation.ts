@@ -4,8 +4,6 @@ import { uuid } from '@noeldemartin/utils';
 import type { Quad, Quad_Object, Quad_Subject } from '@rdfjs/types';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import type { MintUrlOptions } from 'soukai-bis/models/Model';
-import { requireBootedModel } from 'soukai-bis/models/registry';
 import {
     CRDT_DATE,
     CRDT_DATE_PREDICATE,
@@ -13,7 +11,9 @@ import {
     CRDT_RESOURCE_PREDICATE,
     RDF_TYPE,
     RDF_TYPE_PREDICATE,
-} from 'soukai-bis/utils/rdf';
+} from 'soukai-bis/lib/internals/rdf';
+import type { MintUrlOptions } from 'soukai-bis/models/Model';
+import { requireBootedModel } from 'soukai-bis/models/registry';
 
 import Model from './Operation.schema';
 

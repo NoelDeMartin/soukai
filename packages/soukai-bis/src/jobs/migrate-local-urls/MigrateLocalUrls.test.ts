@@ -3,9 +3,9 @@ import { quadsToTurtle } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
+import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
-import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import MigrateLocalUrls from './MigrateLocalUrls';

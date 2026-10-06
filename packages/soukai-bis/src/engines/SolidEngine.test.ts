@@ -4,8 +4,8 @@ import type { JsonLD } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import { LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import SolidEngine from './SolidEngine';

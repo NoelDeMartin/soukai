@@ -4,9 +4,6 @@ import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
-import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 import {
     LDP_BASIC_CONTAINER,
     LDP_BASIC_CONTAINER_OBJECT,
@@ -14,7 +11,10 @@ import {
     LDP_CONTAINER_OBJECT,
     LDP_CONTAINS,
     LDP_CONTAINS_PREDICATE,
-} from 'soukai-bis/utils/rdf';
+} from 'soukai-bis/lib/internals/rdf';
+import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 
 import type EngineOperation from './operations/EngineOperation';
 

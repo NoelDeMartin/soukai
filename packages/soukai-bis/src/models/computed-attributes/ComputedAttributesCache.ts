@@ -1,10 +1,10 @@
 import { facade, objectWithout, urlRoute } from '@noeldemartin/utils';
-import InMemoryIDBStore from 'soukai-bis/lib/InMemoryIDBStore';
-import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
+import InMemoryIDBStore from 'soukai-bis/lib/internals/InMemoryIDBStore';
+import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
+import { requireSafeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import { getBootedModels } from 'soukai-bis/models/registry';
 import type { SchemaComputedAttributeDefinition } from 'soukai-bis/models/relations/schema';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
-import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
 
 export class ComputedAttributesCache {
     private store = new InMemoryIDBStore('computedAttributes');

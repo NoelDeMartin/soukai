@@ -5,8 +5,8 @@ import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
-import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/utils/urls';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
 import type ManagesContainers from './contracts/ManagesContainers';
 import type ManagesDocuments from './contracts/ManagesDocuments';

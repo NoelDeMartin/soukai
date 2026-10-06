@@ -1,7 +1,7 @@
+import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Container from 'soukai-bis/models/ldp/Container';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
-import { safeContainerUrl } from 'soukai-bis/utils/urls';
 
 function getUnregisteredModels(
     container: ModelWithUrl<Container>,

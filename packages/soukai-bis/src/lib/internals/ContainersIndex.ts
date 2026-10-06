@@ -1,4 +1,4 @@
-import { safeContainerUrl } from 'soukai-bis/utils/urls';
+import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
 export default class ContainersIndex {
     private childrenByParent: Map<string, Set<string>> | null = null;

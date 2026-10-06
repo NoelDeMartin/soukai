@@ -6,7 +6,7 @@ import {
     CRDT_VALUE,
     CRDT_VALUE_PREDICATE,
     createRDFLiteral,
-} from 'soukai-bis/utils/rdf';
+} from 'soukai-bis/lib/internals/rdf';
 
 import type Operation from './Operation';
 import SetPropertyOperationModel from './SetPropertyOperation.schema';

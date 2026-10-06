@@ -3,13 +3,13 @@ import { arrayFilter, arrayUnique, objectWithoutEmpty } from '@noeldemartin/util
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import { requireEngine } from 'soukai-bis/engines/state';
+import { RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
-import { RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
 import { getFinalType } from 'soukai-bis/zod/utils';
 import { ZodArray, ZodURL } from 'zod';
 

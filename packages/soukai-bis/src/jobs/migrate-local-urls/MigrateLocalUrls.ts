@@ -3,7 +3,8 @@ import type { Term } from '@rdfjs/types';
 import type ManagesContainers from 'soukai-bis/engines/contracts/ManagesContainers';
 import type Engine from 'soukai-bis/engines/Engine';
 import Job from 'soukai-bis/jobs/Job';
-import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
+import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 
 export interface MigrateLocalUrlsConfig {
     engine: Engine & ManagesContainers;
@@ -45,7 +46,7 @@ export default class MigrateLocalUrls extends Job {
             migratedContainerUrls.push(localContainerUrl);
         }
 
-        await this.config.engine.dropContainers(/^solid:\/\//);
+        await this.config.engine.dropContainers(new RegExp(`^${LOCAL_URL_PROTOCOL}`));
     }
 
     protected async migrateDocument(documentUrl: string): Promise<void> {

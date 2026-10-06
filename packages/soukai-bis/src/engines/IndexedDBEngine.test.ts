@@ -5,12 +5,12 @@ import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { deleteDB } from 'idb';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import { serializeIDBQuads } from 'soukai-bis/lib/internals/idb-quads';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
+import type { LocalDocument } from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import { getNamespace } from 'soukai-bis/lib/namespace';
-import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
-import type { LocalDocument } from 'soukai-bis/lib/SoukaiIndexedDB';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import { serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/utils/rdf';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import IndexedDBEngine from './IndexedDBEngine';

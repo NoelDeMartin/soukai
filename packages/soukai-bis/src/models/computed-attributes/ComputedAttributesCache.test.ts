@@ -1,5 +1,5 @@
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
+import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';

@@ -19,6 +19,8 @@ import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import JobFailedError from 'soukai-bis/errors/JobFailedError';
 import Job from 'soukai-bis/jobs/Job';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
+import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
@@ -27,8 +29,6 @@ import Container from 'soukai-bis/models/ldp/Container';
 import type Resource from 'soukai-bis/models/ldp/Resource';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
-import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/utils/rdf';
-import { safeContainerUrl } from 'soukai-bis/utils/urls';
 
 import { syncContainerRegistration } from './concerns/sync-container-registration';
 import { syncDocumentOperations } from './concerns/sync-document-operations';

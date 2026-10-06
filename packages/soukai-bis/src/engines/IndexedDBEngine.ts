@@ -15,17 +15,17 @@ import type { IDBPIndex, IDBPObjectStore, IDBPTransaction } from 'idb';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import ContainersIndex from 'soukai-bis/lib/ContainersIndex';
-import SoukaiIndexedDB from 'soukai-bis/lib/SoukaiIndexedDB';
-import type { LocalDocument, SoukaiIndexedDBSchema } from 'soukai-bis/lib/SoukaiIndexedDB';
-import { parseIDBQuads, serializeIDBQuads } from 'soukai-bis/utils/idb-quads';
+import ContainersIndex from 'soukai-bis/lib/internals/ContainersIndex';
+import { parseIDBQuads, serializeIDBQuads } from 'soukai-bis/lib/internals/idb-quads';
 import {
     LDP_BASIC_CONTAINER_OBJECT,
     LDP_CONTAINER_OBJECT,
     LDP_CONTAINS_PREDICATE,
     RDF_TYPE_PREDICATE,
-} from 'soukai-bis/utils/rdf';
-import { requireSafeContainerUrl } from 'soukai-bis/utils/urls';
+} from 'soukai-bis/lib/internals/rdf';
+import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
+import type { LocalDocument, SoukaiIndexedDBSchema } from 'soukai-bis/lib/internals/SoukaiIndexedDB';
+import { requireSafeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
 import type ManagesContainers from './contracts/ManagesContainers';
 import type ManagesDocuments from './contracts/ManagesDocuments';

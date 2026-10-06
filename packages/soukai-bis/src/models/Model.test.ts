@@ -3,13 +3,13 @@ import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import User from 'soukai-bis/testing/stubs/User';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
 import { metadataJsonLD, tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
-import { XSD_DATE_TIME } from 'soukai-bis/utils/rdf';
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
 import z from 'zod';
 
