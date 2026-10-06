@@ -75,11 +75,12 @@ export default class BelongsToManyRelation<
         const engine = this.relatedClass.requireEngine();
         const documentUrls = foreignKeys.map(urlRoute);
         const documents = await engine.readDocuments({ urls: documentUrls });
+        const modelsCache = this.getDocumentModelsCache();
         const models = await Promise.all(
             foreignKeys.map(async (url) => {
                 const document = documents[urlRoute(url)];
 
-                return document && this.relatedClass.createFromDocument(document, { url });
+                return document && this.relatedClass.createFromDocument(document, { url, modelsCache });
             }),
         );
 

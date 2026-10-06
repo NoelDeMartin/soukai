@@ -59,8 +59,12 @@ describe('OperationsRelation', () => {
 
         // Act
         const user = await UserWithHistory.findOrFail(`${documentUrl}#it`);
+        const isLoadedByDefault = user.isRelationLoaded('operations');
+
+        await user.loadRelation('operations');
 
         // Assert
+        expect(isLoadedByDefault).toBe(false);
         expect(user.operations).toHaveLength(3);
     });
 });

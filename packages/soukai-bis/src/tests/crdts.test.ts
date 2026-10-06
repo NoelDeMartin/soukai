@@ -1,5 +1,5 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-import { setEngine } from 'soukai-bis/engines';
+import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
@@ -49,6 +49,29 @@ describe('CRDTs', () => {
         expect(FakeServer.fetchSpy.mock.calls[1]?.[1]?.body).toEqualSparql(fixture('create-griffith.sparql'));
         expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('update-griffith-1.sparql'));
         expect(FakeServer.fetchSpy.mock.calls[5]?.[1]?.body).toEqualSparql(fixture('update-griffith-2.sparql'));
+    });
+
+    it('Loads existing operations before updating', async () => {
+        // Arrange
+        setEngine(new InMemoryEngine());
+
+        const griffith = await User.create({ name: 'Griffith' });
+
+        vi.advanceTimersByTime(1);
+        await griffith.update({ name: 'Femto' });
+
+        const freshGriffith = await User.findOrFail(griffith.url);
+        const isLoadedByDefault = freshGriffith.isRelationLoaded('operations');
+
+        // Act
+        vi.advanceTimersByTime(1);
+        await freshGriffith.update({ name: 'Griffith' });
+
+        // Assert
+        const operations = await (await User.findOrFail(griffith.url)).loadRelation('operations');
+
+        expect(isLoadedByDefault).toBe(false);
+        expect(operations).toHaveLength(3);
     });
 
     it('Works with containers', async () => {

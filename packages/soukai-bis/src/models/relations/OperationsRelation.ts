@@ -32,8 +32,9 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
 
         const engine = requireBootedModel('Operation').requireEngine();
         const document = await engine.readDocument(documentUrl);
+        const modelsCache = this.getDocumentModelsCache();
         const allOperations = (await Promise.all(
-            getCoreOperationModels().map((model) => model.createManyFromDocument(document)),
+            getCoreOperationModels().map((model) => model.createManyFromDocument(document, { modelsCache })),
         )) as ModelWithUrl<Operation>[][];
 
         return allOperations.flat().filter((model) => model.resourceUrl === parentUrl);

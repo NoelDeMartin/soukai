@@ -47,7 +47,9 @@ export default class HasManyRelation<
 
             const engine = this.relatedClass.requireEngine();
             const document = await engine.readDocument(documentUrl);
-            const relatedModels = await this.relatedClass.createManyFromDocument(document);
+            const relatedModels = await this.relatedClass.createManyFromDocument(document, {
+                modelsCache: this.getDocumentModelsCache(),
+            });
 
             return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
         }

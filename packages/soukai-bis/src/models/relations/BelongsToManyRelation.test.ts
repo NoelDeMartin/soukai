@@ -6,6 +6,7 @@ import type { MintUrlOptions } from 'soukai-bis/models/Model';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
+import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
@@ -148,6 +149,48 @@ describe('BelongsToManyRelation', () => {
         expect(show).not.toBeNull();
         expect(show?.seasons).toHaveLength(1);
         expect(show?.seasons?.[0]?.show?.name).toEqual('House M.D.');
+    });
+
+    it("doesn't autoload document models when disabled", async () => {
+        // Arrange
+        class LazyShow extends defineSchema(Show, {
+            relations: {
+                seasons: belongsToMany(Season, 'seasonUrls').usingSameDocument().autoload(false),
+            },
+        }) {}
+
+        const documentUrl = fakeDocumentUrl();
+        const showUrl = fakeResourceUrl({ documentUrl, hash: 'show' });
+        const seasonUrl = fakeResourceUrl({ documentUrl, hash: 'season' });
+
+        bootModels({ LazyShow });
+
+        FakeServer.respond(
+            documentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+
+                <${showUrl}>
+                    a schema:TVSeries ;
+                    schema:name "House M.D." ;
+                    schema:containsSeason <${seasonUrl}> .
+
+                <${seasonUrl}> a schema:TVSeason .
+            `,
+        );
+
+        setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
+
+        // Act
+        const show = await LazyShow.findOrFail(showUrl);
+        const isLoadedByDefault = show.isRelationLoaded('seasons');
+
+        await show.loadRelation('seasons');
+
+        // Assert
+        expect(isLoadedByDefault).toBe(false);
+        expect(show.seasons).toHaveLength(1);
+        expect(show.seasons?.[0]?.url).toEqual(seasonUrl);
     });
 
     it('sets foreign attributes after save', async () => {

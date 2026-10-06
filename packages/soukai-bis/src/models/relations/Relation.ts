@@ -4,7 +4,7 @@ import type { Quad } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
-import { isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
+import { buildModelsCache, isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
 
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
 import type { GetRelatedModelInput, RelationConstructor } from './types';
@@ -132,6 +132,10 @@ export default abstract class Relation<
     public abstract addForeignAttributes<T extends GetRelatedModelInput<RelatedClass, ForeignKeyName>>(
         attributes: T,
     ): T;
+
+    protected getDocumentModelsCache(): ModelsCache {
+        return buildModelsCache(this.parent.getDocumentModels());
+    }
 
     protected requiresForeignKey(): boolean {
         return true;

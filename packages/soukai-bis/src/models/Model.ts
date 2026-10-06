@@ -40,7 +40,14 @@ import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import { deleteModel, getDirtyDocumentsUpdates, syncDocumentOperations } from './concerns/crdts';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
-import { buildRDFTypeIndex, createFromRDF, isUsingSameDocument, serializeToRDF } from './concerns/rdf';
+import {
+    buildRDFTypeIndex,
+    createFromRDF,
+    initializeEmptyDocumentRelations,
+    isUsingSameDocument,
+    loadDocumentRelations,
+    serializeToRDF,
+} from './concerns/rdf';
 import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
@@ -157,11 +164,15 @@ export default class Model<
         return (isSolidEngine(engine) ? engine.getFetch() : null) ?? globalThis.fetch.bind(globalThis);
     }
 
-    public static async find<T extends Model>(this: ModelConstructor<T>, url: string): Promise<ModelWithUrl<T> | null> {
+    public static async find<T extends Model>(
+        this: ModelConstructor<T>,
+        url: string,
+        options: { modelsCache?: ModelsCache } = {},
+    ): Promise<ModelWithUrl<T> | null> {
         try {
             const engine = this.requireEngine();
             const document = await engine.readDocument(urlRoute(url));
-            const model = await this.createFromDocument(document, { url });
+            const model = await this.createFromDocument(document, { url, modelsCache: options.modelsCache });
 
             return model;
         } catch (error) {
@@ -251,10 +262,12 @@ export default class Model<
         modelsCache.set(url, classCache);
         classCache.set(this, instance);
 
-        for (const relationName of Object.keys(this.schema.relations)) {
-            const relation = instance.getRelation(relationName);
+        for (const [relationName, relationDefinition] of Object.entries(this.schema.relations)) {
+            if (relationDefinition.options.autoload === false) {
+                continue;
+            }
 
-            await relation.loadFromDocumentRDF(quads, { modelsCache });
+            await instance.getRelation(relationName).loadFromDocumentRDF(quads, { modelsCache });
         }
 
         instance.initializeLegacyTimestamps(quads);
@@ -278,12 +291,12 @@ export default class Model<
     public static async createFromDocument<T extends Model>(
         this: ModelConstructor<T>,
         document: SolidDocument,
-        options: { url?: string } = {},
+        options: { url?: string; modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? document.url;
         const quads = weakMemo('document-quads', document, () => document.getQuads());
 
-        return this.createFromRDF(quads, { url });
+        return this.createFromRDF(quads, { url, modelsCache: options.modelsCache });
     }
 
     public static async createManyFromRDF<T extends Model>(
@@ -315,10 +328,11 @@ export default class Model<
     public static async createManyFromDocument<T extends Model>(
         this: ModelConstructor<T>,
         document: SolidDocument,
+        options: { modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T>[]> {
         const quads = weakMemo('document-quads', document, () => document.getQuads());
 
-        return this.createManyFromRDF(quads);
+        return this.createManyFromRDF(quads, options);
     }
 
     public static async hydrate<T extends Model>(this: ModelConstructor<T>, serialized: SerializedModel): Promise<T> {
@@ -775,10 +789,14 @@ export default class Model<
     }
 
     public async toJsonLD(): Promise<JsonLD> {
+        await loadDocumentRelations(this);
+
         return quadsToJsonLD(serializeToRDF(this.getDocumentModels()));
     }
 
     public async toTurtle(): Promise<string> {
+        await loadDocumentRelations(this);
+
         return quadsToTurtle(serializeToRDF(this.getDocumentModels()));
     }
 
@@ -877,10 +895,11 @@ export default class Model<
         const engine = this.static().requireEngine();
 
         if (this._documentExists) {
-            await engine.updateDocument(
-                this.requireDocumentUrl(),
-                getDirtyDocumentsUpdates(this.getDirtyDocumentModels()),
-            );
+            const documentUrl = this.requireDocumentUrl();
+            const dirtyDocumentModels = this.getDirtyDocumentModels();
+
+            await loadDocumentRelations(this, { models: dirtyDocumentModels, relations: ['operations'] });
+            await engine.updateDocument(documentUrl, getDirtyDocumentsUpdates(dirtyDocumentModels));
         } else {
             try {
                 await engine.createDocument(this.requireDocumentUrl(), serializeToRDF(this.getDocumentModels()));
@@ -901,6 +920,10 @@ export default class Model<
         const relatedModels = this.getRelatedModels();
 
         for (const documentModel of documentModels) {
+            if (!documentModel.exists()) {
+                initializeEmptyDocumentRelations(documentModel);
+            }
+
             documentModel.setExists(true);
             documentModel.setDocumentExists(true);
             documentModel.cleanDirty();

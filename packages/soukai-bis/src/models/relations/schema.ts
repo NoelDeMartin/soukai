@@ -33,11 +33,18 @@ export class SchemaRelationDefinition<
             foreignKey?: string;
             localKey?: string;
             usingSameDocument?: boolean;
+            autoload?: boolean;
         } = {},
     ) {}
 
     public usingSameDocument(): this {
         this.options.usingSameDocument = true;
+
+        return this;
+    }
+
+    public autoload(autoload: boolean = true): this {
+        this.options.autoload = autoload;
 
         return this;
     }

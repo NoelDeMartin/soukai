@@ -154,13 +154,17 @@ export function defineSchema<
     if (history) {
         relations.operations = new SchemaRelationDefinition(() => requireBootedModel('Operation'), OperationsRelation, {
             foreignKey: 'resourceUrl',
-        }).usingSameDocument();
+        })
+            .usingSameDocument()
+            .autoload(false);
     }
 
     if (tombstone) {
         relations.tombstone = new SchemaRelationDefinition(() => requireBootedModel('Tombstone'), HasOneRelation, {
             foreignKey: 'resourceUrl',
-        }).usingSameDocument();
+        })
+            .usingSameDocument()
+            .autoload(false);
     }
 
     return class extends (baseClass ?? Model) {

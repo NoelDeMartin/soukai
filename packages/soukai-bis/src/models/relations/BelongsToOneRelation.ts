@@ -62,6 +62,6 @@ export default class BelongsToOneRelation<
         }
 
         // oxlint-disable-next-line typescript/no-base-to-string
-        return this.relatedClass.find(String(foreignKey));
+        return this.relatedClass.find(String(foreignKey), { modelsCache: this.getDocumentModelsCache() });
     }
 }

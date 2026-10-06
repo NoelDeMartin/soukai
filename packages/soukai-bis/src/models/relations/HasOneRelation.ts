@@ -55,7 +55,9 @@ export default class HasOneRelation<
 
             const engine = this.relatedClass.requireEngine();
             const document = await engine.readDocument(documentUrl);
-            const relatedModels = await this.relatedClass.createManyFromDocument(document);
+            const relatedModels = await this.relatedClass.createManyFromDocument(document, {
+                modelsCache: this.getDocumentModelsCache(),
+            });
 
             return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;
         }

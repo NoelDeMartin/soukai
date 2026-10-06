@@ -1,9 +1,13 @@
 import { fakeResourceUrl } from '@noeldemartin/testing';
+import { bootModels } from 'soukai-bis/models/registry';
+import { defineSchema } from 'soukai-bis/models/schema';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { describe, expect, it } from 'vite-plus/test';
+
+import { hasOne } from './fluent';
 
 describe('HasOneRelation', () => {
     it('loads related model', async () => {
@@ -73,6 +77,32 @@ describe('HasOneRelation', () => {
         // Assert
         expect(freshMovie.action).toBeInstanceOf(WatchAction);
         expect(freshMovie.action?.url).toBe(action.url);
+    });
+
+    it('reuses document models when loading related models using same document', async () => {
+        // Arrange
+        class MovieWithLastAction extends defineSchema(Movie, {
+            relations: {
+                lastAction: hasOne(() => WatchAction, 'objectUrl')
+                    .usingSameDocument()
+                    .autoload(false),
+            },
+        }) {}
+
+        bootModels({ MovieWithLastAction });
+
+        const movie = await MovieWithLastAction.create({ title: 'Spiderman' });
+
+        await movie.relatedAction?.create({ startTime: new Date() });
+
+        const freshMovie = await MovieWithLastAction.findOrFail(movie.url);
+        const action = freshMovie.action;
+
+        // Act
+        await freshMovie.loadRelation('lastAction');
+
+        // Assert
+        expect(freshMovie.getRelation('lastAction').related).toBe(action);
     });
 
     it('returns null when trying to load from an unsaved parent using same document', async () => {

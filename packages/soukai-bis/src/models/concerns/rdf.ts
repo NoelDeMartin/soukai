@@ -4,7 +4,9 @@ import type { Quad } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { Relation } from 'soukai-bis/models/relations';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import { isMultiModelRelation } from 'soukai-bis/models/relations/helpers';
+import type { ModelConstructor, ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
+import { buildModelsCache } from 'soukai-bis/models/utils';
 import { castToJavaScript, castToRDF, getFinalType } from 'soukai-bis/zod/utils';
 
 function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
@@ -22,6 +24,56 @@ function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
     });
 
     return new SolidStore(subjectQuadsIndex.get(subject));
+}
+
+function getDocumentRelations(model: Model, names?: string[]): Relation[] {
+    return Object.entries(model.static('schema').relations)
+        .filter(([name, definition]) => definition.options.usingSameDocument && (!names || names.includes(name)))
+        .map(([name]) => model.getRelation(name));
+}
+
+export function initializeEmptyDocumentRelations(model: Model): void {
+    for (const relation of getDocumentRelations(model)) {
+        if (relation.loaded || relation.isEmpty() === false) {
+            continue;
+        }
+
+        relation.related = isMultiModelRelation(relation) ? [] : null;
+        relation.documentModelsLoaded = true;
+    }
+}
+
+export async function loadDocumentRelations(
+    model: Model,
+    options: { models?: Model[]; relations?: string[] } = {},
+): Promise<void> {
+    let quads: Quad[] | null = null;
+    let modelsCache: ModelsCache | null = null;
+    let documentModels = options.models ?? model.getDocumentModels();
+    const visitedModels = new Set<Model>();
+
+    while (documentModels.length > 0) {
+        for (const documentModel of documentModels) {
+            visitedModels.add(documentModel);
+
+            if (!documentModel.exists()) {
+                continue;
+            }
+
+            for (const relation of getDocumentRelations(documentModel, options.relations)) {
+                if (relation.loaded || relation.isEmpty() === true) {
+                    continue;
+                }
+
+                quads ??= (await model.static().requireEngine().readDocument(model.requireDocumentUrl())).getQuads();
+                modelsCache ??= buildModelsCache(model.getDocumentModels());
+
+                await relation.loadFromDocumentRDF(quads, { modelsCache });
+            }
+        }
+
+        documentModels = options.models ? [] : model.getDocumentModels().filter((other) => !visitedModels.has(other));
+    }
 }
 
 export function isUsingSameDocument(documentUrl: string | null, relation: Relation, model: Model): boolean {
