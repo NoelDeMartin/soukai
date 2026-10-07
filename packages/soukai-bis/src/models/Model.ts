@@ -353,11 +353,7 @@ export default class Model<
             matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl, modelsCache })),
         );
 
-        const filteredModels = models.filter(isTruthy);
-
-        await Promise.all(filteredModels.map((model) => model.restoreComputedAttributes()));
-
-        return filteredModels;
+        return models.filter(isTruthy);
     }
 
     public static async createManyFromDocument<T extends Model>(
