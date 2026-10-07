@@ -121,7 +121,10 @@ export function createFromRDF<T extends Model>(
         attributes[field] = castToJavaScript(objects, fieldType);
     }
 
-    return modelClass.newInstance({ url, ...attributes }, { exists: true, source: quads }) as ModelWithUrl<T>;
+    return modelClass.newInstance(
+        { url, ...attributes },
+        { exists: true, initializeMetadata: false, source: quads },
+    ) as ModelWithUrl<T>;
 }
 
 export function serializeToRDF(models: Model[]): Quad[] {

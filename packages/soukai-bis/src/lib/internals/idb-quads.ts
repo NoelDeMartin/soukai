@@ -1,6 +1,9 @@
 import { RDFLiteral, RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
+import { tap } from '@noeldemartin/utils';
 import type { Quad, Quad_Object } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+
+const nodesCache = new Map<string, RDFNamedNode>();
 
 function serializeObject(quad: Quad): IDBTerm {
     const object = quad.object;
@@ -29,12 +32,16 @@ function serializeObject(quad: Quad): IDBTerm {
     );
 }
 
+function nodeMemo(iri: string): RDFNamedNode {
+    return nodesCache.get(iri) ?? tap(new RDFNamedNode(iri), (node) => nodesCache.set(iri, node));
+}
+
 function parseObject(object: IDBTerm): Quad_Object {
     if (typeof object === 'string') {
         return new RDFNamedNode(object);
     }
 
-    const datatypeNode = object.dt ? new RDFNamedNode(object.dt) : undefined;
+    const datatypeNode = object.dt ? nodeMemo(object.dt) : undefined;
 
     return new RDFLiteral(object.v, object.lang, datatypeNode);
 }
@@ -73,7 +80,7 @@ export function parseIDBQuads(serialized: IDBGraph): Quad[] {
         const subjectNode = new RDFNamedNode(subjectIri);
 
         for (const statement of statements) {
-            const predicateNode = new RDFNamedNode(statement.p);
+            const predicateNode = nodeMemo(statement.p);
             const objectNode = parseObject(statement.o);
 
             quads.push(new RDFQuad(subjectNode, predicateNode, objectNode));

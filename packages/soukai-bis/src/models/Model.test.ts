@@ -474,6 +474,31 @@ describe('Model', () => {
         expect(users.map((user) => user.name)).toEqual(expect.arrayContaining(['John Doe', 'Jane Doe']));
     });
 
+    it('reads all instances reporting invalid documents', async () => {
+        // Arrange
+        const invalidDocumentUrl = `${User.defaultContainerUrl}invalid`;
+        const onDocumentError = vi.fn();
+
+        await User.create({ name: 'John Doe' });
+        await engine.createDocument(
+            invalidDocumentUrl,
+            await turtleToQuads(`
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${invalidDocumentUrl}#it> a foaf:Person ; foaf:age "Unknown" .
+            `),
+        );
+
+        // Act
+        const users = await User.all({ onDocumentError });
+
+        // Assert
+        expect(users.map((user) => user.name)).toEqual(['John Doe']);
+        expect(onDocumentError).toHaveBeenCalledOnce();
+        expect(onDocumentError).toHaveBeenCalledWith(expect.any(InvalidAttributesError), invalidDocumentUrl);
+        await expect(User.all()).rejects.toThrow(InvalidAttributesError);
+    });
+
     it('reads all instances recursively with depth limit', async () => {
         const rootContainer = User.defaultContainerUrl;
 

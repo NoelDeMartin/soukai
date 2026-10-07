@@ -80,7 +80,15 @@ export interface MintUrlOptions {
 
 export interface ModelConstructorOptions {
     exists?: Nullable<boolean>;
+    initializeMetadata?: Nullable<boolean>;
     source?: Nullable<Quad[]>;
+}
+
+export interface LoadAllOptions {
+    from?: string;
+    deep?: boolean;
+    depth?: number;
+    onDocumentError?: (error: unknown, documentUrl: string) => unknown;
 }
 
 export type UrlFromSlugOptions = Pick<MintUrlOptions, 'containerUrl'>;
@@ -207,7 +215,7 @@ export default class Model<
 
     public static async all<T extends Model>(
         this: ModelConstructor<T>,
-        options: { from?: string; deep?: boolean; depth?: number } = {},
+        options: LoadAllOptions = {},
     ): Promise<ModelWithUrl<T>[]> {
         try {
             const documents = await this.requireEngine().readDocuments({
@@ -217,7 +225,19 @@ export default class Model<
             });
 
             const models = await Promise.all(
-                Object.values(documents).map(async (document) => this.createManyFromDocument(document)),
+                Object.values(documents).map(async (document) => {
+                    try {
+                        return await this.createManyFromDocument(document);
+                    } catch (error) {
+                        if (!options.onDocumentError) {
+                            throw error;
+                        }
+
+                        options.onDocumentError(error, document.url);
+
+                        return [];
+                    }
+                }),
             );
 
             return models.flat();
@@ -439,7 +459,9 @@ export default class Model<
         this._originalAttributes = (exists ? objectDeepClone(this._attributes) : {}) as Attributes;
         this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
 
-        this.initializeMetadata();
+        if (options.initializeMetadata ?? true) {
+            this.initializeMetadata();
+        }
     }
 
     public getAttribute(field: FieldName): unknown {
