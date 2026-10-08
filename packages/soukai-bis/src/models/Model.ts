@@ -977,7 +977,7 @@ export default class Model<
             documentModel.cleanDirty();
         }
 
-        await Promise.all(relatedModels.map(refreshComputedAttributes));
+        await refreshComputedAttributes(relatedModels);
     }
 
     protected async performDelete(): Promise<void> {
@@ -1004,7 +1004,7 @@ export default class Model<
     protected async afterDelete(): Promise<void> {
         const relatedModels = this.getRelatedModels();
 
-        await Promise.all(relatedModels.map(refreshComputedAttributes));
+        await refreshComputedAttributes(relatedModels);
     }
 
     protected initializeMetadata(timestamps: { createdAt?: Date; updatedAt?: Date } = {}): void {

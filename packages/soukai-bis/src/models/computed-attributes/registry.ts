@@ -187,18 +187,24 @@ export function getComputedAttributeRelations(model: ModelConstructor, name: str
     return entry.relations[name] ?? {};
 }
 
-export async function refreshComputedAttributes(model: Model): Promise<void> {
-    const computedAttributes = getComputedAttributes(model.static() as ModelConstructor);
+export async function refreshComputedAttributes(models: Model[]): Promise<void> {
+    const computedAttributes = new Set<ComputedAttribute>();
 
-    for (const path of computedAttributes) {
-        const computedAttribute = path
-            .split('.')
-            .reduce((target, relation) => target?.[relation] as Nullable<Obj>, model as unknown as Nullable<Obj>);
+    for (const model of models) {
+        for (const path of getComputedAttributes(model.static())) {
+            const computedAttribute = path
+                .split('.')
+                .reduce((target, relation) => target?.[relation] as Nullable<Obj>, model as unknown as Nullable<Obj>);
 
-        if (!isInstanceOf(computedAttribute, ComputedAttribute)) {
-            continue;
+            if (!isInstanceOf(computedAttribute, ComputedAttribute)) {
+                continue;
+            }
+
+            computedAttributes.add(computedAttribute);
         }
-
-        await computedAttribute.updateValue({ refresh: true });
     }
+
+    await Promise.all(
+        Array.from(computedAttributes).map((computedAttribute) => computedAttribute.updateValue({ refresh: true })),
+    );
 }

@@ -39,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.useRealTimers();
+    ComputedAttribute.enableLoadingRelations();
 });
 
 installVitestSolidMatchers();

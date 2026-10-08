@@ -26,23 +26,31 @@ export type ComputedAttributeListener<TValue = unknown> = (value: TValue | undef
 export type ComputedAttributeCompute<TTarget extends Model = Model, TValue = unknown> = (target: TTarget) => TValue;
 
 export default class ComputedAttribute<TValue = unknown> {
-    private static relationsDisabled: boolean = false;
-    private static refreshesDisabled: boolean = false;
+    private static relationsDisabledCount: number = 0;
+    private static refreshesDisabledCount: number = 0;
 
     public static disableLoadingRelations(): void {
-        this.relationsDisabled = true;
+        this.relationsDisabledCount++;
     }
 
     public static enableLoadingRelations(): void {
-        this.relationsDisabled = false;
+        this.relationsDisabledCount = Math.max(this.relationsDisabledCount - 1, 0);
     }
 
     public static disableRefreshes(): void {
-        this.refreshesDisabled = true;
+        this.refreshesDisabledCount++;
     }
 
     public static enableRefreshes(): void {
-        this.refreshesDisabled = false;
+        this.refreshesDisabledCount = Math.max(this.refreshesDisabledCount - 1, 0);
+    }
+
+    private static get relationsDisabled(): boolean {
+        return this.relationsDisabledCount > 0;
+    }
+
+    private static get refreshesDisabled(): boolean {
+        return this.refreshesDisabledCount > 0;
     }
 
     public readonly invalidationStrategy: InvalidationStrategy;
@@ -51,6 +59,7 @@ export default class ComputedAttribute<TValue = unknown> {
     private compute: ComputedAttributeCompute<Model, TValue>;
     private _value: TValue | undefined;
     private listeners: Set<ComputedAttributeListener<TValue>>;
+    private ongoingUpdates: Map<string, { running: Promise<TValue | undefined>; queued?: Promise<TValue | undefined> }>;
 
     public constructor(
         target: Model,
@@ -63,6 +72,7 @@ export default class ComputedAttribute<TValue = unknown> {
         this.compute = compute;
         this.invalidationStrategy = invalidationStrategy;
         this.listeners = new Set();
+        this.ongoingUpdates = new Map();
     }
 
     public get value(): TValue | undefined {
@@ -82,7 +92,42 @@ export default class ComputedAttribute<TValue = unknown> {
         return () => this.listeners.delete(listener);
     }
 
-    public async updateValue(options: UpdateOptions = {}): Promise<TValue | undefined> {
+    public updateValue(options: UpdateOptions = {}): Promise<TValue | undefined> {
+        const filledOptions: Required<UpdateOptions> = {
+            refresh: options.refresh ?? false,
+            useCache: options.useCache ?? true,
+            loadRelations: options.loadRelations ?? true,
+        };
+        const key = `${filledOptions.refresh}-${filledOptions.useCache}-${filledOptions.loadRelations}`;
+        const ongoingUpdate = this.ongoingUpdates.get(key);
+
+        if (!ongoingUpdate) {
+            return this.startUpdate(key, filledOptions);
+        }
+
+        ongoingUpdate.queued ??= ongoingUpdate.running.then(
+            () => this.startUpdate(key, filledOptions),
+            () => this.startUpdate(key, filledOptions),
+        );
+
+        return ongoingUpdate.queued;
+    }
+
+    private startUpdate(key: string, options: Required<UpdateOptions>): Promise<TValue | undefined> {
+        const running = this.performUpdate(options).finally(() => {
+            const update = this.ongoingUpdates.get(key);
+
+            if (update?.running === running && !update.queued) {
+                this.ongoingUpdates.delete(key);
+            }
+        });
+
+        this.ongoingUpdates.set(key, { running });
+
+        return running;
+    }
+
+    private async performUpdate(options: Required<UpdateOptions>): Promise<TValue | undefined> {
         const loadedRelations: { model: Model; relation: string }[] = [];
 
         try {
@@ -100,16 +145,16 @@ export default class ComputedAttribute<TValue = unknown> {
     }
 
     private async runUpdateValue(
-        options: UpdateOptions,
+        options: Required<UpdateOptions>,
         loadedRelations: { model: Model; relation: string }[],
     ): Promise<TValue | undefined> {
         if (!this.target.url) {
             return;
         }
 
-        const refresh = !ComputedAttribute.refreshesDisabled && (options.refresh ?? false);
-        const useCache = options.useCache ?? true;
-        const loadRelations = !ComputedAttribute.relationsDisabled && (options.loadRelations ?? true);
+        const refresh = !ComputedAttribute.refreshesDisabled && options.refresh;
+        const useCache = options.useCache;
+        const loadRelations = !ComputedAttribute.relationsDisabled && options.loadRelations;
         const cachedValue = useCache && !refresh && (await this.getCachedValue());
 
         if (cachedValue) {

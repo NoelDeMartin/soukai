@@ -1,12 +1,13 @@
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import ComputedAttribute from './ComputedAttribute';
 import { clearCache } from './helpers';
 
 describe('Computed Attributes', () => {
     beforeEach(() => ComputedAttribute.enableLoadingRelations());
+    afterEach(() => ComputedAttribute.disableLoadingRelations());
 
     it('calculates computed attributes', async () => {
         // Starts as empty array
@@ -58,5 +59,31 @@ describe('Computed Attributes', () => {
         const freshUser = await user.fresh();
 
         expect(freshUser.postTitles.value).toEqual(['Hello World']);
+    });
+
+    it('coalesces concurrent updates', async () => {
+        // Arrange
+        const user = await User.create({ name: 'Alice' });
+        const performUpdate = vi.spyOn(
+            user.postTitles as unknown as { performUpdate(): Promise<unknown> },
+            'performUpdate',
+        );
+
+        await user.loadRelation('posts');
+        await user.relatedPosts.create({ title: 'Hello World' });
+
+        performUpdate.mockClear();
+
+        // Act
+        const values = await Promise.all([
+            user.postTitles.updateValue({ refresh: true }),
+            user.postTitles.updateValue({ refresh: true }),
+            user.postTitles.updateValue({ refresh: true }),
+            user.postTitles.updateValue({ refresh: true }),
+        ]);
+
+        // Assert
+        expect(values).toEqual(Array(4).fill(['Hello World']));
+        expect(performUpdate).toHaveBeenCalledTimes(2);
     });
 });
