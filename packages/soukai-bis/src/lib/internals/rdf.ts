@@ -19,6 +19,7 @@ export const PURL_MODIFIED = expandIRI('purl:modified');
 export const RDF_TYPE = expandIRI('rdf:type');
 export const XSD_BOOLEAN = expandIRI('xsd:boolean');
 export const XSD_DATE_TIME = expandIRI('xsd:dateTime');
+export const XSD_DECIMAL = expandIRI('xsd:decimal');
 export const XSD_INTEGER = expandIRI('xsd:integer');
 
 export const CRDT_CREATED_AT_PREDICATE = new RDFNamedNode(CRDT_CREATED_AT);
@@ -37,6 +38,7 @@ export const LDP_CONTAINS_PREDICATE = new RDFNamedNode(LDP_CONTAINS);
 export const RDF_TYPE_PREDICATE = new RDFNamedNode(RDF_TYPE);
 export const XSD_BOOLEAN_TYPE = new RDFNamedNode(XSD_BOOLEAN);
 export const XSD_DATE_TIME_TYPE = new RDFNamedNode(XSD_DATE_TIME);
+export const XSD_DECIMAL_TYPE = new RDFNamedNode(XSD_DECIMAL);
 export const XSD_INTEGER_TYPE = new RDFNamedNode(XSD_INTEGER);
 
 export function createRDFLiteral(value: unknown): Literal {
@@ -45,7 +47,7 @@ export function createRDFLiteral(value: unknown): Literal {
     }
 
     if (typeof value === 'number') {
-        return new RDFLiteral(String(value), undefined, XSD_INTEGER_TYPE);
+        return new RDFLiteral(String(value), undefined, numberDatatype(value));
     }
 
     if (typeof value === 'boolean') {
@@ -53,4 +55,8 @@ export function createRDFLiteral(value: unknown): Literal {
     }
 
     return new RDFLiteral(String(value));
+}
+
+export function numberDatatype(value: number): RDFNamedNode {
+    return Number.isInteger(value) ? XSD_INTEGER_TYPE : XSD_DECIMAL_TYPE;
 }

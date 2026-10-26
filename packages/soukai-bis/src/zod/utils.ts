@@ -7,8 +7,9 @@ import {
     XSD_BOOLEAN_TYPE,
     XSD_DATE_TIME,
     XSD_DATE_TIME_TYPE,
+    XSD_DECIMAL,
     XSD_INTEGER,
-    XSD_INTEGER_TYPE,
+    numberDatatype,
 } from 'soukai-bis/lib/internals/rdf';
 import { ZodArray, ZodBoolean, ZodDate, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
 import type { SomeType } from 'zod/v4/core';
@@ -48,6 +49,7 @@ export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], defin
             case XSD_DATE_TIME:
                 return new Date(object.value);
             case XSD_INTEGER:
+            case XSD_DECIMAL:
                 return Number(object.value);
             case XSD_BOOLEAN:
                 return object.value === 'true';
@@ -77,7 +79,7 @@ export function castToRDF(value: unknown, definition: SomeType): Quad_Object[] {
     }
 
     if (finalType instanceof ZodNumber) {
-        return [new RDFLiteral(String(value), undefined, XSD_INTEGER_TYPE)];
+        return [new RDFLiteral(String(value), undefined, numberDatatype(Number(value)))];
     }
 
     if (finalType instanceof ZodBoolean) {
