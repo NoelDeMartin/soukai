@@ -17,6 +17,9 @@ import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRel
 import type { ModelConstructor, ModelInstanceType, ModelWithUrl, ModelsCache } from './types';
 import { isModelClass } from './utils';
 
+declare const schemaFieldsMarker: unique symbol;
+declare const schemaRelationsMarker: unique symbol;
+
 export type Schema<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
@@ -45,13 +48,39 @@ export type SchemaModelAttributes<T extends SchemaFields = SchemaFields> = keyof
     ? { url?: string }
     : z.infer<ZodObject<T>> & { url?: string };
 
+export type BaseSchemaFields<TBaseClass> = TBaseClass extends {
+    [schemaFieldsMarker]?: infer TBaseFields extends SchemaFields;
+}
+    ? TBaseFields
+    : {};
+
+export type BaseSchemaRelations<TBaseClass> = TBaseClass extends {
+    [schemaRelationsMarker]?: infer TBaseRelations extends SchemaRelations;
+}
+    ? TBaseRelations
+    : {};
+
+export type ExtendedSchemaFields<
+    TFields extends SchemaFields = SchemaFields,
+    TBaseClass extends ModelConstructor = typeof Model,
+> = typeof Model extends TBaseClass ? TFields : Override<BaseSchemaFields<TBaseClass>, TFields>;
+
+export type ExtendedSchemaRelations<
+    TRelations extends SchemaRelations = SchemaRelations,
+    TBaseClass extends ModelConstructor = typeof Model,
+> = typeof Model extends TBaseClass ? TRelations : Override<BaseSchemaRelations<TBaseClass>, TRelations>;
+
 export type SchemaModel<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
     TBaseClass extends ModelConstructor = typeof Model,
 > = (typeof Model extends TBaseClass
     ? Model<SchemaModelAttributes<TFields>, TRelations>
-    : InstanceType<TBaseClass> & Model<SchemaModelAttributes<TFields>, TRelations>) &
+    : Model<
+          SchemaModelAttributes<ExtendedSchemaFields<TFields, TBaseClass>>,
+          ExtendedSchemaRelations<TRelations, TBaseClass>
+      > &
+          InstanceType<TBaseClass>) &
     SafeInferObject<TFields> &
     SchemaModelRelations<TRelations>;
 
@@ -62,6 +91,9 @@ export type SchemaModelClass<
 > = Override<
     TBaseClass,
     {
+        [schemaFieldsMarker]?: ExtendedSchemaFields<TFields, TBaseClass>;
+        [schemaRelationsMarker]?: ExtendedSchemaRelations<TRelations, TBaseClass>;
+
         new (
             attributes?: SchemaModelInput<TFields, TBaseClass>,
             options?: ModelConstructorOptions,

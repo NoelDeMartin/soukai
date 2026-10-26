@@ -15,6 +15,7 @@ import z from 'zod';
 
 import SetPropertyOperation from './crdts/SetPropertyOperation';
 import { bootModels } from './registry';
+import { belongsToOne } from './relations/fluent';
 import { defineSchema } from './schema';
 import type { ModelWithTimestamps, ModelWithUrl } from './types';
 
@@ -744,6 +745,66 @@ describe('Model', () => {
             'solid://drafts/hello-world#it',
         );
         expect(PostsCollection.urlFromSlug('drafts')).toEqual(collection.url);
+    });
+
+    it('infers attribute types for extended schemas', () => {
+        // Arrange
+        class Animal extends defineSchema({ fields: { name: z.string() } }) {
+            public get displayName(): string {
+                return this.name;
+            }
+        }
+
+        class Dog extends defineSchema(Animal, { fields: { breed: z.string().optional() } }) {}
+        class Puppy extends defineSchema(Dog, { fields: { ageInWeeks: z.number() } }) {}
+
+        // Act
+        const dog = new Dog({ name: 'Rex' });
+        const puppy = new Puppy({ name: 'Bolt', ageInWeeks: 8 });
+
+        dog.setAttributes({ name: 'Max', breed: 'Beagle' });
+        puppy.setAttributes({ name: 'Bolt', breed: 'Husky', ageInWeeks: 9 });
+
+        // Assert
+        expect(dog.getAttributes()).toEqual({ name: 'Max', breed: 'Beagle' });
+        expect(puppy.getAttributes()).toEqual({ name: 'Bolt', breed: 'Husky', ageInWeeks: 9 });
+        expect(puppy.displayName).toEqual('Bolt');
+
+        expectTypeOf(dog.getAttributes()).toHaveProperty('name').toEqualTypeOf<string>();
+        expectTypeOf(dog.getAttributes()).toHaveProperty('breed').toEqualTypeOf<string | undefined>();
+        expectTypeOf(dog.getAttributes()).not.toHaveProperty('ageInWeeks');
+        expectTypeOf(dog.getDirtyAttributes()).items.toEqualTypeOf<'url' | 'name' | 'breed'>();
+
+        expectTypeOf(puppy.getAttributes()).toHaveProperty('name').toEqualTypeOf<string>();
+        expectTypeOf(puppy.getAttributes()).toHaveProperty('breed').toEqualTypeOf<string | undefined>();
+        expectTypeOf(puppy.getAttributes()).toHaveProperty('ageInWeeks').toEqualTypeOf<number>();
+        expectTypeOf(puppy.getDirtyAttributes()).items.toEqualTypeOf<'url' | 'name' | 'breed' | 'ageInWeeks'>();
+        expectTypeOf(puppy.displayName).toEqualTypeOf<string>();
+
+        // @ts-expect-error - ageInWeeks is not a Dog attribute
+        () => dog.setAttributes({ ageInWeeks: 3 });
+    });
+
+    it('infers relation types for extended schemas', () => {
+        // Arrange
+        const Animal = defineSchema({
+            fields: { ownerUrl: z.url().optional() },
+            relations: { owner: belongsToOne(() => User, 'ownerUrl') },
+        });
+        const Dog = defineSchema(Animal, {
+            fields: { motherUrl: z.url().optional() },
+            relations: { mother: belongsToOne(() => Animal, 'motherUrl') },
+        });
+
+        // Act
+        const dog = new Dog();
+
+        // Assert
+        expectTypeOf(dog.getRelation).parameter(0).toEqualTypeOf<'owner' | 'mother'>();
+        expectTypeOf(dog.isRelationLoaded).parameter(0).toEqualTypeOf<'owner' | 'mother'>();
+
+        // @ts-expect-error - posts is not a Dog relation
+        () => dog.getRelation('posts');
     });
 
     it('infers attribute types', () => {
