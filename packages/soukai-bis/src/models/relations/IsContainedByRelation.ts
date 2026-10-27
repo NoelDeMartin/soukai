@@ -68,4 +68,17 @@ export default class IsContainedByRelation<
 
         related.setAttribute('resourceUrls', attributes['resourceUrls']);
     }
+
+    public clearForeignAttributes(related: Related): void {
+        const parentDocumentUrl = this.parent.getDocumentUrl();
+
+        if (!parentDocumentUrl || !related.resourceUrls.includes(parentDocumentUrl)) {
+            return;
+        }
+
+        related.setAttribute(
+            'resourceUrls',
+            related.resourceUrls.filter((url) => url !== parentDocumentUrl),
+        );
+    }
 }

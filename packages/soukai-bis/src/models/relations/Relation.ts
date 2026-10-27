@@ -2,6 +2,7 @@ import { arrayFrom, required, tap } from '@noeldemartin/utils';
 import type { Constructor, Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { isUsingSameDocument } from 'soukai-bis/models/concerns/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 import { buildModelsCache, isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
@@ -11,6 +12,10 @@ import type { GetRelatedModelInput, RelationConstructor } from './types';
 
 export interface AttachOptions {
     mintUrl?: boolean;
+}
+
+export interface DetachOptions {
+    delete?: boolean;
 }
 
 export default abstract class Relation<
@@ -46,6 +51,8 @@ export default abstract class Relation<
     public static(): RelationConstructor {
         return this.constructor as RelationConstructor;
     }
+
+    declare public __detachedModels?: Related[];
 
     public parent: Parent;
     public relatedClass: RelatedClass;
@@ -120,6 +127,7 @@ export default abstract class Relation<
     public abstract load(): Promise<Related | Related[] | null>;
     public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: ModelsCache }): Promise<void>;
     public abstract setForeignAttributes(related: Related): void;
+    public abstract clearForeignAttributes(related: Related, options?: DetachOptions): void;
     public abstract isEmpty(): boolean | null;
     public abstract attach(model: Related, options?: AttachOptions): Related;
     public abstract attach(
@@ -155,6 +163,67 @@ export default abstract class Relation<
         throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);
     }
 
+    protected detachModel(model: Related, options: DetachOptions = {}): void {
+        this.clearForeignAttributes(model, options);
+        this.clearInverseRelations(model);
+
+        if (options.delete) {
+            model.markForDeletion();
+        }
+
+        if (
+            !model.exists() ||
+            !isUsingSameDocument(this.parent.getDocumentUrl(), this as Relation, model) ||
+            this.__detachedModels?.includes(model)
+        ) {
+            return;
+        }
+
+        this.__detachedModels = (this.__detachedModels ?? []).concat([model]);
+    }
+
+    protected forgetDetachedModel(model: Related): void {
+        model.unmarkForDeletion();
+
+        if (!this.__detachedModels?.includes(model)) {
+            return;
+        }
+
+        this.__detachedModels = this.__detachedModels.filter((detachedModel) => detachedModel !== model);
+    }
+
+    protected clearInverseRelations(model: Related): void {
+        for (const relationName of Object.keys(this.relatedClass.schema.relations)) {
+            const relationInstance = model.getRelation(relationName);
+
+            if (!relationInstance.isInverseOf(this as Relation) || !relationInstance.loaded) {
+                continue;
+            }
+
+            if (isSingleModelRelation(relationInstance) && relationInstance.related === this.parent) {
+                relationInstance.related = null;
+
+                if (relationInstance.__newModel === this.parent) {
+                    delete relationInstance.__newModel;
+                }
+
+                if (relationInstance.__modelInSameDocument === this.parent) {
+                    delete relationInstance.__modelInSameDocument;
+                }
+            }
+
+            if (isMultiModelRelation(relationInstance) && relationInstance.isRelated(this.parent)) {
+                const isParent = (related: Model) => related === this.parent;
+
+                relationInstance.related = relationInstance.related?.filter((related) => !isParent(related));
+                relationInstance.__newModels = relationInstance.__newModels?.filter((related) => !isParent(related));
+                relationInstance.__modelsInSameDocument = relationInstance.__modelsInSameDocument?.filter(
+                    (related) => !isParent(related),
+                );
+            }
+        }
+    }
+
     protected setInverseRelations(model: Related): void {
         for (const relationName of Object.keys(this.relatedClass.schema.relations)) {
             const relationInstance = model.getRelation(relationName);
@@ -171,6 +240,10 @@ export default abstract class Relation<
 
             if (isMultiModelRelation(relationInstance)) {
                 relationInstance.addRelated(this.parent);
+            }
+
+            if (relationInstance.__detachedModels?.includes(this.parent)) {
+                relationInstance.forgetDetachedModel(this.parent);
             }
         }
     }

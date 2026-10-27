@@ -1,7 +1,7 @@
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
-import type Post from 'soukai-bis/testing/stubs/Post';
+import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
@@ -35,5 +35,49 @@ describe('HasManyRelation', () => {
                 metadataJsonLD(post as ModelWithUrl<Post> & ModelWithTimestamps<Post>),
             ],
         });
+    });
+
+    it('detaches related models from other documents', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+
+        await alice.loadRelationIfUnloaded('posts');
+
+        const post = await alice.relatedPosts.create({ title: 'Hello World' });
+
+        // Act
+        alice.relatedPosts.detach(post);
+
+        await alice.save();
+
+        const freshPostBeforeSave = await Post.findOrFail(post.requireUrl());
+
+        await post.save();
+
+        // Assert
+        const freshPost = await Post.findOrFail(post.requireUrl());
+
+        expect(alice.posts).toHaveLength(0);
+        expect(freshPostBeforeSave.authorUrl).toEqual(alice.url);
+        expect(freshPost.authorUrl).toBeUndefined();
+    });
+
+    it('detaches and deletes related models from other documents', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+
+        await alice.loadRelationIfUnloaded('posts');
+
+        const post = await alice.relatedPosts.create({ title: 'Hello World' });
+
+        // Act
+        alice.relatedPosts.detach(post, { delete: true });
+
+        await post.save();
+
+        // Assert
+        expect(alice.posts).toHaveLength(0);
+        expect(post.exists()).toBe(false);
+        expect(engine.documents[post.requireDocumentUrl()]).toBeUndefined();
     });
 });

@@ -37,7 +37,12 @@ import { ZodError } from 'zod';
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
-import { deleteModel, getDirtyDocumentsUpdates, syncDocumentOperations } from './concerns/crdts';
+import {
+    deleteModel,
+    getDeleteModelOperations,
+    getDirtyDocumentsUpdates,
+    syncDocumentOperations,
+} from './concerns/crdts';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 import {
@@ -421,6 +426,7 @@ export default class Model<
 
     protected _exists: boolean = false;
     protected _documentExists: boolean = false;
+    protected _markedForDeletion: boolean = false;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
     protected _dirtyAttributes: Set<FieldName>;
@@ -715,8 +721,44 @@ export default class Model<
         return Array.from(modelsSet);
     }
 
+    public getDetachedDocumentModels(): Model[] {
+        const documentUrl = this.getDocumentUrl();
+        const documentModels = new Set(this.getDocumentModels());
+        const detachedModels = new Set<Model>();
+        const pendingModels = Array.from(documentModels);
+
+        while (pendingModels.length > 0) {
+            const model = required(pendingModels.pop());
+
+            for (const relation of Object.values(model._relations)) {
+                for (const detachedModel of relation.__detachedModels ?? []) {
+                    if (!detachedModel.exists() || !isUsingSameDocument(documentUrl, relation, detachedModel)) {
+                        continue;
+                    }
+
+                    for (const detachedDocumentModel of detachedModel.getDocumentModels()) {
+                        if (
+                            documentModels.has(detachedDocumentModel) ||
+                            detachedModels.has(detachedDocumentModel) ||
+                            (detachedModel.isMarkedForDeletion() && !detachedDocumentModel.exists())
+                        ) {
+                            continue;
+                        }
+
+                        detachedModels.add(detachedDocumentModel);
+                        pendingModels.push(detachedDocumentModel);
+                    }
+                }
+            }
+        }
+
+        return Array.from(detachedModels);
+    }
+
     public getDirtyDocumentModels(): Model[] {
-        return this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
+        return [...this.getDocumentModels(), ...this.getDetachedDocumentModels()].filter((model) =>
+            model.isDirty(undefined, true),
+        );
     }
 
     public isDirty(field?: FieldName, ignoreRelations?: boolean): boolean {
@@ -725,12 +767,10 @@ export default class Model<
         }
 
         if (ignoreRelations) {
-            return this._dirtyAttributes.size > 0;
+            return this._markedForDeletion ? this.exists() : this._dirtyAttributes.size > 0;
         }
 
-        const dirtyDocumentModels = this.getDocumentModels().filter((model) => model.isDirty(undefined, true));
-
-        return dirtyDocumentModels.length > 0;
+        return this.getDirtyDocumentModels().length > 0;
     }
 
     public cleanDirty(): void {
@@ -771,6 +811,18 @@ export default class Model<
         this._documentExists = documentExists;
     }
 
+    public markForDeletion(): void {
+        this._markedForDeletion = true;
+    }
+
+    public unmarkForDeletion(): void {
+        this._markedForDeletion = false;
+    }
+
+    public isMarkedForDeletion(): boolean {
+        return this._markedForDeletion;
+    }
+
     public async delete(): Promise<this> {
         if (!this.exists()) {
             return this;
@@ -784,6 +836,14 @@ export default class Model<
     }
 
     public async save(containerUrl?: string): Promise<ModelWithUrl<this>> {
+        if (this._markedForDeletion) {
+            await this.delete();
+
+            this._markedForDeletion = false;
+
+            return this as ModelWithUrl<this>;
+        }
+
         if (this.exists() && !this.isDirty()) {
             return this;
         }
@@ -799,6 +859,14 @@ export default class Model<
         for (let index = 0; index < dirtyDocumentModels.length; index++) {
             const model = required(dirtyDocumentModels[index]);
             const existed = dirtyDocumentModelsExisted[index];
+
+            if (model._markedForDeletion) {
+                await emitModelEvent(model, 'deleted');
+
+                model._markedForDeletion = false;
+
+                continue;
+            }
 
             await emitModelEvent(model, existed ? 'updated' : 'created');
             await emitModelEvent(model, 'saved');
@@ -926,8 +994,8 @@ export default class Model<
             documentModel.mintUrl({ documentUrl, documentExists, resourceHash: uuid() });
         }
 
-        for (const documentModel of documentModels) {
-            if (!documentModel.isDirty()) {
+        for (const documentModel of documentModels.concat(this.getDetachedDocumentModels())) {
+            if (documentModel._markedForDeletion || !documentModel.isDirty()) {
                 continue;
             }
 
@@ -945,12 +1013,22 @@ export default class Model<
         if (this._documentExists) {
             const documentUrl = this.requireDocumentUrl();
             const dirtyDocumentModels = this.getDirtyDocumentModels();
+            const updatedModels = dirtyDocumentModels.filter((model) => !model._markedForDeletion);
+            const deletedModels = dirtyDocumentModels.filter(
+                (model): model is ModelWithUrl<Model> => model._markedForDeletion && model.exists(),
+            );
 
-            await loadDocumentRelations(this, { models: dirtyDocumentModels, relations: ['operations'] });
-            await engine.updateDocument(documentUrl, getDirtyDocumentsUpdates(dirtyDocumentModels));
+            await loadDocumentRelations(this, { models: updatedModels, relations: ['operations'] });
+            await engine.updateDocument(documentUrl, [
+                ...getDirtyDocumentsUpdates(updatedModels),
+                ...deletedModels.flatMap((model) => getDeleteModelOperations(model)),
+            ]);
         } else {
             try {
-                await engine.createDocument(this.requireDocumentUrl(), serializeToRDF(this.getDocumentModels()));
+                await engine.createDocument(
+                    this.requireDocumentUrl(),
+                    serializeToRDF(this.getDocumentModels().filter((model) => !model._markedForDeletion)),
+                );
             } catch (error) {
                 if (!isInstanceOf(error, DocumentAlreadyExists)) {
                     throw error;
@@ -964,17 +1042,32 @@ export default class Model<
     }
 
     protected async afterSave(): Promise<void> {
-        const documentModels = this.getDocumentModels();
+        const savedModels = this.getDocumentModels().concat(this.getDetachedDocumentModels());
         const relatedModels = this.getRelatedModels();
 
-        for (const documentModel of documentModels) {
-            if (!documentModel.exists()) {
-                initializeEmptyDocumentRelations(documentModel);
+        for (const savedModel of savedModels) {
+            savedModel.cleanDirty();
+
+            if (savedModel._markedForDeletion) {
+                savedModel.setExists(false);
+
+                continue;
             }
 
-            documentModel.setExists(true);
-            documentModel.setDocumentExists(true);
-            documentModel.cleanDirty();
+            if (!savedModel.exists()) {
+                initializeEmptyDocumentRelations(savedModel);
+            }
+
+            savedModel.setExists(true);
+            savedModel.setDocumentExists(true);
+        }
+
+        for (const savedModel of savedModels) {
+            for (const relation of Object.values(savedModel._relations)) {
+                relation.__detachedModels = relation.__detachedModels?.filter(
+                    (model) => model.exists() && !savedModels.includes(model),
+                );
+            }
         }
 
         await refreshComputedAttributes(relatedModels);

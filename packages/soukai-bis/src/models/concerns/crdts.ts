@@ -174,6 +174,11 @@ export function deleteModel<T extends Model>(
         return null;
     }
 
+    return getDeleteModelOperations(model);
+}
+
+export function getDeleteModelOperations<T extends Model>(model: ModelWithUrl<T>): EngineOperation[] {
+    const resourceUrls = arrayFilter([model.url, model.metadata?.url]);
     const operations: EngineOperation[] = resourceUrls.map((resourceUrl) => new DeleteResourceOperation(resourceUrl));
 
     if (model.leavesTombstones()) {

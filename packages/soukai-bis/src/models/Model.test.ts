@@ -674,6 +674,20 @@ describe('Model', () => {
         });
     });
 
+    it('deletes instances marked for deletion when saving', async () => {
+        const user = await User.create({ name: 'John Doe' });
+
+        user.markForDeletion();
+
+        const documentBeforeSave = engine.documents[user.requireDocumentUrl()];
+
+        await user.save();
+
+        expect(documentBeforeSave).toBeDefined();
+        expect(user.exists()).toBe(false);
+        expect(engine.documents[user.requireDocumentUrl()]).toBeUndefined();
+    });
+
     it('syncs CRDT operations', async () => {
         class UserWithHistory extends defineSchema(User, { history: true }) {}
 

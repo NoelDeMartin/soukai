@@ -48,7 +48,7 @@ export default class BelongsToManyRelation<
         const foreignKey = related.getAttribute(this.localKeyName);
 
         if (!foreignKey) {
-            related.once('saved', () => this.setForeignAttributes(related));
+            related.once('saved', () => this.isRelated(related) && this.setForeignAttributes(related));
 
             return;
         }

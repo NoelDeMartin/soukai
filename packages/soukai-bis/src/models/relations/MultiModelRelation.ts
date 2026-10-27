@@ -6,6 +6,7 @@ import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import { classMarker } from './helpers';
 import Relation from './Relation';
+import type { DetachOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default abstract class MultiModelRelation<
@@ -64,9 +65,34 @@ export default abstract class MultiModelRelation<
             }
 
             this.addRelated(model);
+            this.forgetDetachedModel(model);
             this.setInverseRelations(model);
             this.setForeignAttributes(model);
         });
+    }
+
+    public detach(related: Related | Related[], options: DetachOptions = {}): Related[] {
+        this.assertLoaded('detach');
+
+        const detachedModels = (Array.isArray(related) ? related : [related]).filter((model) => this.isRelated(model));
+
+        if (detachedModels.length === 0) {
+            return [];
+        }
+
+        const detachedUrls = detachedModels.map((model) => model.url);
+        const isDetached = (model: Related) => detachedModels.includes(model);
+
+        this.related = this.related?.filter((model) => !isDetached(model));
+        this.__newModels = this.__newModels?.filter((model) => !isDetached(model));
+        this.__modelsInSameDocument = this.__modelsInSameDocument?.filter((model) => !isDetached(model));
+        this.__modelsInOtherDocumentIds = this.__modelsInOtherDocumentIds?.filter((url) => !detachedUrls.includes(url));
+
+        for (const model of detachedModels) {
+            this.detachModel(model, options);
+        }
+
+        return detachedModels;
     }
 
     public async delete(related: Related | Related[]): Promise<void> {

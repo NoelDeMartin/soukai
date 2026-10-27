@@ -193,6 +193,29 @@ describe('BelongsToManyRelation', () => {
         expect(show.seasons?.[0]?.url).toEqual(seasonUrl);
     });
 
+    it('detaches related models using same document', async () => {
+        // Arrange
+        const show = await Show.create({ name: 'House M.D.' });
+        const firstSeason = await show.relatedSeasons.create({});
+        const secondSeason = await show.relatedSeasons.create({});
+
+        // Act
+        show.relatedSeasons.detach(firstSeason, { delete: true });
+
+        await show.save();
+
+        // Assert
+        const freshShow = await Show.findOrFail(show.requireUrl());
+        const freshFirstSeason = await Season.find(firstSeason.requireUrl());
+
+        expect(show.seasonUrls).toEqual([secondSeason.url]);
+        expect(firstSeason.exists()).toBe(false);
+        expect(freshShow.seasonUrls).toEqual([secondSeason.url]);
+        expect(freshShow.seasons).toHaveLength(1);
+        expect(freshShow.seasons?.[0]?.url).toEqual(secondSeason.url);
+        expect(freshFirstSeason).toBeNull();
+    });
+
     it('sets foreign attributes after save', async () => {
         // Arrange
         const alice = await User.create({ name: 'Alice' });
@@ -206,5 +229,21 @@ describe('BelongsToManyRelation', () => {
         expect(alice.friendUrls).toContain(bob.url);
         expect(alice.friends).toHaveLength(1);
         expect(alice.friends?.[0]?.url).toEqual(bob.url);
+    });
+
+    it("doesn't set foreign attributes after save for detached models", async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+        const bob = alice.relatedFriends.attach({ name: 'Bob' });
+
+        // Act
+        alice.relatedFriends.detach(bob);
+
+        await bob.save();
+
+        // Assert
+        expect(alice.isDirty()).toBe(false);
+        expect(alice.friendUrls ?? []).not.toContain(bob.url);
+        expect(alice.friends).toEqual([]);
     });
 });

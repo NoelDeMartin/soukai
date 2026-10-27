@@ -5,6 +5,7 @@ import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import { classMarker } from './helpers';
 import Relation from './Relation';
+import type { DetachOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default abstract class SingleModelRelation<
@@ -64,9 +65,36 @@ export default abstract class SingleModelRelation<
             }
 
             this.setRelated(model);
+            this.forgetDetachedModel(model);
             this.setInverseRelations(model);
             this.setForeignAttributes(model);
         });
+    }
+
+    public detach(options: DetachOptions = {}): Related | null {
+        const related = this.related;
+
+        if (!related) {
+            return null;
+        }
+
+        this.related = null;
+
+        if (this.__newModel === related) {
+            delete this.__newModel;
+        }
+
+        if (this.__modelInSameDocument === related) {
+            delete this.__modelInSameDocument;
+        }
+
+        if (this.__modelInOtherDocumentId === related.url) {
+            delete this.__modelInOtherDocumentId;
+        }
+
+        this.detachModel(related, options);
+
+        return related;
     }
 
     public async delete(): Promise<void> {

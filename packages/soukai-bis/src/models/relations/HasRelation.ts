@@ -5,6 +5,7 @@ import { getFinalType } from 'soukai-bis/zod/utils';
 import { ZodArray } from 'zod';
 
 import type Relation from './Relation';
+import type { DetachOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default class HasRelation<
@@ -48,5 +49,33 @@ export default class HasRelation<
         this.addForeignAttributes(attributes as GetRelatedModelInput<RelatedClass, ForeignKeyName>);
 
         related.setAttribute(foreignKeyName, attributes[foreignKeyName]);
+    }
+
+    public clearForeignAttributes(
+        this: Relation<Parent, Related, RelatedClass, ForeignKeyName>,
+        related: Related,
+        options: DetachOptions = {},
+    ): void {
+        const foreignKey = this.parent.getAttribute(this.localKeyName);
+
+        if (options.delete || !foreignKey) {
+            return;
+        }
+
+        const foreignKeyName = this.requireForeignKeyName();
+        const foreignValue = related.getAttribute(foreignKeyName);
+
+        if (Array.isArray(foreignValue)) {
+            related.setAttribute(
+                foreignKeyName,
+                foreignValue.filter((value) => value !== foreignKey),
+            );
+
+            return;
+        }
+
+        if (foreignValue === foreignKey) {
+            related.setAttribute(foreignKeyName, undefined);
+        }
     }
 }

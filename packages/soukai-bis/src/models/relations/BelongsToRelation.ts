@@ -18,4 +18,31 @@ export default class BelongsToRelation<
 
         return attributes;
     }
+
+    public clearForeignAttributes(
+        this: Relation<Parent, Related, RelatedClass, ForeignKeyName>,
+        related: Related,
+    ): void {
+        const foreignKey = related.getAttribute(this.localKeyName);
+
+        if (!foreignKey) {
+            return;
+        }
+
+        const foreignKeyName = this.requireForeignKeyName();
+        const foreignValue = this.parent.getAttribute(foreignKeyName);
+
+        if (Array.isArray(foreignValue)) {
+            this.parent.setAttribute(
+                foreignKeyName,
+                foreignValue.filter((value) => value !== foreignKey),
+            );
+
+            return;
+        }
+
+        if (foreignValue === foreignKey) {
+            this.parent.setAttribute(foreignKeyName, undefined);
+        }
+    }
 }

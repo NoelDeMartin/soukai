@@ -35,7 +35,7 @@ export default class ContainsRelation<
         const relatedDocumentUrl = related.getDocumentUrl();
 
         if (!relatedDocumentUrl) {
-            related.once('saved', () => this.setForeignAttributes(related));
+            related.once('saved', () => this.isRelated(related) && this.setForeignAttributes(related));
 
             return;
         }
@@ -45,6 +45,19 @@ export default class ContainsRelation<
         }
 
         this.parent.setAttribute('resourceUrls', this.parent.resourceUrls.concat([relatedDocumentUrl]));
+    }
+
+    public clearForeignAttributes(related: Related): void {
+        const relatedDocumentUrl = related.getDocumentUrl();
+
+        if (!relatedDocumentUrl || !this.parent.resourceUrls.includes(relatedDocumentUrl)) {
+            return;
+        }
+
+        this.parent.setAttribute(
+            'resourceUrls',
+            this.parent.resourceUrls.filter((url) => url !== relatedDocumentUrl),
+        );
     }
 
     public async load(): Promise<Related[]> {
