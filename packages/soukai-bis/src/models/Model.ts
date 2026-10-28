@@ -3,16 +3,19 @@ import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import {
     MagicObject,
     applyStrictChecks,
+    arrayFrom,
     arrayUnique,
     deepEquals,
     fail,
     isDevelopment,
     isInstanceOf,
+    isString,
     isTesting,
     isTruthy,
     objectDeepClone,
     objectFromEntries,
     required,
+    shortId,
     stringToCamelCase,
     stringToSlug,
     urlParentDirectory,
@@ -76,11 +79,14 @@ import type {
     ModelsCache,
 } from './types';
 
+const mintedUrls = new WeakMap<Model, { url: string; options: MintUrlOptions }>();
+
 export interface MintUrlOptions {
     containerUrl?: Nullable<string>;
     documentUrl?: Nullable<string>;
     documentExists?: Nullable<boolean>;
     resourceHash?: Nullable<string>;
+    slugSuffix?: Nullable<string>;
 }
 
 export interface ModelConstructorOptions {
@@ -173,6 +179,10 @@ export default class Model<
 
     public static documentUrlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
         return urlResolve(options.containerUrl ?? this.defaultContainerUrl, slug);
+    }
+
+    public static slugFromUrl(url: string): string | null {
+        return urlRoute(url).split('/').filter(isTruthy).pop() ?? null;
     }
 
     public static requireFetch(): Fetch {
@@ -603,6 +613,8 @@ export default class Model<
 
             if (options.documentUrl) {
                 this._documentExists = options.documentExists ?? true;
+            } else {
+                mintedUrls.set(this, { url: this.url, options });
             }
 
             if (this.hasTimestamps()) {
@@ -681,10 +693,11 @@ export default class Model<
     }
 
     public getSlug(): string | null {
-        const slugField = this.static('schema').slugField as FieldName;
-        const slugFieldValue = slugField && String(this.getAttribute(slugField));
+        if (!this.url) {
+            return null;
+        }
 
-        return (slugFieldValue && stringToSlug(slugFieldValue)) ?? null;
+        return this.static().slugFromUrl(this.url);
     }
 
     public requireSlug(): string {
@@ -978,8 +991,54 @@ export default class Model<
         return resourceHash ? `${documentUrl}#${resourceHash}` : documentUrl;
     }
 
+    protected newUrlSlug(): string | null {
+        const slugField = this.static('schema').slugField as FieldName;
+        const slugFieldValue = slugField && this.getAttribute(slugField);
+
+        return slugFieldValue ? stringToSlug(String(slugFieldValue)) : null;
+    }
+
     protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
-        return this.static().documentUrlFromSlug(this.getSlug() ?? uuid(), options);
+        const slug = this.newUrlSlug() ?? uuid();
+
+        return this.static().documentUrlFromSlug(`${slug}${options.slugSuffix ?? ''}`, options);
+    }
+
+    protected mintUniqueUrl(options: MintUrlOptions): void {
+        const documentUrl = this.requireDocumentUrl();
+        const relatedModels = this.getRelatedModels();
+
+        this.url = undefined;
+        this.mintUrl({ ...options, slugSuffix: `-${shortId()}` });
+
+        const uniqueDocumentUrl = this.requireDocumentUrl();
+        const isMintedDocumentUrl = (value: unknown, originalValue: unknown): value is string =>
+            isString(value) &&
+            (value === documentUrl || value.startsWith(`${documentUrl}#`)) &&
+            !arrayFrom(originalValue).includes(value);
+        const replaceMintedDocumentUrl = (value: unknown, originalValue: unknown) =>
+            isMintedDocumentUrl(value, originalValue) ? uniqueDocumentUrl + value.slice(documentUrl.length) : value;
+
+        for (const relatedModel of relatedModels) {
+            const updatedAttributes = Object.entries(relatedModel._attributes)
+                .map(([field, value]) => {
+                    const originalValue = relatedModel._originalAttributes[field];
+
+                    return [
+                        field,
+                        Array.isArray(value)
+                            ? value.map((item) => replaceMintedDocumentUrl(item, originalValue))
+                            : replaceMintedDocumentUrl(value, originalValue),
+                    ] as const;
+                })
+                .filter(([field, value]) => !deepEquals(relatedModel._attributes[field], value));
+
+            if (updatedAttributes.length === 0) {
+                continue;
+            }
+
+            relatedModel.setAttributes(objectFromEntries(updatedAttributes));
+        }
     }
 
     protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
@@ -1024,13 +1083,35 @@ export default class Model<
                 ...deletedModels.flatMap((model) => getDeleteModelOperations(model)),
             ]);
         } else {
-            try {
+            const createDocument = async () => {
                 await engine.createDocument(
                     this.requireDocumentUrl(),
                     serializeToRDF(this.getDocumentModels().filter((model) => !model._markedForDeletion)),
                 );
+            };
+
+            try {
+                await createDocument();
             } catch (error) {
                 if (!isInstanceOf(error, DocumentAlreadyExists)) {
+                    throw error;
+                }
+
+                const mintedUrl = mintedUrls.get(this);
+                const isContainer = this.requireDocumentUrl().endsWith('/');
+                const isInDocument = this.getDocumentModels().some(
+                    (model) => !model._markedForDeletion && !!model.url && error.document.contains(model.url),
+                );
+
+                if (!isContainer && mintedUrl && mintedUrl.url === this.url) {
+                    this.mintUniqueUrl(mintedUrl.options);
+
+                    await createDocument();
+
+                    return;
+                }
+
+                if (!isContainer && isInDocument) {
                     throw error;
                 }
 
@@ -1060,6 +1141,7 @@ export default class Model<
 
             savedModel.setExists(true);
             savedModel.setDocumentExists(true);
+            mintedUrls.delete(savedModel);
         }
 
         for (const savedModel of savedModels) {

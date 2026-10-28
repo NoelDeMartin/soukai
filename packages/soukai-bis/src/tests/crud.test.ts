@@ -1,7 +1,9 @@
 import { faker } from '@noeldemartin/faker';
-import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
+import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { escapeRegexText } from '@noeldemartin/utils';
 import { setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
@@ -44,6 +46,24 @@ describe('CRUD', () => {
                     crdt:updatedAt "[[.*]]"^^xsd:dateTime .
             }
         `);
+    });
+
+    it('Creates models with unique urls', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = `${containerUrl}the-office`;
+
+        FakeServer.respondOnce(documentUrl, '<#it> a <https://schema.org/TVSeries> .'); // Check if document exists
+        FakeServer.respondOnce('*', FakeResponse.notFound()); // Check if unique document exists
+        FakeServer.respondOnce('*', FakeResponse.created()); // Create unique document
+
+        // Act
+        const show = await Show.createAt(containerUrl, { name: 'The Office' });
+
+        // Assert
+        expect(show.requireDocumentUrl()).toMatch(new RegExp(`^${escapeRegexText(documentUrl)}-[\\w-]+$`));
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, show.requireDocumentUrl(), expect.anything());
     });
 
     it('Updates models', async () => {

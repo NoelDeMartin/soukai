@@ -251,9 +251,9 @@ describe('Solid CRUD', () => {
         const action = movie.actions?.[0] as WatchAction;
         expect(action).toBeInstanceOf(WatchAction);
         expect(action.object).toEqual(movie.url);
-        expect(action.startTime?.getFullYear()).toEqual(2020);
-        expect(action.startTime?.getMonth()).toEqual(11);
-        expect(action.startTime?.getDate()).toEqual(10);
+        expect(action.startTime?.getUTCFullYear()).toEqual(2020);
+        expect(action.startTime?.getUTCMonth()).toEqual(11);
+        expect(action.startTime?.getUTCDate()).toEqual(10);
     });
 
     it('Reads webIds', async () => {
