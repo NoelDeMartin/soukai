@@ -11,6 +11,7 @@ import z from 'zod';
 import type BelongsToOneRelation from './BelongsToOneRelation';
 import { belongsToOne, hasOne } from './fluent';
 import type HasOneRelation from './HasOneRelation';
+import { DETACHED_MODELS } from './internals';
 
 describe('HasOneRelation', () => {
     it('loads related model', async () => {
@@ -244,7 +245,7 @@ describe('HasOneRelation', () => {
         // Assert
         const freshMovie = await Movie.findOrFail(movie.requireUrl());
 
-        expect(movie.relatedAction.__detachedModels).toEqual([]);
+        expect(movie.relatedAction[DETACHED_MODELS]).toEqual([]);
         expect(freshMovie.action?.url).toEqual(action.url);
     });
 
@@ -283,7 +284,7 @@ describe('HasOneRelation', () => {
 
         expect(action.isMarkedForDeletion()).toBe(false);
         expect(action.exists()).toBe(true);
-        expect(movie.relatedAction.__detachedModels).toEqual([]);
+        expect(movie.relatedAction[DETACHED_MODELS]).toEqual([]);
         expect(freshMovie.action?.url).toEqual(action.url);
     });
 
@@ -305,7 +306,7 @@ describe('HasOneRelation', () => {
         const freshMovie = await Movie.findOrFail(movie.requireUrl());
 
         expect(action.exists()).toBe(false);
-        expect(movie.relatedAction.__detachedModels).toEqual([]);
+        expect(movie.relatedAction[DETACHED_MODELS]).toEqual([]);
         expect(freshMovie.title).toEqual('Spider-Man');
         expect(freshMovie.action).toBeNull();
     });

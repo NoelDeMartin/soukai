@@ -3,7 +3,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
-import { classMarker } from './helpers';
+import { CLASS_MARKER, MODELS_IN_SAME_DOCUMENT } from './internals';
 import MultiModelRelation from './MultiModelRelation';
 import type { DetachOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
@@ -13,7 +13,7 @@ export default class DocumentContainsManyRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass, never> {
-    public static [classMarker] = ['DocumentContainsManyRelation', ...MultiModelRelation[classMarker]];
+    public static [CLASS_MARKER] = ['DocumentContainsManyRelation', ...MultiModelRelation[CLASS_MARKER]];
 
     public async load(): Promise<Related[]> {
         this.related = [];
@@ -24,7 +24,7 @@ export default class DocumentContainsManyRelation<
     public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: ModelsCache } = {}): Promise<void> {
         this.related = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
         this.documentModelsLoaded = true;
-        this.__modelsInSameDocument = this.related;
+        this[MODELS_IN_SAME_DOCUMENT] = this.related;
     }
 
     public detach(related: Related | Related[], options: DetachOptions = {}): Related[] {

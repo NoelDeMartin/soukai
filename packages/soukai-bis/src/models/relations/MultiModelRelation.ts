@@ -4,7 +4,7 @@ import { emitModelEvent } from 'soukai-bis/models/concerns/events';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
-import { classMarker } from './helpers';
+import { CLASS_MARKER, MODELS_IN_OTHER_DOCUMENT_IDS, MODELS_IN_SAME_DOCUMENT, NEW_MODELS } from './internals';
 import Relation from './Relation';
 import type { DetachOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
@@ -15,11 +15,11 @@ export default abstract class MultiModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > extends Relation<Parent, Related, RelatedClass, ForeignKeyName> {
-    public static [classMarker] = ['MultiModelRelation'];
+    public static [CLASS_MARKER] = ['MultiModelRelation'];
 
-    declare public __newModels?: Related[];
-    declare public __modelsInSameDocument?: Related[];
-    declare public __modelsInOtherDocumentIds?: string[];
+    declare public [NEW_MODELS]?: Related[];
+    declare public [MODELS_IN_SAME_DOCUMENT]?: Related[];
+    declare public [MODELS_IN_OTHER_DOCUMENT_IDS]?: string[];
 
     public get related(): Nullable<Related[]> {
         return this._related as Nullable<Related[]>;
@@ -84,9 +84,11 @@ export default abstract class MultiModelRelation<
         const isDetached = (model: Related) => detachedModels.includes(model);
 
         this.related = this.related?.filter((model) => !isDetached(model));
-        this.__newModels = this.__newModels?.filter((model) => !isDetached(model));
-        this.__modelsInSameDocument = this.__modelsInSameDocument?.filter((model) => !isDetached(model));
-        this.__modelsInOtherDocumentIds = this.__modelsInOtherDocumentIds?.filter((url) => !detachedUrls.includes(url));
+        this[NEW_MODELS] = this[NEW_MODELS]?.filter((model) => !isDetached(model));
+        this[MODELS_IN_SAME_DOCUMENT] = this[MODELS_IN_SAME_DOCUMENT]?.filter((model) => !isDetached(model));
+        this[MODELS_IN_OTHER_DOCUMENT_IDS] = this[MODELS_IN_OTHER_DOCUMENT_IDS]?.filter(
+            (url) => !detachedUrls.includes(url),
+        );
 
         for (const model of detachedModels) {
             this.detachModel(model, options);
@@ -121,9 +123,9 @@ export default abstract class MultiModelRelation<
         }
 
         const modelsCount =
-            (this.__modelsInSameDocument?.length ?? 0) +
-            (this.__modelsInOtherDocumentIds?.length ?? 0) +
-            (this.__newModels?.length ?? 0) +
+            (this[MODELS_IN_SAME_DOCUMENT]?.length ?? 0) +
+            (this[MODELS_IN_OTHER_DOCUMENT_IDS]?.length ?? 0) +
+            (this[NEW_MODELS]?.length ?? 0) +
             (this.related?.length ?? 0);
 
         return modelsCount === 0;
@@ -141,7 +143,7 @@ export default abstract class MultiModelRelation<
         this.related = (this.related ?? []).concat(related);
 
         if (!related.exists()) {
-            this.__newModels = (this.__newModels ?? []).concat([related]);
+            this[NEW_MODELS] = (this[NEW_MODELS] ?? []).concat([related]);
         }
     }
 

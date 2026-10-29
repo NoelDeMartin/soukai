@@ -2,7 +2,7 @@ import type { SchemaRelationDefinition } from 'soukai-bis/models/relations/schem
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import { isModelClass } from 'soukai-bis/models/utils';
 
-function _getRelatedClasses(modelClass: ModelConstructor, visited?: Set<ModelConstructor>): Set<ModelConstructor> {
+function collectRelatedClasses(modelClass: ModelConstructor, visited?: Set<ModelConstructor>): Set<ModelConstructor> {
     visited ??= new Set();
 
     if (!visited.has(modelClass)) {
@@ -11,7 +11,7 @@ function _getRelatedClasses(modelClass: ModelConstructor, visited?: Set<ModelCon
         for (const relation of Object.values(modelClass.schema.relations)) {
             const relatedClass = getRelatedClass(modelClass, relation);
 
-            _getRelatedClasses(relatedClass, visited);
+            collectRelatedClasses(relatedClass, visited);
         }
     }
 
@@ -30,5 +30,5 @@ export function getRelatedClass(parentClass: ModelConstructor, definition: Schem
 }
 
 export function getRelatedClasses(modelClass: ModelConstructor): ModelConstructor[] {
-    return Array.from(_getRelatedClasses(modelClass));
+    return Array.from(collectRelatedClasses(modelClass));
 }

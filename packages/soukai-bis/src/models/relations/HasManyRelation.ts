@@ -4,6 +4,7 @@ import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
 import HasRelation from './HasRelation';
+import { MODELS_IN_SAME_DOCUMENT } from './internals';
 import MultiModelRelation from './MultiModelRelation';
 
 export default class HasManyRelation<
@@ -24,7 +25,7 @@ export default class HasManyRelation<
 
         if (related.length > 0) {
             this.related = related;
-            this.__modelsInSameDocument = related;
+            this[MODELS_IN_SAME_DOCUMENT] = related;
         } else if (this.usingSameDocument) {
             this.related = [];
         }

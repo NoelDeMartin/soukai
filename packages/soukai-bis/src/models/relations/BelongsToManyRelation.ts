@@ -4,6 +4,7 @@ import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
 import BelongsToRelation from './BelongsToRelation';
+import { MODELS_IN_OTHER_DOCUMENT_IDS, MODELS_IN_SAME_DOCUMENT } from './internals';
 import MultiModelRelation from './MultiModelRelation';
 
 export default class BelongsToManyRelation<
@@ -27,11 +28,11 @@ export default class BelongsToManyRelation<
         );
         const relatedKeys = related.map((model) => model.getAttribute(this.localKeyName));
 
-        this.__modelsInSameDocument = related;
-        this.__modelsInOtherDocumentIds = foreignKeys.filter((key) => !relatedKeys.includes(key));
+        this[MODELS_IN_SAME_DOCUMENT] = related;
+        this[MODELS_IN_OTHER_DOCUMENT_IDS] = foreignKeys.filter((key) => !relatedKeys.includes(key));
         this.documentModelsLoaded = true;
 
-        if (this.__modelsInOtherDocumentIds.length === 0) {
+        if (this[MODELS_IN_OTHER_DOCUMENT_IDS].length === 0) {
             this.related = related;
         }
     }

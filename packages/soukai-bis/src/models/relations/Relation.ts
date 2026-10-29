@@ -8,6 +8,7 @@ import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/mo
 import { buildModelsCache, isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
 
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
+import { DETACHED_MODELS, MODELS_IN_SAME_DOCUMENT, MODEL_IN_SAME_DOCUMENT, NEW_MODEL, NEW_MODELS } from './internals';
 import type { GetRelatedModelInput, RelationConstructor } from './types';
 
 export interface AttachOptions {
@@ -52,7 +53,7 @@ export default abstract class Relation<
         return this.constructor as RelationConstructor;
     }
 
-    declare public __detachedModels?: Related[];
+    declare public [DETACHED_MODELS]?: Related[];
 
     public parent: Parent;
     public relatedClass: RelatedClass;
@@ -174,22 +175,22 @@ export default abstract class Relation<
         if (
             !model.exists() ||
             !isUsingSameDocument(this.parent.getDocumentUrl(), this as Relation, model) ||
-            this.__detachedModels?.includes(model)
+            this[DETACHED_MODELS]?.includes(model)
         ) {
             return;
         }
 
-        this.__detachedModels = (this.__detachedModels ?? []).concat([model]);
+        this[DETACHED_MODELS] = (this[DETACHED_MODELS] ?? []).concat([model]);
     }
 
     protected forgetDetachedModel(model: Related): void {
         model.unmarkForDeletion();
 
-        if (!this.__detachedModels?.includes(model)) {
+        if (!this[DETACHED_MODELS]?.includes(model)) {
             return;
         }
 
-        this.__detachedModels = this.__detachedModels.filter((detachedModel) => detachedModel !== model);
+        this[DETACHED_MODELS] = this[DETACHED_MODELS].filter((detachedModel) => detachedModel !== model);
     }
 
     protected clearInverseRelations(model: Related): void {
@@ -203,12 +204,12 @@ export default abstract class Relation<
             if (isSingleModelRelation(relationInstance) && relationInstance.related === this.parent) {
                 relationInstance.related = null;
 
-                if (relationInstance.__newModel === this.parent) {
-                    delete relationInstance.__newModel;
+                if (relationInstance[NEW_MODEL] === this.parent) {
+                    delete relationInstance[NEW_MODEL];
                 }
 
-                if (relationInstance.__modelInSameDocument === this.parent) {
-                    delete relationInstance.__modelInSameDocument;
+                if (relationInstance[MODEL_IN_SAME_DOCUMENT] === this.parent) {
+                    delete relationInstance[MODEL_IN_SAME_DOCUMENT];
                 }
             }
 
@@ -216,8 +217,8 @@ export default abstract class Relation<
                 const isParent = (related: Model) => related === this.parent;
 
                 relationInstance.related = relationInstance.related?.filter((related) => !isParent(related));
-                relationInstance.__newModels = relationInstance.__newModels?.filter((related) => !isParent(related));
-                relationInstance.__modelsInSameDocument = relationInstance.__modelsInSameDocument?.filter(
+                relationInstance[NEW_MODELS] = relationInstance[NEW_MODELS]?.filter((related) => !isParent(related));
+                relationInstance[MODELS_IN_SAME_DOCUMENT] = relationInstance[MODELS_IN_SAME_DOCUMENT]?.filter(
                     (related) => !isParent(related),
                 );
             }
@@ -242,7 +243,7 @@ export default abstract class Relation<
                 relationInstance.addRelated(this.parent);
             }
 
-            if (relationInstance.__detachedModels?.includes(this.parent)) {
+            if (relationInstance[DETACHED_MODELS]?.includes(this.parent)) {
                 relationInstance.forgetDetachedModel(this.parent);
             }
         }

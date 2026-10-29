@@ -4,6 +4,7 @@ import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
 import HasRelation from './HasRelation';
+import { MODEL_IN_SAME_DOCUMENT, NEW_MODEL } from './internals';
 import SingleModelRelation from './SingleModelRelation';
 
 export default class HasOneRelation<
@@ -27,13 +28,13 @@ export default class HasOneRelation<
         this.documentModelsLoaded = true;
 
         if (related) {
-            this.__modelInSameDocument = related;
+            this[MODEL_IN_SAME_DOCUMENT] = related;
 
-            delete this.__newModel;
+            delete this[NEW_MODEL];
         } else if (this.usingSameDocument) {
             this.related = null;
 
-            delete this.__newModel;
+            delete this[NEW_MODEL];
         }
     }
 

@@ -2,12 +2,11 @@ import type ManagesContainers from './contracts/ManagesContainers';
 import type ManagesDocuments from './contracts/ManagesDocuments';
 import type PurgesMetadata from './contracts/PurgesMetadata';
 import type Engine from './Engine';
+import { CLASS_MARKER } from './internals';
 import type SolidEngine from './SolidEngine';
 
-export const classMarker: unique symbol = Symbol('classMarker');
-
 export function isSolidEngine(engine: Engine): engine is SolidEngine {
-    return classMarker in engine.constructor && engine.constructor[classMarker] === 'SolidEngine';
+    return CLASS_MARKER in engine.constructor && engine.constructor[CLASS_MARKER] === 'SolidEngine';
 }
 
 export function engineFulfillsContract(

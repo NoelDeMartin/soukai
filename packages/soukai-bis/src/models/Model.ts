@@ -61,9 +61,11 @@ import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
+import { CLASS_MARKER, mintedUrls } from './internals';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
+import { DETACHED_MODELS, NEW_MODEL, NEW_MODELS } from './relations/internals';
 import type Relation from './relations/Relation';
 import type { SchemaComputedAttributeDefinition } from './relations/schema';
 import { getRelatedClass } from './relations/utils';
@@ -78,8 +80,6 @@ import type {
     ModelWithUrl,
     ModelsCache,
 } from './types';
-
-const mintedUrls = new WeakMap<Model, { url: string; options: MintUrlOptions }>();
 
 export interface MintUrlOptions {
     containerUrl?: Nullable<string>;
@@ -110,9 +110,10 @@ export default class Model<
     FieldName extends string = string & keyof Attributes,
     RelationName extends string = string & keyof Relations,
 > extends MagicObject {
+    public static [CLASS_MARKER] = 'Model';
     public static schema: Schema;
-    private static __engine: Engine | null = null;
-    private static __hydrating: boolean = false;
+    private static engine: Engine | null = null;
+    private static _hydrating: boolean = false;
 
     public static computed: ModelComputedAttributeDefinitions;
 
@@ -137,17 +138,17 @@ export default class Model<
     }
 
     public static hydrating<T>(operation: () => T): T {
-        Model.__hydrating = true;
+        Model._hydrating = true;
 
         try {
             return operation();
         } finally {
-            Model.__hydrating = false;
+            Model._hydrating = false;
         }
     }
 
     protected static isHydrating(): boolean {
-        return Model.__hydrating;
+        return Model._hydrating;
     }
 
     public static newInstance<T extends Model>(
@@ -159,15 +160,15 @@ export default class Model<
     }
 
     public static getEngine(): Engine | undefined {
-        return this.__engine ?? getEngine();
+        return this.engine ?? getEngine();
     }
 
     public static requireEngine(): Engine {
-        return this.__engine ?? requireEngine();
+        return this.engine ?? requireEngine();
     }
 
     public static setEngine(engine?: Engine): void {
-        this.__engine = engine ?? null;
+        this.engine = engine ?? null;
     }
 
     public static urlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
@@ -744,7 +745,7 @@ export default class Model<
             const model = required(pendingModels.pop());
 
             for (const relation of Object.values(model._relations)) {
-                for (const detachedModel of relation.__detachedModels ?? []) {
+                for (const detachedModel of relation[DETACHED_MODELS] ?? []) {
                     if (!detachedModel.exists() || !isUsingSameDocument(documentUrl, relation, detachedModel)) {
                         continue;
                     }
@@ -1146,7 +1147,7 @@ export default class Model<
 
         for (const savedModel of savedModels) {
             for (const relation of Object.values(savedModel._relations)) {
-                relation.__detachedModels = relation.__detachedModels?.filter(
+                relation[DETACHED_MODELS] = relation[DETACHED_MODELS]?.filter(
                     (model) => model.exists() && !savedModels.includes(model),
                 );
             }
@@ -1287,14 +1288,14 @@ export default class Model<
 
             if (
                 isSingleModelRelation(relation) &&
-                relation.__newModel &&
-                isUsingSameDocument(documentUrl, relation, relation.__newModel)
+                relation[NEW_MODEL] &&
+                isUsingSameDocument(documentUrl, relation, relation[NEW_MODEL])
             ) {
-                relation.__newModel.populateDocumentModels(documentModels);
+                relation[NEW_MODEL].populateDocumentModels(documentModels);
             }
 
             if (isMultiModelRelation(relation)) {
-                for (const newModel of relation.__newModels ?? []) {
+                for (const newModel of relation[NEW_MODELS] ?? []) {
                     if (!isUsingSameDocument(documentUrl, relation, newModel)) {
                         continue;
                     }
@@ -1320,12 +1321,12 @@ export default class Model<
         relatedModels.add(this);
 
         for (const relation of Object.values(this._relations)) {
-            if (isSingleModelRelation(relation) && relation.__newModel) {
-                relation.__newModel.populateRelatedModels(relatedModels);
+            if (isSingleModelRelation(relation) && relation[NEW_MODEL]) {
+                relation[NEW_MODEL].populateRelatedModels(relatedModels);
             }
 
             if (isMultiModelRelation(relation)) {
-                relation.__newModels?.map((model) => model.populateRelatedModels(relatedModels));
+                relation[NEW_MODELS]?.map((model) => model.populateRelatedModels(relatedModels));
             }
 
             relation.getLoadedModels().forEach((model) => model.populateRelatedModels(relatedModels));

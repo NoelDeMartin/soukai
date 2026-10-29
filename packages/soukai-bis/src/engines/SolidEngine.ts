@@ -9,8 +9,8 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 
 import Engine from './Engine';
 import type { EngineMetadata } from './Engine';
+import { CLASS_MARKER } from './internals';
 import type EngineOperation from './operations/EngineOperation';
-import { classMarker } from './utils';
 
 export interface SolidEngineConfig {
     fetch?: Nullable<Fetch>;
@@ -19,7 +19,7 @@ export interface SolidEngineConfig {
 
 export default class SolidEngine extends Engine {
     public static readonly engineName = 'SolidEngine';
-    public static [classMarker] = 'SolidEngine';
+    public static [CLASS_MARKER] = 'SolidEngine';
 
     private client: SolidClient;
     private lock: Semaphore;

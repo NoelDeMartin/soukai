@@ -4,6 +4,7 @@ import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 
 import BelongsToRelation from './BelongsToRelation';
+import { MODEL_IN_OTHER_DOCUMENT_ID, MODEL_IN_SAME_DOCUMENT } from './internals';
 import SingleModelRelation from './SingleModelRelation';
 
 export default class BelongsToOneRelation<
@@ -30,11 +31,11 @@ export default class BelongsToOneRelation<
         this.documentModelsLoaded = true;
 
         if (related) {
-            this.__modelInSameDocument = related;
+            this[MODEL_IN_SAME_DOCUMENT] = related;
             this.related = related;
         } else if (foreignKey) {
             // oxlint-disable-next-line typescript/no-base-to-string
-            this.__modelInOtherDocumentId = String(foreignKey);
+            this[MODEL_IN_OTHER_DOCUMENT_ID] = String(foreignKey);
         }
     }
 

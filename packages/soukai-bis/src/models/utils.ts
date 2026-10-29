@@ -1,10 +1,11 @@
 import { stringToCamelCase } from '@noeldemartin/utils';
 
+import { CLASS_MARKER } from './internals';
 import type Model from './Model';
 import type { ModelConstructor, ModelsCache } from './types';
 
 export function isModelClass(value: unknown): value is ModelConstructor {
-    return typeof value === 'function' && 'schema' in value && '__engine' in value;
+    return typeof value === 'function' && CLASS_MARKER in value && value[CLASS_MARKER] === 'Model';
 }
 
 export function isModelClassOrSubclass(value: ModelConstructor, target: ModelConstructor): boolean {

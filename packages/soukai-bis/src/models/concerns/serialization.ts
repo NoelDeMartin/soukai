@@ -3,6 +3,14 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import { isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
+import {
+    MODELS_IN_OTHER_DOCUMENT_IDS,
+    MODELS_IN_SAME_DOCUMENT,
+    MODEL_IN_OTHER_DOCUMENT_ID,
+    MODEL_IN_SAME_DOCUMENT,
+    NEW_MODEL,
+    NEW_MODELS,
+} from 'soukai-bis/models/relations/internals';
 import type Relation from 'soukai-bis/models/relations/Relation';
 import type { LegacyTimestamps } from 'soukai-bis/models/types';
 
@@ -57,11 +65,11 @@ function hasRelationState(relation: Relation): boolean {
     }
 
     if (isSingleModelRelation(relation)) {
-        return !!(relation.__modelInSameDocument || relation.__modelInOtherDocumentId);
+        return !!(relation[MODEL_IN_SAME_DOCUMENT] || relation[MODEL_IN_OTHER_DOCUMENT_ID]);
     }
 
     if (isMultiModelRelation(relation)) {
-        return !!(relation.__modelsInSameDocument || relation.__modelsInOtherDocumentIds);
+        return !!(relation[MODELS_IN_SAME_DOCUMENT] || relation[MODELS_IN_OTHER_DOCUMENT_IDS]);
     }
 
     return false;
@@ -120,8 +128,8 @@ function serializeRelation(
             serializedRelation.related = related && serializeRelatedModel(related);
         }
 
-        serializedRelation.modelInSameDocument = serializeOptionalModel(relation.__modelInSameDocument);
-        serializedRelation.modelInOtherDocumentId = relation.__modelInOtherDocumentId;
+        serializedRelation.modelInSameDocument = serializeOptionalModel(relation[MODEL_IN_SAME_DOCUMENT]);
+        serializedRelation.modelInOtherDocumentId = relation[MODEL_IN_OTHER_DOCUMENT_ID];
     }
 
     if (isMultiModelRelation(relation)) {
@@ -131,8 +139,8 @@ function serializeRelation(
             serializedRelation.related = related && related.map(serializeRelatedModel);
         }
 
-        serializedRelation.modelsInSameDocument = serializeOptionalModels(relation.__modelsInSameDocument);
-        serializedRelation.modelsInOtherDocumentIds = relation.__modelsInOtherDocumentIds;
+        serializedRelation.modelsInSameDocument = serializeOptionalModels(relation[MODELS_IN_SAME_DOCUMENT]);
+        serializedRelation.modelsInOtherDocumentIds = relation[MODELS_IN_OTHER_DOCUMENT_IDS];
     }
 
     return serializedRelation;
@@ -149,18 +157,18 @@ function hydrateRelation(relation: Relation, serialized: SerializedRelation, mod
     const related = serialized.related;
 
     if (isSingleModelRelation(relation)) {
-        relation.__newModel = undefined;
+        relation[NEW_MODEL] = undefined;
         relation.related =
             typeof related === 'number' ? requireHydratedModel(models, related) : nullOrUndefined(related);
-        relation.__modelInSameDocument = hydrateOptionalModel(serialized.modelInSameDocument);
-        relation.__modelInOtherDocumentId = serialized.modelInOtherDocumentId;
+        relation[MODEL_IN_SAME_DOCUMENT] = hydrateOptionalModel(serialized.modelInSameDocument);
+        relation[MODEL_IN_OTHER_DOCUMENT_ID] = serialized.modelInOtherDocumentId;
     }
 
     if (isMultiModelRelation(relation)) {
-        relation.__newModels = undefined;
+        relation[NEW_MODELS] = undefined;
         relation.related = isArray(related) ? hydrateOptionalModels(related) : nullOrUndefined(related);
-        relation.__modelsInSameDocument = hydrateOptionalModels(serialized.modelsInSameDocument);
-        relation.__modelsInOtherDocumentIds = serialized.modelsInOtherDocumentIds;
+        relation[MODELS_IN_SAME_DOCUMENT] = hydrateOptionalModels(serialized.modelsInSameDocument);
+        relation[MODELS_IN_OTHER_DOCUMENT_IDS] = serialized.modelsInOtherDocumentIds;
     }
 
     relation.documentModelsLoaded = serialized.documentModelsLoaded;

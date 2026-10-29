@@ -6,8 +6,8 @@ import type PurgesMetadata from './contracts/PurgesMetadata';
 import type Engine from './Engine';
 import { engineFulfillsContract } from './utils';
 
-let _engine: Engine | undefined;
-let _asyncContextManager: AsyncContextManager<Engine> | undefined;
+let defaultEngine: Engine | undefined;
+let asyncContextManager: AsyncContextManager<Engine> | undefined;
 
 export interface AsyncContextManager<T> {
     runWithValue<TResult>(value: T, operation: () => TResult): TResult;
@@ -15,23 +15,23 @@ export interface AsyncContextManager<T> {
 }
 
 export function setAsyncContextManager(manager: AsyncContextManager<Engine>): void {
-    _asyncContextManager = manager;
+    asyncContextManager = manager;
 }
 
 export function setEngine(engine: Engine): void {
-    _engine = engine;
+    defaultEngine = engine;
 }
 
 export function runWithEngine<T>(engine: Engine, operation: () => T): T {
-    if (!_asyncContextManager) {
+    if (!asyncContextManager) {
         throw new SoukaiError("Async context manager hasn't been initialized");
     }
 
-    return _asyncContextManager.runWithValue(engine, operation);
+    return asyncContextManager.runWithValue(engine, operation);
 }
 
 export function getEngine(): Engine | undefined {
-    return _asyncContextManager?.getValue() ?? _engine;
+    return asyncContextManager?.getValue() ?? defaultEngine;
 }
 
 export function requireEngine(): Engine;

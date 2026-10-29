@@ -2,6 +2,7 @@ import { fakeContainerUrl } from '@noeldemartin/testing';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import { clearCache } from 'soukai-bis/models/computed-attributes/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
+import { NEW_MODEL } from 'soukai-bis/models/relations/internals';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import User from 'soukai-bis/testing/stubs/User';
@@ -34,7 +35,7 @@ describe('Models serialization', () => {
         expect(hydratedMovie.metadata).toBeInstanceOf(Metadata);
         expect(hydratedMovie.metadata?.url).toEqual(freshMovie.metadata?.url);
         expect(hydratedMovie.metadata?.exists()).toBe(true);
-        expect(hydratedMovie.relatedMetadata?.__newModel).toBeUndefined();
+        expect(hydratedMovie.relatedMetadata?.[NEW_MODEL]).toBeUndefined();
         expect(hydratedMovie.action).toBeInstanceOf(WatchAction);
         expect(hydratedMovie.action?.url).toEqual(freshMovie.action?.url);
         expect(hydratedMovie.action?.startTime).toEqual(new Date('2026-01-01T10:00:00Z'));

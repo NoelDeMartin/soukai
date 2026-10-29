@@ -3,7 +3,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
-import { classMarker } from './helpers';
+import { CLASS_MARKER, MODEL_IN_OTHER_DOCUMENT_ID, MODEL_IN_SAME_DOCUMENT, NEW_MODEL } from './internals';
 import Relation from './Relation';
 import type { DetachOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
@@ -14,11 +14,11 @@ export default abstract class SingleModelRelation<
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
     ForeignKeyName extends keyof GetModelInput<RelatedClass> = keyof GetModelInput<RelatedClass>,
 > extends Relation<Parent, Related, RelatedClass, ForeignKeyName> {
-    public static [classMarker] = ['SingleModelRelation'];
+    public static [CLASS_MARKER] = ['SingleModelRelation'];
 
-    declare public __newModel?: Related;
-    declare public __modelInSameDocument?: Related;
-    declare public __modelInOtherDocumentId?: string;
+    declare public [NEW_MODEL]?: Related;
+    declare public [MODEL_IN_SAME_DOCUMENT]?: Related;
+    declare public [MODEL_IN_OTHER_DOCUMENT_ID]?: string;
 
     public get related(): Nullable<Related> {
         return this._related as Nullable<Related>;
@@ -80,16 +80,16 @@ export default abstract class SingleModelRelation<
 
         this.related = null;
 
-        if (this.__newModel === related) {
-            delete this.__newModel;
+        if (this[NEW_MODEL] === related) {
+            delete this[NEW_MODEL];
         }
 
-        if (this.__modelInSameDocument === related) {
-            delete this.__modelInSameDocument;
+        if (this[MODEL_IN_SAME_DOCUMENT] === related) {
+            delete this[MODEL_IN_SAME_DOCUMENT];
         }
 
-        if (this.__modelInOtherDocumentId === related.url) {
-            delete this.__modelInOtherDocumentId;
+        if (this[MODEL_IN_OTHER_DOCUMENT_ID] === related.url) {
+            delete this[MODEL_IN_OTHER_DOCUMENT_ID];
         }
 
         this.detachModel(related, options);
@@ -114,7 +114,7 @@ export default abstract class SingleModelRelation<
             return null;
         }
 
-        return !(this.__modelInSameDocument || this.__modelInOtherDocumentId || this.__newModel || this.related);
+        return !(this[MODEL_IN_SAME_DOCUMENT] || this[MODEL_IN_OTHER_DOCUMENT_ID] || this[NEW_MODEL] || this.related);
     }
 
     public isRelated(related: Related): boolean {
@@ -129,7 +129,7 @@ export default abstract class SingleModelRelation<
         this.related = related;
 
         if (!related.exists()) {
-            this.__newModel = related;
+            this[NEW_MODEL] = related;
         }
     }
 

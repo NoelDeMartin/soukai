@@ -4,7 +4,7 @@ import Container from 'soukai-bis/models/ldp/Container';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
-import { classMarker } from './helpers';
+import { CLASS_MARKER } from './internals';
 import MultiModelRelation from './MultiModelRelation';
 import type { GetRelatedModelInput } from './types';
 
@@ -13,7 +13,7 @@ export default class ContainsRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends MultiModelRelation<Parent, Related, RelatedClass, never> {
-    public static [classMarker] = ['ContainsRelation', ...MultiModelRelation[classMarker]];
+    public static [CLASS_MARKER] = ['ContainsRelation', ...MultiModelRelation[CLASS_MARKER]];
 
     public constructor(parent: Parent, relatedClass: RelatedClass) {
         super(parent, relatedClass, { foreignKeyName: '__unused__' as never });

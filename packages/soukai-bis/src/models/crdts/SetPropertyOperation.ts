@@ -12,7 +12,7 @@ import type Operation from './Operation';
 import SetPropertyOperationModel from './SetPropertyOperation.schema';
 
 export default class SetPropertyOperation extends SetPropertyOperationModel {
-    private _isNamedNode: boolean = false;
+    private isNamedNode: boolean = false;
     private _values: Quad_Object[] | null = null;
 
     constructor(...[attributes, options]: ConstructorParameters<typeof SetPropertyOperationModel>) {
@@ -21,12 +21,12 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
         const valueQuad = options?.source?.find(
             (quad) => quad.subject.value === attributes?.url && quad.predicate.equals(CRDT_VALUE_PREDICATE),
         );
-        this._isNamedNode = valueQuad?.object.termType === 'NamedNode';
+        this.isNamedNode = valueQuad?.object.termType === 'NamedNode';
     }
 
     public get values(): Quad_Object[] {
         this._values ??= this.value.map((value) =>
-            this._isNamedNode ? new RDFNamedNode(value) : createRDFLiteral(value),
+            this.isNamedNode ? new RDFNamedNode(value) : createRDFLiteral(value),
         );
 
         return this._values;
@@ -40,7 +40,7 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
 
     public setNamedNode(isNamedNode: boolean): this {
         this._values = null;
-        this._isNamedNode = isNamedNode;
+        this.isNamedNode = isNamedNode;
 
         return this;
     }
@@ -64,7 +64,7 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
                 date: this.date,
             })
                 .setPredicate(CRDT_VALUE_PREDICATE)
-                .setNamedNode(this._isNamedNode),
+                .setNamedNode(this.isNamedNode),
         ];
     }
 

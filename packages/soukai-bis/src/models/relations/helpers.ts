@@ -2,36 +2,36 @@ import { arrayFrom } from '@noeldemartin/utils';
 
 import type ContainsRelation from './ContainsRelation';
 import type DocumentContainsManyRelation from './DocumentContainsManyRelation';
+import { CLASS_MARKER } from './internals';
 import type MultiModelRelation from './MultiModelRelation';
 import type Relation from './Relation';
 import type SingleModelRelation from './SingleModelRelation';
-
-export const classMarker: unique symbol = Symbol('classMarker');
 
 export function isMultiModelRelation(relation: Relation): relation is MultiModelRelation {
     return isMultiModelRelationClass(relation.constructor);
 }
 
 export function isMultiModelRelationClass(relationClass: Function): boolean {
-    return classMarker in relationClass && arrayFrom(relationClass[classMarker]).includes('MultiModelRelation');
+    return CLASS_MARKER in relationClass && arrayFrom(relationClass[CLASS_MARKER]).includes('MultiModelRelation');
 }
 
 export function isSingleModelRelation(relation: Relation): relation is SingleModelRelation {
     return (
-        classMarker in relation.constructor &&
-        arrayFrom(relation.constructor[classMarker]).includes('SingleModelRelation')
+        CLASS_MARKER in relation.constructor &&
+        arrayFrom(relation.constructor[CLASS_MARKER]).includes('SingleModelRelation')
     );
 }
 
 export function isContainsRelation(relation: Relation): relation is ContainsRelation {
     return (
-        classMarker in relation.constructor && arrayFrom(relation.constructor[classMarker]).includes('ContainsRelation')
+        CLASS_MARKER in relation.constructor &&
+        arrayFrom(relation.constructor[CLASS_MARKER]).includes('ContainsRelation')
     );
 }
 
 export function isDocumentContainsManyRelation(relation: Relation): relation is DocumentContainsManyRelation {
     return (
-        classMarker in relation.constructor &&
-        arrayFrom(relation.constructor[classMarker]).includes('DocumentContainsManyRelation')
+        CLASS_MARKER in relation.constructor &&
+        arrayFrom(relation.constructor[CLASS_MARKER]).includes('DocumentContainsManyRelation')
     );
 }
