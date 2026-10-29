@@ -5,7 +5,7 @@ import z from 'zod';
 export default defineSchema({
     rdfContexts: {
         default: 'http://xmlns.com/foaf/0.1/',
-        solid: 'http://www.w3.org/ns/solid/terms#>',
+        solid: 'http://www.w3.org/ns/solid/terms#',
         pim: 'http://www.w3.org/ns/pim/space#',
         vcard: 'http://www.w3.org/2006/vcard/ns#',
     },

@@ -28,7 +28,7 @@ export default class Person extends Model {
 
         for (const typeIndexUrl of typeIndexes) {
             const typeIndex = await TypeIndex.find(typeIndexUrl);
-            const container = typeIndex?.findContainer(modelClass, containerClass);
+            const container = await typeIndex?.findContainer(modelClass, containerClass);
 
             if (!container) {
                 continue;
