@@ -1,3 +1,4 @@
+export * from './acl';
 export * from './core';
 export * from './computed-attributes';
 export * from './crdts';

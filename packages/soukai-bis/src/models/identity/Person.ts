@@ -13,8 +13,8 @@ export default class Person extends Model {
                 name: profile.name,
                 avatarUrl: profile.avatarUrl,
                 oidcIssuerUrl: profile.oidcIssuerUrl,
-                publicTypeIndexUrls: profile.publicTypeIndexUrl ? [profile.publicTypeIndexUrl] : [],
-                privateTypeIndexUrls: profile.privateTypeIndexUrl ? [profile.privateTypeIndexUrl] : [],
+                publicTypeIndexUrls: profile.publicTypeIndexUrls,
+                privateTypeIndexUrls: profile.privateTypeIndexUrls,
             },
             { exists: true },
         );

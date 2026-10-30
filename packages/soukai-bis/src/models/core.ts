@@ -1,3 +1,4 @@
+import ACLAuthorization from './acl/ACLAuthorization';
 import { coreOperationModels } from './crdts/core';
 import Metadata from './crdts/Metadata';
 import Operation from './crdts/Operation';
@@ -13,6 +14,7 @@ import { bootCoreRelations } from './relations/core';
 import type { ModelConstructor } from './types';
 
 const coreModels = {
+    ACLAuthorization,
     Container,
     Metadata,
     Operation,
@@ -39,6 +41,7 @@ export function bootCoreModels(options: BootOptions = {}): void {
 
 declare module 'soukai-bis' {
     interface ModelsRegistry {
+        ACLAuthorization: typeof ACLAuthorization;
         Container: typeof Container;
         Metadata: typeof Metadata;
         Operation: typeof Operation;

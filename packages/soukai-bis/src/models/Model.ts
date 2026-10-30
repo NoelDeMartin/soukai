@@ -1,5 +1,5 @@
-import { jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
-import type { Fetch, JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import { SolidDocumentPermissions, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import type { Fetch, JsonLD, SolidDocument, SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import {
     MagicObject,
     applyStrictChecks,
@@ -48,6 +48,7 @@ import {
 } from './concerns/crdts';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
+import { fetchPublicPermissions, updatePublicPermissions } from './concerns/permissions';
 import {
     buildRDFTypeIndex,
     createFromRDF,
@@ -444,6 +445,7 @@ export default class Model<
     protected _computedAttributes: Record<string, ComputedAttribute> = {};
     protected _relations: Record<string, Relation> = {};
     protected _legacyTimestamps: LegacyTimestamps = null;
+    protected _publicPermissions: SolidDocumentPermission[] | null = null;
 
     public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
         super();
@@ -693,6 +695,14 @@ export default class Model<
         }
     }
 
+    public isPublic(): boolean | null {
+        return this._publicPermissions?.includes(SolidDocumentPermissions.Read) ?? null;
+    }
+
+    public isPrivate(): boolean | null {
+        return this._publicPermissions ? !this._publicPermissions.includes(SolidDocumentPermissions.Read) : null;
+    }
+
     public getSlug(): string | null {
         if (!this.url) {
             return null;
@@ -912,6 +922,22 @@ export default class Model<
         }
 
         return freshInstance as this;
+    }
+
+    public async fetchPublicPermissions(): Promise<SolidDocumentPermission[]> {
+        this._publicPermissions = await fetchPublicPermissions(this);
+
+        return this._publicPermissions;
+    }
+
+    public async fetchPublicPermissionsIfMissing(): Promise<SolidDocumentPermission[]> {
+        return this._publicPermissions ?? (await this.fetchPublicPermissions());
+    }
+
+    public async updatePublicPermissions(permissions: SolidDocumentPermission[]): Promise<void> {
+        await updatePublicPermissions(this, permissions);
+
+        this._publicPermissions = permissions;
     }
 
     public serialize(): SerializedModel {

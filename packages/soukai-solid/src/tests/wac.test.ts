@@ -1,5 +1,5 @@
 import { faker } from '@noeldemartin/faker';
-import { SolidDocumentPermission } from '@noeldemartin/solid-utils';
+import { SolidDocumentPermissions } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import { bootModels, setEngine } from 'soukai';
 import { SolidEngine } from 'soukai-solid/engines/SolidEngine';
@@ -48,7 +48,7 @@ describe('WAC', () => {
 
         // Act
         await movie.fetchPublicPermissionsIfMissing();
-        await movie.updatePublicPermissions([SolidDocumentPermission.Read]);
+        await movie.updatePublicPermissions([SolidDocumentPermissions.Read]);
 
         // Assert
         expect(movie.isPublic).toBe(true);

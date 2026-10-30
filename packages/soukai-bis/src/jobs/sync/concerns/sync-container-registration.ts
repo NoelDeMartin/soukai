@@ -1,3 +1,4 @@
+import { arrayGroupBy } from '@noeldemartin/utils';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Container from 'soukai-bis/models/ldp/Container';
@@ -27,12 +28,12 @@ function getUnregisteredModels(
 function getUnregisteredContainers(
     container: ModelWithUrl<Container>,
     unregisteredModels: ModelConstructor[],
-    modelRegistrationPaths: Map<ModelConstructor, string>,
+    modelRegistrations: Map<ModelConstructor, ModelRegistration>,
 ): [ModelWithUrl<Container>, ModelConstructor[]][] {
     const modelsByContainerUrl = {} as Record<string, ModelConstructor[]>;
 
     for (const model of unregisteredModels) {
-        const registrationPath = modelRegistrationPaths.get(model);
+        const registrationPath = modelRegistrations.get(model)?.containerUrl;
 
         if (!registrationPath || !container.url.startsWith(registrationPath)) {
             modelsByContainerUrl[container.url] ??= [];
@@ -51,30 +52,69 @@ function getUnregisteredContainers(
     ]);
 }
 
+export type TypeIndexVisibility = 'public' | 'private';
+
+export interface ModelRegistration {
+    containerUrl: string;
+    visibility: TypeIndexVisibility;
+}
+
 export async function syncContainerRegistration(options: {
     container: ModelWithUrl<Container>;
     models: Set<ModelConstructor>;
     registeredContainers: Map<string, Set<ModelConstructor>>;
-    modelRegistrationPaths: Map<ModelConstructor, string>;
-    getTypeIndex: () => Promise<TypeIndex>;
+    modelRegistrations: Map<ModelConstructor, ModelRegistration>;
+    getTypeIndex: (visibility: TypeIndexVisibility) => Promise<TypeIndex>;
     onModelsRegistered: (typeIndex: TypeIndex, models: ModelConstructor[]) => unknown;
+    onModelsRegistrationFailed: (models: ModelConstructor[], error: unknown) => unknown;
 }): Promise<void> {
     const unregisteredModels = getUnregisteredModels(options.container, options.models, options.registeredContainers);
-
-    if (unregisteredModels.length === 0) {
-        return;
-    }
-
-    const typeIndex = await options.getTypeIndex();
-    const unregisteredContainers = getUnregisteredContainers(
-        options.container,
+    const modelsByVisibility = arrayGroupBy(
         unregisteredModels,
-        options.modelRegistrationPaths,
+        (model) => options.modelRegistrations.get(model)?.visibility ?? 'private',
     );
 
-    for (const [container, models] of unregisteredContainers) {
-        await container.register(typeIndex, models);
-    }
+    for (const [visibility, models] of Object.entries(modelsByVisibility) as [
+        TypeIndexVisibility,
+        ModelConstructor[],
+    ][]) {
+        const registeredModels: ModelConstructor[] = [];
+        let typeIndex: TypeIndex | null = null;
+        let failure: { error: unknown } | null = null;
 
-    await options.onModelsRegistered(typeIndex, unregisteredModels);
+        try {
+            typeIndex = await options.getTypeIndex(visibility);
+
+            const unregisteredContainers = getUnregisteredContainers(
+                options.container,
+                models,
+                options.modelRegistrations,
+            );
+
+            for (const [container, containerModels] of unregisteredContainers) {
+                await container.register(typeIndex, containerModels);
+
+                const containerRegisteredModels = options.registeredContainers.get(container.url) ?? new Set();
+
+                containerModels.forEach((model) => containerRegisteredModels.add(model));
+                registeredModels.push(...containerModels);
+
+                options.registeredContainers.set(container.url, containerRegisteredModels);
+            }
+        } catch (error) {
+            failure = { error };
+        }
+
+        // Containers registered before a failure have already changed the type index, so they must be reported.
+        if (typeIndex && registeredModels.length > 0) {
+            await options.onModelsRegistered(typeIndex, registeredModels);
+        }
+
+        if (failure) {
+            await options.onModelsRegistrationFailed(
+                models.filter((model) => !registeredModels.includes(model)),
+                failure.error,
+            );
+        }
+    }
 }

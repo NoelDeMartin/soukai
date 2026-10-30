@@ -1,10 +1,15 @@
-import { findContainerRegistrations } from '@noeldemartin/solid-utils';
-import type { Fetch } from '@noeldemartin/solid-utils';
-import { arrayFrom, requireUrlParentDirectory, urlResolveDirectory, uuid } from '@noeldemartin/utils';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import {
+    arrayFilter,
+    arrayFrom,
+    arrayUnique,
+    requireUrlParentDirectory,
+    urlResolveDirectory,
+    uuid,
+} from '@noeldemartin/utils';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import type { MintUrlOptions, UrlFromSlugOptions } from 'soukai-bis/models/Model';
+import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './Container.schema';
@@ -23,12 +28,15 @@ export default class Container extends Model {
         typeIndex: string | ModelWithUrl<TypeIndex>,
         childrenModelClass: ModelConstructor,
     ): Promise<ModelWithUrl<T>[]> {
-        const engine = this.requireEngine();
-        const fetch = engine instanceof SolidEngine ? engine.getFetch() : undefined;
-        const urls = await findContainerRegistrations(
-            typeof typeIndex === 'string' ? typeIndex : typeIndex.url,
-            childrenModelClass.schema.rdfClasses.map((rdfClass) => rdfClass.value),
-            fetch as Fetch,
+        const typeIndexInstance =
+            typeof typeIndex === 'string' ? await requireBootedModel('TypeIndex').findOrFail(typeIndex) : typeIndex;
+        const registrations = await typeIndexInstance.loadRelationIfUnloaded<TypeRegistration[]>('registrations');
+        const urls = arrayUnique(
+            arrayFilter(
+                registrations
+                    .filter((registration) => registration.registers(childrenModelClass))
+                    .map((registration) => registration.instanceContainer),
+            ),
         );
 
         return urls.map((url) => this.newInstance({ url }, { exists: true }) as ModelWithUrl<T>);

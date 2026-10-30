@@ -1,4 +1,5 @@
-import { SolidDocument, SolidDocumentPermission, expandIRI } from '@noeldemartin/solid-utils';
+import type { SolidDocumentPermission } from '@noeldemartin/solid-utils';
+import { SolidDocument, SolidDocumentPermissions, expandIRI } from '@noeldemartin/solid-utils';
 import { arrayWithout, tap, urlParse, uuid } from '@noeldemartin/utils';
 import { requireBootedModel } from 'soukai';
 import type { SolidEngine } from 'soukai-solid/engines/SolidEngine';
@@ -16,11 +17,11 @@ export default class ManagesPermissions {
     declare protected _publicPermissions: SolidDocumentPermission[] | undefined;
 
     public get isPublic(): boolean | null {
-        return this._publicPermissions?.includes(SolidDocumentPermission.Read) ?? null;
+        return this._publicPermissions?.includes(SolidDocumentPermissions.Read) ?? null;
     }
 
     public get isPrivate(): boolean | null {
-        return this._publicPermissions ? !this._publicPermissions.includes(SolidDocumentPermission.Read) : null;
+        return this._publicPermissions ? !this._publicPermissions.includes(SolidDocumentPermissions.Read) : null;
     }
 
     public async fetchPublicPermissionsIfMissing(this: This): Promise<void> {

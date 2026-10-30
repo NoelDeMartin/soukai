@@ -1,3 +1,5 @@
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+
 import type ManagesContainers from './contracts/ManagesContainers';
 import type ManagesDocuments from './contracts/ManagesDocuments';
 import type PurgesMetadata from './contracts/PurgesMetadata';
@@ -7,6 +9,14 @@ import type SolidEngine from './SolidEngine';
 
 export function isSolidEngine(engine: Engine): engine is SolidEngine {
     return CLASS_MARKER in engine.constructor && engine.constructor[CLASS_MARKER] === 'SolidEngine';
+}
+
+export function requireSolidEngine(engine: Engine, action: string): SolidEngine {
+    if (!isSolidEngine(engine)) {
+        throw new SoukaiError(`Can't ${action} without a Solid engine`);
+    }
+
+    return engine;
 }
 
 export function engineFulfillsContract(

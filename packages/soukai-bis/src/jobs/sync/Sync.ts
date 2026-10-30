@@ -31,6 +31,7 @@ import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
 
 import { syncContainerRegistration } from './concerns/sync-container-registration';
+import type { ModelRegistration, TypeIndexVisibility } from './concerns/sync-container-registration';
 import { syncDocumentOperations } from './concerns/sync-document-operations';
 
 const DEFAULT_MAX_ERRORS = 10;
@@ -41,14 +42,16 @@ export interface SyncConfig {
     userProfile: CompleteSolidUserProfile;
     localEngine: Engine;
     remoteEngine: SolidEngine;
-    typeIndexes: TypeIndex[];
+    publicTypeIndexes?: TypeIndex[];
+    privateTypeIndexes?: TypeIndex[];
     applicationModels: {
         model: ModelConstructor;
-        registration: boolean | { path: string };
+        registration: boolean | { path?: string; public?: boolean };
     }[];
     maxErrors?: number;
     concurrency?: number;
     lastModifiedTolerance?: number;
+    createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
 }
 
@@ -70,6 +73,7 @@ export interface SyncJobResult {
 
 export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResult> {
     onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
+    onModelsRegistrationFailed?(models: ModelConstructor[], error: unknown): unknown;
 }
 
 export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
@@ -78,6 +82,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
         job.listeners.add({
             onModelsRegistered: (typeIndex, models) => config.onModelsRegistered?.(typeIndex, models),
+            onModelsRegistrationFailed: (models, error) => config.onModelsRegistrationFailed?.(models, error),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
             onCancelled: (partialResult) => config.onCancelled?.(partialResult),
@@ -91,7 +96,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private semaphore: Semaphore;
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private documentsLastModifiedAt = new Map<string, Date | null>();
-    private modelRegistrationPaths: Map<ModelConstructor, string>;
+    private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
+    private typeIndexes: Partial<Record<TypeIndexVisibility, Promise<TypeIndex>>> = {};
     private syncRdfClasses: Set<string>;
     private unsyncedContainers?: Set<string>;
 
@@ -99,22 +105,22 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         super();
 
         this.semaphore = new Semaphore(config.concurrency ?? DEFAULT_CONCURRENCY);
-        this.modelRegistrationPaths = new Map(
+        this.modelRegistrations = new Map(
             this.config.applicationModels
                 .map((model) => {
-                    const path =
-                        typeof model.registration === 'object'
-                            ? (model.registration.path ?? getContainerName(model.model.modelName))
-                            : model.registration && getContainerName(model.model.modelName);
-
-                    if (!path) {
+                    if (!model.registration) {
                         return;
                     }
 
+                    const options = typeof model.registration === 'object' ? model.registration : {};
+                    const path = options.path ?? getContainerName(model.model.modelName);
                     const storageUrl = this.config.userProfile.storageUrls[0].slice(0, -1);
-                    const containerUrl = storageUrl + `/${path}/`.replace(/\/\//g, '/');
+                    const registration: ModelRegistration = {
+                        containerUrl: storageUrl + `/${path}/`.replace(/\/\//g, '/'),
+                        visibility: options.public ? 'public' : 'private',
+                    };
 
-                    return [model.model, containerUrl] as const;
+                    return [model.model, registration] as const;
                 })
                 .filter(isTruthy),
         );
@@ -350,7 +356,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     private async initializeMatchingContainers(): Promise<void> {
-        for (const typeIndex of this.config.typeIndexes) {
+        const typeIndexes = [...(this.config.publicTypeIndexes ?? []), ...(this.config.privateTypeIndexes ?? [])];
+
+        for (const typeIndex of typeIndexes) {
             const registrations = typeIndex.registrations ?? [];
 
             for (const registration of registrations) {
@@ -358,12 +366,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     continue;
                 }
 
-                const containerRegisteredModels = this.config.applicationModels.filter((model) => {
-                    return (
-                        model.registration &&
-                        model.model.schema.rdfClasses.some((rdfClass) => registration.forClass.includes(rdfClass.value))
-                    );
-                });
+                const containerRegisteredModels = this.config.applicationModels.filter(
+                    (model) => model.registration && registration.registers(model.model),
+                );
 
                 if (containerRegisteredModels.length === 0) {
                     continue;
@@ -514,14 +519,18 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             await syncContainerRegistration({
                 container,
-                models: pushedModels,
+                models: new Set(pushedModels.keys()),
                 registeredContainers: this.registeredContainers,
-                modelRegistrationPaths: this.modelRegistrationPaths,
-                getTypeIndex: async () => {
-                    return this.config.typeIndexes[0] ?? (await this.createPrivateTypeIndex());
-                },
+                modelRegistrations: this.modelRegistrations,
+                getTypeIndex: (visibility) => this.getTypeIndex(visibility),
                 onModelsRegistered: (typeIndex, registeredModels) => {
                     return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
+                },
+                onModelsRegistrationFailed: async (unregisteredModels, error) => {
+                    await this.markDocumentsAsUnsynced(
+                        unregisteredModels.flatMap((model) => pushedModels.get(model) ?? []),
+                    );
+                    await this._listeners.emit('onModelsRegistrationFailed', unregisteredModels, error);
                 },
             });
 
@@ -543,21 +552,43 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
     }
 
-    private async createPrivateTypeIndex(): Promise<TypeIndex> {
-        const typeIndex = this.config.createPrivateTypeIndex
-            ? await this.config.createPrivateTypeIndex()
-            : await TypeIndex.createPrivate(this.config.userProfile);
+    private getTypeIndex(visibility: TypeIndexVisibility): Promise<TypeIndex> {
+        return (this.typeIndexes[visibility] ??= this.findOrCreateTypeIndex(visibility));
+    }
 
-        this.config.typeIndexes.push(typeIndex);
+    private async findOrCreateTypeIndex(visibility: TypeIndexVisibility): Promise<TypeIndex> {
+        if (visibility === 'public') {
+            return (
+                this.config.publicTypeIndexes?.[0] ??
+                (this.config.createPublicTypeIndex
+                    ? await this.config.createPublicTypeIndex()
+                    : await TypeIndex.createPublic(this.config.userProfile))
+            );
+        }
 
-        return typeIndex;
+        return (
+            this.config.privateTypeIndexes?.[0] ??
+            (this.config.createPrivateTypeIndex
+                ? await this.config.createPrivateTypeIndex()
+                : await TypeIndex.createPrivate(this.config.userProfile))
+        );
+    }
+
+    private async markDocumentsAsUnsynced(documentUrls: string[]): Promise<void> {
+        if (documentUrls.length === 0 || !engineFulfillsContract(this.config.localEngine, 'PurgesMetadata')) {
+            return;
+        }
+
+        await this.config.localEngine.purgeMetadata({ documentUrls });
+
+        documentUrls.forEach((documentUrl) => this.documentsLastModifiedAt.set(documentUrl, null));
     }
 
     private async pushContainerChildrenDocuments(
         pendingUrls: string[] = [],
         status?: JobStatus,
-    ): Promise<Set<ModelConstructor>> {
-        const rdfClasses = new Set<string>();
+    ): Promise<Map<ModelConstructor, string[]>> {
+        const pushedDocumentRdfClasses = new Map<string, Set<string>>();
         const localDocuments = await this.config.localEngine.readDocuments({ urls: pendingUrls });
 
         await Promise.all(
@@ -587,10 +618,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
                     this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
 
-                    localDocument
-                        .statements(undefined, RDF_TYPE_PREDICATE)
-                        .map((quad) => quad.object.value)
-                        .forEach((rdfClass) => rdfClasses.add(rdfClass));
+                    pushedDocumentRdfClasses.set(
+                        documentUrl,
+                        new Set(
+                            localDocument.statements(undefined, RDF_TYPE_PREDICATE).map((quad) => quad.object.value),
+                        ),
+                    );
                 } catch (error) {
                     this.handleDocumentError(documentUrl, error);
                 } finally {
@@ -601,16 +634,25 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             }),
         );
 
-        return new Set(
-            this.config.applicationModels
-                .filter((model) => {
-                    return (
-                        model.registration &&
-                        model.model.schema.rdfClasses.some((rdfClass) => rdfClasses.has(rdfClass.value))
-                    );
-                })
-                .map((model) => model.model),
-        );
+        const pushedModels = new Map<ModelConstructor, string[]>();
+
+        for (const model of this.config.applicationModels) {
+            if (!model.registration) {
+                continue;
+            }
+
+            const documentUrls = Array.from(pushedDocumentRdfClasses.entries())
+                .filter(([, rdfClasses]) =>
+                    model.model.schema.rdfClasses.every((rdfClass) => rdfClasses.has(rdfClass.value)),
+                )
+                .map(([documentUrl]) => documentUrl);
+
+            if (documentUrls.length > 0) {
+                pushedModels.set(model.model, documentUrls);
+            }
+        }
+
+        return pushedModels;
     }
 
     private async pushRemoteDocument(localDocument: SolidDocument): Promise<SolidDocument> {

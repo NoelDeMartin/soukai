@@ -1,4 +1,4 @@
-import { SolidDocumentPermission, createPrivateTypeIndex, createPublicTypeIndex } from '@noeldemartin/solid-utils';
+import { SolidDocumentPermissions, createPrivateTypeIndex, createPublicTypeIndex } from '@noeldemartin/solid-utils';
 import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { arrayEquals, asyncFirst } from '@noeldemartin/utils';
 import type { Relation } from 'soukai';
@@ -18,7 +18,7 @@ export default class SolidTypeIndex extends Model {
         const url = await createPublicTypeIndex(user, SolidTypeIndex.requireFetch());
         const instance = await this.findOrFail(url);
 
-        await instance.updatePublicPermissions([SolidDocumentPermission.Read]);
+        await instance.updatePublicPermissions([SolidDocumentPermissions.Read]);
 
         return instance;
     }

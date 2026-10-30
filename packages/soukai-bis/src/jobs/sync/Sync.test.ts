@@ -6,31 +6,45 @@ import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import { bootModels } from 'soukai-bis/models/registry';
+import { defineSchema } from 'soukai-bis/models/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import Sync from './Sync';
 import type { SyncConfig } from './Sync';
-
-const fixture = <T = string>(name: string, replacements: Record<string, string> = {}) =>
-    loadFixture<T>(new URL(`./Sync.test.ts-fixtures/${name}`, import.meta.url), replacements);
 
 describe('Sync', () => {
     let localEngine: InMemoryEngine;
     let remoteEngine: SolidEngine;
     let typeIndex: TypeIndex;
-    let config: Pick<SyncConfig, 'userProfile' | 'localEngine' | 'remoteEngine' | 'typeIndexes'>;
+    let config: Pick<SyncConfig, 'userProfile' | 'localEngine' | 'remoteEngine' | 'privateTypeIndexes'>;
+
+    const fixture = <T = string>(name: string, replacements: Record<string, string> = {}) =>
+        loadFixture<T>(new URL(`./Sync.test.ts-fixtures/${name}`, import.meta.url), replacements);
+
+    function fakeTypeIndex(url: string, registrations: TypeRegistration[] = []): TypeIndex {
+        const typeIndex = new TypeIndex({ url }, { exists: true });
+
+        typeIndex.relatedRegistrations.related = registrations;
+
+        FakeServer.respond(url, FakeResponse.success());
+
+        return typeIndex;
+    }
 
     const userProfile = {
         webId: 'https://myprofile.com/profile#me',
         storageUrls: ['https://my-pod.com/'],
         shallow: false,
         cloakedDocumentUrls: [],
+        publicTypeIndexUrls: [],
+        privateTypeIndexUrls: [],
         writableProfileUrl: 'https://myprofile.com/profile',
     } satisfies CompleteSolidUserProfile;
 
@@ -42,7 +56,7 @@ describe('Sync', () => {
             userProfile,
             localEngine,
             remoteEngine,
-            typeIndexes: [typeIndex],
+            privateTypeIndexes: [typeIndex],
         };
 
         TypeIndex.setEngine(remoteEngine);
@@ -255,6 +269,7 @@ describe('Sync', () => {
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const localDocument = await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl })));
         const typeIndexUrl = `${storageUrl}settings/privateTypeIndex`;
+        const preferencesFileUrl = `${storageUrl}settings/prefs.ttl`;
         const registeredModels: ModelConstructor[] = [];
 
         FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
@@ -265,13 +280,15 @@ describe('Sync', () => {
         FakeServer.respondOnce(typeIndexUrl, fixture('type-index.ttl'));
         FakeServer.respondOnce(typeIndexUrl, FakeResponse.success());
         FakeServer.respondOnce(userProfile.writableProfileUrl, FakeResponse.success());
+        FakeServer.respondOnce(preferencesFileUrl, FakeResponse.success());
 
         await localEngine.createDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
             ...config,
-            typeIndexes: [],
+            userProfile: { ...userProfile, preferencesFileUrl },
+            privateTypeIndexes: [],
             applicationModels: [{ model: User, registration: true }],
             onModelsRegistered(_, models) {
                 registeredModels.push(...models);
@@ -302,6 +319,7 @@ describe('Sync', () => {
         const documentUrl = fakeDocumentUrl({ containerUrl: nestedContainerUrl });
         const localDocument = await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl })));
         const typeIndexUrl = `${storageUrl}settings/privateTypeIndex`;
+        const preferencesFileUrl = `${storageUrl}settings/prefs.ttl`;
         const registeredContainers: string[] = [];
 
         FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
@@ -309,6 +327,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(typeIndexUrl, FakeResponse.notFound());
         FakeServer.respondOnce(typeIndexUrl, FakeResponse.success());
         FakeServer.respondOnce(userProfile.writableProfileUrl, FakeResponse.success());
+        FakeServer.respondOnce(preferencesFileUrl, FakeResponse.success());
         FakeServer.respond(typeIndexUrl, fixture('type-index.ttl'));
 
         await localEngine.createDocument(documentUrl, localDocument);
@@ -316,7 +335,8 @@ describe('Sync', () => {
         // Act
         await Sync.run({
             ...config,
-            typeIndexes: [],
+            userProfile: { ...userProfile, preferencesFileUrl },
+            privateTypeIndexes: [],
             applicationModels: [
                 { model: User, registration: { path: `/${requireUrlDirectoryName(rootContainerUrl)}/` } },
             ],
@@ -751,5 +771,266 @@ describe('Sync', () => {
         expect(result.syncedDocumentUrls.has(document3Url)).toBe(true);
         expect(result.documentsWithErrors.has(document1Url)).toBe(true);
         expect(result.documentsWithErrors.size).toBe(1);
+    });
+
+    describe('type index registration', () => {
+        let containerUrl: string;
+        let documentUrl: string;
+        let publicTypeIndex: TypeIndex;
+        let privateTypeIndex: TypeIndex;
+        let registeredModels: [TypeIndex, ModelConstructor[]][];
+
+        beforeEach(async () => {
+            const storageUrl = config.userProfile.storageUrls[0];
+
+            containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+            documentUrl = fakeDocumentUrl({ containerUrl });
+            publicTypeIndex = fakeTypeIndex(`${storageUrl}settings/publicTypeIndex`);
+            privateTypeIndex = fakeTypeIndex(`${storageUrl}settings/privateTypeIndex`);
+            registeredModels = [];
+
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+            await localEngine.createDocument(
+                documentUrl,
+                await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl }))),
+            );
+        });
+
+        const onModelsRegistered = (typeIndex: TypeIndex, models: ModelConstructor[]) => {
+            registeredModels.push([typeIndex, models]);
+        };
+
+        it('registers models in the private type index by default', async () => {
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: true }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(1);
+            expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
+            expect(registeredModels[0]?.[1]).toEqual([User]);
+            expect(FakeServer.getRequests(publicTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequest('PATCH', privateTypeIndex.requireUrl())?.body).toEqualSparql(
+                fixture('register-container.sparql', { containerUrl }),
+            );
+        });
+
+        it('registers public models in the public type index', async () => {
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { public: true } }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(1);
+            expect(registeredModels[0]?.[0]).toBe(publicTypeIndex);
+            expect(FakeServer.getRequests(privateTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequest('PATCH', publicTypeIndex.requireUrl())?.body).toEqualSparql(
+                fixture('register-container.sparql', { containerUrl }),
+            );
+        });
+
+        it('creates missing public type indexes', async () => {
+            // Arrange
+            const createPublicTypeIndex = vi.fn(async () => publicTypeIndex);
+            const createPrivateTypeIndex = vi.fn(async () => privateTypeIndex);
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [],
+                privateTypeIndexes: [],
+                createPublicTypeIndex,
+                createPrivateTypeIndex,
+                applicationModels: [{ model: User, registration: { public: true } }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(createPublicTypeIndex).toHaveBeenCalledOnce();
+            expect(createPrivateTypeIndex).not.toHaveBeenCalled();
+            expect(registeredModels[0]?.[0]).toBe(publicTypeIndex);
+        });
+
+        it('skips models registered in the other type index', async () => {
+            // Arrange
+            publicTypeIndex.relatedRegistrations.related = [
+                new TypeRegistration({ forClass: [expandIRI('foaf:Person')], instanceContainer: containerUrl }),
+            ];
+
+            FakeServer.respond(containerUrl, containerTurtle([]));
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: true }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(0);
+            expect(FakeServer.getRequests(publicTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequests(privateTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
+        });
+
+        it('skips models registered in any of the type indexes', async () => {
+            // Arrange
+            const secondPrivateTypeIndex = fakeTypeIndex(`${privateTypeIndex.requireUrl()}-2`, [
+                new TypeRegistration({ forClass: [expandIRI('foaf:Person')], instanceContainer: containerUrl }),
+            ]);
+
+            FakeServer.respond(containerUrl, containerTurtle([]));
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex, secondPrivateTypeIndex],
+                applicationModels: [{ model: User, registration: true }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(0);
+            expect(FakeServer.getRequests(privateTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequests(secondPrivateTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
+        });
+
+        it('registers models with containers registered for some of their classes', async () => {
+            // Arrange
+            class Agent extends defineSchema(User, { rdfClass: 'Agent' }) {}
+
+            bootModels({ Agent });
+
+            privateTypeIndex.relatedRegistrations.related = [
+                new TypeRegistration({ forClass: [expandIRI('foaf:Person')], instanceContainer: containerUrl }),
+            ];
+
+            FakeServer.respond(containerUrl, containerTurtle([]));
+
+            await localEngine.deleteDocument(documentUrl);
+            await localEngine.createDocument(
+                documentUrl,
+                await quadsToJsonLD(
+                    turtleToQuadsSync(
+                        fixture('person.ttl', { documentUrl }).replace('a foaf:Person', 'a foaf:Person, foaf:Agent'),
+                    ),
+                ),
+            );
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: Agent, registration: true }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(1);
+            expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
+            expect(registeredModels[0]?.[1]).toEqual([Agent]);
+        });
+
+        it('does not register models for documents with some of their classes', async () => {
+            // Arrange
+            class Agent extends defineSchema(User, { rdfClass: 'Agent' }) {}
+
+            bootModels({ Agent });
+
+            FakeServer.respond(containerUrl, containerTurtle([]));
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: Agent, registration: true }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(0);
+            expect(FakeServer.getRequests(privateTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
+        });
+
+        it('keeps pushing when type indexes cannot be created', async () => {
+            // Arrange
+            const nestedContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
+            const nestedDocumentUrl = fakeDocumentUrl({ containerUrl: nestedContainerUrl });
+            const error = new Error('Preferences file is cloaked');
+            const createPrivateTypeIndex = vi.fn<() => Promise<TypeIndex>>().mockRejectedValue(error);
+            const failedRegistrations: [ModelConstructor[], unknown][] = [];
+
+            FakeServer.respondOnce(nestedDocumentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(nestedDocumentUrl, FakeResponse.success());
+
+            await localEngine.createDocument(
+                nestedDocumentUrl,
+                await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl: nestedDocumentUrl }))),
+            );
+
+            // Act
+            await Sync.run({
+                ...config,
+                privateTypeIndexes: [],
+                createPrivateTypeIndex,
+                applicationModels: [{ model: User, registration: true }],
+                onModelsRegistered,
+                onModelsRegistrationFailed: (models, registrationError) => {
+                    failedRegistrations.push([models, registrationError]);
+                },
+            });
+
+            // Assert
+            expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
+            expect(FakeServer.getRequest('PATCH', nestedDocumentUrl)).not.toBeNull();
+            expect(createPrivateTypeIndex).toHaveBeenCalledOnce();
+            expect(registeredModels).toHaveLength(0);
+            expect(failedRegistrations).toEqual([
+                [[User], error],
+                [[User], error],
+            ]);
+            expect((await localEngine.readDocument(documentUrl)).getLastModified()).toBeNull();
+            expect((await localEngine.readDocument(nestedDocumentUrl)).getLastModified()).toBeNull();
+
+            // Act - Retry
+            FakeServer.respondOnce(documentUrl, fixture('person.ttl', { documentUrl }));
+            FakeServer.respondOnce(nestedDocumentUrl, fixture('person.ttl', { documentUrl: nestedDocumentUrl }));
+
+            await Sync.run({
+                ...config,
+                privateTypeIndexes: [],
+                createPrivateTypeIndex: async () => privateTypeIndex,
+                applicationModels: [{ model: User, registration: true }],
+                onModelsRegistered,
+            });
+
+            // Assert - Retry
+            expect(registeredModels).toHaveLength(1);
+            expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
+            expect(privateTypeIndex.registrations?.map((registration) => registration.instanceContainer)).toEqual([
+                containerUrl,
+            ]);
+            expect((await localEngine.readDocument(documentUrl)).getLastModified()).not.toBeNull();
+            expect((await localEngine.readDocument(nestedDocumentUrl)).getLastModified()).not.toBeNull();
+        });
     });
 });
