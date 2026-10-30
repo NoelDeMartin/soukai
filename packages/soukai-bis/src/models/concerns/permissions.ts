@@ -33,6 +33,10 @@ function sameModes(modes: string[], otherModes: string[]): boolean {
     return modes.length === otherModes.length && modes.every((mode) => otherModes.includes(mode));
 }
 
+function getChildrenDefault(documentUrl: string): string[] {
+    return documentUrl.endsWith('/') ? [documentUrl] : [];
+}
+
 function isPublic(authorization: ACLAuthorization): boolean {
     return authorization.agentClasses.includes(PUBLIC_AGENT_CLASS) && authorization.origins.length === 0;
 }
@@ -45,7 +49,7 @@ function isPublicOnly(authorization: ACLAuthorization, documentUrl: string): boo
         authorization.accessTo.length === 1 &&
         authorization.accessTo[0] === documentUrl &&
         authorization.accessToClasses.length === 0 &&
-        authorization.default.length === 0
+        authorization.default.every((url) => url === documentUrl)
     );
 }
 
@@ -67,11 +71,17 @@ async function updateDocumentACL(
     acl: { url: string; documentUrl: string },
     modes: string[],
 ): Promise<void> {
+    const childrenDefault = getChildrenDefault(acl.documentUrl);
     const publicAuthorizations = authorizations.filter(
         (authorization) => isPublic(authorization) && authorization.accessTo.includes(acl.documentUrl),
     );
 
-    if (sameModes(arrayUnique(publicAuthorizations.flatMap((authorization) => authorization.modes)), modes)) {
+    if (
+        sameModes(arrayUnique(publicAuthorizations.flatMap((authorization) => authorization.modes)), modes) &&
+        publicAuthorizations.every((authorization) =>
+            childrenDefault.every((url) => authorization.default.includes(url)),
+        )
+    ) {
         return;
     }
 
@@ -101,7 +111,7 @@ async function updateDocumentACL(
 
     if (exclusiveAuthorizations.length > 0) {
         for (const authorization of exclusiveAuthorizations) {
-            await authorization.update({ modes });
+            await authorization.update({ modes, default: childrenDefault });
         }
 
         return;
@@ -110,6 +120,7 @@ async function updateDocumentACL(
     const authorization = new AuthorizationClass({
         agentClasses: [PUBLIC_AGENT_CLASS],
         accessTo: [acl.documentUrl],
+        default: childrenDefault,
         modes,
     });
 
@@ -164,7 +175,7 @@ async function createDocumentACL(
                 agentGroups: inheritedAuthorization.agentGroups,
                 origins: inheritedAuthorization.origins,
                 accessTo: [acl.documentUrl],
-                default: acl.documentUrl.endsWith('/') ? [acl.documentUrl] : [],
+                default: getChildrenDefault(acl.documentUrl),
                 modes: inheritedAuthorization.modes,
             });
 
@@ -189,6 +200,7 @@ async function createDocumentACL(
         const publicAuthorization = new AuthorizationClass({
             agentClasses: [PUBLIC_AGENT_CLASS],
             accessTo: [acl.documentUrl],
+            default: getChildrenDefault(acl.documentUrl),
             modes,
         });
 

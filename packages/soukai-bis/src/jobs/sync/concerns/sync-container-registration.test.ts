@@ -1,3 +1,5 @@
+import { FakeServer } from '@noeldemartin/testing';
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Container from 'soukai-bis/models/ldp/Container';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
@@ -26,6 +28,7 @@ describe('Sync container registration', () => {
             container,
             models: new Set<ModelConstructor>([User, Movie]),
             registeredContainers: new Map(),
+            remoteEngine: new SolidEngine({ fetch: FakeServer.fetch }),
             modelRegistrations: new Map<ModelConstructor, ModelRegistration>([
                 [User, { containerUrl: 'https://alice.example/users/', visibility: 'private' }],
                 [Movie, { containerUrl: 'https://alice.example/movies/', visibility: 'private' }],

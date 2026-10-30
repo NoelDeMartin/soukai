@@ -1,4 +1,6 @@
+import { SolidDocumentPermissions } from '@noeldemartin/solid-utils';
 import { arrayGroupBy } from '@noeldemartin/utils';
+import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Container from 'soukai-bis/models/ldp/Container';
@@ -52,6 +54,16 @@ function getUnregisteredContainers(
     ]);
 }
 
+async function makeContainerPublic(container: ModelWithUrl<Container>, engine: SolidEngine): Promise<void> {
+    const RemoteContainer = class extends Container {};
+
+    RemoteContainer.setEngine(engine);
+
+    await new RemoteContainer({ url: container.url }, { exists: true }).updatePublicPermissions([
+        SolidDocumentPermissions.Read,
+    ]);
+}
+
 export type TypeIndexVisibility = 'public' | 'private';
 
 export interface ModelRegistration {
@@ -64,6 +76,7 @@ export async function syncContainerRegistration(options: {
     models: Set<ModelConstructor>;
     registeredContainers: Map<string, Set<ModelConstructor>>;
     modelRegistrations: Map<ModelConstructor, ModelRegistration>;
+    remoteEngine: SolidEngine;
     getTypeIndex: (visibility: TypeIndexVisibility) => Promise<TypeIndex>;
     onModelsRegistered: (typeIndex: TypeIndex, models: ModelConstructor[]) => unknown;
     onModelsRegistrationFailed: (models: ModelConstructor[], error: unknown) => unknown;
@@ -92,6 +105,10 @@ export async function syncContainerRegistration(options: {
             );
 
             for (const [container, containerModels] of unregisteredContainers) {
+                if (visibility === 'public') {
+                    await makeContainerPublic(container, options.remoteEngine);
+                }
+
                 await container.register(typeIndex, containerModels);
 
                 const containerRegisteredModels = options.registeredContainers.get(container.url) ?? new Set();

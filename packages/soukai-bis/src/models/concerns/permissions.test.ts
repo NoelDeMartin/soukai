@@ -97,7 +97,7 @@ describe('Permissions', () => {
         `);
     });
 
-    it('creates container ACLs that keep inherited authorizations for children', async () => {
+    it('creates container ACLs that apply to children', async () => {
         // Arrange
         const container = new Container({ url: containerUrl }, { exists: true });
 
@@ -138,8 +138,45 @@ describe('Permissions', () => {
                     a acl:Authorization;
                     acl:agentClass foaf:Agent;
                     acl:accessTo <${containerUrl}>;
+                    acl:default <${containerUrl}>;
                     acl:mode acl:Read.
             }
+        `);
+    });
+
+    it('makes container contents public in existing container ACLs', async () => {
+        // Arrange
+        const container = new Container({ url: containerUrl }, { exists: true });
+
+        FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acl>; rel="acl"' }));
+        FakeServer.respondWith(`${containerUrl}.acl`, (request) =>
+            request.method === 'GET'
+                ? FakeResponse.success(`
+                    ${prefixes}
+
+                    <#owner>
+                        a acl:Authorization;
+                        acl:agent <https://alice.example/profile/card#me>;
+                        acl:accessTo <./>;
+                        acl:default <./>;
+                        acl:mode acl:Read, acl:Write, acl:Control.
+
+                    <#public>
+                        a acl:Authorization;
+                        acl:agentClass foaf:Agent;
+                        acl:accessTo <./>;
+                        acl:mode acl:Read.
+                `)
+                : FakeResponse.success(),
+        );
+
+        // Act
+        await container.updatePublicPermissions([SolidDocumentPermissions.Read]);
+
+        // Assert
+        expect(FakeServer.getRequests('PATCH', `${containerUrl}.acl`)).toHaveLength(1);
+        expect(FakeServer.getRequest('PATCH', `${containerUrl}.acl`)?.body).toEqualSparql(`
+            INSERT DATA { <#public> <http://www.w3.org/ns/auth/acl#default> <${containerUrl}> . }
         `);
     });
 

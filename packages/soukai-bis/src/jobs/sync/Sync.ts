@@ -522,6 +522,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 models: new Set(pushedModels.keys()),
                 registeredContainers: this.registeredContainers,
                 modelRegistrations: this.modelRegistrations,
+                remoteEngine: this.config.remoteEngine,
                 getTypeIndex: (visibility) => this.getTypeIndex(visibility),
                 onModelsRegistered: (typeIndex, registeredModels) => {
                     return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);

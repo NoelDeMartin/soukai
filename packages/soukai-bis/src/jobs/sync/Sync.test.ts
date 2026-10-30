@@ -798,6 +798,24 @@ describe('Sync', () => {
             );
         });
 
+        function respondWithContainerACL(): void {
+            FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acl>; rel="acl"' }));
+            FakeServer.respondWith(`${containerUrl}.acl`, (request) =>
+                request.method === 'GET'
+                    ? FakeResponse.success(`
+                        @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+
+                        <#owner>
+                            a acl:Authorization;
+                            acl:agent <${userProfile.webId}>;
+                            acl:accessTo <./>;
+                            acl:default <./>;
+                            acl:mode acl:Read, acl:Write, acl:Control.
+                    `)
+                    : FakeResponse.success(),
+            );
+        }
+
         const onModelsRegistered = (typeIndex: TypeIndex, models: ModelConstructor[]) => {
             registeredModels.push([typeIndex, models]);
         };
@@ -823,6 +841,9 @@ describe('Sync', () => {
         });
 
         it('registers public models in the public type index', async () => {
+            // Arrange
+            respondWithContainerACL();
+
             // Act
             await Sync.run({
                 ...config,
@@ -839,10 +860,46 @@ describe('Sync', () => {
             expect(FakeServer.getRequest('PATCH', publicTypeIndex.requireUrl())?.body).toEqualSparql(
                 fixture('register-container.sparql', { containerUrl }),
             );
+            expect(FakeServer.getRequest('PATCH', `${containerUrl}.acl`)?.body).toEqualSparql(`
+                INSERT DATA {
+                    @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+                    @prefix foaf: <http://xmlns.com/foaf/0.1/>.
+
+                    <#public>
+                        a acl:Authorization;
+                        acl:agentClass foaf:Agent;
+                        acl:accessTo <${containerUrl}>;
+                        acl:default <${containerUrl}>;
+                        acl:mode acl:Read.
+                }
+            `);
+        });
+
+        it('does not register public models when containers cannot be made public', async () => {
+            // Arrange
+            const failedModels: ModelConstructor[] = [];
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { public: true } }],
+                onModelsRegistered,
+                onModelsRegistrationFailed: (models) => failedModels.push(...models),
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(0);
+            expect(failedModels).toEqual([User]);
+            expect(FakeServer.getRequests('PATCH', publicTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
         });
 
         it('creates missing public type indexes', async () => {
             // Arrange
+            respondWithContainerACL();
+
             const createPublicTypeIndex = vi.fn(async () => publicTypeIndex);
             const createPrivateTypeIndex = vi.fn(async () => privateTypeIndex);
 
