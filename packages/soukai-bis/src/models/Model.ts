@@ -209,8 +209,9 @@ export default class Model<
         url: string,
         options: { modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T> | null> {
+        const engine = this.requireEngine();
+
         try {
-            const engine = this.requireEngine();
             const document = await engine.readDocument(urlRoute(url));
             const model = await this.createFromDocument(document, { url, modelsCache: options.modelsCache });
 
