@@ -1,11 +1,11 @@
-import type { SolidUserProfile } from '@noeldemartin/solid-utils';
+import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { TypeIndex } from 'soukai-bis';
 import type { Container, ContainerConstructor, ModelConstructor } from 'soukai-bis';
 
 import Model from './Person.schema';
 
 export default class Person extends Model {
-    public static createFromProfile(profile: SolidUserProfile): Person {
+    public static createFromProfile(profile: CompleteSolidUserProfile): Person {
         return new Person(
             {
                 url: profile.webId,

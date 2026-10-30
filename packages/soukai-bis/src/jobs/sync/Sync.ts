@@ -1,5 +1,5 @@
 import { SolidDocument } from '@noeldemartin/solid-utils';
-import type { SolidResponse, SolidUserProfile } from '@noeldemartin/solid-utils';
+import type { SolidResponse, CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import {
     Semaphore,
     arrayGroupBy,
@@ -38,7 +38,7 @@ const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
 
 export interface SyncConfig {
-    userProfile: SolidUserProfile;
+    userProfile: CompleteSolidUserProfile;
     localEngine: Engine;
     remoteEngine: SolidEngine;
     typeIndexes: TypeIndex[];

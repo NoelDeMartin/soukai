@@ -1,5 +1,5 @@
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
-import type { SolidUserProfile } from '@noeldemartin/solid-utils';
+import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { arrayFilter, requireUrlDirectoryName } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
@@ -29,9 +29,10 @@ describe('Sync', () => {
     const userProfile = {
         webId: 'https://myprofile.com/profile#me',
         storageUrls: ['https://my-pod.com/'],
-        cloaked: false,
+        shallow: false,
+        cloakedDocumentUrls: [],
         writableProfileUrl: 'https://myprofile.com/profile',
-    } satisfies SolidUserProfile;
+    } satisfies CompleteSolidUserProfile;
 
     beforeEach(() => {
         localEngine = new InMemoryEngine();
