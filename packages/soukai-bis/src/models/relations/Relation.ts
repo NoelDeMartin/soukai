@@ -105,7 +105,10 @@ export default abstract class Relation<
     }
 
     public async save(model: Related): Promise<Related> {
-        this.assertLoaded('save');
+        if (!this.remainsUnloadedAfterAttach()) {
+            this.assertLoaded('save');
+        }
+
         this.attach(model);
 
         if (!this.usingSameDocument) {
@@ -148,6 +151,14 @@ export default abstract class Relation<
 
     protected requiresForeignKey(): boolean {
         return true;
+    }
+
+    protected attachesWithoutLoading(): boolean {
+        return false;
+    }
+
+    protected remainsUnloadedAfterAttach(): boolean {
+        return !this.loaded && this.parent.exists() && this.attachesWithoutLoading();
     }
 
     protected assertLoaded(method: string): this is { related: Related[] } {
@@ -239,7 +250,7 @@ export default abstract class Relation<
                 relationInstance.setRelated(this.parent);
             }
 
-            if (isMultiModelRelation(relationInstance)) {
+            if (isMultiModelRelation(relationInstance) && !relationInstance.remainsUnloadedAfterAttach()) {
                 relationInstance.addRelated(this.parent);
             }
 

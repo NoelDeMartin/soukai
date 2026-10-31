@@ -31,6 +31,18 @@ export default class HasManyRelation<
         }
     }
 
+    public isEmpty(): boolean | null {
+        if (!this.usingSameDocument && !this.loaded && this.parent.exists()) {
+            return null;
+        }
+
+        return super.isEmpty();
+    }
+
+    protected attachesWithoutLoading(): boolean {
+        return !this.usingSameDocument;
+    }
+
     protected async loadRelatedModels(): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
         const foreignKeyName = this.requireForeignKeyName();

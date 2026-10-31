@@ -49,7 +49,13 @@ export default abstract class MultiModelRelation<
                 : this.relatedClass.newInstance(this.addForeignAttributes(modelOrAttributes));
 
         return tap(model, () => {
-            if (!this.assertLoaded('attach') || this.isRelated(model)) {
+            const remainsUnloaded = this.remainsUnloadedAfterAttach();
+
+            if (!remainsUnloaded) {
+                this.assertLoaded('attach');
+            }
+
+            if (this.isRelated(model)) {
                 return;
             }
 
@@ -64,7 +70,10 @@ export default abstract class MultiModelRelation<
                 );
             }
 
-            this.addRelated(model);
+            if (!remainsUnloaded) {
+                this.addRelated(model);
+            }
+
             this.forgetDetachedModel(model);
             this.setInverseRelations(model);
             this.setForeignAttributes(model);

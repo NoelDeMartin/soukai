@@ -37,6 +37,71 @@ describe('HasManyRelation', () => {
         });
     });
 
+    it('creates related models without loading the relation', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+
+        // Act
+        const post = await alice.relatedPosts.create({ title: 'Hello World' });
+
+        // Assert
+        expect(alice.relatedPosts.loaded).toBe(false);
+        expect(post.exists()).toBe(true);
+        expect(post.authorUrl).toEqual(alice.url);
+        expect(post.author).toBe(alice);
+
+        const freshPost = await Post.findOrFail(post.requireUrl());
+
+        expect(freshPost.authorUrl).toEqual(alice.url);
+    });
+
+    it('creates related models without loading the relation in models read from documents', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+        const firstPost = await Post.create({ title: 'First', authorUrl: alice.url });
+        const freshAlice = await User.findOrFail(alice.requireUrl());
+
+        // Act
+        const secondPost = await freshAlice.relatedPosts.create({ title: 'Second' });
+
+        // Assert
+        expect(freshAlice.relatedPosts.loaded).toBe(false);
+
+        await freshAlice.loadRelation('posts');
+
+        expect(freshAlice.posts).toHaveLength(2);
+        expect(freshAlice.posts?.map((post) => post.url)).toEqual(
+            expect.arrayContaining([firstPost.url, secondPost.url]),
+        );
+    });
+
+    it('requires loading the relation to detach related models', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+        const post = await alice.relatedPosts.create({ title: 'Hello World' });
+
+        // Act & Assert
+        expect(() => alice.relatedPosts.detach(post)).toThrow(
+            'The "detach" method can\'t be called before loading the relationship',
+        );
+    });
+
+    it('requires loading the relation to detach or delete related models in models read from documents', async () => {
+        // Arrange
+        const alice = await User.create({ name: 'Alice' });
+        const post = await Post.create({ title: 'Hello World', authorUrl: alice.url });
+        const freshAlice = await User.findOrFail(alice.requireUrl());
+
+        // Act & Assert
+        expect(() => freshAlice.relatedPosts.detach(post)).toThrow(
+            'The "detach" method can\'t be called before loading the relationship',
+        );
+        await expect(freshAlice.relatedPosts.delete(post)).rejects.toThrow(
+            'The "delete" method can\'t be called before loading the relationship',
+        );
+        expect(freshAlice.relatedPosts.loaded).toBe(false);
+    });
+
     it('detaches related models from other documents', async () => {
         // Arrange
         const alice = await User.create({ name: 'Alice' });
