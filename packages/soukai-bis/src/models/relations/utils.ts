@@ -1,3 +1,4 @@
+import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import { isModelClass } from 'soukai-bis/models/utils';
@@ -20,7 +21,10 @@ function collectRelatedClasses(modelClass: ModelConstructor, visited?: Set<Model
 
 export function getRelatedClass(parentClass: ModelConstructor, definition: SchemaRelationDefinition): ModelConstructor {
     if (!isModelClass(definition.relatedClass)) {
-        const relatedClass = (definition.relatedClass as () => ModelConstructor)();
+        const relatedClass =
+            typeof definition.relatedClass === 'string'
+                ? requireBootedModel(definition.relatedClass)
+                : (definition.relatedClass as () => ModelConstructor)();
 
         definition.relationClass.validateRelatedClass(parentClass, relatedClass);
         definition.relatedClass = relatedClass;

@@ -9,7 +9,6 @@ import type { ZodObject, ZodType, z } from 'zod';
 
 import Model from './Model';
 import type { ModelConstructorOptions } from './Model';
-import { requireBootedModel } from './registry';
 import HasOneRelation from './relations/HasOneRelation';
 import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
@@ -178,13 +177,13 @@ export function defineSchema<
     const tombstone = config.tombstone ?? config.history ?? baseSchema?.tombstone ?? false;
 
     if (timestamps) {
-        relations.metadata = new SchemaRelationDefinition(() => requireBootedModel('Metadata'), HasOneRelation, {
+        relations.metadata = new SchemaRelationDefinition('Metadata', HasOneRelation, {
             foreignKey: 'resourceUrl',
         }).usingSameDocument();
     }
 
     if (history) {
-        relations.operations = new SchemaRelationDefinition(() => requireBootedModel('Operation'), OperationsRelation, {
+        relations.operations = new SchemaRelationDefinition('Operation', OperationsRelation, {
             foreignKey: 'resourceUrl',
         })
             .usingSameDocument()
@@ -192,7 +191,7 @@ export function defineSchema<
     }
 
     if (tombstone) {
-        relations.tombstone = new SchemaRelationDefinition(() => requireBootedModel('Tombstone'), HasOneRelation, {
+        relations.tombstone = new SchemaRelationDefinition('Tombstone', HasOneRelation, {
             foreignKey: 'resourceUrl',
         })
             .usingSameDocument()

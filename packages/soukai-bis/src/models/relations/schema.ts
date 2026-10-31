@@ -1,12 +1,18 @@
 import type { ComputedAttributeCompute, InvalidationStrategy } from 'soukai-bis/models/computed-attributes';
+import type { ModelsRegistry } from 'soukai-bis/models/registry';
 import type { ContainerConstructor, ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
 
 import type { AnyMultiModelRelation, RelationConstructor } from './types';
 
-// oxlint-disable-next-line typescript/no-explicit-any
-export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> = TRelated | (() => any);
+export type RelatedModelName = keyof ModelsRegistry;
+
+export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> =
+    | TRelated
+    | RelatedModelName
+    | (() => any); // oxlint-disable-line typescript/no-explicit-any
 export type RelatedContainerDefinition<TRelated extends ContainerConstructor = ContainerConstructor> =
     | TRelated
+    | RelatedModelName
     | (() => any); // oxlint-disable-line typescript/no-explicit-any
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
@@ -18,9 +24,11 @@ export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = 
     [K in keyof T as `related${Capitalize<string & K>}`]: InstanceType<T[K]['relationClass']>;
 };
 
-export type GetRelatedModel<T extends SchemaRelationDefinition> = T['relatedClass'] extends () => infer TRelated
-    ? ModelInstanceType<TRelated>
-    : ModelInstanceType<T['relatedClass']>;
+export type GetRelatedModel<T extends SchemaRelationDefinition> = T['relatedClass'] extends RelatedModelName
+    ? ModelInstanceType<ModelsRegistry[T['relatedClass']]>
+    : T['relatedClass'] extends () => infer TRelated
+      ? ModelInstanceType<TRelated>
+      : ModelInstanceType<T['relatedClass']>;
 
 export class SchemaRelationDefinition<
     TRelated extends RelatedModelDefinition = RelatedModelDefinition,
