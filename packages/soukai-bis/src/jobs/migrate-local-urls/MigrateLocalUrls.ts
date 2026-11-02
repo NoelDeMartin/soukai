@@ -46,7 +46,7 @@ export default class MigrateLocalUrls extends Job {
             migratedContainerUrls.push(localContainerUrl);
         }
 
-        await this.config.engine.dropContainers(new RegExp(`^${LOCAL_URL_PROTOCOL}`));
+        await this.config.engine.dropContainers(new RegExp(`^${LOCAL_URL_PROTOCOL}//`));
     }
 
     protected async migrateDocument(documentUrl: string): Promise<void> {

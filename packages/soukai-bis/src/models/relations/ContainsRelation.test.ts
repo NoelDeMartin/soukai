@@ -34,7 +34,7 @@ describe('ContainsRelation', () => {
 
     it('saves related model with default container', async () => {
         // Arrange
-        const collection = await PostsCollection.create({ url: 'solid://posts/' });
+        const collection = await PostsCollection.create({ url: 'local://posts/' });
         const post = new Post({ title: 'Hello World' });
 
         collection.relatedPosts.attach(post);
@@ -44,7 +44,7 @@ describe('ContainsRelation', () => {
 
         // Assert
         expect(post.exists()).toBe(true);
-        expect(post.url?.startsWith('solid://posts/')).toBe(true);
+        expect(post.url?.startsWith('local://posts/')).toBe(true);
         expect(collection.resourceUrls).toContain(post.getDocumentUrl());
     });
 });

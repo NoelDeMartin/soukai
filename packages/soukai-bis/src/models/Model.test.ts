@@ -28,7 +28,7 @@ describe('Model', () => {
     beforeEach(() => setEngine((engine = new InMemoryEngine())));
 
     it('boots models', () => {
-        expect(User.defaultContainerUrl).toBe('solid://users/');
+        expect(User.defaultContainerUrl).toBe('local://users/');
         expect(User.modelName).toBe('User');
     });
 
@@ -980,7 +980,7 @@ describe('Model', () => {
 
         bootModels({ UserWithHistory });
 
-        const documentUrl = 'solid://users/alice';
+        const documentUrl = 'local://users/alice';
         const quads = await turtleToQuads(`
             @prefix foaf: <http://xmlns.com/foaf/0.1/> .
             @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
@@ -1034,7 +1034,7 @@ describe('Model', () => {
     it('mints urls using the slug field', async () => {
         const post = await Post.create({ title: 'Hello World' });
 
-        expect(post.url).toBe('solid://posts/hello-world#it');
+        expect(post.url).toBe('local://posts/hello-world#it');
     });
 
     it('gets urls from slugs', async () => {
@@ -1042,8 +1042,8 @@ describe('Model', () => {
         const collection = await PostsCollection.create({ name: 'Drafts' });
 
         expect(Post.urlFromSlug('hello-world')).toEqual(post.url);
-        expect(Post.urlFromSlug('hello-world', { containerUrl: 'solid://drafts/' })).toEqual(
-            'solid://drafts/hello-world#it',
+        expect(Post.urlFromSlug('hello-world', { containerUrl: 'local://drafts/' })).toEqual(
+            'local://drafts/hello-world#it',
         );
         expect(PostsCollection.urlFromSlug('drafts')).toEqual(collection.url);
     });
