@@ -29,8 +29,7 @@
     },
     "scripts": {
         "build": "vp pack",
-        "test": "vp test",
-        "docs:dev": "vitepress dev"
+        "test": "vp test"
     },
     "dependencies": {
         "@noeldemartin/solid-utils": "catalog:",
@@ -40,21 +39,13 @@
     },
     "devDependencies": {
         "@arethetypeswrong/core": "catalog:",
-        "@braintree/sanitize-url": "^7.1.1",
         "@noeldemartin/faker": "catalog:",
         "@noeldemartin/scripts": "catalog:",
         "@noeldemartin/testing": "catalog:",
-        "cytoscape": "^3.33.1",
-        "cytoscape-cose-bilkent": "^4.1.0",
-        "dayjs": "^1.11.19",
-        "debug": "^4.4.3",
         "fake-indexeddb": "catalog:",
-        "mermaid": "^11.12.2",
         "oxc-minify": "^0.152.0",
         "publint": "catalog:",
         "vite-plus": "catalog:",
-        "vitepress": "2.0.0-alpha.15",
-        "vitepress-plugin-mermaid": "^2.0.17",
         "zod": "^4.3.4"
     },
     "peerDependencies": {

@@ -5,7 +5,9 @@
         "docs:build": "vp run docs:build:typedoc && vp run docs:build:vitepress",
         "docs:build:typedoc": "cp ./docs/api/index.md ./docs/api-index.md.backup && typedoc --options ./docs/typedoc.json && mv ./docs/api-index.md.backup ./docs/api/index.md",
         "docs:build:vitepress": "vitepress build docs",
-        "docs:dev": "vitepress dev docs"
+        "docs:dev": "vitepress dev docs",
+        "docs-bis:dev": "vp run --filter docs-bis docs:dev",
+        "docs-bis:build": "vp run --filter docs-bis docs:build"
     },
     "devDependencies": {
         "@noeldemartin/scripts": "catalog:",
