@@ -17,8 +17,10 @@ jobs:
                   node-version-file: '.node-version'
                   cache: true
             - run: vp run docs:build
+            - run: vp run docs-bis:build
             - name: Push to gh-pages branch
               run: |
+                  cp -r docs-bis/.vitepress/dist docs/.vitepress/dist/next
                   cd docs/.vitepress/dist
                   touch .nojekyll
                   echo "soukai.js.org" > CNAME

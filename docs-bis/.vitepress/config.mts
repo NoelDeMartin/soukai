@@ -4,7 +4,8 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
     title: 'Soukai',
     description: 'An RDF-first Solid ORM',
-    head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/img/logo-mini.svg' }]],
+    base: '/next/',
+    head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/next/img/logo-mini.svg' }]],
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
         logo: { src: '/img/logo-mini.svg', width: 17, height: 24 },
