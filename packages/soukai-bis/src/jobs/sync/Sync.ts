@@ -9,6 +9,7 @@ import {
     objectFromEntries,
     parseDate,
     round,
+    urlRoute,
 } from '@noeldemartin/utils';
 import type Engine from 'soukai-bis/engines/Engine';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
@@ -25,14 +26,19 @@ import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/Compu
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import type TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import Container from 'soukai-bis/models/ldp/Container';
 import type Resource from 'soukai-bis/models/ldp/Resource';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
 
-import { syncContainerRegistration } from './concerns/sync-container-registration';
-import type { ModelRegistration, TypeIndexVisibility } from './concerns/sync-container-registration';
 import { syncDocumentOperations } from './concerns/sync-document-operations';
+import {
+    addRegisteredModels,
+    syncContainerRegistration,
+    syncInstanceRegistration,
+} from './concerns/sync-registrations';
+import type { ModelRegistration, ModelRegistrationMode, TypeIndexVisibility } from './concerns/sync-registrations';
 
 const DEFAULT_MAX_ERRORS = 10;
 const DEFAULT_CONCURRENCY = 10;
@@ -46,7 +52,7 @@ export interface SyncConfig {
     privateTypeIndexes?: TypeIndex[];
     applicationModels: {
         model: ModelConstructor;
-        registration: boolean | { path?: string; public?: boolean };
+        registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
     }[];
     maxErrors?: number;
     concurrency?: number;
@@ -95,6 +101,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     public readonly syncedDocumentUrls = new Set<string>();
     private semaphore: Semaphore;
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
+    private registeredInstances = new Map<string, Set<ModelConstructor>>();
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     private typeIndexes: Partial<Record<TypeIndexVisibility, Promise<TypeIndex>>> = {};
@@ -118,6 +125,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     const registration: ModelRegistration = {
                         containerUrl: storageUrl + `/${path}/`.replace(/\/\//g, '/'),
                         visibility: options.public ? 'public' : 'private',
+                        mode: options.mode ?? 'container',
                     };
 
                     return [model.model, registration] as const;
@@ -270,20 +278,22 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         await this.initializeMatchingContainers();
 
         const containerUrls = Array.from(this.registeredContainers.keys());
+        const instanceDocumentUrls = Array.from(this.registeredInstances.keys()).map((url) => urlRoute(url));
+        const urls = arrayUnique([...containerUrls, ...instanceDocumentUrls]);
         const pullStatus = this.requireStatus().children[0];
 
-        pullStatus.children = containerUrls.map(() => ({ completed: false }));
+        pullStatus.children = urls.map(() => ({ completed: false }));
 
-        await this.pullContainerDocuments(containerUrls, pullStatus);
+        await this.pullDocuments(urls, pullStatus);
         await this.updateProgress((status) => (status.children[0].completed = true));
     }
 
-    private async pullContainerDocuments(containerUrls: string[], pullStatus: JobStatus): Promise<void> {
+    private async pullDocuments(urls: string[], pullStatus: JobStatus): Promise<void> {
         let ongoing = 0;
         let failed = false;
 
-        const queue = containerUrls.map((containerUrl, index) => ({
-            url: containerUrl,
+        const queue = urls.map((url, index) => ({
+            url,
             status: pullStatus.children?.[index],
         }));
 
@@ -362,26 +372,37 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             const registrations = typeIndex.registrations ?? [];
 
             for (const registration of registrations) {
-                if (!registration.instanceContainer) {
+                if (registration.instanceContainer) {
+                    addRegisteredModels(
+                        this.registeredContainers,
+                        registration.instanceContainer,
+                        this.getRegisteredApplicationModels(registration),
+                    );
+
                     continue;
                 }
 
-                const containerRegisteredModels = this.config.applicationModels.filter(
-                    (model) => model.registration && registration.registers(model.model),
-                );
-
-                if (containerRegisteredModels.length === 0) {
-                    continue;
+                if (registration.instance) {
+                    addRegisteredModels(
+                        this.registeredInstances,
+                        registration.instance,
+                        this.getRegisteredApplicationModels(
+                            registration,
+                            (model) => this.modelRegistrations.get(model)?.mode === 'instance',
+                        ),
+                    );
                 }
-
-                const containerRegistrations =
-                    this.registeredContainers.get(registration.instanceContainer) ?? new Set();
-
-                containerRegisteredModels.forEach((model) => containerRegistrations.add(model.model));
-
-                this.registeredContainers.set(registration.instanceContainer, containerRegistrations);
             }
         }
+    }
+
+    private getRegisteredApplicationModels(
+        registration: TypeRegistration,
+        filter: (model: ModelConstructor) => boolean = () => true,
+    ): ModelConstructor[] {
+        return this.config.applicationModels
+            .filter((model) => model.registration && registration.registers(model.model) && filter(model.model))
+            .map((model) => model.model);
     }
 
     private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<PullTask[]> {
@@ -515,24 +536,40 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 await this.updateProgress();
             }
 
-            const pushedModels = await this.pushContainerChildrenDocuments(pendingUrls, status);
+            const { pushedModels, pushedInstances } = await this.pushContainerChildrenDocuments(pendingUrls, status);
+            const onModelsRegistered = (typeIndex: TypeIndex, registeredModels: ModelConstructor[]) => {
+                return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
+            };
+            const onModelsRegistrationFailed = async (unregisteredModels: ModelConstructor[], error: unknown) => {
+                await this.markDocumentsAsUnsynced(
+                    unregisteredModels.flatMap((model) => pushedModels.get(model) ?? []),
+                );
+                await this._listeners.emit('onModelsRegistrationFailed', unregisteredModels, error);
+            };
+
+            await syncInstanceRegistration({
+                instances: pushedInstances,
+                registeredInstances: this.registeredInstances,
+                modelRegistrations: this.modelRegistrations,
+                remoteEngine: this.config.remoteEngine,
+                getTypeIndex: (visibility) => this.getTypeIndex(visibility),
+                onModelsRegistered,
+                onModelsRegistrationFailed,
+            });
 
             await syncContainerRegistration({
                 container,
-                models: new Set(pushedModels.keys()),
+                models: new Set(
+                    Array.from(pushedModels.keys()).filter(
+                        (model) => this.modelRegistrations.get(model)?.mode !== 'instance',
+                    ),
+                ),
                 registeredContainers: this.registeredContainers,
                 modelRegistrations: this.modelRegistrations,
                 remoteEngine: this.config.remoteEngine,
                 getTypeIndex: (visibility) => this.getTypeIndex(visibility),
-                onModelsRegistered: (typeIndex, registeredModels) => {
-                    return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
-                },
-                onModelsRegistrationFailed: async (unregisteredModels, error) => {
-                    await this.markDocumentsAsUnsynced(
-                        unregisteredModels.flatMap((model) => pushedModels.get(model) ?? []),
-                    );
-                    await this._listeners.emit('onModelsRegistrationFailed', unregisteredModels, error);
-                },
+                onModelsRegistered,
+                onModelsRegistrationFailed,
             });
 
             const containerChildrenUrls = containerChildren ?? [];
@@ -588,8 +625,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private async pushContainerChildrenDocuments(
         pendingUrls: string[] = [],
         status?: JobStatus,
-    ): Promise<Map<ModelConstructor, string[]>> {
-        const pushedDocumentRdfClasses = new Map<string, Set<string>>();
+    ): Promise<{ pushedModels: Map<ModelConstructor, string[]>; pushedInstances: Map<ModelConstructor, string[]> }> {
+        const pushedDocumentResources = new Map<string, Map<string, Set<string>>>();
         const localDocuments = await this.config.localEngine.readDocuments({ urls: pendingUrls });
 
         await Promise.all(
@@ -619,12 +656,18 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
                     this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
 
-                    pushedDocumentRdfClasses.set(
-                        documentUrl,
-                        new Set(
-                            localDocument.statements(undefined, RDF_TYPE_PREDICATE).map((quad) => quad.object.value),
-                        ),
-                    );
+                    const documentResources = new Map<string, Set<string>>();
+
+                    for (const quad of localDocument.statements(undefined, RDF_TYPE_PREDICATE)) {
+                        const resourceId =
+                            quad.subject.termType === 'BlankNode' ? `_:${quad.subject.value}` : quad.subject.value;
+                        const resourceRdfClasses = documentResources.get(resourceId) ?? new Set();
+
+                        resourceRdfClasses.add(quad.object.value);
+                        documentResources.set(resourceId, resourceRdfClasses);
+                    }
+
+                    pushedDocumentResources.set(documentUrl, documentResources);
                 } catch (error) {
                     this.handleDocumentError(documentUrl, error);
                 } finally {
@@ -636,24 +679,61 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         );
 
         const pushedModels = new Map<ModelConstructor, string[]>();
+        const pushedInstances = new Map<ModelConstructor, string[]>();
+        const pushedDocuments = pendingUrls
+            .filter((documentUrl) => pushedDocumentResources.has(documentUrl))
+            .map((documentUrl) => {
+                const resources = pushedDocumentResources.get(documentUrl) ?? new Map<string, Set<string>>();
+                const rdfClasses = new Set(
+                    Array.from(resources.values()).flatMap((resourceClasses) => [...resourceClasses]),
+                );
+
+                return { documentUrl, resources, rdfClasses };
+            });
 
         for (const model of this.config.applicationModels) {
             if (!model.registration) {
                 continue;
             }
 
-            const documentUrls = Array.from(pushedDocumentRdfClasses.entries())
-                .filter(([, rdfClasses]) =>
-                    model.model.schema.rdfClasses.every((rdfClass) => rdfClasses.has(rdfClass.value)),
-                )
-                .map(([documentUrl]) => documentUrl);
+            const hasModelClasses = (rdfClasses: Set<string>) =>
+                model.model.schema.rdfClasses.every((rdfClass) => rdfClasses.has(rdfClass.value));
+
+            if (this.modelRegistrations.get(model.model)?.mode !== 'instance') {
+                const documentUrls = pushedDocuments
+                    .filter(({ rdfClasses }) => hasModelClasses(rdfClasses))
+                    .map(({ documentUrl }) => documentUrl);
+
+                if (documentUrls.length > 0) {
+                    pushedModels.set(model.model, documentUrls);
+                }
+
+                continue;
+            }
+
+            const documentUrls: string[] = [];
+            const instanceUrls: string[] = [];
+
+            for (const { documentUrl, resources } of pushedDocuments) {
+                const documentInstanceUrls = Array.from(resources.entries())
+                    .filter(([resourceId, rdfClasses]) => !resourceId.startsWith('_:') && hasModelClasses(rdfClasses))
+                    .map(([resourceUrl]) => resourceUrl);
+
+                if (documentInstanceUrls.length === 0) {
+                    continue;
+                }
+
+                documentUrls.push(documentUrl);
+                instanceUrls.push(...documentInstanceUrls);
+            }
 
             if (documentUrls.length > 0) {
                 pushedModels.set(model.model, documentUrls);
+                pushedInstances.set(model.model, instanceUrls);
             }
         }
 
-        return pushedModels;
+        return { pushedModels, pushedInstances };
     }
 
     private async pushRemoteDocument(localDocument: SolidDocument): Promise<SolidDocument> {

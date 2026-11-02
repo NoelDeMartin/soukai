@@ -896,6 +896,127 @@ describe('Sync', () => {
             expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
         });
 
+        it('registers models with instance mode as instances', async () => {
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { mode: 'instance' } }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(1);
+            expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
+            expect(registeredModels[0]?.[1]).toEqual([User]);
+            expect(FakeServer.getRequest('PATCH', privateTypeIndex.requireUrl())?.body).toEqualSparql(
+                fixture('register-instance.sparql', { instanceUrl: `${documentUrl}#it` }),
+            );
+        });
+
+        it('does not register public instances when documents cannot be made public', async () => {
+            // Arrange
+            const failedModels: ModelConstructor[] = [];
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { public: true, mode: 'instance' } }],
+                onModelsRegistered,
+                onModelsRegistrationFailed: (models) => failedModels.push(...models),
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(0);
+            expect(failedModels).toEqual([User]);
+            expect(FakeServer.getRequests('PATCH', publicTypeIndex.requireUrl())).toHaveLength(0);
+            expect(FakeServer.getRequests(privateTypeIndex.requireUrl())).toHaveLength(0);
+        });
+
+        it('registers new instances when other instances are registered', async () => {
+            // Arrange
+            const instanceUrl = fakeDocumentUrl({ baseUrl: config.userProfile.storageUrls[0] });
+
+            publicTypeIndex.relatedRegistrations.related = [
+                new TypeRegistration({ forClass: [expandIRI('foaf:Person')], instance: `${instanceUrl}#it` }),
+            ];
+
+            FakeServer.respond(instanceUrl, fixture('person.ttl', { documentUrl: instanceUrl }));
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { mode: 'instance' } }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(1);
+            expect(registeredModels[0]?.[1]).toEqual([User]);
+            expect(FakeServer.getRequests('PATCH', privateTypeIndex.requireUrl())).toHaveLength(1);
+            expect(FakeServer.getRequest('PATCH', privateTypeIndex.requireUrl())?.body).toEqualSparql(
+                fixture('register-instance.sparql', { instanceUrl: `${documentUrl}#it` }),
+            );
+            expect(FakeServer.getRequest('GET', instanceUrl)).not.toBeNull();
+            expect(await localEngine.readDocumentIfExists(instanceUrl)).not.toBeNull();
+        });
+
+        it('registers every instance', async () => {
+            // Arrange
+            const otherDocumentUrl = fakeDocumentUrl({ containerUrl });
+
+            FakeServer.respondOnce(otherDocumentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(otherDocumentUrl, FakeResponse.success());
+
+            await localEngine.createDocument(
+                otherDocumentUrl,
+                await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl: otherDocumentUrl }))),
+            );
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { mode: 'instance' } }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            const registeredInstances = privateTypeIndex.registrations?.map((registration) => registration.instance);
+
+            expect(registeredModels).toEqual([[privateTypeIndex, [User]]]);
+            expect(FakeServer.getRequests('PATCH', privateTypeIndex.requireUrl())).toHaveLength(2);
+            expect(registeredInstances).toHaveLength(2);
+            expect(registeredInstances).toContain(`${documentUrl}#it`);
+            expect(registeredInstances).toContain(`${otherDocumentUrl}#it`);
+        });
+
+        it('skips registered instances', async () => {
+            // Arrange
+            privateTypeIndex.relatedRegistrations.related = [
+                new TypeRegistration({ forClass: [expandIRI('foaf:Person')], instance: `${documentUrl}#it` }),
+            ];
+
+            // Act
+            await Sync.run({
+                ...config,
+                publicTypeIndexes: [publicTypeIndex],
+                privateTypeIndexes: [privateTypeIndex],
+                applicationModels: [{ model: User, registration: { mode: 'instance' } }],
+                onModelsRegistered,
+            });
+
+            // Assert
+            expect(registeredModels).toHaveLength(0);
+            expect(FakeServer.getRequests(privateTypeIndex.requireUrl())).toHaveLength(0);
+        });
+
         it('creates missing public type indexes', async () => {
             // Arrange
             respondWithContainerACL();

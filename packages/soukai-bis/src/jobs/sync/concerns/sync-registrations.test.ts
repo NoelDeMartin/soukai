@@ -7,8 +7,8 @@ import Movie from 'soukai-bis/testing/stubs/Movie';
 import User from 'soukai-bis/testing/stubs/User';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import { syncContainerRegistration } from './sync-container-registration';
-import type { ModelRegistration } from './sync-container-registration';
+import { syncContainerRegistration } from './sync-registrations';
+import type { ModelRegistration } from './sync-registrations';
 
 describe('Sync container registration', () => {
     it('reports registered models when other registrations fail', async () => {
@@ -30,8 +30,8 @@ describe('Sync container registration', () => {
             registeredContainers: new Map(),
             remoteEngine: new SolidEngine({ fetch: FakeServer.fetch }),
             modelRegistrations: new Map<ModelConstructor, ModelRegistration>([
-                [User, { containerUrl: 'https://alice.example/users/', visibility: 'private' }],
-                [Movie, { containerUrl: 'https://alice.example/movies/', visibility: 'private' }],
+                [User, { containerUrl: 'https://alice.example/users/', visibility: 'private', mode: 'container' }],
+                [Movie, { containerUrl: 'https://alice.example/movies/', visibility: 'private', mode: 'container' }],
             ]),
             getTypeIndex: async () => typeIndex,
             onModelsRegistered: (_, models) => events.push(['registered', models]),
