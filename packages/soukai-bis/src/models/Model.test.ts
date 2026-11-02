@@ -118,6 +118,24 @@ describe('Model', () => {
         expect(modifiedHistory).toContain('title');
     });
 
+    it('emits events when relation models are set manually', async () => {
+        // Arrange
+        const loadedRelations: unknown[] = [];
+        const user = await User.create({ name: 'Alice' });
+        const post = await Post.create({ title: 'Hello World' });
+
+        User.on('relation-loaded', (_, relation) => loadedRelations.push(relation));
+
+        // Act
+        await user.setRelationModels('posts', [post]);
+
+        // Assert
+        expect(user.isRelationLoaded('posts')).toBe(true);
+        expect(user.posts).toEqual([post]);
+        expect(loadedRelations).toHaveLength(1);
+        expect(loadedRelations[0]).toBe(user.relatedPosts);
+    });
+
     it('emits events for related models', async () => {
         // Arrange
         let createUserCount = 0;
@@ -1287,6 +1305,37 @@ describe('Model', () => {
             expect(classListener).toHaveBeenCalledWith(project, undefined);
             expect(instanceListener).toHaveBeenCalledTimes(1);
             expect(proxyListener).toHaveBeenCalledTimes(1);
+        });
+
+        it('sets relation models without duplicates', async () => {
+            // Arrange
+            const project = await findProjectWithTask();
+            const task = required(project.tasks?.[0]);
+
+            // Act
+            await project.setRelationModels('tasks', [wrapInProxy(task)]);
+
+            // Assert
+            expect(project.tasks).toHaveLength(1);
+            expect(project.tasks?.[0]).toBe(task);
+            expect(task.getRelation('project').related).toBe(project);
+        });
+
+        it('attaches and detaches related models', async () => {
+            // Arrange
+            const project = await findProjectWithTask();
+            const task = required(project.tasks?.[0]);
+
+            // Act
+            project.relatedTasks.attach(wrapInProxy(task));
+
+            const tasksAfterAttach = project.tasks?.slice();
+            const detached = project.relatedTasks.detach(wrapInProxy(task));
+
+            // Assert
+            expect(tasksAfterAttach).toEqual([task]);
+            expect(detached).toEqual([task]);
+            expect(project.tasks).toHaveLength(0);
         });
     });
 });

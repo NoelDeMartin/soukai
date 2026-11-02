@@ -593,6 +593,14 @@ export default class Model<
         return relation.related as T;
     }
 
+    public async setRelationModels<T extends Model | Model[] | null>(name: RelationName, related: T): Promise<void> {
+        const relation = this.getRelation(name);
+
+        relation.related = related;
+
+        await emitModelEvent(this.__instance(), 'relation-loaded', relation);
+    }
+
     public isRelationLoaded(name: RelationName): boolean {
         return this.getRelation(name).loaded;
     }

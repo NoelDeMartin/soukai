@@ -1,6 +1,7 @@
 import { arrayRemove, tap, uuid } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import { emitModelEvent } from 'soukai-bis/models/concerns/events';
+import { canonicalModel } from 'soukai-bis/models/internals';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
@@ -26,9 +27,9 @@ export default abstract class MultiModelRelation<
     }
 
     public set related(related: Nullable<Related[]>) {
-        this._related = related;
+        this._related = related && related.map(canonicalModel);
 
-        for (const model of related ?? []) {
+        for (const model of this._related ?? []) {
             this.setInverseRelations(model);
         }
     }
@@ -83,7 +84,9 @@ export default abstract class MultiModelRelation<
     public detach(related: Related | Related[], options: DetachOptions = {}): Related[] {
         this.assertLoaded('detach');
 
-        const detachedModels = (Array.isArray(related) ? related : [related]).filter((model) => this.isRelated(model));
+        const detachedModels = (Array.isArray(related) ? related : [related])
+            .filter((model) => this.isRelated(model))
+            .map(canonicalModel);
 
         if (detachedModels.length === 0) {
             return [];
@@ -141,7 +144,7 @@ export default abstract class MultiModelRelation<
     }
 
     public isRelated(related: Related): boolean {
-        return !!this.related?.includes(related);
+        return !!this.related?.includes(canonicalModel(related));
     }
 
     public addRelated(related: Related): void {
@@ -149,10 +152,12 @@ export default abstract class MultiModelRelation<
             return;
         }
 
-        this.related = (this.related ?? []).concat(related);
+        const model = canonicalModel(related);
 
-        if (!related.exists()) {
-            this[NEW_MODELS] = (this[NEW_MODELS] ?? []).concat([related]);
+        this.related = (this.related ?? []).concat(model);
+
+        if (!model.exists()) {
+            this[NEW_MODELS] = (this[NEW_MODELS] ?? []).concat([model]);
         }
     }
 

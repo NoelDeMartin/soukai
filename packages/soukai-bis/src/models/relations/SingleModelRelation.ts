@@ -1,5 +1,6 @@
 import { type Nullable, tap, uuid } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { canonicalModel } from 'soukai-bis/models/internals';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
@@ -25,9 +26,9 @@ export default abstract class SingleModelRelation<
     }
 
     public set related(related: Nullable<Related>) {
-        this._related = related;
+        this._related = related && canonicalModel(related);
 
-        related && this.setInverseRelations(related);
+        this._related && this.setInverseRelations(this._related);
     }
 
     public attach(model: Related, options?: { mintUrl?: boolean }): Related;
@@ -118,7 +119,7 @@ export default abstract class SingleModelRelation<
     }
 
     public isRelated(related: Related): boolean {
-        return this.related === related;
+        return this.related === canonicalModel(related);
     }
 
     public setRelated(related: Related): void {
@@ -126,10 +127,12 @@ export default abstract class SingleModelRelation<
             return;
         }
 
-        this.related = related;
+        const model = canonicalModel(related);
 
-        if (!related.exists()) {
-            this[NEW_MODEL] = related;
+        this.related = model;
+
+        if (!model.exists()) {
+            this[NEW_MODEL] = model;
         }
     }
 
