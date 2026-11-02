@@ -1179,4 +1179,114 @@ describe('Model', () => {
         expect(user).not.toBeInstanceOf(Guest);
         expect(guest).toBeInstanceOf(Guest);
     });
+
+    describe('wrapped in proxies', () => {
+        const Project = defineSchema({
+            rdfContext: 'https://schema.org/',
+            rdfClass: 'Project',
+            history: true,
+            fields: {
+                name: z.string(),
+            },
+            relations: {
+                tasks: hasMany(() => requireBootedModel('Task'), 'projectUrl').usingSameDocument(),
+            },
+        });
+
+        const Task = defineSchema({
+            rdfContext: 'https://schema.org/',
+            rdfClass: 'Action',
+            fields: {
+                name: z.string(),
+                projectUrl: z.url().rdfProperty('object').optional(),
+            },
+            relations: {
+                project: belongsToOne(Project, 'projectUrl'),
+            },
+        });
+
+        async function findProjectWithTask() {
+            const project = new Project({ name: 'Proxies' });
+
+            project.relatedTasks.attach({ name: 'Fix proxies' });
+
+            const { url } = await project.save();
+
+            return Project.findOrFail(url);
+        }
+
+        function wrapInProxy<T extends object>(target: T): T {
+            return new Proxy(target, {});
+        }
+
+        beforeEach(() => {
+            bootModels({ Project, Task }, { reset: true });
+            useFakeClock();
+        });
+
+        it('collects document models without duplicates', async () => {
+            // Arrange
+            const project = await findProjectWithTask();
+
+            // Act
+            const documentModels = wrapInProxy(project).getDocumentModels();
+
+            // Assert
+            expect(documentModels).toHaveLength(4); // project, task, and their metadata
+            expect(new Set(documentModels).size).toBe(documentModels.length);
+            expect(documentModels).toContain(project);
+            expect(documentModels).toContain(project.tasks?.[0]);
+        });
+
+        it('records history operations once', async () => {
+            // Arrange
+            const project = await findProjectWithTask();
+
+            // Act
+            vi.advanceTimersByTime(1);
+            await wrapInProxy(project).update({ name: 'Proxies (fixed)' });
+
+            // Assert
+            const freshProject = await Project.findOrFail(project.url);
+            const operations = await freshProject.loadRelation('operations');
+
+            expect(freshProject.name).toBe('Proxies (fixed)');
+            expect(operations).toHaveLength(2);
+        });
+
+        it('deletes instances', async () => {
+            // Arrange
+            const project = await findProjectWithTask();
+
+            // Act
+            await wrapInProxy(project).delete();
+
+            // Assert
+            expect(project.exists()).toBe(false);
+            expect(await Project.find(project.url)).toBeNull();
+        });
+
+        it('emits events once with the unwrapped instance', async () => {
+            // Arrange
+            const project = await findProjectWithTask();
+            const projectProxy = wrapInProxy(project);
+            const classListener = vi.fn();
+            const instanceListener = vi.fn();
+            const proxyListener = vi.fn();
+
+            Project.on('updated', classListener);
+            project.on('updated', instanceListener);
+            projectProxy.on('updated', proxyListener);
+
+            // Act
+            vi.advanceTimersByTime(1);
+            await projectProxy.update({ name: 'Proxies (fixed)' });
+
+            // Assert
+            expect(classListener).toHaveBeenCalledTimes(1);
+            expect(classListener).toHaveBeenCalledWith(project, undefined);
+            expect(instanceListener).toHaveBeenCalledTimes(1);
+            expect(proxyListener).toHaveBeenCalledTimes(1);
+        });
+    });
 });

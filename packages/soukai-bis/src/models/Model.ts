@@ -532,7 +532,7 @@ export default class Model<
 
         for (const field of modifiedFields) {
             // oxlint-disable-next-line typescript/no-floating-promises
-            emitModelEvent(this, 'modified', field);
+            emitModelEvent(this.__instance(), 'modified', field);
         }
     }
 
@@ -574,7 +574,7 @@ export default class Model<
 
             const relatedClass = getRelatedClass(this.static(), relation);
 
-            this._relations[name] = relation.relationClass.newInstance(this, relatedClass, {
+            this._relations[name] = relation.relationClass.newInstance(this.__instance(), relatedClass, {
                 foreignKeyName: relation.options.foreignKey,
                 localKeyName: relation.options.localKey,
                 usingSameDocument: relation.options.usingSameDocument,
@@ -588,7 +588,7 @@ export default class Model<
         const relation = this.getRelation(name);
 
         await relation.load();
-        await emitModelEvent(this, 'relation-loaded', relation);
+        await emitModelEvent(this.__instance(), 'relation-loaded', relation);
 
         return relation.related as T;
     }
@@ -618,7 +618,7 @@ export default class Model<
             if (options.documentUrl) {
                 this._documentExists = options.documentExists ?? true;
             } else {
-                mintedUrls.set(this, { url: this.url, options });
+                mintedUrls.set(this.__instance(), { url: this.url, options });
             }
 
             if (this.hasTimestamps()) {
@@ -643,8 +643,9 @@ export default class Model<
     }
 
     public on<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
+        const self = this.__instance();
         const wrapperListener = (instance: Model, ...args: any[]) => {
-            if (instance !== this) {
+            if (instance !== self) {
                 return;
             }
 
@@ -656,8 +657,9 @@ export default class Model<
 
     public once<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
         let unsubscribe: (() => void) | undefined = undefined;
+        const self = this.__instance();
         const wrapperListener = (instance: Model, ...args: any[]) => {
-            if (instance !== this) {
+            if (instance !== self) {
                 return;
             }
 
@@ -671,6 +673,10 @@ export default class Model<
     }
 
     public async syncOperations(): Promise<void> {
+        if (!this.__isCanonical()) {
+            return this.__instance().syncOperations();
+        }
+
         const { updated } = await syncDocumentOperations(this.requireDocumentUrl());
         const documentModels = objectFromEntries(
             this.getDocumentModels()
@@ -733,7 +739,7 @@ export default class Model<
     public getDocumentModels(): Model[] {
         const modelsSet = new Set<Model>();
 
-        this.populateDocumentModels(modelsSet);
+        this.__instance().populateDocumentModels(modelsSet);
 
         return Array.from(modelsSet);
     }
@@ -741,7 +747,7 @@ export default class Model<
     public getRelatedModels(): Model[] {
         const modelsSet = new Set<Model>();
 
-        this.populateRelatedModels(modelsSet);
+        this.__instance().populateRelatedModels(modelsSet);
 
         return Array.from(modelsSet);
     }
@@ -849,6 +855,12 @@ export default class Model<
     }
 
     public async delete(): Promise<this> {
+        if (!this.__isCanonical()) {
+            await this.__instance().delete();
+
+            return this;
+        }
+
         if (!this.exists()) {
             return this;
         }
@@ -861,6 +873,12 @@ export default class Model<
     }
 
     public async save(containerUrl?: string): Promise<ModelWithUrl<this>> {
+        if (!this.__isCanonical()) {
+            await this.__instance().save(containerUrl);
+
+            return this as ModelWithUrl<this>;
+        }
+
         if (this._markedForDeletion) {
             await this.delete();
 
@@ -970,18 +988,18 @@ export default class Model<
         }
 
         if (property in this.static('schema').relations) {
-            return this._proxy.instance.getRelation(property as RelationName)?.related;
+            return this.__instance().getRelation(property as RelationName)?.related;
         }
 
         if (property in this.static('schema').computed) {
-            return this._proxy.instance.getComputedAttribute(property);
+            return this.__instance().getComputedAttribute(property);
         }
 
         if (property.startsWith('related')) {
             const relation = stringToCamelCase(property.slice(7)) as RelationName;
 
             if (relation in this.static('schema').relations) {
-                return this._proxy.instance.getRelation(relation);
+                return this.__instance().getRelation(relation);
             }
         }
 
