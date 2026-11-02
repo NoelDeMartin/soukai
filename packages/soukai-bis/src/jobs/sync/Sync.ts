@@ -386,22 +386,35 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     addRegisteredModels(
                         this.registeredInstances,
                         registration.instance,
-                        this.getRegisteredApplicationModels(
-                            registration,
-                            (model) => this.modelRegistrations.get(model)?.mode === 'instance',
-                        ),
+                        this.getRegisteredApplicationModels(registration),
                     );
                 }
             }
         }
+
+        this.initializeRegistrationModes();
     }
 
-    private getRegisteredApplicationModels(
-        registration: TypeRegistration,
-        filter: (model: ModelConstructor) => boolean = () => true,
-    ): ModelConstructor[] {
+    private initializeRegistrationModes(): void {
+        const isRegisteredIn = (registry: Map<string, Set<ModelConstructor>>, model: ModelConstructor) =>
+            Array.from(registry.values()).some((models) => models.has(model));
+
+        for (const [model, registration] of this.modelRegistrations) {
+            if (isRegisteredIn(this.registeredContainers, model)) {
+                registration.mode = 'container';
+
+                continue;
+            }
+
+            if (isRegisteredIn(this.registeredInstances, model)) {
+                registration.mode = 'instance';
+            }
+        }
+    }
+
+    private getRegisteredApplicationModels(registration: TypeRegistration): ModelConstructor[] {
         return this.config.applicationModels
-            .filter((model) => model.registration && registration.registers(model.model) && filter(model.model))
+            .filter((model) => model.registration && registration.registers(model.model))
             .map((model) => model.model);
     }
 
