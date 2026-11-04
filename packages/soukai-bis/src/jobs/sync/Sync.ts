@@ -20,6 +20,7 @@ import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import JobFailedError from 'soukai-bis/errors/JobFailedError';
 import Job from 'soukai-bis/jobs/Job';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
+import { getExternalSourceUrl, isInExternalSource, type ExternalSource } from 'soukai-bis/jobs/utils';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
@@ -54,6 +55,7 @@ export interface SyncConfig {
         model: ModelConstructor;
         registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
     }[];
+    externalSources?: ExternalSource[];
     maxErrors?: number;
     concurrency?: number;
     lastModifiedTolerance?: number;
@@ -80,6 +82,7 @@ export interface SyncJobResult {
 export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResult> {
     onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
     onModelsRegistrationFailed?(models: ModelConstructor[], error: unknown): unknown;
+    onExternalSourceFailed?(source: ExternalSource, error: unknown): unknown;
 }
 
 export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
@@ -89,6 +92,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         job.listeners.add({
             onModelsRegistered: (typeIndex, models) => config.onModelsRegistered?.(typeIndex, models),
             onModelsRegistrationFailed: (models, error) => config.onModelsRegistrationFailed?.(models, error),
+            onExternalSourceFailed: (source, error) => config.onExternalSourceFailed?.(source, error),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
             onCancelled: (partialResult) => config.onCancelled?.(partialResult),
@@ -99,7 +103,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
+    public readonly failedExternalSources = new Map<ExternalSource, unknown>();
     private semaphore: Semaphore;
+    private ownDocumentsWithErrors = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private registeredInstances = new Map<string, Set<ModelConstructor>>();
     private documentsLastModifiedAt = new Map<string, Date | null>();
@@ -134,17 +140,36 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         );
         this.syncedModelsRdfClasses = Array.from(this.config.applicationModels)
             .map((model) => model.model)
+            .concat(this.getExternalSources().flatMap((source) => source.models))
             .concat([Container])
             .map((model) => model.schema.rdfClasses.map((rdfClass) => rdfClass.value));
     }
 
     protected async run(): Promise<SyncJobResult> {
-        await this.prepareDocumentsLastModifiedAt();
-        await this.pullChanges();
-        await this.pushChanges();
-        await this.finish();
+        try {
+            await this.prepareDocumentsLastModifiedAt();
+            await this.pullChanges();
+            await this.pushChanges();
+            await this.finish();
+        } finally {
+            await this.reportFailedExternalSources();
+        }
 
         return this.getResult();
+    }
+
+    private getExternalSources(): ExternalSource[] {
+        return this.config.externalSources ?? [];
+    }
+
+    private findExternalSource(url: string): ExternalSource | null {
+        return this.getExternalSources().find((source) => isInExternalSource(source, url)) ?? null;
+    }
+
+    private async reportFailedExternalSources(): Promise<void> {
+        for (const [source, error] of this.failedExternalSources) {
+            await this._listeners.emit('onExternalSourceFailed', source, error);
+        }
     }
 
     protected override getInitialStatus(): SyncJobStatus {
@@ -276,7 +301,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
         const containerUrls = Array.from(this.registeredContainers.keys());
         const instanceDocumentUrls = Array.from(this.registeredInstances.keys()).map((url) => urlRoute(url));
-        const urls = arrayUnique([...containerUrls, ...instanceDocumentUrls]);
+        const externalSourceUrls = this.getExternalSources().map((source) => getExternalSourceUrl(source));
+        const urls = arrayUnique([...containerUrls, ...instanceDocumentUrls, ...externalSourceUrls]);
         const pullStatus = this.requireStatus().children[0];
 
         pullStatus.children = urls.map(() => ({ completed: false }));
@@ -359,7 +385,38 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private async pushChanges(): Promise<void> {
         await this.prepareUnsyncedContainers();
         await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], this.requireStatus().children[1]);
+        await this.pushExternalSources();
         await this.updateProgress((status) => (status.children[1].completed = true));
+    }
+
+    private async pushExternalSources(): Promise<void> {
+        for (const source of this.getExternalSources()) {
+            if (this.documentsWithErrors.has(getExternalSourceUrl(source))) {
+                continue;
+            }
+
+            if (source.containerUrl !== undefined) {
+                await this.pushContainerDocuments(source.containerUrl, undefined, { register: false });
+
+                continue;
+            }
+
+            await this.pushInstanceDocument(urlRoute(source.instanceUrl));
+        }
+    }
+
+    private async pushInstanceDocument(documentUrl: string): Promise<void> {
+        this.assertNotCancelled(this.getResult());
+
+        if (this.unsyncedContainers && this.documentsLastModifiedAt.get(documentUrl) !== null) {
+            return;
+        }
+
+        try {
+            await this.pushContainerChildrenDocuments([documentUrl]);
+        } catch (error) {
+            this.handleDocumentError(documentUrl, error);
+        }
     }
 
     private async initializeMatchingContainers(): Promise<void> {
@@ -512,7 +569,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return { remoteDocument, childrenPullTasks: [] };
     }
 
-    private async pushContainerDocuments(url: string, status?: JobStatus): Promise<void> {
+    private async pushContainerDocuments(
+        url: string,
+        status?: JobStatus,
+        options: { register?: boolean } = {},
+    ): Promise<void> {
         this.assertNotCancelled(this.getResult());
 
         if (this.unsyncedContainers && !this.unsyncedContainers.has(url)) {
@@ -547,6 +608,17 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             }
 
             const { pushedModels, pushedInstances } = await this.pushContainerChildrenDocuments(pendingUrls, status);
+
+            if (options.register === false) {
+                await Promise.all(
+                    (containerChildren ?? []).map((containerUrl) =>
+                        this.pushContainerDocuments(containerUrl, undefined, options),
+                    ),
+                );
+
+                return;
+            }
+
             const onModelsRegistered = (typeIndex: TypeIndex, registeredModels: ModelConstructor[]) => {
                 return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
             };
@@ -868,11 +940,22 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
 
         const maxErrors = this.config.maxErrors ?? DEFAULT_MAX_ERRORS;
+        const externalSource = this.findExternalSource(documentUrl);
 
         this.documentsWithErrors.add(documentUrl);
 
-        if (this.documentsWithErrors.size >= maxErrors) {
-            throw new JobFailedError(`Too many errors during sync (${this.documentsWithErrors.size}).`);
+        if (externalSource) {
+            if (!this.failedExternalSources.has(externalSource)) {
+                this.failedExternalSources.set(externalSource, error);
+            }
+
+            return;
+        }
+
+        this.ownDocumentsWithErrors.add(documentUrl);
+
+        if (this.ownDocumentsWithErrors.size >= maxErrors) {
+            throw new JobFailedError(`Too many errors during sync (${this.ownDocumentsWithErrors.size}).`);
         }
     }
 }

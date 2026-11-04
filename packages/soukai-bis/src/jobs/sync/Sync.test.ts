@@ -1,9 +1,10 @@
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
 import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { arrayFilter, requireUrlDirectoryName } from '@noeldemartin/utils';
+import { arrayFilter, arraySorted, requireUrlDirectoryName, urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import type { ExternalSource } from 'soukai-bis/jobs/utils';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import { bootModels } from 'soukai-bis/models/registry';
@@ -771,6 +772,146 @@ describe('Sync', () => {
         expect(result.syncedDocumentUrls.has(document3Url)).toBe(true);
         expect(result.documentsWithErrors.has(document1Url)).toBe(true);
         expect(result.documentsWithErrors.size).toBe(1);
+    });
+
+    describe('external sources', () => {
+        const otherStorageUrl = 'https://other-pod.com/';
+
+        it('pulls external containers and instances without registering them', async () => {
+            // Arrange
+            const containerUrl = `${otherStorageUrl}movies/`;
+            const documentUrl = `${containerUrl}the-substance`;
+            const instanceUrl = `${otherStorageUrl}people/alice#it`;
+            const registeredModels: ModelConstructor[][] = [];
+
+            FakeServer.respond(containerUrl, containerTurtle([documentUrl]));
+            FakeServer.respond(documentUrl, fixture('movie.ttl', { documentUrl }));
+            FakeServer.respond(urlRoute(instanceUrl), fixture('person.ttl', { documentUrl: urlRoute(instanceUrl) }));
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [
+                    { model: Movie, registration: true },
+                    { model: User, registration: true },
+                ],
+                externalSources: [
+                    { containerUrl, models: [Movie] },
+                    { instanceUrl, models: [User] },
+                ],
+                onModelsRegistered: (_, models) => registeredModels.push(models),
+            });
+
+            // Assert
+            expect(await localEngine.readDocumentIfExists(documentUrl)).not.toBeNull();
+            expect(await localEngine.readDocumentIfExists(urlRoute(instanceUrl))).not.toBeNull();
+            expect(registeredModels).toEqual([]);
+            expect(FakeServer.getRequests().every((request) => request.method === 'GET')).toBe(true);
+        });
+
+        it('pushes local documents in external sources without registering them', async () => {
+            // Arrange
+            const containerUrl = `${otherStorageUrl}movies/`;
+            const documentUrl = `${containerUrl}the-substance`;
+            const registeredModels: ModelConstructor[][] = [];
+
+            FakeServer.respond(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+            await localEngine.createDocument(
+                documentUrl,
+                await quadsToJsonLD(turtleToQuadsSync(fixture('movie.ttl', { documentUrl }))),
+            );
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [{ model: Movie, registration: true }],
+                externalSources: [{ containerUrl, models: [Movie] }],
+                onModelsRegistered: (_, models) => registeredModels.push(models),
+            });
+
+            // Assert
+            expect(FakeServer.getRequests('PATCH', documentUrl)).toHaveLength(1);
+            expect(FakeServer.getRequests().filter(({ method }) => method === 'PATCH')).toHaveLength(1);
+            expect(registeredModels).toEqual([]);
+            expect((await localEngine.readDocument(documentUrl)).getLastModified()).not.toBeNull();
+        });
+
+        it('keeps syncing external sources with failing documents', async () => {
+            // Arrange
+            const containerUrl = `${otherStorageUrl}movies/`;
+            const brokenDocumentUrl = `${containerUrl}broken`;
+            const workingDocumentUrl = `${containerUrl}the-substance`;
+            const failedSources: ExternalSource[] = [];
+            const result = { documentsWithErrors: new Set<string>() };
+
+            FakeServer.respond(containerUrl, containerTurtle([brokenDocumentUrl, workingDocumentUrl]));
+            FakeServer.respond(brokenDocumentUrl, FakeResponse.internalServerError());
+            FakeServer.respond(workingDocumentUrl, fixture('movie.ttl', { documentUrl: workingDocumentUrl }));
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [{ model: Movie, registration: true }],
+                externalSources: [{ containerUrl, models: [Movie] }],
+                onExternalSourceFailed: (source) => failedSources.push(source),
+                onFinished: (res) => (result.documentsWithErrors = res.documentsWithErrors),
+            });
+
+            // Assert
+            expect(await localEngine.readDocumentIfExists(workingDocumentUrl)).not.toBeNull();
+            expect(result.documentsWithErrors).toEqual(new Set([brokenDocumentUrl]));
+            expect(failedSources).toHaveLength(1);
+        });
+
+        it('reports errors per source without failing the sync', async () => {
+            // Arrange
+            const storageUrl = config.userProfile.storageUrls[0];
+            const ownContainerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+            const ownDocumentUrl = fakeDocumentUrl({ containerUrl: ownContainerUrl });
+            const forbiddenContainerUrl = `${otherStorageUrl}forbidden/`;
+            const brokenContainerUrl = 'https://broken-pod.com/movies/';
+            const workingContainerUrl = 'https://working-pod.com/movies/';
+            const workingDocumentUrl = `${workingContainerUrl}the-substance`;
+            const failedSources: [string, unknown][] = [];
+
+            typeIndex.relatedRegistrations.related = [
+                new TypeRegistration({ instanceContainer: ownContainerUrl, forClass: [expandIRI('schema:Movie')] }),
+            ];
+
+            FakeServer.respond(ownContainerUrl, containerTurtle([ownDocumentUrl]));
+            FakeServer.respond(ownDocumentUrl, fixture('movie.ttl', { documentUrl: ownDocumentUrl }));
+            FakeServer.respond(forbiddenContainerUrl, new Response(null, { status: 403 }));
+            FakeServer.respond(brokenContainerUrl, FakeResponse.internalServerError());
+            FakeServer.respond(workingContainerUrl, containerTurtle([workingDocumentUrl]));
+            FakeServer.respond(workingDocumentUrl, fixture('movie.ttl', { documentUrl: workingDocumentUrl }));
+
+            // Act
+            const result = { documentsWithErrors: new Set<string>() };
+
+            await Sync.run({
+                ...config,
+                maxErrors: 1,
+                applicationModels: [{ model: Movie, registration: true }],
+                externalSources: [
+                    { containerUrl: forbiddenContainerUrl, models: [Movie] },
+                    { containerUrl: brokenContainerUrl, models: [Movie] },
+                    { containerUrl: workingContainerUrl, models: [Movie] },
+                ],
+                onExternalSourceFailed: (source, error) => failedSources.push([source.containerUrl ?? '', error]),
+                onFinished: (res) => (result.documentsWithErrors = res.documentsWithErrors),
+            });
+
+            // Assert
+            expect(arraySorted(failedSources.map(([url]) => url))).toEqual(
+                arraySorted([forbiddenContainerUrl, brokenContainerUrl]),
+            );
+            expect(result.documentsWithErrors).toEqual(new Set([forbiddenContainerUrl, brokenContainerUrl]));
+            expect(await localEngine.readDocumentIfExists(ownDocumentUrl)).not.toBeNull();
+            expect(await localEngine.readDocumentIfExists(workingDocumentUrl)).not.toBeNull();
+        });
     });
 
     describe('type index registration', () => {
