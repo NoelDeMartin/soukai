@@ -5,7 +5,7 @@ import DocumentContainsManyRelation from './DocumentContainsManyRelation';
 import HasManyRelation from './HasManyRelation';
 import HasOneRelation from './HasOneRelation';
 import IsContainedByRelation from './IsContainedByRelation';
-import { SchemaRelationDefinition } from './schema';
+import { SchemaHasRelationDefinition, SchemaRelationDefinition } from './schema';
 import type { RelatedContainerDefinition, RelatedModelDefinition } from './schema';
 
 /* oxlint-disable typescript/explicit-module-boundary-types */
@@ -27,13 +27,11 @@ export function documentContainsMany<T extends RelatedModelDefinition>(relatedCl
 }
 
 export function hasMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return new SchemaRelationDefinition(relatedClass, HasManyRelation, { foreignKey });
+    return new SchemaHasRelationDefinition(relatedClass, HasManyRelation, { foreignKey });
 }
 
 export function hasOne<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return new SchemaRelationDefinition(relatedClass, HasOneRelation, {
-        foreignKey,
-    });
+    return new SchemaHasRelationDefinition(relatedClass, HasOneRelation, { foreignKey });
 }
 
 export function isContainedBy<T extends RelatedContainerDefinition>(relatedClass: T) {

@@ -1,5 +1,6 @@
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
 import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
+import { arrayFilter, arrayUnique } from '@noeldemartin/utils';
 import type { Override } from '@noeldemartin/utils';
 import type { NamedNode, Quad } from '@rdfjs/types';
 import { deepMeta, rdfProperty } from 'soukai-bis/zod/soukai';
@@ -137,6 +138,7 @@ export interface SchemaConfig<TFields extends SchemaFields = SchemaFields, TRela
     rdfContext?: string;
     rdfContexts?: Record<string, string>;
     rdfClass?: string;
+    rdfClasses?: string[];
     rdfDefaultResourceHash?: string;
     fields?: TFields;
     relations?: TRelations;
@@ -172,6 +174,9 @@ export function defineSchema<
     };
     const { default: defaultPrefix, ...extraContext } = rdfContext;
     const relations = { ...baseSchema?.relations, ...config.relations };
+    const ownRdfClasses = arrayFilter([config.rdfClass, ...(config.rdfClasses ?? [])]).map((rdfClass) =>
+        expandIRI(rdfClass, { defaultPrefix, extraContext }),
+    );
     const timestamps = config.timestamps ?? baseSchema?.timestamps ?? true;
     const history = config.history ?? baseSchema?.history ?? false;
     const tombstone = config.tombstone ?? config.history ?? baseSchema?.tombstone ?? false;
@@ -211,19 +216,10 @@ export function defineSchema<
             slugField:
                 Object.entries(fields).find(([_, definition]) => deepMeta(definition, 'rdfSlug'))?.[0] ??
                 baseSchema?.slugField,
-            rdfClasses: [
-                ...(baseSchema?.rdfClasses ?? []),
-                ...(config.rdfClass
-                    ? [
-                          new RDFNamedNode(
-                              expandIRI(config.rdfClass, {
-                                  defaultPrefix,
-                                  extraContext,
-                              }),
-                          ),
-                      ]
-                    : []),
-            ],
+            rdfClasses:
+                ownRdfClasses.length > 0
+                    ? arrayUnique(ownRdfClasses).map((rdfClass) => new RDFNamedNode(rdfClass))
+                    : [...(baseSchema?.rdfClasses ?? [])],
             rdfFieldProperties: {
                 ...baseSchema?.rdfFieldProperties,
                 ...Object.fromEntries(

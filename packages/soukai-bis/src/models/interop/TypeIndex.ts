@@ -50,7 +50,7 @@ export default class TypeIndex extends Model {
         const fetch = TypeIndex.requireFetch();
         const url = await createTypeIndexDocument(user, 'public', fetch);
 
-        await linkFromDocument(user.writableProfileUrl, user.webId, 'solid:publicTypeIndex', url, fetch);
+        await linkFromDocument(user.writableProfileUrl, user.webId, 'solid:publicTypeIndex', url, { fetch });
 
         user.publicTypeIndexUrls.push(url);
 
@@ -84,11 +84,11 @@ export default class TypeIndex extends Model {
 
         const fetch = TypeIndex.requireFetch();
 
-        user.preferencesFileUrl = await findOrCreatePreferencesFile(user, fetch);
+        user.preferencesFileUrl = await findOrCreatePreferencesFile(user, { fetch });
 
         const url = await createTypeIndexDocument(user, 'private', fetch);
 
-        await linkFromDocument(user.preferencesFileUrl, user.webId, 'solid:privateTypeIndex', url, fetch);
+        await linkFromDocument(user.preferencesFileUrl, user.webId, 'solid:privateTypeIndex', url, { fetch });
 
         user.privateTypeIndexUrls.push(url);
 

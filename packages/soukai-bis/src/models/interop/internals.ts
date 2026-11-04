@@ -6,7 +6,7 @@ export async function createTypeIndexDocument(
     visibility: 'public' | 'private',
     fetch: Fetch,
 ): Promise<string> {
-    const url = await mintSettingsDocumentUrl(user, `${visibility}TypeIndex`, fetch);
+    const url = await mintSettingsDocumentUrl(user, `${visibility}TypeIndex`, { fetch });
     const documentClass = visibility === 'public' ? 'ListedDocument' : 'UnlistedDocument';
 
     await createSolidDocument(

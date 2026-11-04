@@ -67,7 +67,7 @@ export default abstract class MultiModelRelation<
                               documentUrl: this.parent.getDocumentUrl() ?? undefined,
                               resourceHash: uuid(),
                           }
-                        : { containerUrl: this.parent.url },
+                        : { containerUrl: this.resolveRelatedContainerUrl() ?? this.parent.url },
                 );
             }
 

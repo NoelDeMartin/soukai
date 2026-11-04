@@ -1,4 +1,5 @@
 export * from './acl';
+export * from './acp';
 export * from './core';
 export * from './computed-attributes';
 export * from './crdts';
@@ -14,3 +15,4 @@ export * from './serialization';
 export * from './types';
 export * from './utils';
 export { default as Model } from './Model';
+export type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from './concerns/authorization';

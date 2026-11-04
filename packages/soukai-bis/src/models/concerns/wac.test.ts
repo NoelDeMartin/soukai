@@ -8,7 +8,7 @@ import Container from 'soukai-bis/models/ldp/Container';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
-describe('Permissions', () => {
+describe('WAC', () => {
     let movie: Movie;
 
     const containerUrl = 'https://alice.example/movies/';
@@ -456,17 +456,5 @@ describe('Permissions', () => {
         // Assert
         await expect(promisedUpdate).rejects.toThrow(SoukaiError);
         expect(FakeServer.getRequests()).toHaveLength(0);
-    });
-
-    it('fetches public permissions', async () => {
-        // Arrange
-        FakeServer.respond(documentUrl, FakeResponse.success(undefined, { 'WAC-Allow': 'public="read"' }));
-
-        // Act
-        const permissions = await movie.fetchPublicPermissions();
-
-        // Assert
-        expect(permissions).toEqual([SolidDocumentPermissions.Read]);
-        expect(movie.isPublic()).toBe(true);
     });
 });

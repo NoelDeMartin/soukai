@@ -1,4 +1,8 @@
 import ACLAuthorization from './acl/ACLAuthorization';
+import ACPAccessControl from './acp/ACPAccessControl';
+import ACPAccessControlResource from './acp/ACPAccessControlResource';
+import ACPMatcher from './acp/ACPMatcher';
+import ACPPolicy from './acp/ACPPolicy';
 import { coreOperationModels } from './crdts/core';
 import Metadata from './crdts/Metadata';
 import Operation from './crdts/Operation';
@@ -15,6 +19,10 @@ import type { ModelConstructor } from './types';
 
 const coreModels = {
     ACLAuthorization,
+    ACPAccessControl,
+    ACPAccessControlResource,
+    ACPMatcher,
+    ACPPolicy,
     Container,
     Metadata,
     Operation,
@@ -42,6 +50,10 @@ export function bootCoreModels(options: BootOptions = {}): void {
 declare module 'soukai-bis' {
     interface ModelsRegistry {
         ACLAuthorization: typeof ACLAuthorization;
+        ACPAccessControl: typeof ACPAccessControl;
+        ACPAccessControlResource: typeof ACPAccessControlResource;
+        ACPMatcher: typeof ACPMatcher;
+        ACPPolicy: typeof ACPPolicy;
         Container: typeof Container;
         Metadata: typeof Metadata;
         Operation: typeof Operation;

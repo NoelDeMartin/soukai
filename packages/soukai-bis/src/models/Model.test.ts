@@ -1198,6 +1198,90 @@ describe('Model', () => {
         expect(guest).toBeInstanceOf(Guest);
     });
 
+    it('serializes multiple rdf classes', async () => {
+        // Arrange
+        const Person = defineSchema({
+            rdfContexts: { foaf: 'http://xmlns.com/foaf/0.1/', schema: 'https://schema.org/' },
+            rdfClasses: ['foaf:Person', 'schema:Person'],
+            timestamps: false,
+        });
+
+        bootModels({ Person });
+
+        // Act
+        const turtle = await new Person({ url: 'https://alice.example/profile#me' }).toTurtle();
+
+        // Assert
+        expect(turtle).toContain('<http://xmlns.com/foaf/0.1/Person>');
+        expect(turtle).toContain('<https://schema.org/Person>');
+    });
+
+    it('creates models from RDF with all their rdf classes', async () => {
+        // Arrange
+        const Person = defineSchema({
+            rdfContexts: { foaf: 'http://xmlns.com/foaf/0.1/', schema: 'https://schema.org/' },
+            rdfClasses: ['foaf:Person', 'schema:Person'],
+            timestamps: false,
+        });
+        const rdf = await turtleToQuads(`
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix schema: <https://schema.org/> .
+
+            <https://alice.example/profile#me> a foaf:Person, schema:Person .
+            <https://bob.example/profile#me> a foaf:Person .
+        `);
+
+        bootModels({ Person });
+
+        // Act
+        const people = await Person.createManyFromRDF(rdf);
+        const bob = await Person.createFromRDF(rdf, { url: 'https://bob.example/profile#me' });
+
+        // Assert
+        expect(people.map(({ url }) => url)).toEqual(['https://alice.example/profile#me']);
+        expect(bob).toBeNull();
+    });
+
+    it('replaces rdf classes in extended models', async () => {
+        // Arrange
+        const Person = defineSchema({
+            rdfContext: 'http://xmlns.com/foaf/0.1/',
+            rdfClass: 'Person',
+            timestamps: false,
+        });
+        const Manager = defineSchema(Person, {
+            rdfContext: 'https://example.org/vocab#',
+            rdfClass: 'Manager',
+        });
+        const Guest = defineSchema(Person, {});
+        const rdf = await turtleToQuads(`
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix ex: <https://example.org/vocab#> .
+
+            <https://alice.example/profile#me> a foaf:Person .
+            <https://bob.example/profile#me> a foaf:Person, ex:Manager .
+            <https://carol.example/profile#me> a ex:Manager .
+        `);
+
+        bootModels({ Person, Manager, Guest });
+
+        // Act
+        const people = await Person.createManyFromRDF(rdf);
+        const managers = await Manager.createManyFromRDF(rdf);
+
+        // Assert
+        expect(Manager.schema.rdfClasses.map(({ value }) => value)).toEqual(['https://example.org/vocab#Manager']);
+        expect(Guest.schema.rdfClasses.map(({ value }) => value)).toEqual(['http://xmlns.com/foaf/0.1/Person']);
+        expect(people.map(({ url }) => url)).toEqual([
+            'https://alice.example/profile#me',
+            'https://bob.example/profile#me',
+        ]);
+        expect(managers.map(({ url }) => url)).toEqual([
+            'https://bob.example/profile#me',
+            'https://carol.example/profile#me',
+        ]);
+    });
+
     describe('wrapped in proxies', () => {
         const Project = defineSchema({
             rdfContext: 'https://schema.org/',

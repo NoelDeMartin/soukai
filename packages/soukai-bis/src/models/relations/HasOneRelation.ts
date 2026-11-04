@@ -63,7 +63,7 @@ export default class HasOneRelation<
             return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;
         }
 
-        const relatedModels = await this.relatedClass.all();
+        const relatedModels = await this.loadAllRelatedModels();
 
         return relatedModels.find((model) => model.getAttribute(foreignKeyName) === localKey) ?? null;
     }

@@ -15,6 +15,13 @@ export interface AttachOptions {
     mintUrl?: boolean;
 }
 
+export interface RelationOptions {
+    foreignKeyName?: string;
+    localKeyName?: string;
+    usingSameDocument?: boolean;
+    from?: string;
+}
+
 export interface DetachOptions {
     delete?: boolean;
 }
@@ -32,7 +39,7 @@ export default abstract class Relation<
         this: RelationConstructor<T>,
         parent: Model,
         relatedClass: ModelConstructor,
-        options?: { foreignKeyName?: string; localKeyName?: string; usingSameDocument?: boolean },
+        options?: RelationOptions,
     ): T {
         // oxlint-disable-next-line typescript/no-explicit-any
         return new (this as any)(parent, relatedClass, options);
@@ -60,14 +67,11 @@ export default abstract class Relation<
     public foreignKeyName: string | null;
     public localKeyName: string;
     public usingSameDocument: boolean = false;
+    public relatedContainerUrlProperty: string | null = null;
     public documentModelsLoaded: boolean = false;
     protected _related: Nullable<Related | Related[]> = undefined;
 
-    public constructor(
-        parent: Parent,
-        relatedClass: RelatedClass,
-        options: { foreignKeyName?: string; localKeyName?: string; usingSameDocument?: boolean } = {},
-    ) {
+    public constructor(parent: Parent, relatedClass: RelatedClass, options: RelationOptions = {}) {
         this.parent = parent;
         this.relatedClass = relatedClass;
         this.foreignKeyName = this.requiresForeignKey()
@@ -78,6 +82,7 @@ export default abstract class Relation<
             : (options.foreignKeyName ?? null);
         this.localKeyName = options.localKeyName ?? 'url';
         this.usingSameDocument = options.usingSameDocument ?? false;
+        this.relatedContainerUrlProperty = options.from ?? null;
     }
 
     public get related(): Nullable<Related | Related[]> {
@@ -96,6 +101,33 @@ export default abstract class Relation<
         return this.related ? (arrayFrom(this.related) as Related[]) : [];
     }
 
+    public resolveRelatedContainerUrl(): string | null {
+        const property = this.relatedContainerUrlProperty;
+
+        if (!property) {
+            return null;
+        }
+
+        const parentFields = this.parent.static('schema').fields.def.shape;
+
+        if (!(property in parentFields) && !(property in this.parent)) {
+            throw new SoukaiError(
+                `The '${property}' property used to resolve the related container url doesn't exist in the ` +
+                    `${this.parent.static().modelName} model.`,
+            );
+        }
+
+        const containerUrl = (this.parent as unknown as Record<string, unknown>)[property];
+
+        return typeof containerUrl === 'string' ? containerUrl : null;
+    }
+
+    public async loadAllRelatedModels(): Promise<Related[]> {
+        const containerUrl = this.resolveRelatedContainerUrl();
+
+        return containerUrl ? this.relatedClass.all({ from: containerUrl }) : this.relatedClass.all();
+    }
+
     public requireForeignKeyName(): string {
         return required(this.foreignKeyName);
     }
@@ -112,7 +144,7 @@ export default abstract class Relation<
         this.attach(model);
 
         if (!this.usingSameDocument) {
-            await model.save();
+            await model.save(this.resolveRelatedContainerUrl() ?? undefined);
 
             this.setForeignAttributes(model);
         }

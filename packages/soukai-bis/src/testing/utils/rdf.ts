@@ -36,9 +36,8 @@ export function containerTurtle(documents: string[] | Record<string, { lastModif
         @prefix purl: <http://purl.org/dc/terms/> .
         @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-        <>
-            a ldp:Container ;
-            ldp:contains ${documentUrls.map((url) => `<${url}>`).join(', ')} .
+        <> a ldp:Container .
+        ${documentUrls.length > 0 ? `<> ldp:contains ${documentUrls.map((url) => `<${url}>`).join(', ')} .` : ''}
 
         ${documentMetadatas
             .map(

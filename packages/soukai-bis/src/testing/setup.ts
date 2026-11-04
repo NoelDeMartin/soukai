@@ -3,7 +3,9 @@ import 'fake-indexeddb/auto';
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 import { FakeServer } from '@noeldemartin/testing';
 import { ComputedAttribute, InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
+import { forgetAuthorizationProtocols } from 'soukai-bis/models/concerns/authorization';
 import Episode from 'soukai-bis/testing/stubs/Episode';
+import ManagerGrant from 'soukai-bis/testing/stubs/ManagerGrant';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import MoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
 import Post from 'soukai-bis/testing/stubs/Post';
@@ -20,6 +22,7 @@ beforeEach(() => {
     bootModels(
         {
             Episode,
+            ManagerGrant,
             Movie,
             MoviesCollection,
             Post,
@@ -33,6 +36,7 @@ beforeEach(() => {
     );
 
     FakeServer.reset();
+    forgetAuthorizationProtocols();
     vi.resetAllMocks();
     ComputedAttribute.disableLoadingRelations();
 });

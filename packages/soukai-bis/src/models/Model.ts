@@ -4,7 +4,6 @@ import {
     MagicObject,
     applyStrictChecks,
     arrayFrom,
-    arrayUnique,
     deepEquals,
     fail,
     isDevelopment,
@@ -37,8 +36,12 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/lib/internals/rdf';
 import { ZodError } from 'zod';
 
+import type ACPAccessControlResource from './acp/ACPAccessControlResource';
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
+import { newACPAccessControlResource } from './concerns/acp';
+import { fetchPermissions, trackAuthorizationProtocol } from './concerns/authorization';
+import type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from './concerns/authorization';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import {
     deleteModel,
@@ -48,7 +51,6 @@ import {
 } from './concerns/crdts';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
-import { fetchPublicPermissions, updatePublicPermissions } from './concerns/permissions';
 import {
     buildRDFTypeIndex,
     createFromRDF,
@@ -59,6 +61,7 @@ import {
 } from './concerns/rdf';
 import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
+import { updatePublicPermissions } from './concerns/wac';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
@@ -297,7 +300,7 @@ export default class Model<
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
         const typeIndex = buildRDFTypeIndex(quads);
-        const isType = this.schema.rdfClasses.some((rdfClass) => typeIndex.get(rdfClass.value)?.has(url));
+        const isType = this.schema.rdfClasses.every((rdfClass) => typeIndex.get(rdfClass.value)?.has(url));
 
         if (!isType) {
             return null;
@@ -358,8 +361,9 @@ export default class Model<
         options: { modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T>[]> {
         const typeIndex = buildRDFTypeIndex(quads);
-        const matchingResourceUrls = arrayUnique(
-            this.schema.rdfClasses.flatMap((rdfClass) => Array.from(typeIndex.get(rdfClass.value) ?? [])),
+        const [firstRdfClass, ...otherRdfClasses] = this.schema.rdfClasses;
+        const matchingResourceUrls = Array.from(typeIndex.get(firstRdfClass?.value ?? '') ?? []).filter((url) =>
+            otherRdfClasses.every((rdfClass) => typeIndex.get(rdfClass.value)?.has(url)),
         );
 
         if (matchingResourceUrls.length === 0) {
@@ -446,7 +450,7 @@ export default class Model<
     protected _computedAttributes: Record<string, ComputedAttribute> = {};
     protected _relations: Record<string, Relation> = {};
     protected _legacyTimestamps: LegacyTimestamps = null;
-    protected _publicPermissions: SolidDocumentPermission[] | null = null;
+    protected _permissions: ModelPermissions | null = null;
 
     public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
         super();
@@ -578,6 +582,7 @@ export default class Model<
                 foreignKeyName: relation.options.foreignKey,
                 localKeyName: relation.options.localKey,
                 usingSameDocument: relation.options.usingSameDocument,
+                from: relation.options.from,
             });
         }
 
@@ -710,12 +715,41 @@ export default class Model<
         }
     }
 
-    public isPublic(): boolean | null {
-        return this._publicPermissions?.includes(SolidDocumentPermissions.Read) ?? null;
+    public requirePublicPermissions(): SolidDocumentPermission[] {
+        const { publicPermissions } = this.requirePermissions();
+
+        if (!publicPermissions) {
+            throw new SoukaiError(
+                `Public permissions for ${this.static('modelName')} model are not available, ` +
+                    "the server didn't return a WAC-Allow header.",
+            );
+        }
+
+        return publicPermissions;
     }
 
-    public isPrivate(): boolean | null {
-        return this._publicPermissions ? !this._publicPermissions.includes(SolidDocumentPermissions.Read) : null;
+    public requireACPAccessControlResources(): ModelWithUrl<ACPAccessControlResource>[] {
+        return this.requireACPPermissions().accessControlResources;
+    }
+
+    public newACPAccessControlResource(): ModelWithUrl<ACPAccessControlResource> {
+        return newACPAccessControlResource(this, this.requireACPPermissions().acr);
+    }
+
+    public isPublic(): boolean {
+        return this.requirePublicPermissions().includes(SolidDocumentPermissions.Read);
+    }
+
+    public isPrivate(): boolean {
+        return !this.isPublic();
+    }
+
+    public usesWAC(): boolean {
+        return this.requireAuthorizationProtocol() === 'wac';
+    }
+
+    public usesACP(): boolean {
+        return this.requireAuthorizationProtocol() === 'acp';
     }
 
     public getSlug(): string | null {
@@ -951,20 +985,22 @@ export default class Model<
         return freshInstance as this;
     }
 
-    public async fetchPublicPermissions(): Promise<SolidDocumentPermission[]> {
-        this._publicPermissions = await fetchPublicPermissions(this);
+    public async fetchPermissions(options: FetchPermissionsOptions = {}): Promise<ModelPermissions> {
+        this._permissions = await fetchPermissions(this, options);
 
-        return this._publicPermissions;
+        return this._permissions;
     }
 
-    public async fetchPublicPermissionsIfMissing(): Promise<SolidDocumentPermission[]> {
-        return this._publicPermissions ?? (await this.fetchPublicPermissions());
+    public async fetchPermissionsIfMissing(options: FetchPermissionsOptions = {}): Promise<ModelPermissions> {
+        return this._permissions ?? (await this.fetchPermissions(options));
     }
 
     public async updatePublicPermissions(permissions: SolidDocumentPermission[]): Promise<void> {
-        await updatePublicPermissions(this, permissions);
+        await trackAuthorizationProtocol(this.requireDocumentUrl(), 'wac', () =>
+            updatePublicPermissions(this, permissions),
+        );
 
-        this._publicPermissions = permissions;
+        this._permissions = { protocol: 'wac', publicPermissions: permissions };
     }
 
     public serialize(): SerializedModel {
@@ -1317,6 +1353,37 @@ export default class Model<
 
             throw error;
         }
+    }
+
+    private requirePermissions(): ModelPermissions {
+        if (!this._permissions) {
+            throw new SoukaiError(`Permissions for ${this.static('modelName')} model haven't been loaded.`);
+        }
+
+        return this._permissions;
+    }
+
+    private requireAuthorizationProtocol(): AuthorizationProtocol {
+        const { protocol } = this.requirePermissions();
+
+        if (protocol === 'unknown') {
+            throw new SoukaiError(
+                `Authorization protocol for ${this.static('modelName')} model is unknown, ` +
+                    "the access control documents couldn't be read.",
+            );
+        }
+
+        return protocol;
+    }
+
+    private requireACPPermissions(): Extract<ModelPermissions, { protocol: 'acp' }> {
+        const permissions = this.requirePermissions();
+
+        if (permissions.protocol !== 'acp') {
+            throw new SoukaiError(`${this.static('modelName')} model isn't using ACP.`);
+        }
+
+        return permissions;
     }
 
     private isField(property: string): property is FieldName {

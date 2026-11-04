@@ -1,4 +1,4 @@
-import { SolidDocument, expandIRI, fetchSolidDocumentACL } from '@noeldemartin/solid-utils';
+import { expandIRI, fetchSolidDocumentACL } from '@noeldemartin/solid-utils';
 import type { SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import { arrayUnique, urlParse, uuid } from '@noeldemartin/utils';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
@@ -211,19 +211,10 @@ async function createDocumentACL(
     await engine.createDocument(acl.url, serializeToRDF(authorizations));
 }
 
-export async function fetchPublicPermissions(model: Model): Promise<SolidDocumentPermission[]> {
-    requireModelSolidEngine(model);
-
-    const documentUrl = model.requireDocumentUrl();
-    const response = await model.static().requireFetch()(documentUrl, { method: 'HEAD' });
-
-    return new SolidDocument(documentUrl, [], response.headers).getPublicPermissions();
-}
-
 export async function updatePublicPermissions(model: Model, permissions: SolidDocumentPermission[]): Promise<void> {
     const engine = requireModelSolidEngine(model);
     const documentUrl = model.requireDocumentUrl();
-    const acl = await fetchSolidDocumentACL(documentUrl, model.static().requireFetch());
+    const acl = await fetchSolidDocumentACL(documentUrl, { fetch: model.static().requireFetch() });
     const AuthorizationClass = getAuthorizationClass(engine);
     const authorizations = await AuthorizationClass.createManyFromRDF(acl.document.getQuads());
     const modes = arrayUnique(permissions.map((permission) => AuthorizationClass.modeFromPermission(permission)));

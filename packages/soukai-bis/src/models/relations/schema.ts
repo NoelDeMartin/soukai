@@ -42,6 +42,7 @@ export class SchemaRelationDefinition<
             localKey?: string;
             usingSameDocument?: boolean;
             autoload?: boolean;
+            from?: string;
         } = {},
     ) {}
 
@@ -53,6 +54,17 @@ export class SchemaRelationDefinition<
 
     public autoload(autoload: boolean = true): this {
         this.options.autoload = autoload;
+
+        return this;
+    }
+}
+
+export class SchemaHasRelationDefinition<
+    TRelated extends RelatedModelDefinition = RelatedModelDefinition,
+    TRelationClass extends RelationConstructor = RelationConstructor,
+> extends SchemaRelationDefinition<TRelated, TRelationClass> {
+    public from(containerUrlProperty: string): this {
+        this.options.from = containerUrlProperty;
 
         return this;
     }

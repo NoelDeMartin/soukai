@@ -67,7 +67,7 @@ export default class HasManyRelation<
             return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
         }
 
-        const relatedModels = await this.relatedClass.all();
+        const relatedModels = await this.loadAllRelatedModels();
 
         return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
     }

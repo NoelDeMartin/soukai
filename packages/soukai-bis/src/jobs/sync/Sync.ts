@@ -105,7 +105,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     private typeIndexes: Partial<Record<TypeIndexVisibility, Promise<TypeIndex>>> = {};
-    private syncRdfClasses: Set<string>;
+    private syncedModelsRdfClasses: string[][];
     private unsyncedContainers?: Set<string>;
 
     public constructor(private config: SyncConfig) {
@@ -132,13 +132,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 })
                 .filter(isTruthy),
         );
-        this.syncRdfClasses = new Set(
-            Array.from(this.config.applicationModels)
-                .map((model) => model.model)
-                .concat([Container])
-                .map((model) => model.schema.rdfClasses.map((rdfClass) => rdfClass.value))
-                .flat(),
-        );
+        this.syncedModelsRdfClasses = Array.from(this.config.applicationModels)
+            .map((model) => model.model)
+            .concat([Container])
+            .map((model) => model.schema.rdfClasses.map((rdfClass) => rdfClass.value));
     }
 
     protected async run(): Promise<SyncJobResult> {
@@ -772,19 +769,32 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
     }
 
+    private getSyncedResourceUrls(document: SolidDocument): string[] {
+        const resourceTypes = new Map<string, Set<string>>();
+
+        for (const quad of document.getQuads()) {
+            if (!quad.predicate.equals(RDF_TYPE_PREDICATE)) {
+                continue;
+            }
+
+            const types = resourceTypes.get(quad.subject.value) ?? new Set<string>();
+
+            types.add(quad.object.value);
+            resourceTypes.set(quad.subject.value, types);
+        }
+
+        return Array.from(resourceTypes.entries())
+            .filter(([_, types]) =>
+                this.syncedModelsRdfClasses.some((rdfClasses) => rdfClasses.every((rdfClass) => types.has(rdfClass))),
+            )
+            .map(([resourceUrl]) => resourceUrl);
+    }
+
     private async syncDocumentContents(localDocument: SolidDocument, remoteDocument: SolidDocument): Promise<void> {
         this.assertNotCancelled(this.getResult());
 
         const resourceUrls = arrayUnique(
-            [remoteDocument, localDocument].flatMap((document) =>
-                document
-                    .getQuads()
-                    .filter(
-                        (quad) =>
-                            quad.predicate.equals(RDF_TYPE_PREDICATE) && this.syncRdfClasses.has(quad.object.value),
-                    )
-                    .map((quad) => quad.subject.value),
-            ),
+            [remoteDocument, localDocument].flatMap((document) => this.getSyncedResourceUrls(document)),
         );
         const localOperations = await this.getDocumentOperations(localDocument, resourceUrls);
         const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
