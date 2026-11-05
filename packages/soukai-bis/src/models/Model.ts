@@ -93,6 +93,10 @@ export interface MintUrlOptions {
     slugSuffix?: Nullable<string>;
 }
 
+export interface SaveOptions {
+    postToContainer?: Nullable<boolean>;
+}
+
 export interface ModelConstructorOptions {
     exists?: Nullable<boolean>;
     initializeMetadata?: Nullable<boolean>;
@@ -278,6 +282,16 @@ export default class Model<
         const model = new this(...args);
 
         return model.save();
+    }
+
+    public static async postToContainer<T extends Model>(
+        this: ModelConstructor<T>,
+        containerUrl: string,
+        ...args: ConstructorParameters<ModelConstructor<T>>
+    ): Promise<ModelWithUrl<T>> {
+        const model = new this(...args);
+
+        return model.save(containerUrl, { postToContainer: true });
     }
 
     public static async createAt<T extends Model>(
@@ -914,11 +928,19 @@ export default class Model<
         return this;
     }
 
-    public async save(containerUrl?: string): Promise<ModelWithUrl<this>> {
+    public async save(containerUrl?: string, options: SaveOptions = {}): Promise<ModelWithUrl<this>> {
         if (!this.__isCanonical()) {
-            await this.__instance().save(containerUrl);
+            await this.__instance().save(containerUrl, options);
 
             return this as ModelWithUrl<this>;
+        }
+
+        if (options.postToContainer && this._documentExists) {
+            throw new SoukaiError(`Can't post model to container, its document already exists (${this.url})`);
+        }
+
+        if (options.postToContainer && containerUrl && this.url && this.getContainerUrl() !== containerUrl) {
+            throw new SoukaiError(`Can't post model to container ${containerUrl}, its url is ${this.url}`);
         }
 
         if (this._markedForDeletion) {
@@ -938,7 +960,7 @@ export default class Model<
         const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
 
         await this.beforeSave({ containerUrl });
-        await this.performSave();
+        await this.performSave(options);
         await this.afterSave();
 
         for (let index = 0; index < dirtyDocumentModels.length; index++) {
@@ -1100,14 +1122,24 @@ export default class Model<
 
         this.url = undefined;
         this.mintUrl({ ...options, slugSuffix: `-${shortId()}` });
+        this.replaceMintedDocumentUrl(relatedModels, documentUrl, this.requireDocumentUrl());
+    }
 
-        const uniqueDocumentUrl = this.requireDocumentUrl();
+    protected moveToDocument(documentUrl: string): void {
+        const previousDocumentUrl = this.requireDocumentUrl();
+        const relatedModels = this.getRelatedModels();
+
+        this.url = documentUrl + this.requireUrl().slice(previousDocumentUrl.length);
+        this.replaceMintedDocumentUrl(relatedModels, previousDocumentUrl, documentUrl);
+    }
+
+    protected replaceMintedDocumentUrl(relatedModels: Model[], documentUrl: string, newDocumentUrl: string): void {
         const isMintedDocumentUrl = (value: unknown, originalValue: unknown): value is string =>
             isString(value) &&
             (value === documentUrl || value.startsWith(`${documentUrl}#`)) &&
             !arrayFrom(originalValue).includes(value);
-        const replaceMintedDocumentUrl = (value: unknown, originalValue: unknown) =>
-            isMintedDocumentUrl(value, originalValue) ? uniqueDocumentUrl + value.slice(documentUrl.length) : value;
+        const replaceValue = (value: unknown, originalValue: unknown) =>
+            isMintedDocumentUrl(value, originalValue) ? newDocumentUrl + value.slice(documentUrl.length) : value;
 
         for (const relatedModel of relatedModels) {
             const updatedAttributes = Object.entries(relatedModel._attributes)
@@ -1117,8 +1149,8 @@ export default class Model<
                     return [
                         field,
                         Array.isArray(value)
-                            ? value.map((item) => replaceMintedDocumentUrl(item, originalValue))
-                            : replaceMintedDocumentUrl(value, originalValue),
+                            ? value.map((item) => replaceValue(item, originalValue))
+                            : replaceValue(value, originalValue),
                     ] as const;
                 })
                 .filter(([field, value]) => !deepEquals(relatedModel._attributes[field], value));
@@ -1156,7 +1188,7 @@ export default class Model<
         }
     }
 
-    protected async performSave(): Promise<void> {
+    protected async performSave(options: SaveOptions = {}): Promise<void> {
         const engine = this.static().requireEngine();
 
         if (this._documentExists) {
@@ -1172,6 +1204,31 @@ export default class Model<
                 ...getDirtyDocumentsUpdates(updatedModels),
                 ...deletedModels.flatMap((model) => getDeleteModelOperations(model)),
             ]);
+        } else if (options.postToContainer) {
+            const postDocument = async () => {
+                const documentUrl = this.requireDocumentUrl();
+                const document = await engine.createDocumentInContainer(
+                    this.requireContainerUrl(),
+                    documentUrl,
+                    serializeToRDF(this.getDocumentModels().filter((model) => !model._markedForDeletion)),
+                );
+
+                if (document.url !== documentUrl) {
+                    this.moveToDocument(document.url);
+                }
+            };
+
+            try {
+                await postDocument();
+            } catch (error) {
+                if (!isInstanceOf(error, DocumentAlreadyExists)) {
+                    throw error;
+                }
+
+                this.moveToDocument(`${this.requireDocumentUrl()}-${shortId()}`);
+
+                await postDocument();
+            }
         } else {
             const createDocument = async () => {
                 await engine.createDocument(

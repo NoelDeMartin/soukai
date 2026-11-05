@@ -66,6 +66,43 @@ describe('CRUD', () => {
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(3, show.requireDocumentUrl(), expect.anything());
     });
 
+    it('Creates models in containers', async () => {
+        // Arrange
+        const name = faker.name.firstName();
+        const containerUrl = fakeContainerUrl();
+        const assignedDocumentUrl = `${containerUrl}assigned`;
+
+        FakeServer.respondOnce(containerUrl, FakeResponse.created('', { Location: assignedDocumentUrl }));
+
+        // Act
+        const user = await new User({ name }).save(containerUrl, { postToContainer: true });
+
+        // Assert
+        const request = FakeServer.getRequest('POST', containerUrl);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
+        expect(user.url).toEqual(`${assignedDocumentUrl}#it`);
+        expect(user.metadata?.url).toEqual(`${assignedDocumentUrl}#it-metadata`);
+        expect(user.metadata?.resourceUrl).toEqual(user.url);
+        expect(user.exists()).toBe(true);
+        expect(request?.headers).toEqual(expect.objectContaining({ Slug: expect.any(String) }));
+        expect(request?.body).toEqualTurtle(`
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <#it>
+                a foaf:Person ;
+                foaf:name "${name}" .
+
+            <#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <#it> ;
+                crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+                crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+        `);
+    });
+
     it('Updates models', async () => {
         // Arrange
         const name = faker.name.firstName();

@@ -5,6 +5,7 @@ import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
@@ -276,6 +277,60 @@ describe('Model', () => {
                 },
             },
         });
+    });
+
+    it('saves instances in containers', async () => {
+        // Arrange
+        const containerUrl = 'local://inbox/';
+
+        // Act
+        const user = await new User({ name: 'John Doe' }).save(containerUrl, { postToContainer: true });
+
+        // Assert
+        expect(user.requireContainerUrl()).toEqual(containerUrl);
+        expect(user.exists()).toBe(true);
+        expect(engine.documents[user.requireDocumentUrl()]).toBeDefined();
+    });
+
+    it('saves instances in containers with unique urls', async () => {
+        // Arrange
+        const containerUrl = 'local://inbox/';
+        const url = `${containerUrl}john#it`;
+
+        await new User({ url, name: 'John Doe' }).save(containerUrl, { postToContainer: true });
+
+        // Act
+        const user = await new User({ url, name: 'Jane Doe' }).save(containerUrl, { postToContainer: true });
+
+        // Assert
+        const freshUser = await User.find(user.url);
+
+        expect(user.url).not.toEqual(url);
+        expect(user.requireDocumentUrl()).toMatch(new RegExp(`^${escapeRegexText(`${containerUrl}john-`)}`));
+        expect(user.metadata?.url).toEqual(`${user.requireDocumentUrl()}#it-metadata`);
+        expect(user.metadata?.resourceUrl).toEqual(user.url);
+        expect(freshUser?.name).toEqual('Jane Doe');
+        expect(freshUser?.metadata?.url).toEqual(user.metadata?.url);
+        expect((await User.find(url))?.name).toEqual('John Doe');
+    });
+
+    it('fails posting instances to containers when their document exists', async () => {
+        // Arrange
+        const user = await User.create({ name: 'John Doe' });
+
+        user.setAttribute('name', 'Jane Doe');
+
+        // Act & Assert
+        await expect(user.save(user.requireContainerUrl(), { postToContainer: true })).rejects.toThrow(SoukaiError);
+    });
+
+    it('fails posting instances to containers when their url is in a different container', async () => {
+        // Arrange
+        const user = new User({ url: 'local://inbox/john#it', name: 'John Doe' });
+
+        // Act & Assert
+        await expect(user.save('local://outbox/', { postToContainer: true })).rejects.toThrow(SoukaiError);
+        expect(user.exists()).toBe(false);
     });
 
     it('updates instances with dirty attributes', async () => {

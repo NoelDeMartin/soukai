@@ -4,6 +4,7 @@ import type { JsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
@@ -76,6 +77,31 @@ describe('InMemoryEngine', () => {
         await engine.createDocument(documentUrl, {});
 
         await expect(engine.createDocument(documentUrl, {})).rejects.toBeInstanceOf(DocumentAlreadyExists);
+    });
+
+    it('creates documents in containers', async () => {
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = `${containerUrl}document`;
+
+        const document = await engine.createDocumentInContainer(containerUrl, documentUrl, {});
+
+        expect(document.url).toEqual(documentUrl);
+        expect(engine.documents[documentUrl]).toBeDefined();
+    });
+
+    it('fails creating documents in containers with invalid urls', async () => {
+        const containerUrl = fakeContainerUrl();
+
+        await expect(engine.createDocumentInContainer(containerUrl, `${containerUrl}child/`, {})).rejects.toThrow(
+            SoukaiError,
+        );
+        await expect(engine.createDocumentInContainer(containerUrl, `${containerUrl}child/doc`, {})).rejects.toThrow(
+            SoukaiError,
+        );
+        await expect(engine.createDocumentInContainer(containerUrl, fakeDocumentUrl(), {})).rejects.toThrow(
+            SoukaiError,
+        );
+        await expect(engine.createDocumentInContainer(containerUrl, containerUrl, {})).rejects.toThrow(SoukaiError);
     });
 
     it('updates documents', async () => {

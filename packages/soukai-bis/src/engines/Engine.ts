@@ -4,6 +4,7 @@ import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import {
     LDP_BASIC_CONTAINER,
     LDP_BASIC_CONTAINER_OBJECT,
@@ -34,6 +35,16 @@ export default abstract class Engine {
         contents: JsonLD | JsonLDGraph | Quad[],
         metadata?: EngineMetadata,
     ): Promise<SolidDocument>;
+
+    public async createDocumentInContainer(
+        containerUrl: string,
+        proposedUrl: string,
+        contents: JsonLD | JsonLDGraph | Quad[],
+    ): Promise<SolidDocument> {
+        this.assertContainerDocumentSlug(containerUrl, proposedUrl);
+
+        return this.createDocument(proposedUrl, contents);
+    }
 
     public abstract readDocument(url: string): Promise<SolidDocument>;
 
@@ -67,6 +78,20 @@ export default abstract class Engine {
         }
 
         return this.readDocumentsByContainer(options.containerUrl, { deep: options.deep, depth: options.depth });
+    }
+
+    protected assertContainerDocumentSlug(containerUrl: string, documentUrl: string): string {
+        if (documentUrl.endsWith('/')) {
+            throw new SoukaiError(`Posting containers is not supported (proposed url ${documentUrl})`);
+        }
+
+        const slug = documentUrl.slice(containerUrl.length);
+
+        if (!containerUrl.endsWith('/') || !documentUrl.startsWith(containerUrl) || !slug || slug.includes('/')) {
+            throw new SoukaiError(`Proposed url ${documentUrl} is not a document in container ${containerUrl}`);
+        }
+
+        return slug;
     }
 
     protected async readDocumentsByUrl(urls: string[]): Promise<Record<string, SolidDocument>> {

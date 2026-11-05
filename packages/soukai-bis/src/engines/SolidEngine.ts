@@ -67,6 +67,20 @@ export default class SolidEngine extends Engine {
         });
     }
 
+    public override async createDocumentInContainer(
+        containerUrl: string,
+        proposedUrl: string,
+        contents: JsonLD | JsonLDGraph | Quad[],
+    ): Promise<SolidDocument> {
+        const slug = this.assertContainerDocumentSlug(containerUrl, proposedUrl);
+
+        return this.lock.run(async () => {
+            const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
+
+            return this.client.createInContainer(containerUrl, quads, { slug, base: proposedUrl });
+        });
+    }
+
     public updateDocument(
         url: string,
         operations: EngineOperation[],

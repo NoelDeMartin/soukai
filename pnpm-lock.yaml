@@ -200,10 +200,10 @@ catalogs:
       version: 0.4.0-next.2e40ae3fd460e91f231c8b77d0614f3dad972f6a
     '@noeldemartin/solid-utils':
       specifier: next
-      version: 0.6.1-next.57d8a72a18a021a56749e4f91b5bd4861a85368a
+      version: 0.6.1-next.289b4521452cf4522a23b2d437981572dc0ab54d
     '@noeldemartin/testing':
       specifier: next
-      version: 0.0.0-next.23b9f09c2e11d1c3ece07d50800c41e7b3576cc8
+      version: 0.0.0-next.3f895143d775b6f219b2cdba62464fe073b2776a
     '@noeldemartin/utils':
       specifier: next
       version: 0.8.0-next.12721f6e93a8933c59e9345963bd5363f73cd35d
@@ -239,7 +239,7 @@ importers:
         version: 0.4.0-next.2e40ae3fd460e91f231c8b77d0614f3dad972f6a
       '@noeldemartin/testing':
         specifier: 'catalog:'
-        version: 0.0.0-next.23b9f09c2e11d1c3ece07d50800c41e7b3576cc8(vitest@5.0.5)
+        version: 0.0.0-next.3f895143d775b6f219b2cdba62464fe073b2776a(vitest@5.0.5)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.8.0-next.12721f6e93a8933c59e9345963bd5363f73cd35d
@@ -318,7 +318,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.57d8a72a18a021a56749e4f91b5bd4861a85368a(vitest@5.0.5)(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.289b4521452cf4522a23b2d437981572dc0ab54d(vitest@5.0.5)(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.8.0-next.12721f6e93a8933c59e9345963bd5363f73cd35d
@@ -340,7 +340,7 @@ importers:
         version: 0.4.0-next.2e40ae3fd460e91f231c8b77d0614f3dad972f6a
       '@noeldemartin/testing':
         specifier: 'catalog:'
-        version: 0.0.0-next.23b9f09c2e11d1c3ece07d50800c41e7b3576cc8(vitest@5.0.5)
+        version: 0.0.0-next.3f895143d775b6f219b2cdba62464fe073b2776a(vitest@5.0.5)
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.7
@@ -361,7 +361,7 @@ importers:
     dependencies:
       '@noeldemartin/solid-utils':
         specifier: 'catalog:'
-        version: 0.6.1-next.57d8a72a18a021a56749e4f91b5bd4861a85368a(vitest@5.0.5)(web-streams-polyfill@3.3.3)
+        version: 0.6.1-next.289b4521452cf4522a23b2d437981572dc0ab54d(vitest@5.0.5)(web-streams-polyfill@3.3.3)
       '@noeldemartin/utils':
         specifier: 'catalog:'
         version: 0.8.0-next.12721f6e93a8933c59e9345963bd5363f73cd35d
@@ -725,16 +725,16 @@ packages:
     resolution: {integrity: sha512-CrAoNE/cHbL/mQg3vRwjuSGtSuCIqgdrHs3kejBJH6eSW9F8CxiZBecmrUNP4+2bv4JG8Gcop5pzK3hKYPE3fA==}
     hasBin: true
 
-  '@noeldemartin/solid-utils@0.6.1-next.57d8a72a18a021a56749e4f91b5bd4861a85368a':
-    resolution: {integrity: sha512-vKYOCV5IhuOLTUi5e9eG9KZD/CC60pzmcodKXZo44Q4BH0HA+0RpB1eFEEUVr8DjaokI5Eg2TYqgbgq/v4qnvg==}
+  '@noeldemartin/solid-utils@0.6.1-next.289b4521452cf4522a23b2d437981572dc0ab54d':
+    resolution: {integrity: sha512-cgJZjxXEgX4eJwKRjbi5hdSMvdeHO6VHMee9aHVQzUvVtIprE6IlMRIP+tCcMuKlRBaQbm7NfC0jdXQvog812g==}
     peerDependencies:
       vitest: '>=5.0.0'
     peerDependenciesMeta:
       vitest:
         optional: true
 
-  '@noeldemartin/testing@0.0.0-next.23b9f09c2e11d1c3ece07d50800c41e7b3576cc8':
-    resolution: {integrity: sha512-BpjpAbbRgnqixhhaVgJu3jfjxrAcfUMuiHJtHjrk5/zQYkvEdEMZ2ng55dhhcFZVlNqYy4144d6eMYPZjzt8eA==}
+  '@noeldemartin/testing@0.0.0-next.3f895143d775b6f219b2cdba62464fe073b2776a':
+    resolution: {integrity: sha512-box4Q68jePlR3Ftv0edRwqIgh5wZA28g016JLwqFV4b+Hg7tLKz7CNzLHxPB/ZEY00WD3oMdoE7SuRUil5/gpA==}
     peerDependencies:
       vitest: '>=5.0.0'
 
@@ -3027,7 +3027,7 @@ snapshots:
 
   '@noeldemartin/scripts@0.4.0-next.2e40ae3fd460e91f231c8b77d0614f3dad972f6a': {}
 
-  '@noeldemartin/solid-utils@0.6.1-next.57d8a72a18a021a56749e4f91b5bd4861a85368a(vitest@5.0.5)(web-streams-polyfill@3.3.3)':
+  '@noeldemartin/solid-utils@0.6.1-next.289b4521452cf4522a23b2d437981572dc0ab54d(vitest@5.0.5)(web-streams-polyfill@3.3.3)':
     dependencies:
       '@noeldemartin/utils': 0.8.0-next.12721f6e93a8933c59e9345963bd5363f73cd35d
       '@rdfjs/types': 2.0.1
@@ -3039,7 +3039,7 @@ snapshots:
     transitivePeerDependencies:
       - web-streams-polyfill
 
-  '@noeldemartin/testing@0.0.0-next.23b9f09c2e11d1c3ece07d50800c41e7b3576cc8(vitest@5.0.5)':
+  '@noeldemartin/testing@0.0.0-next.3f895143d775b6f219b2cdba62464fe073b2776a(vitest@5.0.5)':
     dependencies:
       '@noeldemartin/faker': 7.6.0
       '@noeldemartin/utils': 0.8.0-next.12721f6e93a8933c59e9345963bd5363f73cd35d
