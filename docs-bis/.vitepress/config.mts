@@ -6,6 +6,10 @@ export default defineConfig({
     description: 'An RDF-first Solid ORM',
     base: '/next/',
     head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/next/img/logo-mini.svg' }]],
+    vite: {
+        // Use a different port than Vite's default (5173), to avoid conflicts with apps running in development.
+        server: { port: 5180 },
+    },
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
         logo: { src: '/img/logo-mini.svg', width: 17, height: 24 },
@@ -15,7 +19,53 @@ export default defineConfig({
             '/guide/': [
                 {
                     text: 'Getting started',
-                    items: [{ text: 'Introduction', link: '/guide/' }],
+                    items: [
+                        { text: 'Introduction', link: '/guide/' },
+                        { text: 'Installation', link: '/guide/getting-started/installation' },
+                        { text: 'Configuration', link: '/guide/getting-started/configuration' },
+                        { text: 'Upgrade Guide', link: '/guide/getting-started/upgrade-guide' },
+                    ],
+                },
+                {
+                    text: 'Core concepts',
+                    base: '/guide/core-concepts/',
+                    items: [
+                        { text: 'Models', link: 'models' },
+                        { text: 'Engines', link: 'engines' },
+                        { text: 'Relationships', link: 'relationships' },
+                    ],
+                },
+                {
+                    text: 'Solid Protocol',
+                    base: '/guide/solid-protocol/',
+                    items: [
+                        { text: 'What is Solid?', link: 'what-is-solid' },
+                        { text: 'Mental Model', link: 'mental-model' },
+                        { text: 'Limitations', link: 'limitations' },
+                    ],
+                },
+                {
+                    text: 'Advanced',
+                    base: '/guide/advanced/',
+                    items: [
+                        { text: 'Interoperability', link: 'interoperability' },
+                        { text: 'Local-first', link: 'local-first' },
+                        { text: 'Authorization', link: 'authorization' },
+                        { text: 'Observability', link: 'observability' },
+                        { text: 'Computed attributes', link: 'computed-attributes' },
+                    ],
+                },
+                {
+                    text: 'Examples',
+                    base: '/guide/examples/',
+                    collapsed: true,
+                    items: [
+                        { text: 'Hello World', link: 'hello-world' },
+                        { text: 'Hello World (using Solid)', link: 'hello-world-using-solid' },
+                        { text: 'Blog', link: 'blog' },
+                        { text: 'Tasks Manager (using Solid)', link: 'tasks-manager' },
+                        { text: 'Apps', link: 'apps' },
+                    ],
                 },
             ],
         },
