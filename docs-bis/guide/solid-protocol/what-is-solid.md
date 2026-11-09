@@ -1,17 +1,22 @@
 # What is Solid?
 
-The [Solid Protocol](https://solidproject.org) is a standard for decentralized storage that uses Linked Data and RDF. The data is stored in Solid PODs (Personal Online Datastores), which are servers that users trust with their data. In this sense, Solid Applications are decentralized because they can connect to any backend that supports the protocol. It could be a service from a provider you trust, or a self-hosted computer in your basement.
+The [Solid Protocol](https://solidproject.org) is a standard for decentralized storage that uses Linked Data (RDF). It was created by Tim Berners-Lee, the inventor of the Web, and it fulfills his original vision for how the Web should work. If you're keen to learn more about its history, check out Tim's book [This Is for Everyone](https://en.wikipedia.org/wiki/This_Is_for_Everyone) (or the audiobook narrated by Stephen Fry!).
 
-If you want to learn how it works, you can look at the first 10 minutes of this presentation:
+The way it works is that data is stored in Solid PODs (Personal Online Datastores); which are servers that users control or delegate to someone else. Similar to email, you can choose where you want data to be stored, but Solid has a much greater scope since it's intended for all sorts of applications. In this sense, Solid Applications are decentralized because they can connect to any backend that supports the protocol. It could be a managed service that you rent, or a self-hosted computer in your basement.
+
+If you want to learn more about the technical details, you can look at the first 10 minutes of this presentation:
 
 <iframe class="aspect-video w-full" src="https://www.youtube.com/embed/kPzhykRVDuI?si=p2u8CE5qBrnzNs0Z" title="From Zero to Hero with Solid" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## Soukai and Solid
 
-Working with Solid directly can be challenging. You need to parse and serialize RDF, keep track of which triples have changed in order to send `PATCH` requests, discover where data lives in a POD, and so on. Soukai takes care of all of this, so that you can work with plain JavaScript objects using a familiar Active Record API:
+Working with Solid directly can be challenging. You need to parse and serialize RDF, keep track of which triples have changed in order to send `PATCH` requests, discover where data lives in a POD, and so on.
+
+Soukai simplifies all of this, and you can work with plain JavaScript objects using a familiar Active Record API:
 
 ```ts
-const movie = await Movie.findOrFail('https://alice.example.org/movies/spirited-away#it');
+const url = 'https://alice.example.org/movies/spirited-away#it';
+const movie = await Movie.findOrFail(url);
 
 await movie.update({ title: 'Spirited Away (千と千尋の神隠し)' });
 ```

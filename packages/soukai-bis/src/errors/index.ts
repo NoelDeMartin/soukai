@@ -4,5 +4,6 @@ export { default as InvalidAttributeError } from './InvalidAttributeError';
 export { default as InvalidAttributesError } from './InvalidAttributesError';
 export { default as JobCancelledError } from './JobCancelledError';
 export { default as JobFailedError } from './JobFailedError';
+export { default as NonAuthoritativeDocument } from './NonAuthoritativeDocument';
 export { default as RelationNotLoaded } from './RelationNotLoaded';
 export { default as SoukaiError } from './SoukaiError';

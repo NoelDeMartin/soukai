@@ -5,6 +5,7 @@ import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
 import Post from 'soukai-bis/testing/stubs/Post';
@@ -889,6 +890,133 @@ describe('Model', () => {
         expect(allUsers.map((user) => user.name)).toEqual(
             expect.arrayContaining(['Root Person', 'Sub 1 Person', 'Sub 2 Person', 'Sub 3 Person', 'Sub 4 Person']),
         );
+    });
+
+    it('reads instances from specific documents', async () => {
+        // Arrange
+        const listUrl = `${User.defaultContainerUrl}list`;
+        const aliceUrl = `${User.defaultContainerUrl}alice#it`;
+        const john = await User.create({ name: 'John Doe' });
+
+        await engine.createDocument(
+            listUrl,
+            await turtleToQuads(`
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${aliceUrl}> a foaf:Person ; foaf:name "Alice" .
+            `),
+        );
+
+        // Act
+        const users = await User.all({ $in: [john.requireDocumentUrl(), listUrl, fakeDocumentUrl()] });
+
+        // Assert
+        expect(users).toHaveLength(2);
+
+        const alice = required(users.find((user) => user.url === aliceUrl));
+        const freshJohn = required(users.find((user) => user.url === john.url));
+
+        expect(alice.name).toBe('Alice');
+        expect(alice.getSourceDocumentUrl()).toBe(listUrl);
+        expect(alice.getSourceContainerUrl()).toBe(User.defaultContainerUrl);
+        expect(alice.isInAuthoritativeDocument()).toBe(false);
+        expect(freshJohn.name).toBe('John Doe');
+        expect(freshJohn.getSourceDocumentUrl()).toBe(john.requireDocumentUrl());
+        expect(freshJohn.isInAuthoritativeDocument()).toBe(true);
+    });
+
+    it('tracks the source document of saved instances', async () => {
+        const user = new User({ name: 'John Doe' });
+
+        expect(user.getSourceDocumentUrl()).toBeNull();
+        expect(user.isInAuthoritativeDocument()).toBeNull();
+
+        await user.save();
+
+        expect(user.getSourceDocumentUrl()).toBe(user.requireDocumentUrl());
+        expect(user.metadata?.getSourceDocumentUrl()).toBe(user.requireDocumentUrl());
+        expect(user.isInAuthoritativeDocument()).toBe(true);
+    });
+
+    it('fails writing instances read from non-authoritative documents', async () => {
+        // Arrange
+        const listUrl = `${User.defaultContainerUrl}list`;
+        const aliceUrl = `${User.defaultContainerUrl}alice#it`;
+
+        await engine.createDocument(
+            listUrl,
+            await turtleToQuads(`
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${aliceUrl}> a foaf:Person ; foaf:name "Alice" .
+            `),
+        );
+
+        const document = JSON.stringify(engine.documents[listUrl]);
+        const [alice] = await User.all({ $in: [listUrl] });
+
+        // Act & Assert
+        await expect(required(alice).save()).resolves.toBe(alice);
+        await expect(required(alice).update({ name: 'Alice Doe' })).rejects.toThrow(NonAuthoritativeDocument);
+        await expect(required(alice).delete()).rejects.toThrow(NonAuthoritativeDocument);
+        await expect(required(alice).syncOperations()).rejects.toThrow(NonAuthoritativeDocument);
+        await expect(required(alice).fetchPermissions()).rejects.toThrow(
+            'Fetching permissions of models in non-authoritative documents is not supported',
+        );
+        expect(JSON.stringify(engine.documents[listUrl])).toEqual(document);
+        expect(engine.documents[urlRoute(aliceUrl)]).toBeUndefined();
+    });
+
+    it('refreshes instances from their source document', async () => {
+        // Arrange
+        const listUrl = `${User.defaultContainerUrl}list`;
+        const aliceUrl = `${User.defaultContainerUrl}alice#it`;
+
+        await engine.createDocument(
+            listUrl,
+            await turtleToQuads(`
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${aliceUrl}> a foaf:Person ; foaf:name "Alice" .
+            `),
+        );
+
+        const [alice] = await User.all({ $in: [listUrl] });
+
+        // Act
+        const freshAlice = await required(alice).fresh();
+
+        // Assert
+        expect(freshAlice.name).toBe('Alice');
+        expect(freshAlice.getSourceDocumentUrl()).toBe(listUrl);
+    });
+
+    it('keeps the source document when serializing instances', async () => {
+        // Arrange
+        const listUrl = `${User.defaultContainerUrl}list`;
+
+        await engine.createDocument(
+            listUrl,
+            await turtleToQuads(`
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+                <${User.defaultContainerUrl}alice#it> a foaf:Person ; foaf:name "Alice" .
+            `),
+        );
+
+        const [alice] = await User.all({ $in: [listUrl] });
+
+        const john = await User.create({ name: 'John Doe' });
+
+        // Act
+        const hydratedAlice = await User.hydrate(required(alice).serialize());
+        const hydratedJohn = await User.hydrate(john.serialize());
+
+        // Assert
+        expect(hydratedAlice.getSourceDocumentUrl()).toBe(listUrl);
+        expect(hydratedAlice.isInAuthoritativeDocument()).toBe(false);
+        expect(hydratedJohn.getSourceDocumentUrl()).toBe(john.requireDocumentUrl());
+        expect(hydratedJohn.isInAuthoritativeDocument()).toBe(true);
     });
 
     it('creates instances from JsonLD', async () => {

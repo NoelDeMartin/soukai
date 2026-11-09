@@ -28,6 +28,7 @@ export interface SerializedModelNode {
     attributes: Record<string, unknown>;
     exists: boolean;
     documentExists: boolean;
+    sourceDocumentUrl: string | null;
     legacyTimestamps: LegacyTimestamps;
     relations: Record<string, SerializedRelation>;
     computed: Record<string, unknown>;
@@ -92,6 +93,7 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
         attributes: model.getAttributes(),
         exists: model.exists(),
         documentExists: model.documentExists(),
+        sourceDocumentUrl: model.getSourceDocumentUrl(),
         legacyTimestamps: invaded(model)._legacyTimestamps,
         relations: {},
         computed: serializeComputedAttributes(model),
@@ -201,6 +203,7 @@ export async function hydrateModel(serialized: SerializedModel): Promise<Model> 
         const model = requireHydratedModel(models, index);
 
         model.setDocumentExists(node.documentExists);
+        model.setSourceDocumentUrl(node.sourceDocumentUrl);
         invaded(model)._legacyTimestamps = node.legacyTimestamps;
 
         for (const [name, value] of Object.entries(node.computed)) {

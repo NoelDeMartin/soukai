@@ -23,14 +23,15 @@ In other ORMs, a Model usually maps to a database row or document, and a Model's
 | RDF property             | A field, whose predicate can be configured with `rdfProperty()`.                 |
 | Resource urls in triples | Foreign keys, managed with [relationships](../core-concepts/relationships.md).   |
 
-The most important takeaway is that **models are RDF resources, not documents**. This is an irrelevant distinction when a document only contains a single resource, but that's rarely the case. Proper RDF modeling often results in documents containing information about multiple resources.
+The most important takeaway is that **models are RDF resources, not documents**. This distinction isn't too important when a document only contains a single resource, but that's rarely the case. Proper RDF modeling often results in documents containing information about multiple resources.
 
 ## Models are resources
 
 The primary key of a model is its `url`, which is the url of an RDF resource. Usually, this will be a url with a hash, such as `https://alice.example.org/movies/spirited-away#it`. The document where the resource is stored is inferred from it, and you can get it with `getDocumentUrl()` (the same goes for the container, with `getContainerUrl()`):
 
 ```ts
-const movie = await Movie.findOrFail('https://alice.example.org/movies/spirited-away#it');
+const resourceUrl = 'https://alice.example.org/movies/spirited-away#it';
+const movie = await Movie.findOrFail(resourceUrl);
 
 movie.url; // https://alice.example.org/movies/spirited-away#it
 movie.getDocumentUrl(); // https://alice.example.org/movies/spirited-away
@@ -57,12 +58,11 @@ Even the simplest models will result in documents with multiple resources. For e
 
 Both resources are represented by different models (`Movie` and `Metadata`), but you don't need to worry about that because the metadata is handled under the hood. Still, the same principle applies to your own models.
 
-> [!NOTE]
-> All engines work this way, not only the `SolidEngine`. Data is always stored as RDF documents, which is why you can move models from one engine to another without any transformation.
-
 ## Multiple models in the same document
 
-When you declare relationships, you can decide whether related models are stored in the same document or not using the `usingSameDocument()` helper. For example, let's say we want to store the watch actions of a movie in the same document:
+When you declare relationships, you can decide whether related models are stored in the same document or not using the `usingSameDocument()` helper.
+
+For example, let's say we want to store the watch actions of a movie in the same document:
 
 ::: code-group
 
@@ -101,7 +101,8 @@ export default defineSchema({
 :::
 
 ```ts
-const movie = await Movie.createAt('https://alice.example.org/movies/', { title: 'Spirited Away' });
+const containerUrl = 'https://alice.example.org/movies/';
+const movie = await Movie.createAt(containerUrl, { title: 'Spirited Away' });
 
 await movie.relatedAction.create({ startTime: new Date() });
 ```
@@ -110,6 +111,7 @@ The resulting document will look something like this (omitting timestamps):
 
 ```turtle
 @prefix schema: <https://schema.org/>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 
 <#it>
     a schema:Movie ;
@@ -118,7 +120,7 @@ The resulting document will look something like this (omitting timestamps):
 <#a6b8d1a0-2f9b-4c0f-8a8f-3f5b4f0e7c1d>
     a schema:WatchAction ;
     schema:object <#it> ;
-    schema:startTime "2025-05-11T15:09:40Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+    schema:startTime "2025-05-11T15:09:40Z"^^xsd:dateTime .
 ```
 
 There are a couple of things to notice here:
@@ -142,7 +144,7 @@ In this case, related models need to be loaded explicitly with `loadRelation`, w
 
 ## Data modeling strategies
 
-Given the mental model we've just introduced, the easiest way to work with Soukai is with a single document per model within a container. But there are some other patterns you may encounter working with Solid data in the wild.
+Given the mental model we've introduced, the easiest way to work with Soukai is with a single document per model within a container. But there are some other patterns you may encounter working with Solid data in the wild.
 
 Let's say we have a collection of movies. Ideally, each movie will be stored within a single document, and so the collection of documents within a container will correspond to the collection of movies. This is the typical way to retrieve a list of `Movie` models from a container following this pattern:
 
@@ -156,22 +158,24 @@ For example, you may want to share movie lists publicly. But the way Solid works
 
 One solution to this problem is to create another model that points to a list of movies. For example, using the [schema:ItemList](https://schema.org/ItemList) class you can hold a list of items using the `schema:itemListElement` property that each points to a movie with `schema:item`. Using relationships, you can model these with a `belongsToMany` relationship pointing to items in the same document, each with a `belongsToOne` relationship pointing to a movie in another document.
 
-These two techniques should be enough to model most common use-cases in your apps. However, you won't always read data that has been created by your app (or Soukai, for that matter). In those cases, you may need to read models from specific documents rather than containers:
+These two techniques should be enough to model most common use-cases in your apps. However, you won't always read data that has been created by your app (or Soukai, for that matter). In those cases, you may need to read models from specific documents rather than containers, using the `$in` option:
 
 ```ts
-const engine = Movie.requireEngine();
-const documents = await engine.readDocuments({ urls: ['https://alice.example.org/movies/horror'] });
-const movies = (
-    await Promise.all(Object.values(documents).map((document) => Movie.createManyFromDocument(document)))
-).flat();
+const movies = await Movie.all({ $in: ['https://alice.example.org/movies/horror'] });
 ```
 
-::: warning TODO
-Previous versions of Soukai supported reading models from specific documents using the `$in` filter, for example `Movie.all({ $in: [...] })`. This hasn't been implemented at the model level yet, so you'll need to use the engine directly as shown above.
+Models read this way may be stored in a document other than the one inferred from their url (their _authoritative document_). For example, the document above could contain a movie with the url `https://alice.example.org/movies/spirited-away#it`. You can get the document where a model was actually read from with `getSourceDocumentUrl()` (and its container with `getSourceContainerUrl()`), and check whether it matches the authoritative document with `isInAuthoritativeDocument()`:
 
-They also had a `getSourceDocumentUrl()` method, returning the document where a resource is actually stored (rather than the one inferred from its url). This hasn't been implemented yet either.
-:::
+```ts
+movie.getDocumentUrl(); // https://alice.example.org/movies/spirited-away
+movie.getSourceDocumentUrl(); // https://alice.example.org/movies/horror
+movie.isInAuthoritativeDocument(); // false
+```
+
+For now, models in non-authoritative documents are read-only. Saving, deleting, or reading and updating permissions will throw a `NonAuthoritativeDocument` error.
 
 ## Deleting models
 
 Following the same principle, deleting a model doesn't necessarily delete a document. If the model is the only resource in its document (other than its metadata), the document will be deleted. Otherwise, only the resources related with the model will be removed from the document.
+
+Also keep in mind that if you're using [the local-first approach](../advanced/local-first.md), documents will never be deleted. Instead, they'll leave a Tombstone resource behind.

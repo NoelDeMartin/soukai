@@ -21,7 +21,6 @@ import {
     urlResolve,
     urlRoute,
     uuid,
-    weakMemo,
 } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
@@ -32,6 +31,7 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/lib/internals/rdf';
 import { ZodError } from 'zod';
@@ -65,7 +65,7 @@ import { updatePublicPermissions } from './concerns/wac';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
-import { CLASS_MARKER, mintedUrls } from './internals';
+import { CLASS_MARKER, getDocumentQuads, mintedUrls, quadsSourceDocumentUrls } from './internals';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
@@ -107,6 +107,7 @@ export interface LoadAllOptions {
     from?: string;
     deep?: boolean;
     depth?: number;
+    $in?: string[];
     onDocumentError?: (error: unknown, documentUrl: string) => unknown;
 }
 
@@ -243,11 +244,15 @@ export default class Model<
         options: LoadAllOptions = {},
     ): Promise<ModelWithUrl<T>[]> {
         try {
-            const documents = await this.requireEngine().readDocuments({
-                containerUrl: options.from ?? this.defaultContainerUrl,
-                deep: options.deep,
-                depth: options.depth,
-            });
+            const documents = await this.requireEngine().readDocuments(
+                options.$in
+                    ? { urls: options.$in }
+                    : {
+                          containerUrl: options.from ?? this.defaultContainerUrl,
+                          deep: options.deep,
+                          depth: options.depth,
+                      },
+            );
 
             const models = await Promise.all(
                 Object.values(documents).map(async (document) => {
@@ -309,7 +314,7 @@ export default class Model<
     public static async createFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: { url: string; modelsCache?: ModelsCache },
+        options: { url: string; sourceDocumentUrl?: string; modelsCache?: ModelsCache },
     ): Promise<ModelWithUrl<T> | null> {
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
@@ -329,6 +334,7 @@ export default class Model<
         const classCache = existingClassCache ?? new WeakMap();
         const instance = createFromRDF<T>(this, url, quads);
 
+        instance.setSourceDocumentUrl(options.sourceDocumentUrl ?? quadsSourceDocumentUrls.get(quads) ?? null);
         modelsCache.set(url, classCache);
         classCache.set(this, instance);
 
@@ -364,7 +370,7 @@ export default class Model<
         options: { url?: string; modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? document.url;
-        const quads = weakMemo('document-quads', document, () => document.getQuads());
+        const quads = getDocumentQuads(document);
 
         return this.createFromRDF(quads, { url, modelsCache: options.modelsCache });
     }
@@ -397,7 +403,7 @@ export default class Model<
         document: SolidDocument,
         options: { modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T>[]> {
-        const quads = weakMemo('document-quads', document, () => document.getQuads());
+        const quads = getDocumentQuads(document);
 
         return this.createManyFromRDF(quads, options);
     }
@@ -457,6 +463,7 @@ export default class Model<
 
     protected _exists: boolean = false;
     protected _documentExists: boolean = false;
+    protected _sourceDocumentUrl: string | null = null;
     protected _markedForDeletion: boolean = false;
     protected _attributes: Attributes;
     protected _originalAttributes: Attributes;
@@ -669,6 +676,30 @@ export default class Model<
         return this.getDocumentUrl() ?? fail(SoukaiError, 'Failed getting required document url');
     }
 
+    public getSourceDocumentUrl(): string | null {
+        return this._sourceDocumentUrl;
+    }
+
+    public setSourceDocumentUrl(sourceDocumentUrl: string | null): void {
+        this._sourceDocumentUrl = sourceDocumentUrl;
+    }
+
+    public getSourceContainerUrl(): string | null {
+        const sourceDocumentUrl = this.getSourceDocumentUrl();
+
+        return sourceDocumentUrl ? urlParentDirectory(sourceDocumentUrl) : null;
+    }
+
+    public isInAuthoritativeDocument(): boolean | null {
+        const documentUrl = this.getDocumentUrl();
+
+        if (!this._sourceDocumentUrl || !documentUrl) {
+            return null;
+        }
+
+        return this._sourceDocumentUrl === documentUrl;
+    }
+
     public on<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
         const self = this.__instance();
         const wrapperListener = (instance: Model, ...args: any[]) => {
@@ -703,6 +734,8 @@ export default class Model<
         if (!this.__isCanonical()) {
             return this.__instance().syncOperations();
         }
+
+        this.assertAuthoritativeDocument();
 
         const { updated } = await syncDocumentOperations(this.requireDocumentUrl());
         const documentModels = objectFromEntries(
@@ -747,6 +780,8 @@ export default class Model<
     }
 
     public newACPAccessControlResource(): ModelWithUrl<ACPAccessControlResource> {
+        this.assertAuthoritativeDocument();
+
         return newACPAccessControlResource(this, this.requireACPPermissions().acr);
     }
 
@@ -921,6 +956,8 @@ export default class Model<
             return this;
         }
 
+        this.assertAuthoritativeDocument();
+
         await this.performDelete();
         await this.afterDelete();
         await emitModelEvent(this, 'deleted');
@@ -954,6 +991,8 @@ export default class Model<
         if (this.exists() && !this.isDirty()) {
             return this;
         }
+
+        this.assertAuthoritativeDocument();
 
         const thisExisted = this.exists();
         const dirtyDocumentModels = this.getDirtyDocumentModels();
@@ -998,7 +1037,14 @@ export default class Model<
             throw new SoukaiError(`Couldn't get fresh ${this.static('modelName')} instance, url missing.`);
         }
 
-        const freshInstance = await this.static().find(this.url);
+        const sourceDocumentUrl = this.getSourceDocumentUrl();
+        const freshInstance =
+            sourceDocumentUrl && this.isInAuthoritativeDocument() === false
+                ? await this.static().createFromDocument(
+                      await this.static().requireEngine().readDocument(sourceDocumentUrl),
+                      { url: this.url },
+                  )
+                : await this.static().find(this.url);
 
         if (!freshInstance) {
             throw new SoukaiError(`Couldn't get fresh ${this.static('modelName')} instance with url '${this.url}'.`);
@@ -1008,6 +1054,8 @@ export default class Model<
     }
 
     public async fetchPermissions(options: FetchPermissionsOptions = {}): Promise<ModelPermissions> {
+        this.assertAuthoritativeDocument('Fetching permissions of');
+
         this._permissions = await fetchPermissions(this, options);
 
         return this._permissions;
@@ -1018,6 +1066,8 @@ export default class Model<
     }
 
     public async updatePublicPermissions(permissions: SolidDocumentPermission[]): Promise<void> {
+        this.assertAuthoritativeDocument();
+
         await trackAuthorizationProtocol(this.requireDocumentUrl(), 'wac', () =>
             updatePublicPermissions(this, permissions),
         );
@@ -1270,6 +1320,7 @@ export default class Model<
     }
 
     protected async afterSave(): Promise<void> {
+        const documentUrl = this.requireDocumentUrl();
         const savedModels = this.getDocumentModels().concat(this.getDetachedDocumentModels());
         const relatedModels = this.getRelatedModels();
 
@@ -1288,6 +1339,7 @@ export default class Model<
 
             savedModel.setExists(true);
             savedModel.setDocumentExists(true);
+            savedModel.setSourceDocumentUrl(documentUrl);
             mintedUrls.delete(savedModel);
         }
 
@@ -1410,6 +1462,18 @@ export default class Model<
 
             throw error;
         }
+    }
+
+    private assertAuthoritativeDocument(action?: string): void {
+        if (this.isInAuthoritativeDocument() !== false) {
+            return;
+        }
+
+        throw new NonAuthoritativeDocument(
+            this.url ?? fail(SoukaiError, 'Failed getting required url'),
+            this._sourceDocumentUrl ?? fail(SoukaiError, 'Failed getting required source document url'),
+            action,
+        );
     }
 
     private requirePermissions(): ModelPermissions {

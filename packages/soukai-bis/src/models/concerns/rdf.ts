@@ -2,6 +2,7 @@ import { RDFNamedNode, RDFQuad, SolidStore } from '@noeldemartin/solid-utils';
 import { hasItems, tap, weakMemo } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
+import { getDocumentQuads } from 'soukai-bis/models/internals';
 import type Model from 'soukai-bis/models/Model';
 import type { Relation } from 'soukai-bis/models/relations';
 import { isMultiModelRelation } from 'soukai-bis/models/relations/helpers';
@@ -65,7 +66,12 @@ export async function loadDocumentRelations(
                     continue;
                 }
 
-                quads ??= (await model.static().requireEngine().readDocument(model.requireDocumentUrl())).getQuads();
+                quads ??= getDocumentQuads(
+                    await model
+                        .static()
+                        .requireEngine()
+                        .readDocument(model.getSourceDocumentUrl() ?? model.requireDocumentUrl()),
+                );
                 modelsCache ??= buildModelsCache(model.getDocumentModels());
 
                 await relation.loadFromDocumentRDF(quads, { modelsCache });
