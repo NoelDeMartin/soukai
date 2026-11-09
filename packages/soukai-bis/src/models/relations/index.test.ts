@@ -16,11 +16,11 @@ describe('Relations', () => {
             postsContainerUrl: url().rdfProperty('weblog').optional(),
         },
         relations: {
-            posts: hasMany(() => Post, 'authorUrl').from('postsContainerUrl'),
-            lastPost: hasOne(() => Post, 'authorUrl').from('postsContainerUrl'),
-            archivedPosts: hasMany(() => Post, 'authorUrl').from('archiveContainerUrl'),
-            typoPosts: hasMany(() => Post, 'authorUrl').from('postContainerUrl'),
-            defaultPosts: hasMany(() => Post, 'authorUrl'),
+            posts: hasMany('Post', 'authorUrl').from('postsContainerUrl'),
+            lastPost: hasOne('Post', 'authorUrl').from('postsContainerUrl'),
+            archivedPosts: hasMany('Post', 'authorUrl').from('archiveContainerUrl'),
+            typoPosts: hasMany('Post', 'authorUrl').from('postContainerUrl'),
+            defaultPosts: hasMany('Post', 'authorUrl'),
         },
     });
 

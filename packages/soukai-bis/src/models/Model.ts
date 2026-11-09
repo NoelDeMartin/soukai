@@ -71,7 +71,7 @@ import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { DETACHED_MODELS, NEW_MODEL, NEW_MODELS } from './relations/internals';
 import type Relation from './relations/Relation';
-import type { SchemaComputedAttributeDefinition } from './relations/schema';
+import type { GetLoadedRelationModels, SchemaComputedAttributeDefinition } from './relations/schema';
 import { getRelatedClass } from './relations/utils';
 import type { Schema } from './schema';
 import type { LegacyTimestamps } from './types';
@@ -617,16 +617,19 @@ export default class Model<
         return this._relations[name] as Relation;
     }
 
-    public async loadRelation<T extends Model | Model[] | null>(name: RelationName): Promise<T> {
+    public async loadRelation<K extends RelationName>(name: K): Promise<GetLoadedRelationModels<Relations[K]>> {
         const relation = this.getRelation(name);
 
         await relation.load();
         await emitModelEvent(this.__instance(), 'relation-loaded', relation);
 
-        return relation.related as T;
+        return relation.related as GetLoadedRelationModels<Relations[K]>;
     }
 
-    public async setRelationModels<T extends Model | Model[] | null>(name: RelationName, related: T): Promise<void> {
+    public async setRelationModels<K extends RelationName>(
+        name: K,
+        related: GetLoadedRelationModels<Relations[K]>,
+    ): Promise<void> {
         const relation = this.getRelation(name);
 
         relation.related = related;
@@ -638,12 +641,14 @@ export default class Model<
         return this.getRelation(name).loaded;
     }
 
-    public async loadRelationIfUnloaded<T extends Model | Model[] | null>(name: RelationName): Promise<T> {
+    public async loadRelationIfUnloaded<K extends RelationName>(
+        name: K,
+    ): Promise<GetLoadedRelationModels<Relations[K]>> {
         if (!this.isRelationLoaded(name)) {
             await this.loadRelation(name);
         }
 
-        return this.getRelation(name).related as T;
+        return this.getRelation(name).related as GetLoadedRelationModels<Relations[K]>;
     }
 
     public async loadComputedAttributes(): Promise<void> {

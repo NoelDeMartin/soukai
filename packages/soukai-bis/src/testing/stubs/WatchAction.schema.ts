@@ -1,9 +1,6 @@
 import { belongsToOne, defineSchema } from 'soukai-bis';
 import { date, url } from 'zod';
 
-import Episode from './Episode';
-import Movie from './Movie';
-
 export default defineSchema({
     rdfContext: 'https://schema.org/',
     rdfClass: 'WatchAction',
@@ -13,7 +10,7 @@ export default defineSchema({
         objectUrl: url().rdfProperty('object').optional(),
     },
     relations: {
-        movie: belongsToOne(() => Movie, 'objectUrl'),
-        episode: belongsToOne(() => Episode, 'objectUrl'),
+        movie: belongsToOne('Movie', 'objectUrl'),
+        episode: belongsToOne('Episode', 'objectUrl'),
     },
 });

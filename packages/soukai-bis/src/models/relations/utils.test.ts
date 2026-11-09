@@ -36,15 +36,13 @@ describe('Relation utils', () => {
         });
 
         const definition = required(Review.schema.relations.author);
-        const relatedClassBeforeResolving = definition.relatedClass;
 
         // Act
         const relatedClass = getRelatedClass(Review, definition);
 
         // Assert
-        expect(relatedClassBeforeResolving).toEqual('User');
+        expect(definition.relatedModelName).toEqual('User');
         expect(relatedClass).toBe(User);
-        expect(definition.relatedClass).toBe(User);
         expectTypeOf<InstanceType<typeof Review>['author']>().toEqualTypeOf<User | undefined>();
     });
 });

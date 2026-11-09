@@ -3,8 +3,6 @@ import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty, useAsSlug } from 'soukai-bis/zod/soukai';
 import { array, string, url } from 'zod';
 
-import Resource from './Resource';
-
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/ldp#',
     rdfClass: 'Container',
@@ -14,6 +12,6 @@ export default defineSchema({
         resourceUrls: rdfProperty(array(url()), 'ldp:contains').default([]),
     },
     relations: {
-        resources: belongsToMany(Resource, 'resourceUrls').usingSameDocument(),
+        resources: belongsToMany('Resource', 'resourceUrls').usingSameDocument(),
     },
 });

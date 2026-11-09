@@ -2,6 +2,8 @@
 
 In Solid, document permissions can be managed with two different protocols: [WAC (Web Access Control)](https://solidproject.org/TR/wac) and [ACP (Access Control Policy)](https://solidproject.org/TR/acp). Which one is used depends on the POD, and Soukai supports both.
 
+## Fetching permissions
+
 Before reading or updating permissions, you'll need to fetch them calling the `fetchPermissions` method (or `fetchPermissionsIfMissing`, if you don't want to fetch them again). This will also detect the protocol used by the document, which you can check with the `usesWAC` and `usesACP` helpers:
 
 ```ts
@@ -60,6 +62,8 @@ if (movie.usesACP()) {
 
 Access controls attached with `relatedMemberAccessControls` will also apply to the resources inside a container, and you can remove existing access controls using the `removeAccessControl` method (which also deletes policies and matchers that aren't used anymore).
 
+### Custom access controls
+
 If you want to store your own data in access controls, you can extend the `ACPAccessControl` model and pass it to `fetchPermissions` using the `accessControlClass` option. Access controls will be read using your model whenever they match all of its RDF classes:
 
 ```ts [Grant.schema.ts]
@@ -87,5 +91,5 @@ await movie.fetchPermissions({ accessControlClass: Grant });
 > ACRs often contain policies and matchers declared as blank nodes. Those will be read normally, but trying to update them will throw an error.
 
 ::: warning TODO
-Previous versions of Soukai had a built-in `authorizations` relationship in Solid models to manage document permissions. This hasn't been implemented yet.
+Previous versions of Soukai had a built-in `authorizations` relation in Solid models to manage document permissions. This hasn't been implemented yet.
 :::

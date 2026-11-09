@@ -6,34 +6,34 @@ import HasManyRelation from './HasManyRelation';
 import HasOneRelation from './HasOneRelation';
 import IsContainedByRelation from './IsContainedByRelation';
 import { SchemaHasRelationDefinition, SchemaRelationDefinition } from './schema';
-import type { RelatedContainerDefinition, RelatedModelDefinition } from './schema';
+import type { RelatedModelName } from './schema';
 
 /* oxlint-disable typescript/explicit-module-boundary-types */
 
-export function belongsToMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return new SchemaRelationDefinition(relatedClass, BelongsToManyRelation, { foreignKey });
+export function belongsToMany<T extends RelatedModelName>(relatedModelName: T, foreignKey: string) {
+    return new SchemaRelationDefinition(relatedModelName, BelongsToManyRelation, { foreignKey });
 }
 
-export function belongsToOne<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return new SchemaRelationDefinition(relatedClass, BelongsToOneRelation, { foreignKey });
+export function belongsToOne<T extends RelatedModelName>(relatedModelName: T, foreignKey: string) {
+    return new SchemaRelationDefinition(relatedModelName, BelongsToOneRelation, { foreignKey });
 }
 
-export function contains<T extends RelatedModelDefinition>(relatedClass: T) {
-    return new SchemaRelationDefinition(relatedClass, ContainsRelation);
+export function contains<T extends RelatedModelName>(relatedModelName: T) {
+    return new SchemaRelationDefinition(relatedModelName, ContainsRelation);
 }
 
-export function documentContainsMany<T extends RelatedModelDefinition>(relatedClass: T) {
-    return new SchemaRelationDefinition(relatedClass, DocumentContainsManyRelation).usingSameDocument();
+export function documentContainsMany<T extends RelatedModelName>(relatedModelName: T) {
+    return new SchemaRelationDefinition(relatedModelName, DocumentContainsManyRelation).usingSameDocument();
 }
 
-export function hasMany<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return new SchemaHasRelationDefinition(relatedClass, HasManyRelation, { foreignKey });
+export function hasMany<T extends RelatedModelName>(relatedModelName: T, foreignKey: string) {
+    return new SchemaHasRelationDefinition(relatedModelName, HasManyRelation, { foreignKey });
 }
 
-export function hasOne<T extends RelatedModelDefinition>(relatedClass: T, foreignKey: string) {
-    return new SchemaHasRelationDefinition(relatedClass, HasOneRelation, { foreignKey });
+export function hasOne<T extends RelatedModelName>(relatedModelName: T, foreignKey: string) {
+    return new SchemaHasRelationDefinition(relatedModelName, HasOneRelation, { foreignKey });
 }
 
-export function isContainedBy<T extends RelatedContainerDefinition>(relatedClass: T) {
-    return new SchemaRelationDefinition(relatedClass, IsContainedByRelation);
+export function isContainedBy<T extends RelatedModelName>(relatedModelName: T) {
+    return new SchemaRelationDefinition(relatedModelName, IsContainedByRelation);
 }

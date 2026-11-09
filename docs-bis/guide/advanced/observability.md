@@ -21,6 +21,10 @@ await user.delete();
 // console output: Deleted Jane user.
 ```
 
+The `on` method returns a function that you can call to remove the listener. You can also use the `once` method to listen to an event only once.
+
+## Available events
+
 These are all the events that you can listen to:
 
 | Event             | Payload                 | Description                                                |
@@ -30,9 +34,13 @@ These are all the events that you can listen to:
 | `saved`           | -                       | A model has been saved (emitted after created or updated). |
 | `deleted`         | -                       | A model has been deleted.                                  |
 | `modified`        | The name of the field   | An attribute has been modified (but not saved yet).        |
-| `relation-loaded` | The `Relation` instance | A relationship has been loaded calling `loadRelation`.     |
+| `relation-loaded` | The `Relation` instance | A relation has been loaded calling `loadRelation`.         |
 
-The `on` method returns a function that you can call to remove the listener. You can also use the `once` method to listen to an event only once.
+::: warning TODO
+Previous versions of Soukai also emitted a `schema-updated` event when the schema of a model was changed at runtime. This hasn't been implemented yet (see [Interoperability](./interoperability.md#model-schemas)).
+:::
+
+## Instance listeners
 
 Listeners can also be registered on model instances, in which case the model won't be passed as the first argument:
 
@@ -42,7 +50,3 @@ const stopListening = user.on('modified', (field) => console.log(`Modified ${fie
 // Later...
 stopListening();
 ```
-
-::: warning TODO
-Previous versions of Soukai also emitted a `schema-updated` event when the schema of a model was changed at runtime. This hasn't been implemented yet (see [Interoperability](./interoperability.md#model-schemas)).
-:::

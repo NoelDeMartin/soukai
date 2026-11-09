@@ -17,24 +17,24 @@ export type GetModelRelationName<T extends ModelConstructor> = string & keyof T[
 export type LegacyTimestamps = { createdAt?: Date; updatedAt?: Date } | null;
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;
-export type ModelWithUrl<T extends Model = Model> = Model & T & { url: string };
+export type ModelWithUrl<T extends Model = Model> = T & Model & { url: string };
 
-export type ModelWithTimestamps<T extends Model = Model> = Model &
-    T & {
+export type ModelWithTimestamps<T extends Model = Model> = T &
+    Model & {
         createdAt: Date;
         updatedAt: Date;
         metadata: Metadata;
         relatedMetadata: HasOneRelation<T, Metadata, typeof Metadata>;
     };
 
-export type ModelWithHistory<T extends Model> = Model &
-    T & {
+export type ModelWithHistory<T extends Model> = T &
+    Model & {
         operations: Operation[];
         relatedOperations: HasManyRelation<T, Operation, typeof Operation>;
     };
 
-export type ModelWithTombstones<T extends Model> = Model &
-    T & {
+export type ModelWithTombstones<T extends Model> = T &
+    Model & {
         tombstone: Tombstone;
         relatedTombstone: HasOneRelation<T, Tombstone, typeof Tombstone>;
     };

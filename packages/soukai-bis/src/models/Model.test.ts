@@ -8,8 +8,11 @@ import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
+import Animal from 'soukai-bis/testing/stubs/Animal';
+import Playlist from 'soukai-bis/testing/stubs/Playlist';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
+import Project from 'soukai-bis/testing/stubs/Project';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
@@ -20,8 +23,8 @@ import z from 'zod';
 
 import SetPropertyOperation from './crdts/SetPropertyOperation';
 import type { ModelConstructorOptions } from './Model';
-import { bootModels, requireBootedModel } from './registry';
-import { belongsToMany, belongsToOne, hasMany } from './relations/fluent';
+import { bootModels } from './registry';
+import { belongsToMany, belongsToOne } from './relations/fluent';
 import { defineSchema } from './schema';
 import type { ModelWithTimestamps, ModelWithUrl } from './types';
 
@@ -137,6 +140,24 @@ describe('Model', () => {
         expect(user.posts).toEqual([post]);
         expect(loadedRelations).toHaveLength(1);
         expect(loadedRelations[0]).toBe(user.relatedPosts);
+    });
+
+    it('infers loaded relation types', async () => {
+        // Arrange
+        const user = await User.create({ name: 'Alice' });
+
+        await Post.create({ title: 'Hello World', authorUrl: user.url });
+
+        // Act
+        const posts = await user.loadRelation('posts');
+        const author = await required(posts[0]).loadRelationIfUnloaded('author');
+
+        // Assert
+        expect(posts).toHaveLength(1);
+        expect(author?.url).toEqual(user.url);
+
+        expectTypeOf(posts).toEqualTypeOf<Post[]>();
+        expectTypeOf(author).toEqualTypeOf<User | null>();
     });
 
     it('emits events for related models', async () => {
@@ -786,30 +807,6 @@ describe('Model', () => {
 
     it('keeps existing references when minted urls already exist', async () => {
         // Arrange
-        const Song = defineSchema({
-            rdfContext: 'https://schema.org/',
-            rdfClass: 'MusicRecording',
-            fields: {
-                title: z.string().rdfProperty('name').useAsSlug(),
-            },
-            relations: {
-                playlists: hasMany(() => requireBootedModel('Playlist'), 'songUrls'),
-            },
-        });
-        const Playlist = defineSchema({
-            rdfContext: 'https://schema.org/',
-            rdfClass: 'MusicPlaylist',
-            fields: {
-                name: z.string(),
-                songUrls: z.array(z.url()).rdfProperty('track').default([]),
-            },
-            relations: {
-                songs: belongsToMany(Song, 'songUrls'),
-            },
-        });
-
-        bootModels({ Song, Playlist });
-
         const playlist = await Playlist.create({ name: 'Favorites' });
         const firstSong = playlist.relatedSongs.attach({ title: 'Yesterday' }, { mintUrl: true });
 
@@ -827,13 +824,6 @@ describe('Model', () => {
 
     it('keeps existing references without inverse relations when minted urls already exist', async () => {
         // Arrange
-        const Track = defineSchema({
-            rdfContext: 'https://schema.org/',
-            rdfClass: 'MusicRecording',
-            fields: {
-                title: z.string().rdfProperty('name').useAsSlug(),
-            },
-        });
         const Album = defineSchema({
             rdfContext: 'https://schema.org/',
             rdfClass: 'MusicAlbum',
@@ -842,11 +832,11 @@ describe('Model', () => {
                 trackUrls: z.array(z.url()).rdfProperty('track').default([]),
             },
             relations: {
-                tracks: belongsToMany(Track, 'trackUrls'),
+                tracks: belongsToMany('Track', 'trackUrls'),
             },
         });
 
-        bootModels({ Track, Album });
+        bootModels({ Album });
 
         const album = await Album.create({ name: 'Help!' });
         const firstTrack = album.relatedTracks.attach({ title: 'Yesterday' }, { mintUrl: true });
@@ -1385,13 +1375,9 @@ describe('Model', () => {
 
     it('infers relation types for extended schemas', () => {
         // Arrange
-        const Animal = defineSchema({
-            fields: { ownerUrl: z.url().optional() },
-            relations: { owner: belongsToOne(() => User, 'ownerUrl') },
-        });
         const Dog = defineSchema(Animal, {
             fields: { motherUrl: z.url().optional() },
-            relations: { mother: belongsToOne(() => Animal, 'motherUrl') },
+            relations: { mother: belongsToOne('Animal', 'motherUrl') },
         });
 
         // Act
@@ -1562,30 +1548,6 @@ describe('Model', () => {
     });
 
     describe('wrapped in proxies', () => {
-        const Project = defineSchema({
-            rdfContext: 'https://schema.org/',
-            rdfClass: 'Project',
-            history: true,
-            fields: {
-                name: z.string(),
-            },
-            relations: {
-                tasks: hasMany(() => requireBootedModel('Task'), 'projectUrl').usingSameDocument(),
-            },
-        });
-
-        const Task = defineSchema({
-            rdfContext: 'https://schema.org/',
-            rdfClass: 'Action',
-            fields: {
-                name: z.string(),
-                projectUrl: z.url().rdfProperty('object').optional(),
-            },
-            relations: {
-                project: belongsToOne(Project, 'projectUrl'),
-            },
-        });
-
         async function findProjectWithTask() {
             const project = new Project({ name: 'Proxies' });
 
@@ -1601,7 +1563,6 @@ describe('Model', () => {
         }
 
         beforeEach(() => {
-            bootModels({ Project, Task }, { reset: true });
             useFakeClock();
         });
 

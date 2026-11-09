@@ -1,19 +1,11 @@
 import type { ComputedAttributeCompute, InvalidationStrategy } from 'soukai-bis/models/computed-attributes';
+import type Model from 'soukai-bis/models/Model';
 import type { ModelsRegistry } from 'soukai-bis/models/registry';
-import type { ContainerConstructor, ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
+import type { ModelInstanceType } from 'soukai-bis/models/types';
 
 import type { AnyMultiModelRelation, RelationConstructor } from './types';
 
 export type RelatedModelName = keyof ModelsRegistry;
-
-export type RelatedModelDefinition<TRelated extends ModelConstructor = ModelConstructor> =
-    | TRelated
-    | RelatedModelName
-    | (() => any); // oxlint-disable-line typescript/no-explicit-any
-export type RelatedContainerDefinition<TRelated extends ContainerConstructor = ContainerConstructor> =
-    | TRelated
-    | RelatedModelName
-    | (() => any); // oxlint-disable-line typescript/no-explicit-any
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
 export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = {
@@ -24,18 +16,22 @@ export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = 
     [K in keyof T as `related${Capitalize<string & K>}`]: InstanceType<T[K]['relationClass']>;
 };
 
-export type GetRelatedModel<T extends SchemaRelationDefinition> = T['relatedClass'] extends RelatedModelName
-    ? ModelInstanceType<ModelsRegistry[T['relatedClass']]>
-    : T['relatedClass'] extends () => infer TRelated
-      ? ModelInstanceType<TRelated>
-      : ModelInstanceType<T['relatedClass']>;
+export type GetLoadedRelationModels<T> = T extends SchemaRelationDefinition
+    ? InstanceType<T['relationClass']> extends AnyMultiModelRelation
+        ? GetRelatedModel<T>[]
+        : GetRelatedModel<T> | null
+    : Model | Model[] | null;
+
+export type GetRelatedModel<T extends SchemaRelationDefinition> = ModelInstanceType<
+    ModelsRegistry[T['relatedModelName']]
+>;
 
 export class SchemaRelationDefinition<
-    TRelated extends RelatedModelDefinition = RelatedModelDefinition,
+    TRelatedName extends RelatedModelName = RelatedModelName,
     TRelationClass extends RelationConstructor = RelationConstructor,
 > {
     constructor(
-        public relatedClass: TRelated,
+        public relatedModelName: TRelatedName,
         public relationClass: TRelationClass,
         public options: {
             foreignKey?: string;
@@ -60,9 +56,9 @@ export class SchemaRelationDefinition<
 }
 
 export class SchemaHasRelationDefinition<
-    TRelated extends RelatedModelDefinition = RelatedModelDefinition,
+    TRelatedName extends RelatedModelName = RelatedModelName,
     TRelationClass extends RelationConstructor = RelationConstructor,
-> extends SchemaRelationDefinition<TRelated, TRelationClass> {
+> extends SchemaRelationDefinition<TRelatedName, TRelationClass> {
     public from(containerUrlProperty: string): this {
         this.options.from = containerUrlProperty;
 

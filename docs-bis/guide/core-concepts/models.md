@@ -1,6 +1,6 @@
 # Models
 
-Models are the main building blocks of your application's data layer, where you define all your entities and how they're translated to RDF.
+Models are the main building blocks of your application, where you define all your entities and how they'll be translated to RDF.
 
 You can define your models by extending a class created with the `defineSchema` helper. For better organization, it's recommended to declare the schema in its own file and keep the model class for your own logic:
 
@@ -20,11 +20,11 @@ export default defineSchema({});
 
 :::
 
-This is enough to get you started, but you'll also need to declare fields and other properties to provide further functionality.
+This is enough to get you started, and these are standard JavaScript classes; so you can add your own methods and properties as well. But you'll need to declare some extra properties in the schema in order to configure each model.
 
 ## Attributes
 
-You can declare the `fields` property in the schema to configure the attributes of your Model. Field definitions are declared using [Zod](https://zod.dev) types:
+You can declare the `fields` property in the schema to configure the attributes of your Model. Field definitions are declared using [Zod schemas](https://zod.dev/api):
 
 ```ts
 import { defineSchema } from 'soukai-bis';
@@ -86,7 +86,7 @@ You can also inspect model changes before saving with methods such as `isDirty()
 
 Model timestamps are managed automatically. `createdAt` will be set as the initial date when the model is created, and `updatedAt` will be updated every time the model is modified.
 
-These are not stored as model fields, but in a separate `Metadata` model that is accessible through the built-in `metadata` relationship. You can still read them as normal attributes, though:
+These are not stored as model fields, but in a separate `Metadata` model that is accessible through the built-in `metadata` relation. You can still read them as normal attributes, though:
 
 ```ts
 const user = await User.create({ name: 'John' });
@@ -173,6 +173,8 @@ New models mint their url in the client side when they are saved, using a contai
 await Person.createAt('https://example.org/people/', { name: 'Alice' });
 ```
 
+### Slugs
+
 If you'd rather use a slug instead of a UUID, you can indicate which field to use with `useAsSlug()` (if you do, make sure to [configure Zod extensions](#zod-extensions)):
 
 ```ts
@@ -192,6 +194,8 @@ await Person.createAt('https://example.org/people/', { name: 'Alice' });
 ```
 
 If a document with the minted url already exists, a unique suffix will be appended to the url automatically (something like `https://example.org/people/alice-zHk4bA#it`).
+
+### Manual url minting
 
 You can also mint urls explicitly calling the `mintUrl` method, or set the `url` attribute yourself:
 
@@ -238,6 +242,8 @@ await new Person({ name: 'Amy Doe' }).save(containerUrl);
 
 The `find`, `delete` and `save` methods infer the container url from the model url, so it's not necessary to provide it once the url has been minted.
 
+### Default container
+
 If no container is provided, the default container of the model will be used. This is a local url inferred from the model name, for example `local://users/` for the `User` model. You can change it using the static `defaultContainerUrl` property:
 
 ```ts
@@ -247,21 +253,20 @@ Person.defaultContainerUrl = 'https://example.org/people/';
 await Person.create({ name: 'Amy Doe' });
 ```
 
-> [!TIP] Model name definition
-> The model name is defined when models are booted with `bootModels` or `bootModelsFromViteGlob`. We need to boot them explicitly to make sure they keep the intended names. If we relied on class names we could run into issues with modern build systems that obfuscate class names in production.
-
 > [!WARNING] ⚠️ Model name inflection
 > The current implementation of the name inflection is naive. At the moment, the model name is only converted to camel case and appended an 's' character. So it shouldn't be trusted to do proper pluralization.
+
+### Container models
 
 Containers can also be declared as models, extending a class created with `defineContainerSchema`. In addition to everything from a normal model, they have the following built-in definitions:
 
 - The `ldp:Container` RDF class.
 - The `name` field, mapped to the `rdfs:label` RDF property. It's also used as the slug when minting urls.
 - The `resourceUrls` field, mapped to the `ldp:contains` RDF property.
-- The `resources` relationship, with all the documents in the container.
+- The `resources` relation, with all the documents in the container.
 - Minted urls end with a trailing slash, and don't use a hash.
 
-You can learn more about how to work with containers in the [Relationships](./relationships.md#contains-and-iscontainedby) section.
+You can learn more about how to work with containers in the [Relations](./relations.md#contains-and-iscontainedby) section.
 
 ## RDF definitions
 
@@ -283,7 +288,9 @@ export default defineSchema({
 });
 ```
 
-Doing this all the time can become cumbersome, given that the same namespaces will probably be used multiple times. You can define reusable prefixes using the `rdfContexts` option, or the default prefix with `rdfContext`.
+### RDF contexts
+
+Declaring full urls all the time can become cumbersome, given that the same namespaces will probably be used multiple times. You can define reusable prefixes using the `rdfContexts` option, or the default prefix with `rdfContext`.
 
 Here's a definition equivalent to the previous snippet:
 
@@ -332,6 +339,8 @@ export default defineSchema({
 });
 ```
 
+### Multiple RDF classes
+
 If a resource needs more than one RDF class, you can declare them with the `rdfClasses` option instead. In that case, resources will only be read as instances of the model if they have all of the classes:
 
 ```ts
@@ -346,6 +355,8 @@ export default defineSchema({
     },
 });
 ```
+
+### Converting to and from RDF
 
 You can also inspect the RDF of a model using the `toTurtle()` and `toJsonLD()` methods, and create models from RDF using `createFromRDF()` or `createFromJsonLD()`.
 
@@ -373,7 +384,7 @@ In order to keep track of when resources have been created or modified, timestam
 
 You can extend the schema of an existing model passing it as the first argument of `defineSchema`.
 
-Fields and relationships will be merged with the ones defined in the parent model. RDF classes, on the other hand, will be replaced if the new schema declares its own.
+Fields and relations will be merged with the ones defined in the parent model. RDF classes, on the other hand, will be replaced if the new schema declares its own.
 
 For example, this is how you can define the schema for an `Admin` model:
 
@@ -391,6 +402,58 @@ export default defineSchema(Person, {
 ```
 
 The resulting model will also extend the parent class, so `Admin` models will have any methods declared in `Person`.
+
+## Booting models
+
+Before using any models, you'll need to boot them with `bootModels()`. This tells Soukai the names of your models, and you'll also need to call `bootCoreModels()` to register the built-in models (such as the ones used to store timestamps):
+
+```ts
+import { bootCoreModels, bootModels } from 'soukai-bis';
+
+import User from './User';
+
+bootCoreModels();
+bootModels({ User });
+```
+
+If you're using Vite, you can boot all the models in a folder at once using `bootModelsFromViteGlob`:
+
+```ts
+import { bootCoreModels, bootModelsFromViteGlob } from 'soukai-bis';
+
+bootCoreModels();
+bootModelsFromViteGlob(import.meta.glob('./models/*.ts', { eager: true }));
+```
+
+> [!TIP] Schema files
+> Files ending with `.schema` will be ignored, so you can keep your schema definitions next to your models.
+
+> [!TIP] Model name definition
+> The model name is defined when models are booted. We need to boot them explicitly to make sure they keep the intended names. If we relied on class names we could run into issues with modern build systems that obfuscate class names in production.
+
+Once models are booted, you can also retrieve them by name using `requireBootedModel`:
+
+```ts
+import { requireBootedModel } from 'soukai-bis';
+
+const User = requireBootedModel('User');
+```
+
+### Models registry
+
+Some methods reference models by name, such as `requireBootedModel` or [relations](./relations.md#definition). For TypeScript to know about these names, you'll need to register your models in the `ModelsRegistry` interface:
+
+```ts
+import type Post from './Post';
+import type User from './User';
+
+declare module 'soukai-bis' {
+    interface ModelsRegistry {
+        Post: typeof Post;
+        User: typeof User;
+    }
+}
+```
 
 ## Constructors
 

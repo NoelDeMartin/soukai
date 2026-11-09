@@ -30,7 +30,7 @@ export default class Container extends Model {
     ): Promise<ModelWithUrl<T>[]> {
         const typeIndexInstance =
             typeof typeIndex === 'string' ? await requireBootedModel('TypeIndex').findOrFail(typeIndex) : typeIndex;
-        const registrations = await typeIndexInstance.loadRelationIfUnloaded<TypeRegistration[]>('registrations');
+        const registrations = await typeIndexInstance.loadRelationIfUnloaded('registrations');
         const urls = arrayUnique(
             arrayFilter(
                 registrations

@@ -2,19 +2,17 @@ import { FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/test
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
-import type { MintUrlOptions } from 'soukai-bis/models/Model';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
+import InverseSeason from 'soukai-bis/testing/stubs/InverseSeason';
 import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
-import z from 'zod';
 
-import type BelongsToManyRelation from './BelongsToManyRelation';
-import { belongsToMany, hasOne } from './fluent';
+import { belongsToMany } from './fluent';
 
 describe('BelongsToManyRelation', () => {
     let engine: InMemoryEngine;
@@ -74,38 +72,8 @@ describe('BelongsToManyRelation', () => {
     });
 
     it('sets inverse relationships', async () => {
-        // Arrange
-        class Episode extends defineSchema({
-            fields: { name: z.string() },
-            relations: {
-                season: hasOne(() => Season, 'episodeUrls'),
-            },
-        }) {
-            protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
-                if (!this.season?.getDocumentUrl()) {
-                    return super.newUrlDocumentUrl(options);
-                }
-
-                return this.season.getDocumentUrl() + '-episode';
-            }
-        }
-
-        class Season extends defineSchema({
-            fields: {
-                name: z.string(),
-                episodeUrls: z.array(z.url()).rdfProperty('episodeUrls').default([]),
-            },
-            relations: {
-                episodes: belongsToMany(Episode, 'episodeUrls'),
-            },
-        }) {
-            declare public relatedEpisodes: BelongsToManyRelation<this, Episode, typeof Episode>;
-        }
-
-        bootModels({ Episode, Season });
-
         // Act
-        const season = await Season.create({ name: 'Season 1' });
+        const season = await InverseSeason.create({ name: 'Season 1' });
         const episode = await season.relatedEpisodes.create({ name: 'Episode 1' });
 
         // Assert
@@ -155,7 +123,7 @@ describe('BelongsToManyRelation', () => {
         // Arrange
         class LazyShow extends defineSchema(Show, {
             relations: {
-                seasons: belongsToMany(Season, 'seasonUrls').usingSameDocument().autoload(false),
+                seasons: belongsToMany('Season', 'seasonUrls').usingSameDocument().autoload(false),
             },
         }) {}
 

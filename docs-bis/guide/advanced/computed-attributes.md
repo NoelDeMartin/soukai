@@ -1,6 +1,6 @@
 # Computed attributes
 
-Some values in your application can only be calculated by looking at related models. For example, the titles of all the posts written by a user, or the number of episodes of a show that haven't been watched yet. Computing these is easy once the relationships are loaded, but loading them can be expensive, specially when models are stored in a Solid POD.
+Some values in your application can only be calculated by looking at related models. For example, the titles of all the posts written by a user, or the number of episodes of a show that haven't been watched yet. Computing these is easy once the relations are loaded, but loading them can be expensive, specially when models are stored in a Solid POD.
 
 Computed attributes solve this problem by calculating these values once and caching the result. They will be loaded from the cache when models are read, and they will be refreshed automatically when related models are saved or deleted.
 
@@ -36,21 +36,19 @@ export default class User extends Model {
 import { defineSchema, hasMany } from 'soukai-bis';
 import { string } from 'zod';
 
-import Post from './Post';
-
 export default defineSchema({
     fields: {
         name: string(),
     },
     relations: {
-        posts: hasMany(() => Post, 'authorUrl'),
+        posts: hasMany('Post', 'authorUrl'),
     },
 });
 ```
 
 :::
 
-The `loaded` helper returns the related models, but it throws an error if the relationship hasn't been loaded yet. This is how Soukai knows which relationships it needs in order to compute a value: when that happens, the relationship will be loaded and the attribute will be computed again. Relationships loaded this way will be unloaded once the value has been calculated, and nested relationships are also supported (for example, `loaded(season, 'episodes')` for each of the models returned by `loaded(show, 'seasons')`).
+The `loaded` helper returns the related models, but it throws an error if the relation hasn't been loaded yet. This is how Soukai knows which relations it needs in order to compute a value: when that happens, the relation will be loaded and the attribute will be computed again. Relations loaded this way will be unloaded once the value has been calculated, and nested relations are also supported (for example, `loaded(season, 'episodes')` for each of the models returned by `loaded(show, 'seasons')`).
 
 Keep in mind that compute functions must be synchronous, and their values will be stored in IndexedDB, so they should only return data that can be cloned (such as primitives, dates, arrays, and plain objects).
 
@@ -67,10 +65,12 @@ const user = await User.findOrFail('https://example.org/users/john#it');
 console.log(user.postTitles.value); // string[] | undefined
 ```
 
-When models are read, cached values are restored without loading any relationships. If you want to make sure that all the computed attributes of a model have a value, you can call the `loadComputedAttributes` method (which will only compute the missing ones). You can also update a single attribute using the `updateValue` method, which returns the new value:
+### Updating values
+
+When models are read, cached values are restored without loading any relations. If you want to make sure that all the computed attributes of a model have a value, you can call the `loadComputedAttributes` method (which will only compute the missing ones). You can also update a single attribute using the `updateValue` method, which returns the new value:
 
 ```ts
-// Compute missing attributes (loading relationships if necessary).
+// Compute missing attributes (loading relations if necessary).
 await user.loadComputedAttributes();
 
 // Compute the attribute again, ignoring the cached value.
@@ -81,11 +81,13 @@ The `updateValue` method accepts the following options:
 
 - `refresh`: Ignore the cached value and compute the attribute again (defaults to `false`).
 - `useCache`: Read and fall back to cached values (defaults to `true`).
-- `loadRelations`: Load the missing relationships (defaults to `true`). If this is disabled and some relationships are missing, the cached value will be used instead.
+- `loadRelations`: Load the missing relations (defaults to `true`). If this is disabled and some relations are missing, the cached value will be used instead.
 
 Concurrent updates with the same options are coalesced, so calling the method multiple times at once won't compute the value more than necessary.
 
-Finally, if you want to be notified when a value changes, you can use the `subscribe` method. The listener will be called as soon as the value is available, and every time that it changes afterwards:
+### Subscribing to changes
+
+If you want to be notified when a value changes, you can use the `subscribe` method. The listener will be called as soon as the value is available, and every time that it changes afterwards:
 
 ```ts
 const unsubscribe = user.postTitles.subscribe((titles) => console.log('Post titles', titles));
@@ -99,7 +101,7 @@ unsubscribe();
 
 ## Refreshing values
 
-Computed attributes are refreshed automatically when a model is saved or deleted. This includes the computed attributes of related models, as long as the inverse relationship is declared. For example, given that `Post` declares an `author` relationship with the same foreign key as the `posts` relationship in `User`, this will update the titles of the author:
+Computed attributes are refreshed automatically when a model is saved or deleted. This includes the computed attributes of related models, as long as the inverse relation is declared. For example, given that `Post` declares an `author` relation with the same foreign key as the `posts` relation in `User`, this will update the titles of the author:
 
 ```ts
 await user.relatedPosts.create({ title: 'Hello World!', content: '...' });
@@ -107,7 +109,9 @@ await user.relatedPosts.create({ title: 'Hello World!', content: '...' });
 console.log(user.postTitles.value); // ['Hello World!']
 ```
 
-When you're doing a lot of changes at once, refreshing values after each operation can be wasteful. In those cases, you can disable refreshes and relationship loading temporarily, and update the values once you're done:
+### Disabling refreshes
+
+When you're doing a lot of changes at once, refreshing values after each operation can be wasteful. In those cases, you can disable refreshes and relation loading temporarily, and update the values once you're done:
 
 ```ts
 import { ComputedAttribute } from 'soukai-bis';
@@ -143,7 +147,7 @@ await clearCache();
 
 Values computed on other devices won't be refreshed automatically, so cached values need to be invalidated when documents are updated during [synchronization](./local-first.md#synchronization). How this is done is determined by the invalidation strategy of each attribute:
 
-- `InvalidationStrategies.DOCUMENT` (the default): Values will be invalidated when the document of the model is synchronized. This is the best option when related models are stored in the [same document](../core-concepts/relationships.md#using-the-same-document).
+- `InvalidationStrategies.DOCUMENT` (the default): Values will be invalidated when the document of the model is synchronized. This is the best option when related models are stored in the [same document](../core-concepts/relations.md#using-the-same-document).
 - `InvalidationStrategies.CONTAINER`: Values will be invalidated when any document in the container of the model (including nested containers) is synchronized. This is useful when related models are stored in different documents within the same container.
 
 In order to use a different strategy, you need to define the attribute with an object instead of a function:

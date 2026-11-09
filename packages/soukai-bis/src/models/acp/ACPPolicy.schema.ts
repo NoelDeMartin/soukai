@@ -3,8 +3,6 @@ import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty } from 'soukai-bis/zod/soukai';
 import { array, url } from 'zod';
 
-import ACPMatcher from './ACPMatcher';
-
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/solid/acp#',
     rdfClass: 'Policy',
@@ -17,8 +15,8 @@ export default defineSchema({
         noneOfUrls: rdfProperty(array(url()), 'noneOf').default([]),
     },
     relations: {
-        allOfMatchers: belongsToMany(ACPMatcher, 'allOfUrls').usingSameDocument(),
-        anyOfMatchers: belongsToMany(ACPMatcher, 'anyOfUrls').usingSameDocument(),
-        noneOfMatchers: belongsToMany(ACPMatcher, 'noneOfUrls').usingSameDocument(),
+        allOfMatchers: belongsToMany('ACPMatcher', 'allOfUrls').usingSameDocument(),
+        anyOfMatchers: belongsToMany('ACPMatcher', 'anyOfUrls').usingSameDocument(),
+        noneOfMatchers: belongsToMany('ACPMatcher', 'noneOfUrls').usingSameDocument(),
     },
 });

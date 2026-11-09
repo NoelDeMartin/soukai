@@ -1,9 +1,6 @@
 import { belongsToMany, defineSchema, hasMany, hasOne } from 'soukai-bis';
 import { array, email, number, string, url } from 'zod';
 
-import Post from './Post';
-import User from './User';
-
 export default defineSchema({
     rdfContext: 'http://xmlns.com/foaf/0.1/',
     rdfClass: 'Person',
@@ -16,8 +13,8 @@ export default defineSchema({
         friendUrls: array(url()).rdfProperty('knows').optional(),
     },
     relations: {
-        posts: hasMany(() => Post, 'authorUrl'),
-        friends: belongsToMany(() => User, 'friendUrls'),
-        lastPost: hasOne(() => Post, 'authorUrl'),
+        posts: hasMany('Post', 'authorUrl'),
+        friends: belongsToMany('User', 'friendUrls'),
+        lastPost: hasOne('Post', 'authorUrl'),
     },
 });

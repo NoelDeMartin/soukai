@@ -4,7 +4,7 @@ In order to make good use of the library, you should be familiar with the [core 
 
 ## Models
 
-[Models](../core-concepts/models.md) are the basic building blocks for your application.
+Models are the main building blocks for your application.
 
 You can define them using [Zod schemas](https://zod.dev/api):
 
@@ -32,32 +32,21 @@ export default class User extends Model {}
 
 :::
 
-Before using any models, you'll also need to boot them with `bootModels()`. This tells Soukai the names of your models, and you'll also need to call `bootCoreModels()` to register the built-in models (such as the ones used to store timestamps or CRDT operations):
+Before using any models, you'll also need to [boot them](../core-concepts/models.md#booting-models) with `bootModels()`:
 
 ```ts
-import { bootCoreModels, bootModels } from 'soukai-bis';
+import { bootModels } from 'soukai-bis';
 
 import User from './User';
 
-bootCoreModels();
 bootModels({ User });
 ```
 
-If you're using Vite, you can boot all the models in a folder at once using `bootModelsFromViteGlob`:
-
-```ts
-import { bootCoreModels, bootModelsFromViteGlob } from 'soukai-bis';
-
-bootCoreModels();
-bootModelsFromViteGlob(import.meta.glob('./models/*.ts', { eager: true }));
-```
-
-> [!TIP] Schema files
-> Files ending with `.schema` will be ignored, so you can keep your schema definitions next to your models.
+Learn more about this in the [Models documentation](../core-concepts/models.md).
 
 ## Engine
 
-An [engine](../core-concepts/engines.md) determines where the data is actually stored.
+An engine determines where the data is actually stored.
 
 You can configure the default behavior using the `setEngine` function:
 
@@ -72,7 +61,9 @@ setEngine(new IndexedDBEngine());
 setEngine(new SolidEngine({ fetch: authenticatedFetch }));
 ```
 
-Every engine stores the same RDF documents, so you can use an in-memory engine for unit tests, an IndexedDB engine during development, and a Solid engine in production (or combine them for a local-first app).
+Every engine stores the same RDF documents, so you can use an in-memory engine for unit tests, an IndexedDB engine during development, and a Solid engine in production (or combine them for a [local-first app](../advanced/local-first.md)).
+
+Learn more about this in the [Engines documentation](../core-concepts/engines.md).
 
 ## Authentication
 

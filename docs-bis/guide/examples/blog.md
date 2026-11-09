@@ -25,8 +25,8 @@ await user.relatedPosts.create({ title: 'One', content: '...' });
 await user.relatedPosts.create({ title: 'Two', content: '...' });
 await user.relatedPosts.create({ title: 'Three', content: '...' });
 
-const posts = await user.loadRelation<Post[]>('posts');
-const author = await posts[0]?.loadRelation<User>('author');
+const posts = await user.loadRelation('posts');
+const author = await posts[0]?.loadRelation('author');
 
 console.log('user', user.getAttributes());
 console.log(
@@ -52,14 +52,12 @@ export default class User extends Model {
 import { defineSchema, hasMany } from 'soukai-bis';
 import { string } from 'zod';
 
-import Post from './Post';
-
 export default defineSchema({
     fields: {
         name: string(),
     },
     relations: {
-        posts: hasMany(() => Post, 'authorUrl'),
+        posts: hasMany('Post', 'authorUrl'),
     },
 });
 ```
@@ -79,8 +77,6 @@ export default class Post extends Model {
 import { belongsToOne, defineSchema } from 'soukai-bis';
 import { string, url } from 'zod';
 
-import User from './User';
-
 export default defineSchema({
     fields: {
         title: string(),
@@ -88,9 +84,21 @@ export default defineSchema({
         authorUrl: url().optional(),
     },
     relations: {
-        author: belongsToOne(() => User, 'authorUrl'),
+        author: belongsToOne('User', 'authorUrl'),
     },
 });
+```
+
+```ts [models.d.ts]
+import type Post from './Post';
+import type User from './User';
+
+declare module 'soukai-bis' {
+    interface ModelsRegistry {
+        Post: typeof Post;
+        User: typeof User;
+    }
+}
 ```
 
 :::

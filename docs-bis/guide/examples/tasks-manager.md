@@ -405,11 +405,9 @@ export default class TasksList extends Model {
 ```ts [TasksList.schema.ts]
 import { contains, defineContainerSchema } from 'soukai-bis';
 
-import Task from './Task';
-
 export default defineContainerSchema({
     relations: {
-        tasks: contains(() => Task),
+        tasks: contains('Task'),
     },
 });
 ```
@@ -436,6 +434,20 @@ export default defineSchema({
         storageUrl: url().rdfProperty('pim:storage').optional(),
     },
 });
+```
+
+```ts [models.d.ts]
+import type Task from './Task';
+import type TasksList from './TasksList';
+import type User from './User';
+
+declare module 'soukai-bis' {
+    interface ModelsRegistry {
+        Task: typeof Task;
+        TasksList: typeof TasksList;
+        User: typeof User;
+    }
+}
 ```
 
 :::

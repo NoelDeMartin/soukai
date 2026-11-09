@@ -32,7 +32,7 @@ export default defineSchema({
 });
 ```
 
-Once this is enabled, any changes that are made to the model will create new operations using the built-in `operations` relationship. This relationship isn't loaded by default, so you'll need to load it explicitly if you want to inspect it:
+Once this is enabled, any changes that are made to the model will create new operations using the built-in `operations` relation. This relation isn't loaded by default, so you'll need to load it explicitly if you want to inspect it:
 
 ```ts
 const alice = await Person.create({ name: 'Alice' });
@@ -49,6 +49,8 @@ The code above will generate the following operations:
 
 - Set `name` to "Alice"
 - Set `name` to "Alice Doe"
+
+### Merging operations
 
 Operations are stored as RDF resources in the same document as the model, so they can be merged by any device that has access to the document. Once operations from different devices have been merged into a document, you can call the `syncOperations` method to update the model attributes with the result of applying all the operations:
 
@@ -110,6 +112,8 @@ This will pull changes from the POD into the local engine, push local changes to
 - `public`: Whether to register the container in the public type index (defaults to `false`, using the private type index).
 - `mode`: Use `'container'` (the default) to register the container where the models are stored, or `'instance'` to register each model individually.
 
+### External sources
+
 If you also need to synchronize data outside of the user's storage (for example, a container shared by someone else), you can use the `externalSources` option. These will be pulled and pushed like the rest, but they won't be registered in type indexes, and their errors won't count towards `maxErrors`:
 
 ```ts
@@ -122,6 +126,8 @@ await Sync.run({
     onExternalSourceFailed: (source, error) => console.error('Could not sync external source', source, error),
 });
 ```
+
+### Job configuration
 
 There are also some other options to configure the job, such as `publicTypeIndexes`, `privateTypeIndexes`, `createPublicTypeIndex`, `createPrivateTypeIndex`, `concurrency`, `maxErrors`, and `lastModifiedTolerance`. And some other listeners, such as `onFinished`, `onCancelled`, `onModelsRegistered` and `onModelsRegistrationFailed`.
 

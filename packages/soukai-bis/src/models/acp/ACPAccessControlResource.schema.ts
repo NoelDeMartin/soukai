@@ -3,8 +3,6 @@ import { defineSchema } from 'soukai-bis/models/schema';
 import { rdfProperty } from 'soukai-bis/zod/soukai';
 import { array, url } from 'zod';
 
-import ACPAccessControl from './ACPAccessControl';
-
 export default defineSchema({
     rdfContext: 'http://www.w3.org/ns/solid/acp#',
     rdfClass: 'AccessControlResource',
@@ -15,7 +13,7 @@ export default defineSchema({
         memberAccessControlUrls: rdfProperty(array(url()), 'memberAccessControl').default([]),
     },
     relations: {
-        accessControls: belongsToMany(ACPAccessControl, 'accessControlUrls').usingSameDocument(),
-        memberAccessControls: belongsToMany(ACPAccessControl, 'memberAccessControlUrls').usingSameDocument(),
+        accessControls: belongsToMany('ACPAccessControl', 'accessControlUrls').usingSameDocument(),
+        memberAccessControls: belongsToMany('ACPAccessControl', 'memberAccessControlUrls').usingSameDocument(),
     },
 });

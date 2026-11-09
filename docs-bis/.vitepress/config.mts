@@ -30,7 +30,7 @@ export default defineConfig({
                     items: [
                         { text: 'Models', link: 'models' },
                         { text: 'Engines', link: 'engines' },
-                        { text: 'Relationships', link: 'relationships' },
+                        { text: 'Relations', link: 'relations' },
                     ],
                 },
                 {
