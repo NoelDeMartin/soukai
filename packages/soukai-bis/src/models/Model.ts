@@ -461,32 +461,39 @@ export default class Model<
     declare public tombstone?: Tombstone;
     declare public relatedTombstone?: HasOneRelation<this, Tombstone, typeof Tombstone>;
 
-    protected _exists: boolean = false;
-    protected _documentExists: boolean = false;
-    protected _sourceDocumentUrl: string | null = null;
-    protected _markedForDeletion: boolean = false;
-    protected _attributes: Attributes;
-    protected _originalAttributes: Attributes;
-    protected _dirtyAttributes: Set<FieldName>;
-    protected _computedAttributes: Record<string, ComputedAttribute> = {};
-    protected _relations: Record<string, Relation> = {};
-    protected _legacyTimestamps: LegacyTimestamps = null;
-    protected _permissions: ModelPermissions | null = null;
+    declare protected _exists: boolean;
+    declare protected _documentExists: boolean;
+    declare protected _sourceDocumentUrl: string | null;
+    declare protected _markedForDeletion: boolean;
+    declare protected _attributes: Attributes;
+    declare protected _originalAttributes: Attributes;
+    declare protected _dirtyAttributes: Set<FieldName>;
+    declare protected _computedAttributes: Record<string, ComputedAttribute>;
+    declare protected _relations: Record<string, Relation>;
+    declare protected _legacyTimestamps: LegacyTimestamps;
+    declare protected _permissions: ModelPermissions | null;
 
     public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
-        super();
+        super(attributes, options);
 
         if ((this.static() as unknown as typeof Model).isConjuring()) {
             this._attributes = {} as unknown as Attributes;
             this._originalAttributes = {} as unknown as Attributes;
             this._dirtyAttributes = new Set();
-
-            return;
         }
+    }
 
+    protected initialize(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}): void {
         const exists = options.exists ?? false;
+
         this._exists = exists;
         this._documentExists = exists;
+        this._sourceDocumentUrl = null;
+        this._markedForDeletion = false;
+        this._computedAttributes = {};
+        this._relations = {};
+        this._legacyTimestamps = null;
+        this._permissions = null;
 
         if (Model.isHydrating()) {
             this._attributes = objectDeepClone(attributes) as Attributes;
@@ -501,7 +508,7 @@ export default class Model<
         this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
 
         if (options.initializeMetadata ?? true) {
-            this.initializeMetadata();
+            this.__instance().initializeMetadata();
         }
     }
 
@@ -1123,19 +1130,27 @@ export default class Model<
     }
 
     protected __set(property: string, value: unknown): void {
-        if (!this.isField(property)) {
+        if (this.isField(property)) {
+            this.setAttribute(property, value);
+
             return;
         }
 
-        this.setAttribute(property, value);
+        this.assertWritableProperty(property, 'set');
+
+        super.__set(property, value);
     }
 
     protected __delete(property: string): void {
-        if (!this.isField(property)) {
+        if (this.isField(property)) {
+            this.setAttribute(property, undefined);
+
             return;
         }
 
-        this.setAttribute(property, undefined);
+        this.assertWritableProperty(property, 'delete');
+
+        super.__delete(property);
     }
 
     protected __has(property: string): boolean {
@@ -1509,6 +1524,27 @@ export default class Model<
 
     private isField(property: string): property is FieldName {
         return property in this.static('schema').fields.def.shape;
+    }
+
+    private isMagicProperty(property: string): boolean {
+        const schema = this.static('schema');
+
+        return (
+            (schema.timestamps && (property === 'createdAt' || property === 'updatedAt')) ||
+            property in schema.relations ||
+            property in schema.computed ||
+            (property.startsWith('related') && stringToCamelCase(property.slice(7)) in schema.relations)
+        );
+    }
+
+    private assertWritableProperty(property: string, operation: 'set' | 'delete'): void {
+        if (!this.isMagicProperty(property)) {
+            return;
+        }
+
+        throw new SoukaiError(
+            `Cannot ${operation} '${property}' on ${this.static('modelName')} model, it's a read-only magic property.`,
+        );
     }
 
     private populateDocumentModels(documentModels: Set<Model>): void {

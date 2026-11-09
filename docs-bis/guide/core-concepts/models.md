@@ -1,6 +1,8 @@
 # Models
 
-You can declare the entities in your application by extending a class created with the `defineSchema` helper. It's recommended to declare the schema in its own file, and keep the model class for your own logic:
+Models are the main building blocks of your application's data layer, where you define all your entities and how they're translated to RDF.
+
+You can define your models by extending a class created with the `defineSchema` helper. For better organization, it's recommended to declare the schema in its own file and keep the model class for your own logic:
 
 ::: code-group
 
@@ -18,13 +20,13 @@ export default defineSchema({});
 
 :::
 
-This will be enough to get you started, but you'll want to declare some fields to customize behavior. In the rest of this page, we'll only show the schema file when the model class doesn't have any custom logic.
+This is enough to get you started, but you'll also need to declare fields and other properties to provide further functionality.
 
 ## Attributes
 
 You can declare the `fields` property in the schema to configure the attributes of your Model. Field definitions are declared using [Zod](https://zod.dev) types:
 
-```ts [User.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { array, date, email, string } from 'zod';
 
@@ -39,9 +41,7 @@ export default defineSchema({
 });
 ```
 
-The types of the attributes will be inferred from the Zod types declared in the schema, so you don't need to declare them again in the model class.
-
-Attributes will be validated when a model is instantiated, and every time that they are updated. If any of the values doesn't conform to the schema, an `InvalidAttributesError` (in the constructor) or `InvalidAttributeError` (when updating attributes) will be thrown.
+Attributes will be validated when a model is instantiated, and every time that they are updated. If any of the values doesn't conform to the schema, an `InvalidAttributesError` or `InvalidAttributeError` will be thrown.
 
 Here's an example creating a model that conforms with the schema above:
 
@@ -58,8 +58,6 @@ Every model also has a built-in `url` field, which serves as its primary key. Yo
 
 ::: warning TODO
 Previous versions of Soukai supported some additional options in field definitions that haven't been implemented yet: `alias` (mirroring the value of another field), and `get`/`set`/`serialize`/`deserialize` hooks.
-
-Nested object fields (`FieldType.Object`) haven't been documented either.
 :::
 
 ### Magic attributes
@@ -82,11 +80,11 @@ user.setAttribute('name', 'John Doe');
 
 Only fields declared in the schema will be treated as attributes, any other values passed to the constructor or `setAttributes` will be ignored.
 
-You can also inspect model changes with methods such as `isDirty()`, `getDirtyAttributes()`, or `getOriginalAttributes()`.
+You can also inspect model changes before saving with methods such as `isDirty()`, `getDirtyAttributes()`, or `getOriginalAttributes()`.
 
 ### Automatic timestamps
 
-Some model timestamps are managed automatically. `createdAt` will be set as the initial date when the model is created, and `updatedAt` will be updated every time the model is modified.
+Model timestamps are managed automatically. `createdAt` will be set as the initial date when the model is created, and `updatedAt` will be updated every time the model is modified.
 
 These are not stored as model fields, but in a separate `Metadata` model that is accessible through the built-in `metadata` relationship. You can still read them as normal attributes, though:
 
@@ -96,11 +94,11 @@ const user = await User.create({ name: 'John' });
 console.log(user.createdAt, user.updatedAt);
 ```
 
-You can learn more about why this is the case in the [RDF definitions](#timestamps-in-rdf) section.
+You can learn more about this in the [RDF definitions](#timestamps-in-rdf) section.
 
-By default timestamps are enabled, but you can disable them using the `timestamps` option in the schema:
+Timestamps are enabled by default, but you can disable them altogether using the `timestamps` option in the schema:
 
-```ts [User.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -165,18 +163,19 @@ Previous versions of Soukai supported declaring virtual attributes using methods
 
 ## Urls
 
-In Soukai, all models are RDF resources. Because of that, the primary key of a model is its `url`, rather than an `id`.
+In Soukai, [each model maps to an RDF resource](../solid-protocol/mental-model.md#models-are-resources). Because of that, they can be identified by the `url` attribute.
 
 New models mint their url in the client side when they are saved, using a container url and generating a UUID. They also add a hash at the end, which can be configured with the `rdfDefaultResourceHash` option in the schema (the default is "it"):
 
 ```ts
-// The url will be something like "https://example.org/people/2be06383-20ab-41c4-90f1-b506f5c00bde#it"
+// The url will be something like
+// "https://example.org/people/2be06383-20ab-41c4-90f1-b506f5c00bde#it"
 await Person.createAt('https://example.org/people/', { name: 'Alice' });
 ```
 
-If you'd rather use a slug instead of a UUID, you can indicate which field to use with `useAsSlug()`:
+If you'd rather use a slug instead of a UUID, you can indicate which field to use with `useAsSlug()` (if you do, make sure to [configure Zod extensions](#zod-extensions)):
 
-```ts [Person.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -211,15 +210,6 @@ await Person.create({
 });
 ```
 
-Finally, you can also let the POD decide the url of new models using `postToContainer`. Instead of creating the document at the minted url, this will send a `POST` request to the container (using the minted slug as a suggestion), and the model url will be updated with the one assigned by the server. This is useful, for example, when you only have append permissions in a container (such as an inbox):
-
-```ts
-await Notification.postToContainer('https://bob.example.org/inbox/', { summary: 'Hello!' });
-
-// Or...
-await new Notification({ summary: 'Hello!' }).save('https://bob.example.org/inbox/', { postToContainer: true });
-```
-
 There are also some helper methods to work with urls, such as `getDocumentUrl()`, `getContainerUrl()`, and `getSlug()` (as well as their `require*` counterparts, which throw an error if the value is missing).
 
 ::: warning TODO
@@ -233,8 +223,7 @@ The equivalent of collections in Soukai are containers (following the [Linked Da
 Since the url of a model is not always available, there are a couple of ways to indicate the container. You can use the `from` option to read models from a container, and the `createAt` method (or the first argument of the `save` method) to create them:
 
 ```ts
-// This is something you would obtain at runtime
-// from other models or libraries
+// This is something you should obtain at runtime, instead of hard-coding it
 const containerUrl = 'https://example.org/people/';
 
 // Get persons from the container
@@ -259,7 +248,7 @@ await Person.create({ name: 'Amy Doe' });
 ```
 
 > [!TIP] Model name definition
-> The model name is defined when models are booted with `bootModels` or `bootModelsFromViteGlob`. Make sure that you always boot your models, because modern build systems often obfuscate class names in production.
+> The model name is defined when models are booted with `bootModels` or `bootModelsFromViteGlob`. We need to boot them explicitly to make sure they keep the intended names. If we relied on class names we could run into issues with modern build systems that obfuscate class names in production.
 
 > [!WARNING] ⚠️ Model name inflection
 > The current implementation of the name inflection is naive. At the moment, the model name is only converted to camel case and appended an 's' character. So it shouldn't be trusted to do proper pluralization.
@@ -278,11 +267,11 @@ You can learn more about how to work with containers in the [Relationships](./re
 
 Because all models are RDF resources, there are a couple of things that can be defined for a model to be serialized properly.
 
-You can indicate the resource type using the `rdfClass` option (this will be serialized as the `http://www.w3.org/1999/02/22-rdf-syntax-ns#type` RDF property). And property names can be defined calling `rdfProperty()` on field definitions.
+You can indicate the resource type using the `rdfClass` option. And property names can be defined calling `rdfProperty()` on field definitions (before you do, make sure to [configure Zod extensions](#zod-extensions)).
 
 Here's an example illustrating both:
 
-```ts [Person.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -298,7 +287,7 @@ Doing this all the time can become cumbersome, given that the same namespaces wi
 
 Here's a definition equivalent to the previous snippet:
 
-```ts [Person.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -316,13 +305,13 @@ export default defineSchema({
 All of these are optional, and these are their default values:
 
 - `rdfContext` is `http://www.w3.org/ns/solid/terms#` by default. If you use `rdfContexts`, the `default` key will be used as the default context.
-- Some common prefixes are available out of the box, so you don't need to declare them: `acl`, `acp`, `crdt`, `extra`, `foaf`, `ldp`, `pim`, `purl`, `rdf`, `rdfs`, `schema`, `solid`, `vcard`, and `xsd`.
+- Some common prefixes are available out of the box, and you don't need to declare them: `acl`, `acp`, `crdt`, `extra`, `foaf`, `ldp`, `pim`, `purl`, `rdf`, `rdfs`, `schema`, `solid`, `vcard`, and `xsd`.
 - `rdfClass` will use the name of the model with the default context. Values that are not urls or short-hand definitions using contexts will also use the default context.
 - `rdfProperty` will use the field name with the default context.
 
 The `Person` schema we defined before can be defined more concisely like this:
 
-```ts [Person.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -330,12 +319,14 @@ export default defineSchema({
     rdfContext: 'http://xmlns.com/foaf/0.1/',
 
     // Because "Person" is not a url or short-hand definition using contexts,
-    // the default context will be used. This will be interpreted as "foaf:Person".
+    // the default context will be used.
+    //
+    // This will be interpreted as "foaf:Person".
     rdfClass: 'Person',
 
     fields: {
-        // Because "foaf" is the default context and "name" is the name of the field,
-        // the rdfProperty will be interpreted as "foaf:name".
+        // Because "foaf" is the default context, and "name" is the name
+        // of the field, the rdfProperty will be interpreted as "foaf:name".
         name: string(),
     },
 });
@@ -343,7 +334,7 @@ export default defineSchema({
 
 If a resource needs more than one RDF class, you can declare them with the `rdfClasses` option instead. In that case, resources will only be read as instances of the model if they have all of the classes:
 
-```ts [Notification.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -356,27 +347,11 @@ export default defineSchema({
 });
 ```
 
-You can also inspect the RDF of a model using the `toTurtle()` and `toJsonLD()` methods, and create models from RDF using `createFromJsonLD()` or `createFromRDF()`.
+You can also inspect the RDF of a model using the `toTurtle()` and `toJsonLD()` methods, and create models from RDF using `createFromRDF()` or `createFromJsonLD()`.
 
 ### Timestamps in RDF
 
-Previous versions of Soukai used to declare timestamps as model fields, producing the following RDF:
-
-```turtle
-@prefix foaf: <http://xmlns.com/foaf/0.1/>.
-@prefix terms: <http://purl.org/dc/terms/>.
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-
-<#it>
-    a foaf:Person ;
-    foaf:name "Alice" ;
-    terms:created "2021-01-30T11:47:24Z"^^xsd:dateTime ;
-    terms:modified "2021-01-30T11:47:24Z"^^xsd:dateTime .
-```
-
-This is, however, incorrect. The RDF above implies that the person "Alice" was created on January 2021. Instead, what has been created on January 2021 is this record in the Solid POD.
-
-Because of this, timestamps are declared in a separate `Metadata` model, and this is the RDF that will be generated:
+In order to keep track of when resources have been created or modified, timestamps are declared in a separate `Metadata` model. This is an example of the RDF that will be generated with the Person class we've been working on:
 
 ```turtle
 @prefix foaf: <http://xmlns.com/foaf/0.1/>.
@@ -394,57 +369,67 @@ Because of this, timestamps are declared in a separate `Metadata` model, and thi
     crdt:updatedAt "2021-01-30T11:47:24Z"^^xsd:dateTime .
 ```
 
-Legacy timestamps declared with `purl:created` and `purl:modified` will still be read, and a `crdt:Metadata` resource will be created the next time that the model is updated.
-
-## Models vs Documents
-
-In other ORMs, a Model usually maps to a database document, and a Model's collection maps to a database collection or table. But that's not entirely true in Soukai.
-
-Instead, collections map to containers, and models represent RDF resources stored in documents. This is an irrelevant distinction when a document only contains a single RDF resource, but that's rarely the case. Proper RDF modeling often results in documents containing information about multiple resources (for example, the [timestamps](#timestamps-in-rdf) we've just seen).
-
-All of this complexity is dealt with under the hood, but it is important to be aware of the distinction. You can learn more about it in the [Mental Model](../solid-protocol/mental-model.md) section.
-
 ## Extending models
 
-You can extend the schema of an existing model passing it as the first argument of `defineSchema`. Fields and relationships will be merged with the ones defined in the parent model (RDF classes, on the other hand, will be replaced if the new schema declares its own):
+You can extend the schema of an existing model passing it as the first argument of `defineSchema`.
 
-```ts [Admin.schema.ts]
+Fields and relationships will be merged with the ones defined in the parent model. RDF classes, on the other hand, will be replaced if the new schema declares its own.
+
+For example, this is how you can define the schema for an `Admin` model:
+
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
-import User from './User';
+import Person from './Person';
 
-export default defineSchema(User, {
+export default defineSchema(Person, {
     fields: {
         role: string(),
     },
 });
 ```
 
-The resulting model will also extend the parent class, so `Admin` models will have any methods declared in `User`.
+The resulting model will also extend the parent class, so `Admin` models will have any methods declared in `Person`.
 
-## A note about constructors
+## Constructors
 
-The constructor of a model takes the initial attributes as the first argument, and some options as the second one. For example, you can instantiate models that you know already exist in the storage using the `exists` option:
+Because of internal implementation details, you should not define a constructor in your model classes. Instead, you should override the `initialize` method.
+
+You should think of this as your constructor, and avoid doing anything that you wouldn't do on a normal constructor (such as writing asynchronous code or causing side-effects).
+
+Something else to keep in mind is that you can't use [magic attributes](#magic-attributes) within this initializer. They are just syntactic sugar, so you should be able to do everything you want with standard getters and setters.
+
+Finally, properties assigned in the initializer must be declared with `declare` and without a default value. Otherwise, class field initializers would override them, given that they run after the parent constructor. Other than that, properties that aren't declared in the schema behave like normal class properties (they won't be validated nor persisted).
+
+For example, here's how you could precompute a normalized text to filter long lists of tasks quickly, without normalizing them every time the filter changes:
 
 ```ts
-const user = new User({ url: 'https://example.org/users/john#it', name: 'John' }, { exists: true });
+import type { ModelConstructorOptions } from 'soukai-bis';
+
+import Model from './Task.schema';
+
+export default class Task extends Model {
+    declare public searchText: string;
+
+    protected initialize(attributes?: Record<string, unknown>, options?: ModelConstructorOptions): void {
+        super.initialize(attributes, options);
+
+        this.searchText = normalize(`${this.getAttribute('title')} ${this.getAttribute('description') ?? ''}`);
+    }
+}
 ```
 
-::: warning TODO
-Previous versions of Soukai recommended overriding an `initialize` method instead of declaring constructors in model classes. Document the recommended approach for initialization logic in soukai-bis.
-:::
+(Keep in mind that this value won't be updated if the title or description change after the model is instantiated, so you may want to use a getter or update it when you modify those attributes.)
 
 ## Zod extensions
 
-Some of the features you've seen in this page, such as `.useAsSlug()` and `.rdfProperty()`, are implemented as Zod extensions. In order to use them, make sure to import `soukai-bis/patch-zod` once in your application before declaring any models (for example, in your entry point):
+Some of the features you've seen in this page, such as `.useAsSlug()` and `.rdfProperty()`, are implemented as Zod extensions.
+
+In order to use them, make sure to import `soukai-bis/patch-zod` once in your application before declaring any models (for example, in your entry point):
 
 ```ts
 import 'soukai-bis/patch-zod';
 ```
 
 These extensions are also declared in Zod's types, so TypeScript will know about them once `soukai-bis` is imported.
-
-::: warning TODO
-Mention this earlier in the guide (for example, in the [Installation](../getting-started/installation.md) or [Configuration](../getting-started/configuration.md) pages), given that `.rdfProperty()` and `.useAsSlug()` are used in most pages before reaching this section.
-:::

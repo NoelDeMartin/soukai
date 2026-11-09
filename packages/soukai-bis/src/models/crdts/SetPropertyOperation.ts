@@ -12,15 +12,16 @@ import type Operation from './Operation';
 import SetPropertyOperationModel from './SetPropertyOperation.schema';
 
 export default class SetPropertyOperation extends SetPropertyOperationModel {
-    private isNamedNode: boolean = false;
     private _values: Quad_Object[] | null = null;
+    declare private isNamedNode: boolean;
 
-    constructor(...[attributes, options]: ConstructorParameters<typeof SetPropertyOperationModel>) {
-        super(attributes, options);
+    protected initialize(...[attributes, options]: ConstructorParameters<typeof SetPropertyOperationModel>): void {
+        super.initialize(attributes, options);
 
         const valueQuad = options?.source?.find(
             (quad) => quad.subject.value === attributes?.url && quad.predicate.equals(CRDT_VALUE_PREDICATE),
         );
+
         this.isNamedNode = valueQuad?.object.termType === 'NamedNode';
     }
 

@@ -6,12 +6,8 @@ export default defineConfig({
     description: 'An RDF-first Solid ORM',
     base: '/next/',
     head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/next/img/logo-mini.svg' }]],
-    vite: {
-        // Use a different port than Vite's default (5173), to avoid conflicts with apps running in development.
-        server: { port: 5180 },
-    },
+    vite: { server: { port: 5180 } },
     themeConfig: {
-        // https://vitepress.dev/reference/default-theme-config
         logo: { src: '/img/logo-mini.svg', width: 17, height: 24 },
         search: { provider: 'local' },
         nav: [{ text: 'Guide', link: '/guide/', activeMatch: '/guide/' }],
@@ -19,6 +15,7 @@ export default defineConfig({
             '/guide/': [
                 {
                     text: 'Getting started',
+                    collapsed: true,
                     items: [
                         { text: 'Introduction', link: '/guide/' },
                         { text: 'Installation', link: '/guide/getting-started/installation' },
@@ -29,6 +26,7 @@ export default defineConfig({
                 {
                     text: 'Core concepts',
                     base: '/guide/core-concepts/',
+                    collapsed: true,
                     items: [
                         { text: 'Models', link: 'models' },
                         { text: 'Engines', link: 'engines' },
@@ -38,6 +36,7 @@ export default defineConfig({
                 {
                     text: 'Solid Protocol',
                     base: '/guide/solid-protocol/',
+                    collapsed: true,
                     items: [
                         { text: 'What is Solid?', link: 'what-is-solid' },
                         { text: 'Mental Model', link: 'mental-model' },
@@ -47,6 +46,7 @@ export default defineConfig({
                 {
                     text: 'Advanced',
                     base: '/guide/advanced/',
+                    collapsed: true,
                     items: [
                         { text: 'Interoperability', link: 'interoperability' },
                         { text: 'Local-first', link: 'local-first' },

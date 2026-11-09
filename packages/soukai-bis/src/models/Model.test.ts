@@ -19,6 +19,7 @@ import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/te
 import z from 'zod';
 
 import SetPropertyOperation from './crdts/SetPropertyOperation';
+import type { ModelConstructorOptions } from './Model';
 import { bootModels, requireBootedModel } from './registry';
 import { belongsToMany, belongsToOne, hasMany } from './relations/fluent';
 import { defineSchema } from './schema';
@@ -185,6 +186,101 @@ describe('Model', () => {
 
         expect(user.url).toBe('https://example.com/alice');
         expect(user.name).toBe('Alice');
+    });
+
+    it('initializes instances', async () => {
+        // Arrange
+        class Recipe extends defineSchema({
+            rdfContext: 'https://schema.org/',
+            fields: { name: z.string() },
+        }) {
+            declare public nameLength: number;
+            declare public usesLegacyVocabulary: boolean;
+
+            protected initialize(attributes?: Record<string, unknown>, options?: ModelConstructorOptions): void {
+                super.initialize(attributes, options);
+
+                this.nameLength = this._attributes.name.length;
+                this.usesLegacyVocabulary = !!options?.source?.some((quad) =>
+                    quad.predicate.value.startsWith('http://schema.org/'),
+                );
+            }
+        }
+
+        bootModels({ Recipe });
+
+        const documentUrl = fakeDocumentUrl();
+        const legacyQuads = await turtleToQuads(
+            `
+                <#it>
+                    a <https://schema.org/Recipe> ;
+                    <https://schema.org/name> "Ramen" ;
+                    <http://schema.org/recipeYield> "1 serving" .
+            `,
+            { baseIRI: documentUrl },
+        );
+
+        // Act
+        const recipe = new Recipe({ name: 'Ramen' });
+        const legacyRecipe = required(await Recipe.createFromRDF(legacyQuads, { url: `${documentUrl}#it` }));
+
+        // Assert
+        expect(recipe.nameLength).toBe(5);
+        expect(recipe.usesLegacyVocabulary).toBe(false);
+        expect(recipe.getAttributes()).toEqual({ url: undefined, name: 'Ramen' });
+        expect(legacyRecipe.nameLength).toBe(5);
+        expect(legacyRecipe.usesLegacyVocabulary).toBe(true);
+        expect(legacyRecipe.exists()).toBe(true);
+    });
+
+    it('treats undeclared properties as class properties', () => {
+        // Arrange
+        class Recipe extends defineSchema({ fields: { name: z.string() } }) {
+            declare public assignedInInitializer: string;
+            declare public notAssignedInInitializer?: string;
+            public withDefault: string | null = null;
+
+            protected initialize(attributes?: Record<string, unknown>, options?: ModelConstructorOptions): void {
+                super.initialize(attributes, options);
+
+                this.assignedInInitializer = 'initial';
+            }
+        }
+
+        bootModels({ Recipe });
+
+        const recipe = new Recipe({ name: 'Ramen' }, { exists: true });
+        const untypedRecipe = recipe as Recipe & { undeclared?: string };
+
+        // Act
+        recipe.assignedInInitializer = 'foo';
+        recipe.notAssignedInInitializer = 'bar';
+        recipe.withDefault = 'baz';
+        untypedRecipe.undeclared = 'qux';
+
+        // Assert
+        expect(recipe.assignedInInitializer).toBe('foo');
+        expect(recipe.notAssignedInInitializer).toBe('bar');
+        expect(recipe.withDefault).toBe('baz');
+        expect(untypedRecipe.undeclared).toBe('qux');
+        expect(recipe.getAttributes()).toEqual({ name: 'Ramen' });
+        expect(recipe.getDirtyAttributes()).toEqual([]);
+
+        delete untypedRecipe.undeclared;
+
+        expect(untypedRecipe.undeclared).toBeUndefined();
+        expect('undeclared' in recipe).toBe(false);
+    });
+
+    it('fails writing magic properties', () => {
+        const user = new User({ name: 'Alice' }) as unknown as Record<string, unknown>;
+
+        expect(() => (user.createdAt = new Date())).toThrow(SoukaiError);
+        expect(() => (user.posts = [])).toThrow(SoukaiError);
+        expect(() => (user.relatedPosts = null)).toThrow(SoukaiError);
+        expect(() => (user.postTitles = [])).toThrow(SoukaiError);
+        expect(() => delete user.posts).toThrow(SoukaiError);
+        expect(user.posts).toBeUndefined();
     });
 
     it('serializes to JsonLD', async () => {
