@@ -15,7 +15,6 @@ export default defineConfig({
             '/guide/': [
                 {
                     text: 'Getting started',
-                    collapsed: true,
                     items: [
                         { text: 'Introduction', link: '/guide/' },
                         { text: 'Installation', link: '/guide/getting-started/installation' },
@@ -26,7 +25,6 @@ export default defineConfig({
                 {
                     text: 'Solid Protocol',
                     base: '/guide/solid-protocol/',
-                    collapsed: true,
                     items: [
                         { text: 'What is Solid?', link: 'what-is-solid' },
                         { text: 'Mental Model', link: 'mental-model' },
@@ -36,7 +34,6 @@ export default defineConfig({
                 {
                     text: 'Core concepts',
                     base: '/guide/core-concepts/',
-                    collapsed: true,
                     items: [
                         { text: 'Models', link: 'models' },
                         { text: 'Engines', link: 'engines' },

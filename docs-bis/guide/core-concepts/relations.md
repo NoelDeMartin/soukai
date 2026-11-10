@@ -209,7 +209,7 @@ Related models will be loaded from that container, and new models created throug
 
 When working with RDF, it's common to store multiple resources in the same document. This can be configured calling `usingSameDocument()` during the definition.
 
-When related models are stored in the same document, they'll be saved automatically when the parent model (the one who defines the relation) is saved, and they'll be loaded automatically when the parent model is read. Also, the hash of those models will be a UUID instead of the one defined in their `rdfDefaultResourceHash` option.
+When related models are stored in the same document, they'll be saved automatically when the parent model (the one who defines the relation) is saved. Also, the hash of those models will be a UUID instead of the one defined in their `rdfDefaultResourceHash` option.
 
 For example, let's say that we want to model a Music Band with all their members, and we want to store all the RDF resources in the same document:
 
@@ -262,6 +262,41 @@ await acdc.save();
 // Notice how we're not specifying the bandUrl in either scenario.
 await acdc.relatedMembers.create({ name: 'Angus Young' });
 ```
+
+### Autoloading
+
+Models stored in the same document are autoloaded by default: when the parent model is read, the related models are instantiated from the same document without making any additional requests:
+
+```ts
+const acdc = await Band.findOrFail('https://example.org/bands/ac-dc#it');
+
+console.log(acdc.isRelationLoaded('members'));
+// console output: true
+
+console.log(acdc.members?.length);
+// console output: 2
+```
+
+This is enabled by default, but it means that every related model is instantiated each time the parent is read, even if you don't end up using them. For relations that can grow large or are rarely needed, you can disable it calling `autoload(false)` in the definition:
+
+```ts
+export default defineSchema({
+    rdfContext: 'https://schema.org/',
+    rdfClass: 'MusicGroup',
+    fields: {
+        name: string(),
+    },
+    relations: {
+        members: hasMany('Person', 'bandUrl').usingSameDocument().autoload(false),
+    },
+});
+```
+
+When autoloading is disabled, the relation has to be [loaded explicitly](#usage) like the ones stored in other documents, which will read the document again. This only affects how models are read: related models will still be stored in the same document, and saved together with the parent.
+
+::: info
+Some built-in relations disable autoloading. The `operations` and `tombstone` relations used to track the [history](../advanced/local-first.md#history-tracking) and [deletions](../advanced/local-first.md#deletions) of a model are stored in the same document, but they aren't loaded automatically.
+:::
 
 ### documentContainsMany
 

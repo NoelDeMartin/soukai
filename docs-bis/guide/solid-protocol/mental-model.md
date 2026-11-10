@@ -123,7 +123,7 @@ The resulting document will look something like this (omitting timestamps):
 
 There are a couple of things to notice here:
 
-- Models stored in the same document will be saved together with the parent model (the one who defines the relation), and they'll be loaded automatically when the parent is read. There's no need to call `loadRelation`.
+- Models stored in the same document will be saved together with the parent model (the one who defines the relation), and by default they'll be [autoloaded](../core-concepts/relations.md#autoloading).
 - The hash of related models is a UUID, instead of the `rdfDefaultResourceHash` of their schema (`#it` by default). This prevents collisions between resources in the same document.
 
 This works with `hasOne`, `hasMany`, `belongsToOne`, and `belongsToMany`. There is also a `documentContainsMany` relation, for models stored in the same document that don't reference each other (for example, the registrations of a type index). You can learn more about them in the [Relations](../core-concepts/relations.md#using-the-same-document) section.
