@@ -76,7 +76,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                 new SetPropertyOperation({
                     resourceUrl: model.url,
                     property: RDF_TYPE_PREDICATE.value,
-                    value: schema.rdfClasses.map(({ value }) => value),
+                    value: model.static().getRdfClasses(),
                     date: model.updatedAt ?? now,
                 })
                     .setNamedNode(true)

@@ -10,6 +10,14 @@ export default class TypeRegistration extends Model {
     }
 
     public registers(modelClass: ModelConstructor): boolean {
-        return modelClass.schema.rdfClasses.every((rdfClass) => this.forClass.includes(rdfClass.value));
+        return modelClass.getRdfClasses().every((rdfClass) => this.forClass.includes(rdfClass));
+    }
+
+    public registersContainer(): this is this & { instanceContainer: string } {
+        return !!this.instanceContainer;
+    }
+
+    public registersInstance(): this is this & { instance: string } {
+        return !!this.instance;
     }
 }

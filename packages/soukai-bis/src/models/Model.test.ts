@@ -1,7 +1,8 @@
 import { SolidDocument, expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
-import { fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { FakeResponse, FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { escapeRegexText, fail, objectDeepClone, required, urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
@@ -9,6 +10,7 @@ import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
 import Animal from 'soukai-bis/testing/stubs/Animal';
+import Movie from 'soukai-bis/testing/stubs/Movie';
 import Playlist from 'soukai-bis/testing/stubs/Playlist';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
@@ -1545,6 +1547,37 @@ describe('Model', () => {
             'https://bob.example/profile#me',
             'https://carol.example/profile#me',
         ]);
+    });
+
+    describe('type indexes', () => {
+        const typeIndexUrl = 'https://alice.example/settings/privateTypeIndex';
+
+        it('registers models in type indexes', async () => {
+            // Arrange
+            const movie = new Movie({ url: 'https://alice.example/movies/spirited-away#it', title: 'Spirited Away' });
+
+            setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
+            FakeServer.respondWith(typeIndexUrl, (request) =>
+                request.method === 'GET'
+                    ? FakeResponse.success('<> a <http://www.w3.org/ns/solid/terms#TypeIndex> .')
+                    : FakeResponse.success(),
+            );
+
+            // Act
+            await movie.register(typeIndexUrl);
+
+            // Assert
+            expect(FakeServer.getRequest('PATCH', typeIndexUrl)?.body).toEqualSparql(`
+                INSERT DATA {
+                    @prefix solid: <http://www.w3.org/ns/solid/terms#> .
+                    @prefix schema: <https://schema.org/> .
+
+                    <#[[.*]]> a solid:TypeRegistration;
+                        solid:forClass schema:Movie;
+                        solid:instance <https://alice.example/movies/spirited-away#it> .
+                }
+            `);
+        });
     });
 
     describe('wrapped in proxies', () => {

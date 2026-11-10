@@ -261,7 +261,7 @@ export default defineSchema({
 });
 ```
 
-## contains and isContainedBy
+## Container relations
 
 There is a couple of relations that are helpful to work with containers: `contains` and `isContainedBy`.
 

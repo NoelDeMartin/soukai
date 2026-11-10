@@ -27,6 +27,7 @@ import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/Compu
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import type { TypeIndexRegistration } from 'soukai-bis/models/interop/TypeIndex';
 import type TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import Container from 'soukai-bis/models/ldp/Container';
 import type Resource from 'soukai-bis/models/ldp/Resource';
@@ -39,7 +40,18 @@ import {
     syncContainerRegistration,
     syncInstanceRegistration,
 } from './concerns/sync-registrations';
-import type { ModelRegistration, ModelRegistrationMode, TypeIndexVisibility } from './concerns/sync-registrations';
+import type {
+    ModelRegistration,
+    ModelRegistrationMode,
+    ModelsRegisteredEvent,
+    ModelsRegistrationFailedEvent,
+} from './concerns/sync-registrations';
+
+export type {
+    ModelRegistrationMode,
+    ModelsRegisteredEvent,
+    ModelsRegistrationFailedEvent,
+} from './concerns/sync-registrations';
 
 const DEFAULT_MAX_ERRORS = 10;
 const DEFAULT_CONCURRENCY = 10;
@@ -80,8 +92,8 @@ export interface SyncJobResult {
 }
 
 export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResult> {
-    onModelsRegistered?(typeIndex: TypeIndex, models: ModelConstructor[]): unknown;
-    onModelsRegistrationFailed?(models: ModelConstructor[], error: unknown): unknown;
+    onModelsRegistered?(event: ModelsRegisteredEvent): unknown;
+    onModelsRegistrationFailed?(event: ModelsRegistrationFailedEvent): unknown;
     onExternalSourceFailed?(source: ExternalSource, error: unknown): unknown;
 }
 
@@ -90,8 +102,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         const job = new Sync(config);
 
         job.listeners.add({
-            onModelsRegistered: (typeIndex, models) => config.onModelsRegistered?.(typeIndex, models),
-            onModelsRegistrationFailed: (models, error) => config.onModelsRegistrationFailed?.(models, error),
+            onModelsRegistered: (event) => config.onModelsRegistered?.(event),
+            onModelsRegistrationFailed: (event) => config.onModelsRegistrationFailed?.(event),
             onExternalSourceFailed: (source, error) => config.onExternalSourceFailed?.(source, error),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
@@ -110,7 +122,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private registeredInstances = new Map<string, Set<ModelConstructor>>();
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
-    private typeIndexes: Partial<Record<TypeIndexVisibility, Promise<TypeIndex>>> = {};
+    private typeIndexes: Partial<Record<TypeIndexRegistration, Promise<TypeIndex>>> = {};
     private syncedModelsRdfClasses: string[][];
     private unsyncedContainers?: Set<string>;
 
@@ -142,7 +154,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             .map((model) => model.model)
             .concat(this.getExternalSources().flatMap((source) => source.models))
             .concat([Container])
-            .map((model) => model.schema.rdfClasses.map((rdfClass) => rdfClass.value));
+            .map((model) => model.getRdfClasses());
     }
 
     protected async run(): Promise<SyncJobResult> {
@@ -619,14 +631,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 return;
             }
 
-            const onModelsRegistered = (typeIndex: TypeIndex, registeredModels: ModelConstructor[]) => {
-                return this._listeners.emit('onModelsRegistered', typeIndex, registeredModels);
+            const onModelsRegistered = (event: ModelsRegisteredEvent) => {
+                return this._listeners.emit('onModelsRegistered', event);
             };
-            const onModelsRegistrationFailed = async (unregisteredModels: ModelConstructor[], error: unknown) => {
-                await this.markDocumentsAsUnsynced(
-                    unregisteredModels.flatMap((model) => pushedModels.get(model) ?? []),
-                );
-                await this._listeners.emit('onModelsRegistrationFailed', unregisteredModels, error);
+            const onModelsRegistrationFailed = async (event: ModelsRegistrationFailedEvent) => {
+                await this.markDocumentsAsUnsynced(event.models.flatMap((model) => pushedModels.get(model) ?? []));
+                await this._listeners.emit('onModelsRegistrationFailed', event);
             };
 
             await syncInstanceRegistration({
@@ -672,11 +682,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
     }
 
-    private getTypeIndex(visibility: TypeIndexVisibility): Promise<TypeIndex> {
+    private getTypeIndex(visibility: TypeIndexRegistration): Promise<TypeIndex> {
         return (this.typeIndexes[visibility] ??= this.findOrCreateTypeIndex(visibility));
     }
 
-    private async findOrCreateTypeIndex(visibility: TypeIndexVisibility): Promise<TypeIndex> {
+    private async findOrCreateTypeIndex(visibility: TypeIndexRegistration): Promise<TypeIndex> {
         if (visibility === 'public') {
             return (
                 this.config.publicTypeIndexes?.[0] ??
@@ -779,7 +789,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             }
 
             const hasModelClasses = (rdfClasses: Set<string>) =>
-                model.model.schema.rdfClasses.every((rdfClass) => rdfClasses.has(rdfClass.value));
+                model.model.getRdfClasses().every((rdfClass) => rdfClasses.has(rdfClass));
 
             if (this.modelRegistrations.get(model.model)?.mode !== 'instance') {
                 const documentUrls = pushedDocuments

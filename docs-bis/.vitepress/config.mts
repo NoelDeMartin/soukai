@@ -24,16 +24,6 @@ export default defineConfig({
                     ],
                 },
                 {
-                    text: 'Core concepts',
-                    base: '/guide/core-concepts/',
-                    collapsed: true,
-                    items: [
-                        { text: 'Models', link: 'models' },
-                        { text: 'Engines', link: 'engines' },
-                        { text: 'Relations', link: 'relations' },
-                    ],
-                },
-                {
                     text: 'Solid Protocol',
                     base: '/guide/solid-protocol/',
                     collapsed: true,
@@ -41,6 +31,16 @@ export default defineConfig({
                         { text: 'What is Solid?', link: 'what-is-solid' },
                         { text: 'Mental Model', link: 'mental-model' },
                         { text: 'Limitations', link: 'limitations' },
+                    ],
+                },
+                {
+                    text: 'Core concepts',
+                    base: '/guide/core-concepts/',
+                    collapsed: true,
+                    items: [
+                        { text: 'Models', link: 'models' },
+                        { text: 'Engines', link: 'engines' },
+                        { text: 'Relations', link: 'relations' },
                     ],
                 },
                 {

@@ -1,15 +1,8 @@
-import {
-    arrayFilter,
-    arrayFrom,
-    arrayUnique,
-    requireUrlParentDirectory,
-    urlResolveDirectory,
-    uuid,
-} from '@noeldemartin/utils';
+import { urlResolveDirectory } from '@noeldemartin/utils';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { resolveTypeIndex } from 'soukai-bis/models/interop/internals';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import type { MintUrlOptions, UrlFromSlugOptions } from 'soukai-bis/models/Model';
-import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './Container.schema';
@@ -25,62 +18,23 @@ export default class Container extends Model {
 
     public static async createFromTypeIndex<T extends Container>(
         this: ModelConstructor<T>,
-        typeIndex: string | ModelWithUrl<TypeIndex>,
-        childrenModelClass: ModelConstructor,
+        typeIndex: string | TypeIndex,
+        modelClass: ModelConstructor,
     ): Promise<ModelWithUrl<T>[]> {
-        const typeIndexInstance =
-            typeof typeIndex === 'string' ? await requireBootedModel('TypeIndex').findOrFail(typeIndex) : typeIndex;
-        const registrations = await typeIndexInstance.loadRelationIfUnloaded('registrations');
-        const urls = arrayUnique(
-            arrayFilter(
-                registrations
-                    .filter((registration) => registration.registers(childrenModelClass))
-                    .map((registration) => registration.instanceContainer),
-            ),
-        );
+        const typeIndexInstance = await resolveTypeIndex(typeIndex);
+        const urls = await typeIndexInstance.findContainerUrls(modelClass);
 
         return urls.map((url) => this.newInstance({ url }, { exists: true }) as ModelWithUrl<T>);
     }
 
-    public async register(
-        typeIndex: string | TypeIndex,
-        childrenModelClasses: ModelConstructor | Array<ModelConstructor>,
-    ): Promise<void> {
-        const typeRegistration = new TypeRegistration({
-            forClass: arrayFrom(childrenModelClasses)
-                .map((modelClass) => modelClass.schema.rdfClasses.map((rdfClass) => rdfClass.value))
-                .flat(),
-            instanceContainer: this.requireUrl(),
-        });
-
-        if (typeof typeIndex === 'string') {
-            typeRegistration.mintUrl({
-                documentUrl: typeIndex,
-                documentExists: true,
-                resourceHash: uuid(),
-            });
-
-            await typeRegistration.save(requireUrlParentDirectory(typeIndex));
-
-            return;
+    public async register(typeIndex: string | TypeIndex, modelClass?: ModelConstructor): Promise<void> {
+        if (!modelClass) {
+            throw new SoukaiError(`Can't register containers without specifying the registered model class`);
         }
 
-        await typeIndex.loadRelationIfUnloaded('registrations');
+        const typeIndexInstance = await resolveTypeIndex(typeIndex);
 
-        const alreadyRegistered = typeIndex.registrations?.some((registration) => {
-            return (
-                typeRegistration.instanceContainer === registration.instanceContainer &&
-                !typeRegistration.forClass.some((type) => !registration.forClass.includes(type))
-            );
-        });
-
-        if (alreadyRegistered) {
-            return;
-        }
-
-        typeIndex.relatedRegistrations.attach(typeRegistration);
-
-        await typeIndex.relatedRegistrations.save(typeRegistration);
+        await typeIndexInstance.registerContainer(this, modelClass);
     }
 
     public setAttributes(attributes: Partial<Record<string, unknown>>): void {

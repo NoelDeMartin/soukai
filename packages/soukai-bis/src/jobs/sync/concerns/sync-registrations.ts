@@ -3,7 +3,7 @@ import { arrayGroupBy, arrayUnique, urlRoute } from '@noeldemartin/utils';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import type { TypeIndexRegistration } from 'soukai-bis/models/interop/TypeIndex';
 import Container from 'soukai-bis/models/ldp/Container';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
@@ -63,27 +63,6 @@ function getUnregisteredContainers(
     ]);
 }
 
-async function registerInstance(typeIndex: TypeIndex, model: ModelConstructor, instanceUrl: string): Promise<void> {
-    await typeIndex.loadRelationIfUnloaded('registrations');
-
-    const alreadyRegistered = typeIndex.registrations?.some(
-        (registration) => registration.instance === instanceUrl && registration.registers(model),
-    );
-
-    if (alreadyRegistered) {
-        return;
-    }
-
-    const typeRegistration = new TypeRegistration({
-        forClass: model.schema.rdfClasses.map((rdfClass) => rdfClass.value),
-        instance: instanceUrl,
-    });
-
-    typeIndex.relatedRegistrations.attach(typeRegistration);
-
-    await typeIndex.relatedRegistrations.save(typeRegistration);
-}
-
 function removeRegisteredInstance(
     registeredInstances: Map<string, Set<ModelConstructor>>,
     instanceUrl: string,
@@ -98,12 +77,23 @@ function removeRegisteredInstance(
     }
 }
 
-export type TypeIndexVisibility = 'public' | 'private';
 export type ModelRegistrationMode = 'container' | 'instance';
+
+export interface ModelsRegisteredEvent {
+    typeIndex: TypeIndex;
+    models: ModelConstructor[];
+    mode: ModelRegistrationMode;
+}
+
+export interface ModelsRegistrationFailedEvent {
+    models: ModelConstructor[];
+    error: unknown;
+    mode: ModelRegistrationMode;
+}
 
 export interface ModelRegistration {
     containerUrl: string;
-    visibility: TypeIndexVisibility;
+    visibility: TypeIndexRegistration;
     mode: ModelRegistrationMode;
 }
 
@@ -128,9 +118,9 @@ export async function syncContainerRegistration(options: {
     registeredContainers: Map<string, Set<ModelConstructor>>;
     modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     remoteEngine: SolidEngine;
-    getTypeIndex: (visibility: TypeIndexVisibility) => Promise<TypeIndex>;
-    onModelsRegistered: (typeIndex: TypeIndex, models: ModelConstructor[]) => unknown;
-    onModelsRegistrationFailed: (models: ModelConstructor[], error: unknown) => unknown;
+    getTypeIndex: (visibility: TypeIndexRegistration) => Promise<TypeIndex>;
+    onModelsRegistered: (event: ModelsRegisteredEvent) => unknown;
+    onModelsRegistrationFailed: (event: ModelsRegistrationFailedEvent) => unknown;
 }): Promise<void> {
     const unregisteredModels = getUnregisteredModels(options.container, options.models, options.registeredContainers);
     const modelsByVisibility = arrayGroupBy(
@@ -139,7 +129,7 @@ export async function syncContainerRegistration(options: {
     );
 
     for (const [visibility, models] of Object.entries(modelsByVisibility) as [
-        TypeIndexVisibility,
+        TypeIndexRegistration,
         ModelConstructor[],
     ][]) {
         const registeredModels: ModelConstructor[] = [];
@@ -160,7 +150,9 @@ export async function syncContainerRegistration(options: {
                     await makeDocumentPublic(container.url, options.remoteEngine);
                 }
 
-                await container.register(typeIndex, containerModels);
+                for (const model of containerModels) {
+                    await container.register(typeIndex, model);
+                }
 
                 addRegisteredModels(options.registeredContainers, container.url, containerModels);
                 registeredModels.push(...containerModels);
@@ -170,14 +162,15 @@ export async function syncContainerRegistration(options: {
         }
 
         if (typeIndex && registeredModels.length > 0) {
-            await options.onModelsRegistered(typeIndex, registeredModels);
+            await options.onModelsRegistered({ typeIndex, models: registeredModels, mode: 'container' });
         }
 
         if (failure) {
-            await options.onModelsRegistrationFailed(
-                models.filter((model) => !registeredModels.includes(model)),
-                failure.error,
-            );
+            await options.onModelsRegistrationFailed({
+                models: models.filter((model) => !registeredModels.includes(model)),
+                error: failure.error,
+                mode: 'container',
+            });
         }
     }
 }
@@ -187,9 +180,9 @@ export async function syncInstanceRegistration(options: {
     registeredInstances: Map<string, Set<ModelConstructor>>;
     modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     remoteEngine: SolidEngine;
-    getTypeIndex: (visibility: TypeIndexVisibility) => Promise<TypeIndex>;
-    onModelsRegistered: (typeIndex: TypeIndex, models: ModelConstructor[]) => unknown;
-    onModelsRegistrationFailed: (models: ModelConstructor[], error: unknown) => unknown;
+    getTypeIndex: (visibility: TypeIndexRegistration) => Promise<TypeIndex>;
+    onModelsRegistered: (event: ModelsRegisteredEvent) => unknown;
+    onModelsRegistrationFailed: (event: ModelsRegistrationFailedEvent) => unknown;
 }): Promise<void> {
     const pendingInstances: [ModelConstructor, string][] = [];
 
@@ -210,7 +203,7 @@ export async function syncInstanceRegistration(options: {
     );
 
     for (const [visibility, instances] of Object.entries(instancesByVisibility) as [
-        TypeIndexVisibility,
+        TypeIndexRegistration,
         [ModelConstructor, string][],
     ][]) {
         const registeredInstances: [ModelConstructor, string][] = [];
@@ -227,7 +220,7 @@ export async function syncInstanceRegistration(options: {
                     await makeDocumentPublic(urlRoute(instanceUrl), options.remoteEngine);
                 }
 
-                await registerInstance(typeIndex, model, instanceUrl);
+                await typeIndex.registerInstance(instanceUrl, model);
 
                 registeredInstances.push(instance);
             }
@@ -236,7 +229,11 @@ export async function syncInstanceRegistration(options: {
         }
 
         if (typeIndex && registeredInstances.length > 0) {
-            await options.onModelsRegistered(typeIndex, arrayUnique(registeredInstances.map(([model]) => model)));
+            await options.onModelsRegistered({
+                typeIndex,
+                models: arrayUnique(registeredInstances.map(([model]) => model)),
+                mode: 'instance',
+            });
         }
 
         if (failure) {
@@ -246,10 +243,11 @@ export async function syncInstanceRegistration(options: {
                 removeRegisteredInstance(options.registeredInstances, instanceUrl, model),
             );
 
-            await options.onModelsRegistrationFailed(
-                arrayUnique(unregisteredInstances.map(([model]) => model)),
-                failure.error,
-            );
+            await options.onModelsRegistrationFailed({
+                models: arrayUnique(unregisteredInstances.map(([model]) => model)),
+                error: failure.error,
+                mode: 'instance',
+            });
         }
     }
 }

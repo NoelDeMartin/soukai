@@ -34,8 +34,8 @@ describe('Sync container registration', () => {
                 [Movie, { containerUrl: 'https://alice.example/movies/', visibility: 'private', mode: 'container' }],
             ]),
             getTypeIndex: async () => typeIndex,
-            onModelsRegistered: (_, models) => events.push(['registered', models]),
-            onModelsRegistrationFailed: (models, failure) => events.push(['failed', models, failure]),
+            onModelsRegistered: ({ models }) => events.push(['registered', models]),
+            onModelsRegistrationFailed: ({ models, error }) => events.push(['failed', models, error]),
         });
 
         // Assert

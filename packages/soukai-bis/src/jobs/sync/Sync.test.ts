@@ -18,6 +18,7 @@ import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import Sync from './Sync';
+import type { ModelRegistrationMode, ModelsRegisteredEvent } from './Sync';
 import type { SyncConfig } from './Sync';
 
 describe('Sync', () => {
@@ -291,7 +292,7 @@ describe('Sync', () => {
             userProfile: { ...userProfile, preferencesFileUrl },
             privateTypeIndexes: [],
             applicationModels: [{ model: User, registration: true }],
-            onModelsRegistered(_, models) {
+            onModelsRegistered({ models }) {
                 registeredModels.push(...models);
             },
         });
@@ -341,7 +342,7 @@ describe('Sync', () => {
             applicationModels: [
                 { model: User, registration: { path: `/${requireUrlDirectoryName(rootContainerUrl)}/` } },
             ],
-            onModelsRegistered(registeredTypeIndex) {
+            onModelsRegistered({ typeIndex: registeredTypeIndex }) {
                 registeredContainers.push(
                     ...arrayFilter(
                         registeredTypeIndex.registrations?.map((registration) => registration.instanceContainer) ?? [],
@@ -799,7 +800,7 @@ describe('Sync', () => {
                     { containerUrl, models: [Movie] },
                     { instanceUrl, models: [User] },
                 ],
-                onModelsRegistered: (_, models) => registeredModels.push(models),
+                onModelsRegistered: ({ models }) => registeredModels.push(models),
             });
 
             // Assert
@@ -829,7 +830,7 @@ describe('Sync', () => {
                 ...config,
                 applicationModels: [{ model: Movie, registration: true }],
                 externalSources: [{ containerUrl, models: [Movie] }],
-                onModelsRegistered: (_, models) => registeredModels.push(models),
+                onModelsRegistered: ({ models }) => registeredModels.push(models),
             });
 
             // Assert
@@ -919,7 +920,7 @@ describe('Sync', () => {
         let documentUrl: string;
         let publicTypeIndex: TypeIndex;
         let privateTypeIndex: TypeIndex;
-        let registeredModels: [TypeIndex, ModelConstructor[]][];
+        let registeredModels: [TypeIndex, ModelConstructor[], ModelRegistrationMode][];
 
         beforeEach(async () => {
             const storageUrl = config.userProfile.storageUrls[0];
@@ -957,8 +958,8 @@ describe('Sync', () => {
             );
         }
 
-        const onModelsRegistered = (typeIndex: TypeIndex, models: ModelConstructor[]) => {
-            registeredModels.push([typeIndex, models]);
+        const onModelsRegistered = ({ typeIndex, models, mode }: ModelsRegisteredEvent) => {
+            registeredModels.push([typeIndex, models, mode]);
         };
 
         it('registers models in the private type index by default', async () => {
@@ -975,6 +976,7 @@ describe('Sync', () => {
             expect(registeredModels).toHaveLength(1);
             expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
             expect(registeredModels[0]?.[1]).toEqual([User]);
+            expect(registeredModels[0]?.[2]).toEqual('container');
             expect(FakeServer.getRequests(publicTypeIndex.requireUrl())).toHaveLength(0);
             expect(FakeServer.getRequest('PATCH', privateTypeIndex.requireUrl())?.body).toEqualSparql(
                 fixture('register-container.sparql', { containerUrl }),
@@ -1027,7 +1029,7 @@ describe('Sync', () => {
                 privateTypeIndexes: [privateTypeIndex],
                 applicationModels: [{ model: User, registration: { public: true } }],
                 onModelsRegistered,
-                onModelsRegistrationFailed: (models) => failedModels.push(...models),
+                onModelsRegistrationFailed: ({ models }) => failedModels.push(...models),
             });
 
             // Assert
@@ -1051,6 +1053,7 @@ describe('Sync', () => {
             expect(registeredModels).toHaveLength(1);
             expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
             expect(registeredModels[0]?.[1]).toEqual([User]);
+            expect(registeredModels[0]?.[2]).toEqual('instance');
             expect(FakeServer.getRequest('PATCH', privateTypeIndex.requireUrl())?.body).toEqualSparql(
                 fixture('register-instance.sparql', { instanceUrl: `${documentUrl}#it` }),
             );
@@ -1067,7 +1070,7 @@ describe('Sync', () => {
                 privateTypeIndexes: [privateTypeIndex],
                 applicationModels: [{ model: User, registration: { public: true, mode: 'instance' } }],
                 onModelsRegistered,
-                onModelsRegistrationFailed: (models) => failedModels.push(...models),
+                onModelsRegistrationFailed: ({ models }) => failedModels.push(...models),
             });
 
             // Assert
@@ -1131,7 +1134,7 @@ describe('Sync', () => {
             // Assert
             const registeredInstances = privateTypeIndex.registrations?.map((registration) => registration.instance);
 
-            expect(registeredModels).toEqual([[privateTypeIndex, [User]]]);
+            expect(registeredModels).toEqual([[privateTypeIndex, [User], 'instance']]);
             expect(FakeServer.getRequests('PATCH', privateTypeIndex.requireUrl())).toHaveLength(2);
             expect(registeredInstances).toHaveLength(2);
             expect(registeredInstances).toContain(`${documentUrl}#it`);
@@ -1182,7 +1185,7 @@ describe('Sync', () => {
             });
 
             // Assert
-            expect(registeredModels).toEqual([[privateTypeIndex, [User]]]);
+            expect(registeredModels).toEqual([[privateTypeIndex, [User], 'instance']]);
             expect(FakeServer.getRequests('PATCH', privateTypeIndex.requireUrl())).toHaveLength(1);
             expect(FakeServer.getRequest('PATCH', privateTypeIndex.requireUrl())?.body).toEqualSparql(
                 fixture('register-instance.sparql', { instanceUrl: `${documentUrl}#it` }),
@@ -1365,7 +1368,7 @@ describe('Sync', () => {
                 createPrivateTypeIndex,
                 applicationModels: [{ model: User, registration: true }],
                 onModelsRegistered,
-                onModelsRegistrationFailed: (models, registrationError) => {
+                onModelsRegistrationFailed: ({ models, error: registrationError }) => {
                     failedRegistrations.push([models, registrationError]);
                 },
             });

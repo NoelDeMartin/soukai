@@ -1,9 +1,13 @@
 import type { CompleteSolidUserProfile, Fetch } from '@noeldemartin/solid-utils';
 import { createSolidDocument, mintSettingsDocumentUrl } from '@noeldemartin/solid-utils';
+import { requireBootedModel } from 'soukai-bis/models/registry';
+
+import type TypeIndex from './TypeIndex';
+import type { TypeIndexRegistration } from './TypeIndex';
 
 export async function createTypeIndexDocument(
     user: CompleteSolidUserProfile,
-    visibility: 'public' | 'private',
+    visibility: TypeIndexRegistration,
     fetch: Fetch,
 ): Promise<string> {
     const url = await mintSettingsDocumentUrl(user, `${visibility}TypeIndex`, { fetch });
@@ -20,4 +24,12 @@ export async function createTypeIndexDocument(
     );
 
     return url;
+}
+
+export async function resolveTypeIndex(typeIndex: string | TypeIndex): Promise<TypeIndex> {
+    if (typeof typeIndex !== 'string') {
+        return typeIndex;
+    }
+
+    return requireBootedModel('TypeIndex').findOrFail(typeIndex);
 }

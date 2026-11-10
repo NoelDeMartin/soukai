@@ -66,6 +66,8 @@ import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
 import { CLASS_MARKER, getDocumentQuads, mintedUrls, quadsSourceDocumentUrls } from './internals';
+import { resolveTypeIndex } from './interop/internals';
+import type TypeIndex from './interop/TypeIndex';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
@@ -178,6 +180,10 @@ export default class Model<
 
     public static setEngine(engine?: Engine): void {
         this.engine = engine ?? null;
+    }
+
+    public static getRdfClasses(): string[] {
+        return this.schema.rdfClasses.map((rdfClass) => rdfClass.value);
     }
 
     public static urlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
@@ -1063,6 +1069,12 @@ export default class Model<
         }
 
         return freshInstance as this;
+    }
+
+    public async register(typeIndex: string | TypeIndex): Promise<void> {
+        const typeIndexInstance = await resolveTypeIndex(typeIndex);
+
+        await typeIndexInstance.registerInstance(this);
     }
 
     public async fetchPermissions(options: FetchPermissionsOptions = {}): Promise<ModelPermissions> {
