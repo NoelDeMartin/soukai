@@ -1,6 +1,10 @@
 import { fakeResourceUrl } from '@noeldemartin/testing';
+import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import { requireEngine, setEngine } from 'soukai-bis/engines/state';
+import { CRDT_RESOURCE } from 'soukai-bis/lib/internals/rdf';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
+import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import Rating from 'soukai-bis/testing/stubs/Rating';
@@ -8,7 +12,8 @@ import Review from 'soukai-bis/testing/stubs/Review';
 import ReviewedMovie from 'soukai-bis/testing/stubs/ReviewedMovie';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { describe, expect, it } from 'vite-plus/test';
+import { tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 import { hasOne } from './fluent';
 import { DETACHED_MODELS } from './internals';
@@ -155,6 +160,57 @@ describe('HasOneRelation', () => {
         expect(action.tombstone).toBeDefined();
         expect(freshMovie.action).toBeNull();
         expect(freshAction).toBeNull();
+    });
+
+    it('removes metadata and operations of detached models deleted when saving', async () => {
+        // Arrange
+        const movie = await Movie.create({ title: 'Spiderman' });
+        const action = await movie.relatedAction.create({ startTime: new Date(2026, 0, 1) });
+
+        await action.update({ startTime: new Date(2026, 0, 2) });
+
+        // Act
+        movie.relatedAction.detach({ delete: true });
+
+        await movie.save();
+
+        // Assert
+        const document = await requireEngine().readDocument(movie.requireDocumentUrl());
+        const actionResourceUrls = document
+            .getQuads()
+            .filter((quad) => quad.predicate.value === CRDT_RESOURCE && quad.object.value === action.url)
+            .map((quad) => quad.subject.value);
+
+        expect(action.operations).not.toHaveLength(0);
+        expect(action.metadata?.exists()).toBe(false);
+        expect(actionResourceUrls).toEqual([action.tombstone?.url]);
+    });
+
+    it('deletes detached models using same document when saving models marked for deletion', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+
+        setEngine(engine);
+
+        const movie = await Movie.create({ title: 'Spiderman' });
+        const action = await movie.relatedAction.create({ startTime: new Date() });
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+        const deleteDocumentSpy = vi.spyOn(engine, 'deleteDocument');
+
+        // Act
+        movie.relatedAction.detach({ delete: true });
+        movie.markForDeletion();
+
+        await movie.save();
+
+        // Assert
+        expect(deleteDocumentSpy).not.toHaveBeenCalled();
+        expect(updateDocumentSpy).toHaveBeenCalledTimes(1);
+        expect(movie.exists()).toBe(false);
+        expect(action.exists()).toBe(false);
+        await expect(engine.documents[movie.requireDocumentUrl()]?.graph).toEqualJsonLD({
+            '@graph': [tombstoneJsonLD(action as ModelWithUrl<WatchAction>)],
+        });
     });
 
     it('drops new related models when detached', async () => {

@@ -1,6 +1,5 @@
-import { arrayRemove, tap, uuid } from '@noeldemartin/utils';
+import { tap, uuid } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
-import { emitModelEvent } from 'soukai-bis/models/concerns/events';
 import { canonicalModel } from 'soukai-bis/models/internals';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
@@ -112,21 +111,7 @@ export default abstract class MultiModelRelation<
     public async delete(related: Related | Related[]): Promise<void> {
         this.assertLoaded('delete');
 
-        const relatedArray = Array.isArray(related) ? related : [related];
-
-        await Promise.all(
-            relatedArray.map(async (relatedModel) => {
-                if (!this.related?.includes(relatedModel)) {
-                    return;
-                }
-
-                await relatedModel.delete();
-
-                arrayRemove(this.related, relatedModel);
-            }),
-        );
-
-        await emitModelEvent(this.parent, 'updated');
+        await this.deleteDetachedModels(this.detach(related, { delete: true }));
     }
 
     public isEmpty(): boolean | null {

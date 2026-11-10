@@ -4,6 +4,6 @@ import Movie from './Movie';
 
 export default defineSchema(Movie, {
     relations: {
-        review: hasOne('Review', 'itemReviewedUrl').usingSameDocument(),
+        review: hasOne('Review', 'itemReviewedUrl').usingSameDocument().onDelete('cascade'),
     },
 });

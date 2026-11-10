@@ -1250,6 +1250,51 @@ describe('Model', () => {
         });
     });
 
+    it('leaves tombstones behind when deleting instances without history', async () => {
+        class UserWithTombstone extends defineSchema(User, { tombstone: true }) {}
+
+        bootModels({ UserWithTombstone });
+
+        const user = (await UserWithTombstone.create({
+            name: 'John Doe',
+        })) as ModelWithUrl<UserWithTombstone>;
+
+        await user.delete();
+
+        expect(user.exists()).toBe(false);
+        await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
+            '@graph': [tombstoneJsonLD(user)],
+        });
+    });
+
+    it('removes metadata and operations when deleting instances', async () => {
+        class UserWithHistory extends defineSchema(User, { history: true }) {}
+
+        bootModels({ UserWithHistory });
+
+        const user = (await UserWithHistory.create({
+            name: 'John Doe',
+        })) as ModelWithUrl<UserWithHistory>;
+
+        await user.update({ name: 'Jane Doe' });
+
+        const freshUser = await UserWithHistory.findOrFail(user.url);
+
+        await freshUser.loadRelationIfUnloaded('operations');
+
+        const deletedOperations = freshUser.operations ?? [];
+
+        await freshUser.delete();
+
+        expect(user.operations).not.toHaveLength(0);
+        expect(deletedOperations).not.toHaveLength(0);
+        expect(freshUser.metadata?.exists()).toBe(false);
+        expect(deletedOperations.every((operation) => !operation.exists())).toBe(true);
+        await expect(engine.documents[user.requireDocumentUrl()]?.graph).toEqualJsonLD({
+            '@graph': [tombstoneJsonLD(freshUser)],
+        });
+    });
+
     it('deletes instances marked for deletion when saving', async () => {
         const user = await User.create({ name: 'John Doe' });
 

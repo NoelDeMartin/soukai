@@ -5,7 +5,7 @@ import DocumentContainsManyRelation from './DocumentContainsManyRelation';
 import HasManyRelation from './HasManyRelation';
 import HasOneRelation from './HasOneRelation';
 import IsContainedByRelation from './IsContainedByRelation';
-import { SchemaHasRelationDefinition, SchemaRelationDefinition } from './schema';
+import { SchemaContainerRelationDefinition, SchemaHasRelationDefinition, SchemaRelationDefinition } from './schema';
 import type { RelatedModelName } from './schema';
 
 /* oxlint-disable typescript/explicit-module-boundary-types */
@@ -19,7 +19,7 @@ export function belongsToOne<T extends RelatedModelName>(relatedModelName: T, fo
 }
 
 export function contains<T extends RelatedModelName>(relatedModelName: T) {
-    return new SchemaRelationDefinition(relatedModelName, ContainsRelation);
+    return new SchemaContainerRelationDefinition(relatedModelName, ContainsRelation);
 }
 
 export function documentContainsMany<T extends RelatedModelName>(relatedModelName: T) {
@@ -35,5 +35,5 @@ export function hasOne<T extends RelatedModelName>(relatedModelName: T, foreignK
 }
 
 export function isContainedBy<T extends RelatedModelName>(relatedModelName: T) {
-    return new SchemaRelationDefinition(relatedModelName, IsContainedByRelation);
+    return new SchemaContainerRelationDefinition(relatedModelName, IsContainedByRelation);
 }

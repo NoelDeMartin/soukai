@@ -10,7 +10,7 @@ import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import { belongsToMany } from './fluent';
 
@@ -182,6 +182,61 @@ describe('BelongsToManyRelation', () => {
         expect(freshShow.seasons).toHaveLength(1);
         expect(freshShow.seasons?.[0]?.url).toEqual(secondSeason.url);
         expect(freshFirstSeason).toBeNull();
+    });
+
+    it('deletes related models using same document', async () => {
+        // Arrange
+        const show = await Show.create({ name: 'House M.D.' });
+        const firstSeason = await show.relatedSeasons.create({});
+        const secondSeason = await show.relatedSeasons.create({});
+        const thirdSeason = await show.relatedSeasons.create({});
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+        const deleteDocumentSpy = vi.spyOn(engine, 'deleteDocument');
+
+        // Act
+        await show.relatedSeasons.delete([firstSeason, secondSeason]);
+
+        // Assert
+        const freshShow = await Show.findOrFail(show.requireUrl());
+
+        expect(updateDocumentSpy).toHaveBeenCalledTimes(1);
+        expect(deleteDocumentSpy).not.toHaveBeenCalled();
+        expect(firstSeason.exists()).toBe(false);
+        expect(secondSeason.exists()).toBe(false);
+        expect(show.seasonUrls).toEqual([thirdSeason.url]);
+        expect(show.seasons).toEqual([thirdSeason]);
+        expect(freshShow.seasonUrls).toEqual([thirdSeason.url]);
+        expect(await Season.find(firstSeason.requireUrl())).toBeNull();
+        expect(await Season.find(secondSeason.requireUrl())).toBeNull();
+    });
+
+    it('deletes detached models using same document when deleting', async () => {
+        // Arrange
+        const deletedUrls: string[] = [];
+        const show = await Show.create({ name: 'House M.D.' });
+        const firstSeason = await show.relatedSeasons.create({});
+        const secondSeason = await show.relatedSeasons.create({});
+        const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+        const deleteDocumentSpy = vi.spyOn(engine, 'deleteDocument');
+
+        Show.on('deleted', (model) => deletedUrls.push(model.requireUrl()));
+        Season.on('deleted', (model) => deletedUrls.push(model.requireUrl()));
+
+        // Act
+        show.relatedSeasons.detach([firstSeason, secondSeason], { delete: true });
+
+        await show.delete();
+
+        // Assert
+        expect(updateDocumentSpy).not.toHaveBeenCalled();
+        expect(deleteDocumentSpy).toHaveBeenCalledTimes(1);
+        expect(deleteDocumentSpy).toHaveBeenCalledWith(show.requireDocumentUrl());
+        expect(engine.documents[show.requireDocumentUrl()]).toBeUndefined();
+        expect(show.exists()).toBe(false);
+        expect(firstSeason.exists()).toBe(false);
+        expect(secondSeason.exists()).toBe(false);
+        expect(deletedUrls).toHaveLength(3);
+        expect(deletedUrls).toEqual(expect.arrayContaining([show.url, firstSeason.url, secondSeason.url]));
     });
 
     it('sets foreign attributes after save', async () => {

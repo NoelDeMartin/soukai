@@ -1,9 +1,12 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { setEngine } from 'soukai-bis/engines';
+import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
 import Movie from 'soukai-bis/testing/stubs/Movie';
+import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import Container from './Container';
@@ -152,5 +155,61 @@ describe('Container', () => {
 
         // Assert
         expect(FakeServer.getRequests('PATCH', typeIndexUrl)).toHaveLength(0);
+    });
+
+    it('deletes empty containers', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+
+        setEngine(engine);
+
+        const collection = await PostsCollection.create({ url: 'local://posts/' });
+
+        // Act
+        await collection.delete();
+
+        // Assert
+        expect(collection.exists()).toBe(false);
+        expect(Object.keys(engine.documents)).not.toContain(collection.url);
+    });
+
+    it('fails deleting containers with documents', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+
+        setEngine(engine);
+
+        const collection = await PostsCollection.create({ url: 'local://posts/' });
+        const post = await collection.relatedPosts.create({ title: 'Hello World' });
+        const freshCollection = await PostsCollection.findOrFail(collection.url);
+
+        // Act & Assert
+        await expect(freshCollection.delete()).rejects.toThrow(SoukaiError);
+
+        expect(freshCollection.exists()).toBe(true);
+        expect(freshCollection.isMarkedForDeletion()).toBe(false);
+        expect(Object.keys(engine.documents)).toContain(collection.url);
+        expect(Object.keys(engine.documents)).toContain(post.requireDocumentUrl());
+    });
+
+    it('fails saving containers with documents marked for deletion', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+
+        setEngine(engine);
+
+        const collection = await PostsCollection.create({ url: 'local://posts/' });
+        const post = await collection.relatedPosts.create({ title: 'Hello World' });
+        const freshCollection = await PostsCollection.findOrFail(collection.url);
+
+        // Act
+        freshCollection.markForDeletion();
+
+        // Assert
+        await expect(freshCollection.save()).rejects.toThrow(SoukaiError);
+
+        expect(freshCollection.exists()).toBe(true);
+        expect(Object.keys(engine.documents)).toContain(collection.url);
+        expect(Object.keys(engine.documents)).toContain(post.requireDocumentUrl());
     });
 });

@@ -99,15 +99,13 @@ export default abstract class SingleModelRelation<
     }
 
     public async delete(): Promise<void> {
-        if (!this.related) {
+        const related = this.detach({ delete: true });
+
+        if (!related) {
             return;
         }
 
-        const related = this.related;
-
-        this.related = null;
-
-        await related.delete();
+        await this.deleteDetachedModels([related]);
     }
 
     public isEmpty(): boolean | null {

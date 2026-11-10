@@ -4,6 +4,7 @@ import {
     MagicObject,
     applyStrictChecks,
     arrayFrom,
+    arrayUnique,
     deepEquals,
     fail,
     isDevelopment,
@@ -44,11 +45,13 @@ import { fetchPermissions, trackAuthorizationProtocol } from './concerns/authori
 import type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from './concerns/authorization';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import {
-    deleteModel,
-    getDeleteModelOperations,
+    deletingModelsEmptiesDocument,
+    getDeleteModelsOperations,
+    getDeletedModelsCrdtModels,
     getDirtyDocumentsUpdates,
     syncDocumentOperations,
 } from './concerns/crdts';
+import { cascadeDeletes, cascadeDeletesInDocument, deleteModels, markForDeletion } from './concerns/deletes';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 import {
@@ -471,6 +474,7 @@ export default class Model<
     declare protected _documentExists: boolean;
     declare protected _sourceDocumentUrl: string | null;
     declare protected _markedForDeletion: boolean;
+    declare protected _deletedWith: Model[];
     declare protected _attributes: Attributes;
     declare protected _originalAttributes: Attributes;
     declare protected _dirtyAttributes: Set<FieldName>;
@@ -496,6 +500,7 @@ export default class Model<
         this._documentExists = exists;
         this._sourceDocumentUrl = null;
         this._markedForDeletion = false;
+        this._deletedWith = [];
         this._computedAttributes = {};
         this._relations = {};
         this._legacyTimestamps = null;
@@ -617,6 +622,7 @@ export default class Model<
                 localKeyName: relation.options.localKey,
                 usingSameDocument: relation.options.usingSameDocument,
                 from: relation.options.from,
+                onDelete: relation.options.onDelete,
             });
         }
 
@@ -896,9 +902,10 @@ export default class Model<
     }
 
     public getDirtyDocumentModels(): Model[] {
-        return [...this.getDocumentModels(), ...this.getDetachedDocumentModels()].filter((model) =>
-            model.isDirty(undefined, true),
-        );
+        const models = this.getSavedDocumentModels();
+        const deletedCrdtModels = getDeletedModelsCrdtModels(models);
+
+        return models.filter((model) => !deletedCrdtModels.has(model) && model.isDirty(undefined, true));
     }
 
     public isDirty(field?: FieldName, ignoreRelations?: boolean): boolean {
@@ -974,11 +981,7 @@ export default class Model<
             return this;
         }
 
-        this.assertAuthoritativeDocument();
-
-        await this.performDelete();
-        await this.afterDelete();
-        await emitModelEvent(this, 'deleted');
+        await this.performDelete([], new Set());
 
         return this;
     }
@@ -998,9 +1001,7 @@ export default class Model<
             throw new SoukaiError(`Can't post model to container ${containerUrl}, its url is ${this.url}`);
         }
 
-        if (this._markedForDeletion) {
-            await this.delete();
-
+        if (this._markedForDeletion && !this.exists()) {
             this._markedForDeletion = false;
 
             return this as ModelWithUrl<this>;
@@ -1012,33 +1013,12 @@ export default class Model<
 
         this.assertAuthoritativeDocument();
 
-        const thisExisted = this.exists();
-        const dirtyDocumentModels = this.getDirtyDocumentModels();
-        const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
+        const cascadedModels = await cascadeDeletesInDocument(this.getDocumentModelsPendingDeletion());
 
-        await this.beforeSave({ containerUrl });
-        await this.performSave(options);
-        await this.afterSave();
-
-        for (let index = 0; index < dirtyDocumentModels.length; index++) {
-            const model = required(dirtyDocumentModels[index]);
-            const existed = dirtyDocumentModelsExisted[index];
-
-            if (model._markedForDeletion) {
-                await emitModelEvent(model, 'deleted');
-
-                model._markedForDeletion = false;
-
-                continue;
-            }
-
-            await emitModelEvent(model, existed ? 'updated' : 'created');
-            await emitModelEvent(model, 'saved');
-        }
-
-        if (!dirtyDocumentModels.includes(this)) {
-            await emitModelEvent(this, thisExisted ? 'updated' : 'created');
-            await emitModelEvent(this, 'saved');
+        try {
+            await this.saveDocumentModels(containerUrl, options);
+        } finally {
+            cascadedModels.forEach((model) => model.unmarkForDeletion());
         }
 
         return this as ModelWithUrl<this>;
@@ -1245,6 +1225,80 @@ export default class Model<
         }
     }
 
+    protected async performDelete(models: Model[], deletingUrls: Set<string>): Promise<void> {
+        const deletedModels = [this, ...models];
+        let markedModels: Model[] = [];
+
+        this.assertAuthoritativeDocument();
+
+        try {
+            deletedModels.forEach((model) => markForDeletion(model, deletingUrls));
+
+            const detachedDeletedModels = this.getDetachedDocumentModels().filter(
+                (model) => model.isMarkedForDeletion() && model.exists(),
+            );
+
+            detachedDeletedModels.forEach((model) => markForDeletion(model, deletingUrls));
+
+            const cascade = await cascadeDeletes([...deletedModels, ...detachedDeletedModels], deletingUrls);
+
+            markedModels = cascade.markedModels;
+
+            await deleteModels(cascade.otherDocumentModels, deletingUrls);
+
+            this._deletedWith = models;
+
+            await this.save();
+        } finally {
+            this._deletedWith = [];
+
+            deletedModels.concat(markedModels).forEach((model) => model.unmarkForDeletion());
+        }
+    }
+
+    protected getSavedDocumentModels(): Model[] {
+        return arrayUnique([
+            ...this.getDocumentModels(),
+            ...this.getDetachedDocumentModels(),
+            ...this._deletedWith.flatMap((model) => model.getDocumentModels()),
+        ]);
+    }
+
+    protected getDocumentModelsPendingDeletion(): Model[] {
+        return this.getSavedDocumentModels().filter((model) => model._markedForDeletion && model.exists());
+    }
+
+    protected async saveDocumentModels(containerUrl?: string, options: SaveOptions = {}): Promise<void> {
+        const thisExisted = this.exists();
+        const dirtyDocumentModels = this.getDirtyDocumentModels();
+        const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
+
+        await this.beforeSave({ containerUrl });
+        await this.performSave(options);
+        await this.afterSave();
+
+        for (let index = 0; index < dirtyDocumentModels.length; index++) {
+            const model = required(dirtyDocumentModels[index]);
+            const existed = dirtyDocumentModelsExisted[index];
+
+            if (model._markedForDeletion) {
+                await emitModelEvent(model, 'deleted');
+
+                model._markedForDeletion = false;
+
+                continue;
+            }
+
+            await emitModelEvent(model, existed ? 'updated' : 'created');
+            await emitModelEvent(model, 'saved');
+        }
+
+        if (!dirtyDocumentModels.includes(this)) {
+            await emitModelEvent(this, thisExisted ? 'updated' : 'created');
+            await emitModelEvent(this, 'saved');
+        }
+    }
+
     protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
         this.mintUrl(options);
 
@@ -1257,7 +1311,7 @@ export default class Model<
             documentModel.mintUrl({ documentUrl, documentExists, resourceHash: uuid() });
         }
 
-        for (const documentModel of documentModels.concat(this.getDetachedDocumentModels())) {
+        for (const documentModel of this.getSavedDocumentModels()) {
             if (documentModel._markedForDeletion || !documentModel.isDirty()) {
                 continue;
             }
@@ -1282,10 +1336,18 @@ export default class Model<
             );
 
             await loadDocumentRelations(this, { models: updatedModels, relations: ['operations'] });
-            await engine.updateDocument(documentUrl, [
-                ...getDirtyDocumentsUpdates(updatedModels),
-                ...deletedModels.flatMap((model) => getDeleteModelOperations(model)),
-            ]);
+
+            const document = deletedModels.length > 0 ? await engine.readDocument(documentUrl) : null;
+
+            if (document && updatedModels.length === 0 && deletingModelsEmptiesDocument(deletedModels, document)) {
+                await engine.deleteDocument(documentUrl);
+
+                return;
+            }
+
+            const deleteOperations = document ? getDeleteModelsOperations(deletedModels, document) : [];
+
+            await engine.updateDocument(documentUrl, [...getDirtyDocumentsUpdates(updatedModels), ...deleteOperations]);
         } else if (options.postToContainer) {
             const postDocument = async () => {
                 const documentUrl = this.requireDocumentUrl();
@@ -1353,13 +1415,14 @@ export default class Model<
 
     protected async afterSave(): Promise<void> {
         const documentUrl = this.requireDocumentUrl();
-        const savedModels = this.getDocumentModels().concat(this.getDetachedDocumentModels());
+        const savedModels = this.getSavedDocumentModels();
         const relatedModels = this.getRelatedModels();
+        const deletedCrdtModels = getDeletedModelsCrdtModels(savedModels);
 
         for (const savedModel of savedModels) {
             savedModel.cleanDirty();
 
-            if (savedModel._markedForDeletion) {
+            if (savedModel._markedForDeletion || deletedCrdtModels.has(savedModel)) {
                 savedModel.setExists(false);
 
                 continue;
@@ -1382,33 +1445,6 @@ export default class Model<
                 );
             }
         }
-
-        await refreshComputedAttributes(relatedModels);
-    }
-
-    protected async performDelete(): Promise<void> {
-        if (!this.exists()) {
-            return;
-        }
-
-        const documentUrl = this.requireDocumentUrl();
-        const engine = this.static().requireEngine();
-        const document = await engine.readDocument(documentUrl);
-        const operations = deleteModel(this, document);
-
-        if (operations) {
-            await engine.updateDocument(documentUrl, operations);
-        } else {
-            await engine.deleteDocument(documentUrl);
-
-            this.setDocumentExists(false);
-        }
-
-        this.setExists(false);
-    }
-
-    protected async afterDelete(): Promise<void> {
-        const relatedModels = this.getRelatedModels();
 
         await refreshComputedAttributes(relatedModels);
     }
@@ -1496,7 +1532,7 @@ export default class Model<
         }
     }
 
-    private assertAuthoritativeDocument(action?: string): void {
+    protected assertAuthoritativeDocument(action?: string): void {
         if (this.isInAuthoritativeDocument() !== false) {
             return;
         }

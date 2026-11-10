@@ -145,4 +145,26 @@ describe('HasManyRelation', () => {
         expect(post.exists()).toBe(false);
         expect(engine.documents[post.requireDocumentUrl()]).toBeUndefined();
     });
+
+    it('deletes related models from other documents', async () => {
+        // Arrange
+        let updatedCount = 0;
+        const alice = await User.create({ name: 'Alice' });
+
+        await alice.loadRelationIfUnloaded('posts');
+
+        const post = await alice.relatedPosts.create({ title: 'Hello World' });
+
+        User.on('updated', () => updatedCount++);
+
+        // Act
+        await alice.relatedPosts.delete(post);
+
+        // Assert
+        expect(alice.posts).toHaveLength(0);
+        expect(post.exists()).toBe(false);
+        expect(post.isMarkedForDeletion()).toBe(false);
+        expect(engine.documents[post.requireDocumentUrl()]).toBeUndefined();
+        expect(updatedCount).toBe(1);
+    });
 });

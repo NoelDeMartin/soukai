@@ -88,8 +88,25 @@ export default defineSchema({
 
 The arguments for these helpers are the name of the related model and the foreign key name. Model names are resolved using the [booted models](./models.md#booting-models).
 
-::: warning TODO
-Previous versions of Soukai made it possible to indicate what happens with related models upon deletion, using `.onDelete('cascade')`. This hasn't been implemented yet.
+### Cascading deletes
+
+By default, deleting a model leaves its related models untouched. If you want them to be deleted as well, you can use `.onDelete('cascade')` in the relation definition:
+
+```ts
+export default defineSchema({
+    fields: {
+        name: string(),
+    },
+    relations: {
+        posts: hasMany('Post', 'authorUrl').onDelete('cascade'),
+    },
+});
+```
+
+With this definition, calling `user.delete()` will also delete the user's posts, loading them first if necessary. Cascades are followed through the relations of the deleted models as well, both in the same document and in other documents, and each deleted model emits its own `deleted` event.
+
+::: warning
+Models in other documents are deleted one document at a time, so a failure half-way through can leave some of them already deleted.
 :::
 
 ## Usage

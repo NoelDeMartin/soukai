@@ -3,7 +3,7 @@ import { arrayFilter, arrayUnique, objectWithoutEmpty } from '@noeldemartin/util
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import { requireEngine } from 'soukai-bis/engines/state';
-import { RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import { CRDT_RESOURCE_PREDICATE, CRDT_TOMBSTONE_OBJECT, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
@@ -163,25 +163,52 @@ export function createModelInceptionOperations(instance: ModelWithUrl, createdAt
     ];
 }
 
-export function deleteModel<T extends Model>(
-    model: ModelWithUrl<T>,
-    document: SolidDocument,
-): EngineOperation[] | null {
-    const resourceUrls = arrayFilter([model.url, model.metadata?.url]);
-    const otherQuads = document.getQuads().filter((quad) => !resourceUrls.includes(quad.subject.value));
+function getDeletedResourceUrls(models: ModelWithUrl[], document: SolidDocument): string[] {
+    const modelUrls = models.map((model) => model.url);
+    const quads = document.getQuads();
+    const tombstoneUrls = quads
+        .filter((quad) => quad.predicate.equals(RDF_TYPE_PREDICATE) && quad.object.equals(CRDT_TOMBSTONE_OBJECT))
+        .map((quad) => quad.subject.value);
+    const describingResourceUrls = quads
+        .filter(
+            (quad) =>
+                quad.predicate.equals(CRDT_RESOURCE_PREDICATE) &&
+                modelUrls.includes(quad.object.value) &&
+                !tombstoneUrls.includes(quad.subject.value),
+        )
+        .map((quad) => quad.subject.value);
 
-    if (otherQuads.length === 0 && !model.tracksChanges()) {
-        return null;
-    }
-
-    return getDeleteModelOperations(model);
+    return arrayUnique([
+        ...modelUrls,
+        ...arrayFilter(models.map((model) => model.metadata?.url)),
+        ...describingResourceUrls,
+    ]);
 }
 
-export function getDeleteModelOperations<T extends Model>(model: ModelWithUrl<T>): EngineOperation[] {
-    const resourceUrls = arrayFilter([model.url, model.metadata?.url]);
-    const operations: EngineOperation[] = resourceUrls.map((resourceUrl) => new DeleteResourceOperation(resourceUrl));
+export function getDeletedModelsCrdtModels(models: Model[]): Set<Model> {
+    const deletedModels = models.filter((model) => model.isMarkedForDeletion());
 
-    if (model.leavesTombstones()) {
+    return new Set(deletedModels.flatMap((model) => arrayFilter([model.metadata, ...(model.operations ?? [])])));
+}
+
+export function deletingModelsEmptiesDocument(models: ModelWithUrl[], document: SolidDocument): boolean {
+    const deletedResourceUrls = getDeletedResourceUrls(models, document);
+    const leavesOtherResources = document.getQuads().some((quad) => !deletedResourceUrls.includes(quad.subject.value));
+    const leavesTombstones = models.some((model) => model.leavesTombstones());
+
+    return !leavesOtherResources && !leavesTombstones;
+}
+
+export function getDeleteModelsOperations(models: ModelWithUrl[], document: SolidDocument): EngineOperation[] {
+    const operations: EngineOperation[] = getDeletedResourceUrls(models, document).map(
+        (resourceUrl) => new DeleteResourceOperation(resourceUrl),
+    );
+
+    for (const model of models) {
+        if (!model.leavesTombstones()) {
+            continue;
+        }
+
         const tombstone = model.relatedTombstone.attach({ deletedAt: new Date() });
 
         tombstone.mintUrl();

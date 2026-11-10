@@ -9,6 +9,6 @@ export default defineSchema({
         seasonUrls: z.array(z.url()).rdfProperty('containsSeason').default([]),
     },
     relations: {
-        seasons: belongsToMany('Season', 'seasonUrls').usingSameDocument(),
+        seasons: belongsToMany('Season', 'seasonUrls').usingSameDocument().onDelete('cascade'),
     },
 });

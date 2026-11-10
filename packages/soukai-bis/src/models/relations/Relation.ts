@@ -1,7 +1,9 @@
-import { arrayFrom, required, tap } from '@noeldemartin/utils';
+import { arrayFrom, arrayUnique, required, tap } from '@noeldemartin/utils';
 import type { Constructor, Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { cascadeDeletes, deleteModels, markForDeletion } from 'soukai-bis/models/concerns/deletes';
+import { emitModelEvent } from 'soukai-bis/models/concerns/events';
 import { isUsingSameDocument } from 'soukai-bis/models/concerns/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
@@ -9,6 +11,7 @@ import { buildModelsCache, isModelClass, isModelClassOrSubclass } from 'soukai-b
 
 import { isMultiModelRelation, isSingleModelRelation } from './helpers';
 import { DETACHED_MODELS, MODELS_IN_SAME_DOCUMENT, MODEL_IN_SAME_DOCUMENT, NEW_MODEL, NEW_MODELS } from './internals';
+import type { OnDeleteAction } from './schema';
 import type { GetRelatedModelInput, RelationConstructor } from './types';
 
 export interface AttachOptions {
@@ -20,6 +23,7 @@ export interface RelationOptions {
     localKeyName?: string;
     usingSameDocument?: boolean;
     from?: string;
+    onDelete?: OnDeleteAction | null;
 }
 
 export interface DetachOptions {
@@ -68,6 +72,7 @@ export default abstract class Relation<
     public localKeyName: string;
     public usingSameDocument: boolean = false;
     public relatedContainerUrlProperty: string | null = null;
+    public onDelete: OnDeleteAction | null = null;
     public documentModelsLoaded: boolean = false;
     protected _related: Nullable<Related | Related[]> = undefined;
 
@@ -83,6 +88,7 @@ export default abstract class Relation<
         this.localKeyName = options.localKeyName ?? 'url';
         this.usingSameDocument = options.usingSameDocument ?? false;
         this.relatedContainerUrlProperty = options.from ?? null;
+        this.onDelete = options.onDelete ?? null;
     }
 
     public get related(): Nullable<Related | Related[]> {
@@ -224,6 +230,38 @@ export default abstract class Relation<
         }
 
         this[DETACHED_MODELS] = (this[DETACHED_MODELS] ?? []).concat([model]);
+    }
+
+    protected async deleteDetachedModels(models: Related[]): Promise<void> {
+        const documentUrl = this.parent.getDocumentUrl();
+        const deletingUrls = new Set<string>();
+        const existingModels = models.filter((model) => model.exists());
+        const isInSameDocument = (model: Related) => isUsingSameDocument(documentUrl, this as Relation, model);
+        const sameDocumentModels = existingModels.filter(isInSameDocument);
+
+        sameDocumentModels.forEach((model) => markForDeletion(model, deletingUrls));
+
+        const cascade = await cascadeDeletes(sameDocumentModels, deletingUrls);
+
+        try {
+            await deleteModels(
+                arrayUnique([
+                    ...existingModels.filter((model) => !isInSameDocument(model)),
+                    ...cascade.otherDocumentModels,
+                ]),
+                deletingUrls,
+            );
+
+            if (this.parent.exists() && this.parent.isDirty()) {
+                await this.parent.save();
+
+                return;
+            }
+
+            await emitModelEvent(this.parent, 'updated');
+        } finally {
+            cascade.markedModels.forEach((model) => model.unmarkForDeletion());
+        }
     }
 
     protected forgetDetachedModel(model: Related): void {

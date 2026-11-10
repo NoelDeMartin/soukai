@@ -25,7 +25,7 @@ export default class BelongsToRelation<
     ): void {
         const foreignKey = related.getAttribute(this.localKeyName);
 
-        if (!foreignKey) {
+        if (!foreignKey || this.parent.isMarkedForDeletion()) {
             return;
         }
 

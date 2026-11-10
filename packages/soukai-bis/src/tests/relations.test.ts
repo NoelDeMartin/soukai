@@ -1,9 +1,14 @@
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import { bootModels } from 'soukai-bis/models/registry';
+import { defineSchema } from 'soukai-bis/models/schema';
+import Episode from 'soukai-bis/testing/stubs/Episode';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
+import Season from 'soukai-bis/testing/stubs/Season';
+import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
@@ -349,6 +354,153 @@ describe('Relations', () => {
                     crdt:resource <#action> ;
                     crdt:updatedAt "[[.*]]"^^xsd:dateTime ;
                     crdt:createdAt "[[.*]]"^^xsd:dateTime .
+            }
+        `);
+    });
+
+    it('onDelete cascade', async () => {
+        // Arrange
+        class TombstoneShow extends defineSchema(Show, { tombstone: true }) {}
+        class TombstoneSeason extends defineSchema(Season, { tombstone: true }) {}
+        class TombstoneEpisode extends defineSchema(Episode, { tombstone: true }) {}
+
+        bootModels({ Show: TombstoneShow, Season: TombstoneSeason, Episode: TombstoneEpisode });
+
+        const showDocumentUrl = fakeDocumentUrl();
+        const showUrl = fakeResourceUrl({ documentUrl: showDocumentUrl });
+        const firstSeasonUrl = `${showDocumentUrl}#season-1`;
+        const secondSeasonUrl = `${showDocumentUrl}#season-2`;
+        const episodesContainerUrl = fakeContainerUrl();
+        const episodes = [
+            { documentUrl: fakeDocumentUrl({ containerUrl: episodesContainerUrl }), seasonUrl: firstSeasonUrl },
+            { documentUrl: fakeDocumentUrl({ containerUrl: episodesContainerUrl }), seasonUrl: firstSeasonUrl },
+            { documentUrl: fakeDocumentUrl({ containerUrl: episodesContainerUrl }), seasonUrl: secondSeasonUrl },
+        ];
+        const episodeDocumentUrls = episodes.map((episode) => episode.documentUrl);
+
+        TombstoneEpisode.defaultContainerUrl = episodesContainerUrl;
+
+        FakeServer.respond(
+            showDocumentUrl,
+            `
+                @prefix schema: <https://schema.org/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <${showUrl}>
+                    a schema:TVSeries ;
+                    schema:name "Breaking Bad" ;
+                    schema:containsSeason <${firstSeasonUrl}>, <${secondSeasonUrl}> .
+
+                <${showUrl}-metadata>
+                    a crdt:Metadata ;
+                    crdt:resource <${showUrl}> ;
+                    crdt:createdAt "2024-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                    crdt:updatedAt "2024-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                <${firstSeasonUrl}> a schema:TVSeason .
+                <${secondSeasonUrl}> a schema:TVSeason .
+            `,
+        );
+
+        FakeServer.respond(
+            episodesContainerUrl,
+            `
+                @prefix ldp: <http://www.w3.org/ns/ldp#> .
+
+                <>
+                    a ldp:Container ;
+                    ldp:contains ${episodeDocumentUrls.map((url) => `<${url}>`).join(', ')} .
+            `,
+        );
+
+        episodes.forEach(({ documentUrl, seasonUrl }, index) =>
+            FakeServer.respond(
+                documentUrl,
+                `
+                    @prefix schema: <https://schema.org/> .
+
+                    <#it>
+                        a schema:TVEpisode ;
+                        schema:name "Episode ${index + 1}" ;
+                        schema:seasonUrl <${seasonUrl}> .
+                `,
+            ),
+        );
+
+        const show = await TombstoneShow.findOrFail(showUrl);
+
+        // Act
+        await show.delete();
+
+        // Assert
+        const writes = FakeServer.getRequests().filter((request) => request.method !== 'GET');
+
+        expect(show.exists()).toBe(false);
+        expect(writes.map((request) => request.method)).toEqual(['PATCH', 'PATCH', 'PATCH', 'PATCH']);
+        expect(writes.slice(0, 3).map((request) => request.url)).toEqual(expect.arrayContaining(episodeDocumentUrls));
+        expect(writes[3]?.url).toEqual(showDocumentUrl);
+
+        episodes.forEach(({ documentUrl, seasonUrl }, index) => {
+            expect(writes.find((request) => request.url === documentUrl)?.body).toEqualSparql(`
+                DELETE DATA {
+                    @prefix schema: <https://schema.org/> .
+
+                    <#it>
+                        a schema:TVEpisode ;
+                        schema:name "Episode ${index + 1}" ;
+                        schema:seasonUrl <${seasonUrl}> .
+                } ;
+                INSERT DATA {
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#it-tombstone>
+                        a crdt:Tombstone ;
+                        crdt:resource <#it> ;
+                        crdt:deletedAt "[[.*]]"^^xsd:dateTime .
+                }
+            `);
+        });
+
+        expect(writes[3]?.body).toEqualSparql(`
+            DELETE DATA {
+                @prefix schema: <https://schema.org/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it>
+                    a schema:TVSeries ;
+                    schema:name "Breaking Bad" ;
+                    schema:containsSeason <#season-1>, <#season-2> .
+
+                <#it-metadata>
+                    a crdt:Metadata ;
+                    crdt:resource <#it> ;
+                    crdt:createdAt "2024-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                    crdt:updatedAt "2024-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                <#season-1> a schema:TVSeason .
+                <#season-2> a schema:TVSeason .
+            } ;
+            INSERT DATA {
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it-tombstone>
+                    a crdt:Tombstone ;
+                    crdt:resource <#it> ;
+                    crdt:deletedAt "[[.*]]"^^xsd:dateTime .
+
+                <#season-1-tombstone>
+                    a crdt:Tombstone ;
+                    crdt:resource <#season-1> ;
+                    crdt:deletedAt "[[.*]]"^^xsd:dateTime .
+
+                <#season-2-tombstone>
+                    a crdt:Tombstone ;
+                    crdt:resource <#season-2> ;
+                    crdt:deletedAt "[[.*]]"^^xsd:dateTime .
             }
         `);
     });

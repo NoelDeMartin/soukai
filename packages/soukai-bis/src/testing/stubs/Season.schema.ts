@@ -5,6 +5,6 @@ export default defineSchema({
     rdfClass: 'TVSeason',
     relations: {
         show: hasOne('Show', 'seasonUrls'),
-        episodes: hasMany('Episode', 'seasonUrl'),
+        episodes: hasMany('Episode', 'seasonUrl').onDelete('cascade'),
     },
 });

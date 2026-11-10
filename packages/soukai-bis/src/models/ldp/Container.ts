@@ -46,4 +46,22 @@ export default class Container extends Model {
     protected newUrl(options: MintUrlOptions = {}): string {
         return urlResolveDirectory(this.newUrlDocumentUrl(options));
     }
+
+    protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
+        if (this.isMarkedForDeletion() && this.exists()) {
+            await this.assertEmpty();
+        }
+
+        await super.beforeSave(options);
+    }
+
+    private async assertEmpty(): Promise<void> {
+        const container = await Container.find(this.requireDocumentUrl());
+
+        if (container && container.resourceUrls.length > 0) {
+            throw new SoukaiError(
+                `Can't delete container ${this.url} because it isn't empty, delete its documents first.`,
+            );
+        }
+    }
 }
