@@ -131,25 +131,6 @@ await user.save();
 
 You can check whether a model has been marked for deletion with `isMarkedForDeletion`, and undo it with `unmarkForDeletion`.
 
-## Using different engines
-
-If you need to use a different engine temporarily, you can use the `runWithEngine` helper. However, keep in mind that this relies on async context tracking, so you'll need to configure an `AsyncContextManager` with `setAsyncContextManager` first (for example, using Node's `AsyncLocalStorage`):
-
-```ts
-import { AsyncLocalStorage } from 'node:async_hooks';
-
-import type { Engine } from 'soukai-bis';
-
-const storage = new AsyncLocalStorage<Engine>();
-
-setAsyncContextManager({
-    runWithValue: (engine, operation) => storage.run(engine, operation),
-    getValue: () => storage.getStore(),
-});
-
-await runWithEngine(new InMemoryEngine(), () => User.create({ name: 'John Doe' }));
-```
-
 ## Remote engine
 
 Some models can only be used against a Solid POD, such as `TypeIndex`, `TypeRegistration`, or the models used to manage [permissions](../advanced/authorization.md). These are _remote_ models, and they always use a remote engine rather than the default one. The same applies to any other operation that needs to reach the POD, like reading or updating permissions.

@@ -50,6 +50,7 @@ export default defineConfig({
                         { text: 'Authorization', link: 'authorization' },
                         { text: 'Observability', link: 'observability' },
                         { text: 'Computed attributes', link: 'computed-attributes' },
+                        { text: 'Bag of Tricks', link: 'bag-of-tricks' },
                     ],
                 },
                 {
