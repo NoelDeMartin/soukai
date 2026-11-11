@@ -8,7 +8,7 @@ import Container from 'soukai-bis/models/ldp/Container';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
-describe('WAC', () => {
+describe('Permissions', () => {
     let movie: Movie;
 
     const containerUrl = 'https://alice.example/movies/';
@@ -446,15 +446,32 @@ describe('WAC', () => {
         await expect(promisedUpdate).rejects.toBeInstanceOf(UnsupportedAuthorizationProtocol);
     });
 
-    it('fails without a Solid engine', async () => {
+    it('updates permissions of models using non-Solid engines', async () => {
         // Arrange
         setEngine(new InMemoryEngine());
+        respondWithDocumentACL(`
+            <#owner>
+                a acl:Authorization;
+                acl:agent <https://alice.example/profile/card#me>;
+                acl:accessTo <./spirited-away>;
+                acl:mode acl:Read, acl:Write, acl:Control.
+        `);
 
         // Act
-        const promisedUpdate = movie.updatePublicPermissions([SolidDocumentPermissions.Read]);
+        await movie.updatePublicPermissions([SolidDocumentPermissions.Read]);
 
         // Assert
-        await expect(promisedUpdate).rejects.toThrow(SoukaiError);
-        expect(FakeServer.getRequests()).toHaveLength(0);
+        expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(1);
+        expect(FakeServer.getRequest('PATCH', aclUrl)?.body).toEqualSparql(`
+            INSERT DATA {
+                ${prefixes}
+
+                <#public>
+                    a acl:Authorization;
+                    acl:agentClass foaf:Agent;
+                    acl:accessTo <${documentUrl}>;
+                    acl:mode acl:Read.
+            }
+        `);
     });
 });

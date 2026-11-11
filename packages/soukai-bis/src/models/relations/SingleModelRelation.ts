@@ -1,6 +1,6 @@
 import { type Nullable, tap, uuid } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { canonicalModel } from 'soukai-bis/models/internals';
+import { canonicalModel } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 

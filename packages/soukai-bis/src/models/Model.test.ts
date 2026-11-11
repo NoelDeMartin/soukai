@@ -3,7 +3,7 @@ import { FakeResponse, FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noe
 import { escapeRegexText, fail, objectDeepClone, required, urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { setEngine } from 'soukai-bis/engines/state';
+import { setEngine, setRemoteEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
@@ -1446,25 +1446,25 @@ describe('Model', () => {
         () => new User({ name: 'John Doe', foo: 'bar' });
     });
 
-    it('uses class engines', async () => {
-        const engine1 = new InMemoryEngine();
-        const engine2 = new InMemoryEngine();
+    it('uses the remote engine for remote models', () => {
+        // Arrange
+        const localEngine = new InMemoryEngine();
+        const remoteEngine = new SolidEngine({ fetch: FakeServer.fetch });
 
-        User.setEngine(engine1);
-        Post.setEngine(engine2);
+        class RemoteUser extends User {
+            public static override remote = true;
+        }
 
-        const user = await User.create({ name: 'John Doe' });
-        const post = await Post.create({ title: 'Hello World' });
+        setEngine(localEngine);
+        setRemoteEngine(remoteEngine);
 
-        expect(user.exists()).toBe(true);
-        expect(post.exists()).toBe(true);
-        expect(engine1.documents[user.requireDocumentUrl()]).not.toBeUndefined();
-        expect(engine1.documents[post.requireDocumentUrl()]).toBeUndefined();
-        expect(engine2.documents[user.requireDocumentUrl()]).toBeUndefined();
-        expect(engine2.documents[post.requireDocumentUrl()]).not.toBeUndefined();
+        // Act
+        const userEngine = User.requireEngine();
+        const remoteUserEngine = RemoteUser.requireEngine();
 
-        User.setEngine(undefined);
-        Post.setEngine(undefined);
+        // Assert
+        expect(userEngine).toBe(localEngine);
+        expect(remoteUserEngine).toBe(remoteEngine);
     });
 
     it('ignores undefined fields on constructor', async () => {

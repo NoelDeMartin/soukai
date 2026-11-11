@@ -1,9 +1,8 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Container from 'soukai-bis/models/ldp/Container';
 import ManagerGrant from 'soukai-bis/testing/stubs/ManagerGrant';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it } from 'vite-plus/test';
 
 import type ACPAccessControlResource from './ACPAccessControlResource';
 import ACPMatcher from './ACPMatcher';
@@ -21,8 +20,6 @@ describe('ACPAccessControlResource', () => {
         @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
     `;
     const acrType = { Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"' };
-
-    class RemoteContainer extends Container {}
 
     function respondWithACR(turtle: string | null): void {
         FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acr>; rel="acl"' }));
@@ -44,7 +41,7 @@ describe('ACPAccessControlResource', () => {
     }
 
     async function fetchAccessControlResource(): Promise<ACPAccessControlResource> {
-        const container = new RemoteContainer({ url: containerUrl }, { exists: true });
+        const container = new Container({ url: containerUrl }, { exists: true });
 
         await container.fetchPermissions({ accessControlClass: ManagerGrant });
 
@@ -69,8 +66,6 @@ describe('ACPAccessControlResource', () => {
 
         return grant;
     }
-
-    beforeEach(() => RemoteContainer.setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
 
     it('creates ACRs with new access controls', async () => {
         // Arrange
@@ -179,7 +174,7 @@ describe('ACPAccessControlResource', () => {
         // Arrange
         respondWithACR('<#other> acp:resource <https://alice.example/other/> .');
 
-        const container = new RemoteContainer({ url: containerUrl }, { exists: true });
+        const container = new Container({ url: containerUrl }, { exists: true });
 
         await container.fetchPermissions();
 

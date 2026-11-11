@@ -1,4 +1,3 @@
-import { requireSolidEngine } from 'soukai-bis/engines/utils';
 import type ACPAccessControl from 'soukai-bis/models/acp/ACPAccessControl';
 import type ACPAccessControlResource from 'soukai-bis/models/acp/ACPAccessControlResource';
 import type { ParsedACR } from 'soukai-bis/models/acp/internals';
@@ -42,18 +41,6 @@ async function loadAccessControlsAs(
     }
 }
 
-function getAccessControlResourceClass(model: Model): typeof ACPAccessControlResource {
-    const engine = requireSolidEngine(
-        model.static().requireEngine(),
-        `manage permissions for ${model.static('modelName')} models`,
-    );
-    const AccessControlResource = class extends requireBootedModel('ACPAccessControlResource') {};
-
-    AccessControlResource.setEngine(engine);
-
-    return AccessControlResource;
-}
-
 export interface ACPPermissionsOptions {
     accessControlClass?: ModelConstructor<ACPAccessControl>;
 }
@@ -63,7 +50,7 @@ export async function readACPAccessControlResources(
     acr: ParsedACR,
     options: ACPPermissionsOptions = {},
 ): Promise<ModelWithUrl<ACPAccessControlResource>[]> {
-    const AccessControlResource = getAccessControlResourceClass(model);
+    const AccessControlResource = requireBootedModel('ACPAccessControlResource');
     const accessControlResources = await AccessControlResource.createManyFromRDF(acr.modelQuads);
 
     if (options.accessControlClass) {
@@ -77,7 +64,7 @@ export function newACPAccessControlResource(
     model: Model,
     acr: { url: string; exists: boolean },
 ): ModelWithUrl<ACPAccessControlResource> {
-    const AccessControlResource = getAccessControlResourceClass(model);
+    const AccessControlResource = requireBootedModel('ACPAccessControlResource');
     const accessControlResource = new AccessControlResource({ resourceUrls: [model.requireDocumentUrl()] });
 
     accessControlResource.mintUrl({ documentUrl: acr.url, documentExists: acr.exists, resourceHash: 'it' });

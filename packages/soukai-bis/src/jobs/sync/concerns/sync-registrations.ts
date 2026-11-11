@@ -1,19 +1,11 @@
 import { SolidDocumentPermissions } from '@noeldemartin/solid-utils';
 import { arrayGroupBy, arrayUnique, urlRoute } from '@noeldemartin/utils';
-import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
+import { updatePublicPermissions } from 'soukai-bis/models/internals/permissions';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import type { TypeIndexRegistration } from 'soukai-bis/models/interop/TypeIndex';
 import Container from 'soukai-bis/models/ldp/Container';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
-
-async function makeDocumentPublic(url: string, engine: SolidEngine): Promise<void> {
-    const RemoteContainer = class extends Container {};
-
-    RemoteContainer.setEngine(engine);
-
-    await new RemoteContainer({ url }, { exists: true }).updatePublicPermissions([SolidDocumentPermissions.Read]);
-}
 
 function getUnregisteredModels(
     container: ModelWithUrl<Container>,
@@ -117,7 +109,6 @@ export async function syncContainerRegistration(options: {
     models: Set<ModelConstructor>;
     registeredContainers: Map<string, Set<ModelConstructor>>;
     modelRegistrations: Map<ModelConstructor, ModelRegistration>;
-    remoteEngine: SolidEngine;
     getTypeIndex: (visibility: TypeIndexRegistration) => Promise<TypeIndex>;
     onModelsRegistered: (event: ModelsRegisteredEvent) => unknown;
     onModelsRegistrationFailed: (event: ModelsRegistrationFailedEvent) => unknown;
@@ -147,7 +138,7 @@ export async function syncContainerRegistration(options: {
 
             for (const [container, containerModels] of unregisteredContainers) {
                 if (visibility === 'public') {
-                    await makeDocumentPublic(container.url, options.remoteEngine);
+                    await updatePublicPermissions(container.url, [SolidDocumentPermissions.Read]);
                 }
 
                 for (const model of containerModels) {
@@ -179,7 +170,6 @@ export async function syncInstanceRegistration(options: {
     instances: Map<ModelConstructor, string[]>;
     registeredInstances: Map<string, Set<ModelConstructor>>;
     modelRegistrations: Map<ModelConstructor, ModelRegistration>;
-    remoteEngine: SolidEngine;
     getTypeIndex: (visibility: TypeIndexRegistration) => Promise<TypeIndex>;
     onModelsRegistered: (event: ModelsRegisteredEvent) => unknown;
     onModelsRegistrationFailed: (event: ModelsRegistrationFailedEvent) => unknown;
@@ -217,7 +207,7 @@ export async function syncInstanceRegistration(options: {
                 const [model, instanceUrl] = instance;
 
                 if (visibility === 'public') {
-                    await makeDocumentPublic(urlRoute(instanceUrl), options.remoteEngine);
+                    await updatePublicPermissions(urlRoute(instanceUrl), [SolidDocumentPermissions.Read]);
                 }
 
                 await typeIndex.registerInstance(instanceUrl, model);

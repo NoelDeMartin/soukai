@@ -1,5 +1,5 @@
 import { SolidDocumentPermissions, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
-import type { Fetch, JsonLD, SolidDocument, SolidDocumentPermission } from '@noeldemartin/solid-utils';
+import type { JsonLD, SolidDocument, SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import {
     MagicObject,
     applyStrictChecks,
@@ -7,10 +7,8 @@ import {
     arrayUnique,
     deepEquals,
     fail,
-    isDevelopment,
     isInstanceOf,
     isString,
-    isTesting,
     isTruthy,
     objectDeepClone,
     objectFromEntries,
@@ -26,8 +24,7 @@ import {
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type Engine from 'soukai-bis/engines/Engine';
-import { getEngine, requireEngine } from 'soukai-bis/engines/state';
-import { isSolidEngine } from 'soukai-bis/engines/utils';
+import { getEngine, getRemoteEngine, requireEngine, requireRemoteEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
@@ -41,7 +38,7 @@ import type ACPAccessControlResource from './acp/ACPAccessControlResource';
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
 import { newACPAccessControlResource } from './concerns/acp';
-import { fetchPermissions, trackAuthorizationProtocol } from './concerns/authorization';
+import { fetchPermissions } from './concerns/authorization';
 import type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from './concerns/authorization';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import {
@@ -60,15 +57,15 @@ import {
     initializeEmptyDocumentRelations,
     isUsingSameDocument,
     loadDocumentRelations,
-    serializeToRDF,
 } from './concerns/rdf';
 import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
-import { updatePublicPermissions } from './concerns/wac';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
-import { CLASS_MARKER, getDocumentQuads, mintedUrls, quadsSourceDocumentUrls } from './internals';
+import { CLASS_MARKER, mintedUrls } from './internals/model';
+import { updatePublicPermissions } from './internals/permissions';
+import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
 import type TypeIndex from './interop/TypeIndex';
 import type HasManyRelation from './relations/HasManyRelation';
@@ -126,7 +123,7 @@ export default class Model<
 > extends MagicObject {
     public static [CLASS_MARKER] = 'Model';
     public static schema: Schema;
-    private static engine: Engine | null = null;
+    public static remote: boolean = false;
     private static _hydrating: boolean = false;
 
     public static computed: ModelComputedAttributeDefinitions;
@@ -174,15 +171,11 @@ export default class Model<
     }
 
     public static getEngine(): Engine | undefined {
-        return this.engine ?? getEngine();
+        return this.remote ? getRemoteEngine() : getEngine();
     }
 
     public static requireEngine(): Engine {
-        return this.engine ?? requireEngine();
-    }
-
-    public static setEngine(engine?: Engine): void {
-        this.engine = engine ?? null;
+        return this.remote ? requireRemoteEngine() : requireEngine();
     }
 
     public static getRdfClasses(): string[] {
@@ -202,23 +195,6 @@ export default class Model<
 
     public static slugFromUrl(url: string): string | null {
         return urlRoute(url).split('/').filter(isTruthy).pop() ?? null;
-    }
-
-    public static requireFetch(): Fetch {
-        const engine = this.requireEngine();
-
-        if (!isSolidEngine(engine)) {
-            const message = `Tried to get fetch from model using a non-Solid engine (${this.modelName})`;
-
-            if (isDevelopment() || isTesting()) {
-                throw new SoukaiError(message);
-            }
-
-            // oxlint-disable-next-line no-console
-            console.warn(message);
-        }
-
-        return (isSolidEngine(engine) ? engine.getFetch() : null) ?? globalThis.fetch.bind(globalThis);
     }
 
     public static async find<T extends Model>(
@@ -1072,9 +1048,7 @@ export default class Model<
     public async updatePublicPermissions(permissions: SolidDocumentPermission[]): Promise<void> {
         this.assertAuthoritativeDocument();
 
-        await trackAuthorizationProtocol(this.requireDocumentUrl(), 'wac', () =>
-            updatePublicPermissions(this, permissions),
-        );
+        await updatePublicPermissions(this.requireDocumentUrl(), permissions);
 
         this._permissions = { protocol: 'wac', publicPermissions: permissions };
     }

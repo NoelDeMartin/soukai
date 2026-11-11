@@ -2,8 +2,16 @@ import 'soukai-bis/patch-zod';
 import 'fake-indexeddb/auto';
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 import { FakeServer } from '@noeldemartin/testing';
-import { ComputedAttribute, InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
-import { forgetAuthorizationProtocols } from 'soukai-bis/models/concerns/authorization';
+import {
+    ComputedAttribute,
+    InMemoryEngine,
+    SolidEngine,
+    bootCoreModels,
+    bootModels,
+    setEngine,
+    setRemoteEngine,
+} from 'soukai-bis';
+import { forgetAuthorizationProtocols } from 'soukai-bis/models/internals/permissions';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Episode from 'soukai-bis/testing/stubs/Episode';
 import InverseEpisode from 'soukai-bis/testing/stubs/InverseEpisode';
@@ -28,7 +36,13 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { afterEach, beforeEach, vi } from 'vite-plus/test';
 
 beforeEach(() => {
+    FakeServer.reset();
+    forgetAuthorizationProtocols();
+    vi.resetAllMocks();
+    ComputedAttribute.disableLoadingRelations();
+
     setEngine(new InMemoryEngine());
+    setRemoteEngine(new SolidEngine({ fetch: FakeServer.fetch }));
     bootCoreModels({ reset: true });
     bootModels(
         {
@@ -56,11 +70,6 @@ beforeEach(() => {
         },
         { reset: true },
     );
-
-    FakeServer.reset();
-    forgetAuthorizationProtocols();
-    vi.resetAllMocks();
-    ComputedAttribute.disableLoadingRelations();
 });
 
 afterEach(() => {

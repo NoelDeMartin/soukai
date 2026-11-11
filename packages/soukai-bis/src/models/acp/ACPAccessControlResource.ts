@@ -23,6 +23,8 @@ function containsBlankNodeIRIs(value: unknown): boolean {
 }
 
 export default class ACPAccessControlResource extends Model {
+    public static remote = true;
+
     public removeAccessControl(accessControl: ACPAccessControl): void {
         if (!isNamed(accessControl)) {
             throw new SoukaiError(`Can't remove access control ${accessControl.url}, it's a blank node`);

@@ -11,6 +11,8 @@ const PERMISSION_MODES: Record<SolidDocumentPermission, string> = {
 };
 
 export default class ACLAuthorization extends Model {
+    public static remote = true;
+
     public static modeFromPermission(permission: SolidDocumentPermission): string {
         return PERMISSION_MODES[permission];
     }

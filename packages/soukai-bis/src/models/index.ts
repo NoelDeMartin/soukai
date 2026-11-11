@@ -9,6 +9,7 @@ export * from './interop';
 export * from './ldp';
 export * from './Model';
 export * from './registry';
+export * from './remote';
 export * from './relations';
 export * from './schema';
 export * from './serialization';

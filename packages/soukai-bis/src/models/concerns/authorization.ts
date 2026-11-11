@@ -3,16 +3,16 @@ import {
     SolidDocument,
     Unauthorized,
     UnsuccessfulNetworkRequest,
-    UnsupportedAuthorizationProtocol,
     fetchSolidDocumentIfFound,
     getLinkHeaderUrl,
 } from '@noeldemartin/solid-utils';
 import type { Fetch, SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import { requireUrlParentDirectory } from '@noeldemartin/utils';
-import { requireSolidEngine } from 'soukai-bis/engines';
+import { requireRemoteEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type ACPAccessControlResource from 'soukai-bis/models/acp/ACPAccessControlResource';
 import { parseACR } from 'soukai-bis/models/acp/internals';
+import { getAuthorizationProtocol, rememberAuthorizationProtocol } from 'soukai-bis/models/internals/permissions';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 
@@ -22,14 +22,6 @@ import type { ACPPermissionsOptions } from './acp';
 interface AuthorizationDocument {
     url: string;
     document: SolidDocument | null;
-}
-
-const authorizationProtocols = new Map<string, AuthorizationProtocol>();
-
-function requireModelFetch(model: Model): Fetch {
-    requireSolidEngine(model.static().requireEngine(), `manage permissions for ${model.static('modelName')} models`);
-
-    return model.static().requireFetch();
 }
 
 function getOrigin(url: string): string {
@@ -125,45 +117,15 @@ export type ModelPermissions =
           publicPermissions: SolidDocumentPermission[];
       };
 
-export function rememberAuthorizationProtocol(url: string, protocol: AuthorizationProtocol): void {
-    authorizationProtocols.set(getOrigin(url), protocol);
-}
-
-export function forgetAuthorizationProtocols(): void {
-    authorizationProtocols.clear();
-}
-
-export async function trackAuthorizationProtocol<T>(
-    url: string,
-    protocol: AuthorizationProtocol,
-    operation: () => Promise<T>,
-): Promise<T> {
-    try {
-        const result = await operation();
-
-        rememberAuthorizationProtocol(url, protocol);
-
-        return result;
-    } catch (error) {
-        const detectedProtocol = error instanceof UnsupportedAuthorizationProtocol && error.protocol.toLowerCase();
-
-        if (detectedProtocol === 'wac' || detectedProtocol === 'acp') {
-            rememberAuthorizationProtocol(url, detectedProtocol);
-        }
-
-        throw error;
-    }
-}
-
 export async function fetchPermissions(model: Model, options: FetchPermissionsOptions = {}): Promise<ModelPermissions> {
-    const fetch = requireModelFetch(model);
+    const fetch = requireRemoteEngine().requireFetch();
     const documentUrl = model.requireDocumentUrl();
     const documentHead = await fetchResourceHead(documentUrl, fetch);
     const publicPermissions = documentHead.headers.has('WAC-Allow')
         ? new SolidDocument(documentUrl, [], documentHead.headers).getPublicPermissions()
         : null;
 
-    if (authorizationProtocols.get(getOrigin(documentUrl)) === 'wac' && publicPermissions) {
+    if (getAuthorizationProtocol(documentUrl) === 'wac' && publicPermissions) {
         return { protocol: 'wac', publicPermissions };
     }
 

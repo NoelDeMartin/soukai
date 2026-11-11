@@ -3,7 +3,7 @@ import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { arrayFilter, arraySorted, requireUrlDirectoryName, urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import { setEngine } from 'soukai-bis/engines/state';
 import type { ExternalSource } from 'soukai-bis/jobs/utils';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
@@ -23,9 +23,8 @@ import type { SyncConfig } from './Sync';
 
 describe('Sync', () => {
     let localEngine: InMemoryEngine;
-    let remoteEngine: SolidEngine;
     let typeIndex: TypeIndex;
-    let config: Pick<SyncConfig, 'userProfile' | 'localEngine' | 'remoteEngine' | 'privateTypeIndexes'>;
+    let config: Pick<SyncConfig, 'userProfile' | 'privateTypeIndexes'>;
 
     const fixture = <T = string>(name: string, replacements: Record<string, string> = {}) =>
         loadFixture<T>(new URL(`./Sync.test.ts-fixtures/${name}`, import.meta.url), replacements);
@@ -52,17 +51,13 @@ describe('Sync', () => {
 
     beforeEach(() => {
         localEngine = new InMemoryEngine();
-        remoteEngine = new SolidEngine({ fetch: FakeServer.fetch });
         typeIndex = new TypeIndex();
         config = {
             userProfile,
-            localEngine,
-            remoteEngine,
             privateTypeIndexes: [typeIndex],
         };
 
-        TypeIndex.setEngine(remoteEngine);
-        TypeRegistration.setEngine(remoteEngine);
+        setEngine(localEngine);
     });
 
     it('uses type indexes', async () => {
@@ -431,9 +426,6 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        Movie.setEngine(localEngine);
-        WatchAction.setEngine(localEngine);
-
         await localEngine.createDocument(
             documentUrl,
             await quadsToJsonLD([
@@ -479,9 +471,6 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
-
-        Movie.setEngine(localEngine);
-        WatchAction.setEngine(localEngine);
 
         await localEngine.createDocument(
             documentUrl,

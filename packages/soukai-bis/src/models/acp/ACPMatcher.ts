@@ -1,3 +1,5 @@
 import Model from './ACPMatcher.schema';
 
-export default class ACPMatcher extends Model {}
+export default class ACPMatcher extends Model {
+    public static remote = true;
+}

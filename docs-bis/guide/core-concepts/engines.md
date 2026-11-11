@@ -131,15 +131,9 @@ await user.save();
 
 You can check whether a model has been marked for deletion with `isMarkedForDeletion`, and undo it with `unmarkForDeletion`.
 
-## Model engines
+## Using different engines
 
-In addition to the default engine, you can also configure the engine for specific models using the static `setEngine` method:
-
-```ts
-User.setEngine(new IndexedDBEngine());
-```
-
-If you need to use a different engine temporarily, you can also use the `runWithEngine` helper. However, keep in mind that this relies on async context tracking, so you'll need to configure an `AsyncContextManager` with `setAsyncContextManager` first (for example, using Node's `AsyncLocalStorage`):
+If you need to use a different engine temporarily, you can use the `runWithEngine` helper. However, keep in mind that this relies on async context tracking, so you'll need to configure an `AsyncContextManager` with `setAsyncContextManager` first (for example, using Node's `AsyncLocalStorage`):
 
 ```ts
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -155,3 +149,26 @@ setAsyncContextManager({
 
 await runWithEngine(new InMemoryEngine(), () => User.create({ name: 'John Doe' }));
 ```
+
+## Remote engine
+
+Some models can only be used against a Solid POD, such as `TypeIndex`, `TypeRegistration`, or the models used to manage [permissions](../advanced/authorization.md). These are _remote_ models, and they always use a remote engine rather than the default one. The same applies to any other operation that needs to reach the POD, like reading or updating permissions.
+
+If your default engine is a `SolidEngine`, it'll be used as the remote engine as well and you don't have to worry about it. However, if your default engine doesn't work against a Solid POD, you'll need to configure the remote engine with `setRemoteEngine`:
+
+```ts
+setEngine(new IndexedDBEngine());
+setRemoteEngine(new SolidEngine({ fetch }));
+```
+
+If you need to work with models that shouldn't be stored locally, you can also declare them as remote with `static remote = true`, or get a remote version of an existing model with the `remote` helper:
+
+```ts
+const RemoteContainer = remote(Container);
+
+await RemoteContainer.create({ url: 'https://alice.example.org/tasks/', name: 'Tasks' });
+```
+
+This will create a subclass of the model booted as `RemoteContainer`, and calling it again with the same model will return the same class.
+
+You can learn more about this in the [local-first](../advanced/local-first.md) section.

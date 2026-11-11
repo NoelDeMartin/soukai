@@ -1,32 +1,21 @@
-import { expandIRI, fetchSolidDocumentACL } from '@noeldemartin/solid-utils';
+import { UnsupportedAuthorizationProtocol, expandIRI, fetchSolidDocumentACL } from '@noeldemartin/solid-utils';
 import type { SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import { arrayUnique, urlParse, uuid } from '@noeldemartin/utils';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { requireSolidEngine } from 'soukai-bis/engines/utils';
+import { requireRemoteEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type ACLAuthorization from 'soukai-bis/models/acl/ACLAuthorization';
-import type Model from 'soukai-bis/models/Model';
+import type { AuthorizationProtocol } from 'soukai-bis/models/concerns/authorization';
+import { serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 
-import { serializeToRDF } from './rdf';
-
+const authorizationProtocols = new Map<string, AuthorizationProtocol>();
 const PUBLIC_AGENT_CLASS = expandIRI('foaf:Agent');
 const CONTROL_MODE = expandIRI('acl:Control');
 
-function requireModelSolidEngine(model: Model): SolidEngine {
-    return requireSolidEngine(
-        model.static().requireEngine(),
-        `manage permissions for ${model.static('modelName')} models`,
-    );
-}
-
-function getAuthorizationClass(engine: SolidEngine): typeof ACLAuthorization {
-    const AuthorizationClass = class extends requireBootedModel('ACLAuthorization') {};
-
-    AuthorizationClass.setEngine(engine);
-
-    return AuthorizationClass;
+function getOrigin(url: string): string {
+    return new URL(url).origin;
 }
 
 function sameModes(modes: string[], otherModes: string[]): boolean {
@@ -211,11 +200,10 @@ async function createDocumentACL(
     await engine.createDocument(acl.url, serializeToRDF(authorizations));
 }
 
-export async function updatePublicPermissions(model: Model, permissions: SolidDocumentPermission[]): Promise<void> {
-    const engine = requireModelSolidEngine(model);
-    const documentUrl = model.requireDocumentUrl();
-    const acl = await fetchSolidDocumentACL(documentUrl, { fetch: model.static().requireFetch() });
-    const AuthorizationClass = getAuthorizationClass(engine);
+async function updateWACPublicPermissions(documentUrl: string, permissions: SolidDocumentPermission[]): Promise<void> {
+    const AuthorizationClass = requireBootedModel('ACLAuthorization');
+    const engine = requireRemoteEngine();
+    const acl = await fetchSolidDocumentACL(documentUrl, { fetch: engine.requireFetch() });
     const authorizations = await AuthorizationClass.createManyFromRDF(acl.document.getQuads());
     const modes = arrayUnique(permissions.map((permission) => AuthorizationClass.modeFromPermission(permission)));
 
@@ -226,4 +214,45 @@ export async function updatePublicPermissions(model: Model, permissions: SolidDo
     }
 
     await createDocumentACL(engine, AuthorizationClass, authorizations, { url: acl.url, documentUrl }, modes);
+}
+
+export function getAuthorizationProtocol(url: string): AuthorizationProtocol | undefined {
+    return authorizationProtocols.get(getOrigin(url));
+}
+
+export function rememberAuthorizationProtocol(url: string, protocol: AuthorizationProtocol): void {
+    authorizationProtocols.set(getOrigin(url), protocol);
+}
+
+export function forgetAuthorizationProtocols(): void {
+    authorizationProtocols.clear();
+}
+
+export async function trackAuthorizationProtocol<T>(
+    url: string,
+    protocol: AuthorizationProtocol,
+    operation: () => Promise<T>,
+): Promise<T> {
+    try {
+        const result = await operation();
+
+        rememberAuthorizationProtocol(url, protocol);
+
+        return result;
+    } catch (error) {
+        const detectedProtocol = error instanceof UnsupportedAuthorizationProtocol && error.protocol.toLowerCase();
+
+        if (detectedProtocol === 'wac' || detectedProtocol === 'acp') {
+            rememberAuthorizationProtocol(url, detectedProtocol);
+        }
+
+        throw error;
+    }
+}
+
+export async function updatePublicPermissions(
+    documentUrl: string,
+    permissions: SolidDocumentPermission[],
+): Promise<void> {
+    await trackAuthorizationProtocol(documentUrl, 'wac', () => updateWACPublicPermissions(documentUrl, permissions));
 }

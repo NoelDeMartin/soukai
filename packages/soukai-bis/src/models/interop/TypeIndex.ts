@@ -7,8 +7,7 @@ import {
 } from '@noeldemartin/solid-utils';
 import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { arrayFilter, arrayUnique, isInstanceOf, urlRoute } from '@noeldemartin/utils';
-import type SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { requireSolidEngine } from 'soukai-bis/engines/utils';
+import { requireRemoteEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Container from 'soukai-bis/models/ldp/Container';
 import type BaseModel from 'soukai-bis/models/Model';
@@ -21,9 +20,7 @@ import TypeRegistration from './TypeRegistration';
 export type TypeIndexRegistration = 'public' | 'private';
 
 export default class TypeIndex extends Model {
-    public static requireEngine(): SolidEngine {
-        return requireSolidEngine(super.requireEngine(), `use ${this.modelName} models`);
-    }
+    public static remote = true;
 
     declare protected _registration: TypeIndexRegistration | null;
 
@@ -148,7 +145,7 @@ export default class TypeIndex extends Model {
             throw new SoukaiError("Can't create public type index without a writable profile document");
         }
 
-        const fetch = TypeIndex.requireFetch();
+        const fetch = requireRemoteEngine().requireFetch();
         const url = await createTypeIndexDocument(user, 'public', fetch);
 
         await linkFromDocument(user.writableProfileUrl, user.webId, 'solid:publicTypeIndex', url, { fetch });
@@ -185,7 +182,7 @@ export default class TypeIndex extends Model {
             );
         }
 
-        const fetch = TypeIndex.requireFetch();
+        const fetch = requireRemoteEngine().requireFetch();
 
         user.preferencesFileUrl = await findOrCreatePreferencesFile(user, { fetch });
 

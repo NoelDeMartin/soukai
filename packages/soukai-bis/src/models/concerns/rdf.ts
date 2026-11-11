@@ -1,14 +1,14 @@
-import { RDFNamedNode, RDFQuad, SolidStore } from '@noeldemartin/solid-utils';
+import { RDFNamedNode, SolidStore } from '@noeldemartin/solid-utils';
 import { hasItems, tap, weakMemo } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
-import { getDocumentQuads } from 'soukai-bis/models/internals';
+import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { Relation } from 'soukai-bis/models/relations';
 import { isMultiModelRelation } from 'soukai-bis/models/relations/helpers';
 import type { ModelConstructor, ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 import { buildModelsCache } from 'soukai-bis/models/utils';
-import { castToJavaScript, castToRDF, getFinalType } from 'soukai-bis/zod/utils';
+import { castToJavaScript, getFinalType } from 'soukai-bis/zod/utils';
 
 function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
     const subjectQuadsIndex = weakMemo('subject-quads-index', quads, () => {
@@ -131,32 +131,4 @@ export function createFromRDF<T extends Model>(
         { url, ...attributes },
         { exists: true, initializeMetadata: false, source: quads },
     ) as ModelWithUrl<T>;
-}
-
-export function serializeToRDF(models: Model[]): Quad[] {
-    const statements: Quad[] = [];
-
-    for (const model of models) {
-        const { fields, rdfDefaultResourceHash, rdfClasses, rdfFieldProperties } = model.static('schema');
-        const subject = new RDFNamedNode(model.url ?? `#${rdfDefaultResourceHash}`);
-
-        for (const rdfClass of rdfClasses) {
-            statements.push(new RDFQuad(subject, RDF_TYPE, rdfClass));
-        }
-
-        for (const [field, value] of Object.entries(model.getAttributes())) {
-            const fieldDefinition = fields.def.shape[field];
-            const predicate = rdfFieldProperties[field];
-
-            if (!fieldDefinition || !predicate) {
-                continue;
-            }
-
-            for (const object of castToRDF(value, fieldDefinition)) {
-                statements.push(new RDFQuad(subject, predicate, object));
-            }
-        }
-    }
-
-    return statements;
 }

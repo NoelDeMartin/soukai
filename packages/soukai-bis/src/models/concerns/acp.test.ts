@@ -1,5 +1,4 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import ACPAccessControl from 'soukai-bis/models/acp/ACPAccessControl';
 import type ACPMatcher from 'soukai-bis/models/acp/ACPMatcher';
@@ -20,9 +19,7 @@ describe('ACP', () => {
     `;
     const acrType = { Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"' };
 
-    class RemoteContainer extends Container {}
-
-    let container: RemoteContainer;
+    let container: Container;
 
     function respondWithACR(turtle: string | null): void {
         FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acr>; rel="acl"' }));
@@ -46,9 +43,7 @@ describe('ACP', () => {
     }
 
     beforeEach(() => {
-        RemoteContainer.setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
-
-        container = new RemoteContainer({ url: containerUrl }, { exists: true });
+        container = new Container({ url: containerUrl }, { exists: true });
     });
 
     it('loads access controls', async () => {

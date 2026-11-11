@@ -1,6 +1,6 @@
 import { stringToCamelCase } from '@noeldemartin/utils';
 
-import { CLASS_MARKER } from './internals';
+import { CLASS_MARKER } from './internals/model';
 import type Model from './Model';
 import type { ModelConstructor, ModelsCache } from './types';
 

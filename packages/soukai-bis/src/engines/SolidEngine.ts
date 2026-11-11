@@ -35,6 +35,10 @@ export default class SolidEngine extends Engine {
         return this.client.getFetch();
     }
 
+    public requireFetch(): Fetch {
+        return this.getFetch() ?? globalThis.fetch.bind(globalThis);
+    }
+
     public async createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],

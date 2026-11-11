@@ -89,15 +89,16 @@ Previous versions of Soukai supported soft-deleting models, using `softDelete()`
 
 ## Synchronization
 
-The typical setup for a local-first application is to store all the data in a local engine (such as the `IndexedDBEngine`), and synchronize it with a Solid POD when the user is online. This can be done using the `Sync` job:
+The typical setup for a local-first application is to store all the data in a local engine (such as the `IndexedDBEngine`), and synchronize it with a Solid POD when the user is online. This can be done using the `Sync` job, which uses the default engine as the local engine and the [remote engine](../core-concepts/engines.md#remote-engine) to reach the POD:
 
 ```ts
-import { IndexedDBEngine, SolidEngine, Sync } from 'soukai-bis';
+import { IndexedDBEngine, SolidEngine, Sync, setEngine, setRemoteEngine } from 'soukai-bis';
+
+setEngine(new IndexedDBEngine());
+setRemoteEngine(new SolidEngine({ fetch }));
 
 await Sync.run({
     userProfile,
-    localEngine: new IndexedDBEngine(),
-    remoteEngine: new SolidEngine({ fetch }),
     applicationModels: [
         { model: Task, registration: true },
         { model: Tag, registration: { path: 'tasks/tags', public: true } },

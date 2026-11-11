@@ -3,10 +3,9 @@ import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { rememberAuthorizationProtocol } from 'soukai-bis/models/internals/permissions';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
-
-import { rememberAuthorizationProtocol } from './authorization';
 
 describe('Authorization', () => {
     const rootUrl = 'https://alice.example/';
