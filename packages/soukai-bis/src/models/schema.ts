@@ -130,6 +130,9 @@ export type SchemaModelClass<
             attributes?: SchemaModelInput<TFields, TBaseClass>,
             options?: ModelConstructorOptions,
         ): SchemaModel<TFields, TRelations, TBaseClass>;
+        getRelation<K extends string & keyof ExtendedSchemaRelations<TRelations, TBaseClass>>(
+            name: K,
+        ): ExtendedSchemaRelations<TRelations, TBaseClass>[K];
         newInstance<This>(
             this: This,
             attributes?: SchemaModelInput<TFields, TBaseClass>,

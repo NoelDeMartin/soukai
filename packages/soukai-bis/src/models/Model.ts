@@ -83,7 +83,12 @@ import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { DETACHED_MODELS, NEW_MODEL, NEW_MODELS } from './relations/internals';
 import type Relation from './relations/Relation';
-import type { GetLoadedRelationModels, SchemaComputedAttributeDefinition, SchemaRelations } from './relations/schema';
+import type {
+    GetLoadedRelationModels,
+    SchemaComputedAttributeDefinition,
+    SchemaRelationDefinition,
+    SchemaRelations,
+} from './relations/schema';
 import { getRelatedClass } from './relations/utils';
 import type { Schema } from './schema';
 import type { LegacyTimestamps } from './types';
@@ -206,6 +211,13 @@ export default class Model<
 
     public static getRelations(): SchemaRelations {
         return getSchema(this).relations;
+    }
+
+    public static getRelation(name: string): SchemaRelationDefinition {
+        return required(
+            getSchema(this).relations[name],
+            `Relation '${name}' is not defined in the ${this.modelName} model.`,
+        );
     }
 
     public static hasComputedAttribute(name: string): boolean {
