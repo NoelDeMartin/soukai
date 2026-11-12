@@ -132,10 +132,39 @@ export default defineSchema({
 
 :::
 
+This makes it possible to declare other schemas for the same model, and swap them at runtime depending on user preferences or existing data:
+
+::: code-group
+
+```ts [SchemaOrgTask.schema.ts]
+import { defineSchema } from 'soukai-bis';
+import { date, string } from 'zod';
+
+export default defineSchema({
+    rdfContext: 'https://schema.org/',
+    rdfClass: 'Action',
+    fields: {
+        name: string(),
+        completedAt: date().rdfProperty('endTime').nullable().optional(),
+    },
+});
+```
+
+```ts [main.ts]
+import SchemaOrgTaskSchema from './SchemaOrgTask.schema';
+
+Task.updateSchema(SchemaOrgTaskSchema);
+```
+
+:::
+
+This replaces the vocabulary of the model: its fields, RDF classes, RDF properties, and default resource hash. Remote models are updated as well, so make sure to call it on `Task` rather than `remote(Task)`.
+
+Other aspects of the model can't change between schemas. Relations, computed attributes, and the `timestamps`, `history`, and `tombstone` flags are kept from the original schema, and `updateSchema()` will throw an error if the new schema uses different flags or declares relations that the model doesn't have. Schemas that don't declare any relations are fine, so you don't need to repeat them. Also, keep in mind that types don't change at runtime, so the new schema should have the same fields as the original.
+
 ::: warning TODO
 Previous versions of Soukai supported some features to work with multiple schemas that haven't been implemented yet:
 
-- Swapping schemas at runtime, using `Task.updateSchema(OtherSchema)`.
 - Running logic specific to a schema with `hooks` (such as `afterInitialize`, `beforeSave`, and `afterSave`).
 - [Supporting multiple schemas at once](https://www.w3.org/DesignIssues/BagOfChips.html), using `alias` in fields. Multiple RDF classes can be declared using `rdfClasses`, but resources will only match the model if they have all of them.
 - Migrating existing data to a different schema, using `task.migrateSchema(OtherSchema)`.
