@@ -5,6 +5,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { cascadeDeletes, deleteModels, markForDeletion } from 'soukai-bis/models/concerns/deletes';
 import { emitModelEvent } from 'soukai-bis/models/concerns/events';
 import { isUsingSameDocument } from 'soukai-bis/models/concerns/rdf';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 import { buildModelsCache, isModelClass, isModelClassOrSubclass } from 'soukai-bis/models/utils';
@@ -114,7 +115,7 @@ export default abstract class Relation<
             return null;
         }
 
-        const parentFields = this.parent.static('schema').fields.def.shape;
+        const parentFields = getSchema(this.parent.static()).fields.def.shape;
 
         if (!(property in parentFields) && !(property in this.parent)) {
             throw new SoukaiError(
@@ -275,7 +276,7 @@ export default abstract class Relation<
     }
 
     protected clearInverseRelations(model: Related): void {
-        for (const relationName of Object.keys(this.relatedClass.schema.relations)) {
+        for (const relationName of Object.keys(getSchema(this.relatedClass).relations)) {
             const relationInstance = model.getRelation(relationName);
 
             if (!relationInstance.isInverseOf(this as Relation) || !relationInstance.loaded) {
@@ -307,7 +308,7 @@ export default abstract class Relation<
     }
 
     protected setInverseRelations(model: Related): void {
-        for (const relationName of Object.keys(this.relatedClass.schema.relations)) {
+        for (const relationName of Object.keys(getSchema(this.relatedClass).relations)) {
             const relationInstance = model.getRelation(relationName);
 
             if (!relationInstance.isInverseOf(this as Relation)) {

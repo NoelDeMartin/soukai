@@ -2,6 +2,7 @@ import { isInstanceOf, tap } from '@noeldemartin/utils';
 import type { Nullable, Obj } from '@noeldemartin/utils';
 import RelationNotLoaded from 'soukai-bis/errors/RelationNotLoaded';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations';
 import { isMultiModelRelationClass } from 'soukai-bis/models/relations/helpers';
@@ -43,7 +44,7 @@ function simulatedModelProxy<T extends Model>(modelClass: ModelConstructor<T>, r
                     throw new SoukaiError('Unsupported computed attribute access');
                 }
 
-                const relatedClassDefinition = modelClass.schema.relations[property];
+                const relatedClassDefinition = getSchema(modelClass).relations[property];
                 const relatedClass = relatedClassDefinition && getRelatedClass(modelClass, relatedClassDefinition);
 
                 if (relatedClass) {
@@ -75,7 +76,7 @@ function getInverseRelationName(
 ): string | null {
     const toClass = getRelatedClass(fromClass, relationDefinition);
     const fromForeignKey = relationDefinition.options.foreignKey;
-    const inverseRelationEntry = Object.entries(toClass.schema.relations).find(([_, definition]) => {
+    const inverseRelationEntry = Object.entries(getSchema(toClass).relations).find(([_, definition]) => {
         return fromForeignKey === definition.options.foreignKey && fromClass === getRelatedClass(toClass, definition);
     });
 
@@ -87,7 +88,7 @@ function resolveInverseRelationPath(originClass: ModelConstructor, path: string[
     const inversePath: string[] = [];
 
     for (const relation of path) {
-        const relationDefinition = currentClass.schema.relations[relation];
+        const relationDefinition = getSchema(currentClass).relations[relation];
         const inverseRelationName = relationDefinition && getInverseRelationName(currentClass, relationDefinition);
 
         if (!relationDefinition || !inverseRelationName) {
@@ -108,7 +109,7 @@ function initComputedAttributes(modelClass: ModelConstructor): ComputedAttribute
 
     for (const relatedClass of getRelatedClasses(modelClass)) {
         if (relatedClass === modelClass) {
-            for (const [name, { compute }] of Object.entries(relatedClass.schema.computed)) {
+            for (const [name, { compute }] of Object.entries(getSchema(relatedClass).computed)) {
                 const visited = simulateComputedRun(relatedClass, compute);
 
                 relations[name] = relationPathsToTree(visited);
@@ -118,14 +119,14 @@ function initComputedAttributes(modelClass: ModelConstructor): ComputedAttribute
             continue;
         }
 
-        for (const [name, { compute }] of Object.entries(relatedClass.schema.computed)) {
+        for (const [name, { compute }] of Object.entries(getSchema(relatedClass).computed)) {
             const visited = simulateComputedRun(relatedClass, compute);
 
             pathLoop: for (const path of visited) {
                 let resolvedClass = relatedClass;
 
                 for (const relation of path) {
-                    const relationDefinition = resolvedClass.schema.relations[relation];
+                    const relationDefinition = getSchema(resolvedClass).relations[relation];
 
                     if (!relationDefinition) {
                         continue pathLoop;

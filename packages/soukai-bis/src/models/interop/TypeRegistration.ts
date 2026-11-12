@@ -6,7 +6,7 @@ export default class TypeRegistration extends Model {
     public static remote = true;
 
     public registers(modelClass: ModelConstructor): boolean {
-        return modelClass.getRdfClasses().every((rdfClass) => this.forClass.includes(rdfClass));
+        return modelClass.matchesRdfClasses(this.forClass);
     }
 
     public registersContainer(): this is this & { instanceContainer: string } {

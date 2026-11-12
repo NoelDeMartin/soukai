@@ -7,6 +7,7 @@ import { setEngine } from 'soukai-bis/engines/state';
 import type { ExternalSource } from 'soukai-bis/jobs/utils';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import { anyOf } from 'soukai-bis/models/matching/fluent';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
@@ -16,6 +17,7 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { string } from 'zod';
 
 import Sync from './Sync';
 import type { ModelRegistrationMode, ModelsRegisteredEvent } from './Sync';
@@ -762,6 +764,73 @@ describe('Sync', () => {
         expect(result.syncedDocumentUrls.has(document3Url)).toBe(true);
         expect(result.documentsWithErrors.has(document1Url)).toBe(true);
         expect(result.documentsWithErrors.size).toBe(1);
+    });
+
+    it('syncs resources matching any of the model classes', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const localDocumentUrl = fakeDocumentUrl({ containerUrl });
+        const TaskSchema = defineSchema({
+            rdfContext: 'https://schema.org/',
+            rdfContexts: { ical: 'http://www.w3.org/2002/12/cal/ical#' },
+            rdfClasses: anyOf(['Action', 'ical:Vtodo']),
+            fields: { name: string().rdfProperties(['name', 'ical:summary']) },
+        });
+
+        class Task extends TaskSchema {}
+
+        bootModels({ Task });
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: ['http://www.w3.org/2002/12/cal/ical#Vtodo'],
+            }),
+        ];
+
+        FakeServer.respond(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respond(
+            documentUrl,
+            `
+                @prefix ical: <http://www.w3.org/2002/12/cal/ical#> .
+
+                <#it> a ical:Vtodo ; ical:summary "Learn Solid" .
+            `,
+        );
+        FakeServer.respond(localDocumentUrl, FakeResponse.notFound());
+        FakeServer.respond(localDocumentUrl, FakeResponse.success());
+
+        await localEngine.createDocument(
+            localDocumentUrl,
+            turtleToQuadsSync(
+                `
+                    @prefix schema: <https://schema.org/> .
+
+                    <#it> a schema:Action ; schema:name "Write docs" .
+                `,
+                { baseIRI: localDocumentUrl },
+            ),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: Task, registration: true }],
+        });
+
+        // Assert
+        const localDocument = await localEngine.readDocument(documentUrl);
+
+        expect(FakeServer.fetch).toHaveBeenCalledWith(containerUrl, expect.anything());
+        expect(
+            localDocument.statements(`${documentUrl}#it`, 'http://www.w3.org/2002/12/cal/ical#summary')[0]?.object
+                .value,
+        ).toEqual('Learn Solid');
+        expect(
+            FakeServer.getRequests().some((request) => request.method !== 'GET' && request.url === localDocumentUrl),
+        ).toBe(true);
     });
 
     describe('external sources', () => {

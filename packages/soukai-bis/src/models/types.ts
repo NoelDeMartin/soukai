@@ -1,4 +1,5 @@
 import type { Constructor, Pretty } from '@noeldemartin/utils';
+import type { SCHEMA } from 'soukai-bis/models/internals/model';
 
 import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
 import type Metadata from './crdts/Metadata';
@@ -13,7 +14,7 @@ import type { SchemaComputedAttributeDefinition } from './relations/schema';
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
 export type GetModelInput<T extends ModelConstructor> = Pretty<NonNullable<ConstructorParameters<T>[0]>>;
-export type GetModelRelationName<T extends ModelConstructor> = string & keyof T['schema']['relations'];
+export type GetModelRelationName<T extends ModelConstructor> = string & keyof T[typeof SCHEMA]['relations'];
 export type LegacyTimestamps = { createdAt?: Date; updatedAt?: Date } | null;
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;

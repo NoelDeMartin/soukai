@@ -5,10 +5,10 @@ import Container from './Container';
 
 // oxlint-disable-next-line typescript/explicit-module-boundary-types
 export function defineContainerSchema<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}>(
-    config: Partial<SchemaConfig<TFields, TRelations>>,
+    config: Partial<SchemaConfig<TFields, TRelations, typeof Container>>,
 ) {
     return defineSchema(Container, {
         ...config,
         fields: config.fields ?? {},
-    } as SchemaConfig<TFields, TRelations>);
+    } as SchemaConfig<TFields, TRelations, typeof Container>);
 }

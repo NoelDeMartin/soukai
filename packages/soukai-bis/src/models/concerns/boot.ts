@@ -3,7 +3,7 @@ import { tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
-import { originalSchemas, remoteModels } from 'soukai-bis/models/internals/model';
+import { getSchema, originalSchemas, remoteModels, setSchema } from 'soukai-bis/models/internals/model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
 
@@ -45,12 +45,14 @@ export function boot(model: ModelConstructor, name?: string): void {
         throw new SoukaiError(`${getMeta(model, 'modelName')} model already booted`);
     }
 
-    if (model.schema.rdfClasses.length === 0) {
-        model.schema.rdfClasses.push(new RDFNamedNode(`${model.schema.rdfContext.default}${model.modelName}`));
+    if (getSchema(model).rdfClasses.classes.length === 0) {
+        getSchema(model).rdfClasses.classes.push(
+            new RDFNamedNode(`${getSchema(model).rdfContext.default}${model.modelName}`),
+        );
     }
 
     if (model.computed) {
-        model.schema.computed = Object.fromEntries(
+        getSchema(model).computed = Object.fromEntries(
             Object.entries(model.computed).map(([computedAttribute, definition]) => {
                 if (typeof definition === 'function') {
                     return [
@@ -74,7 +76,7 @@ export function reset(model: ModelConstructor): void {
     const originalSchema = originalSchemas.get(model);
 
     if (originalSchema) {
-        model.schema = originalSchema;
+        setSchema(model, originalSchema);
 
         originalSchemas.delete(model);
     }

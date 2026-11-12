@@ -30,7 +30,7 @@ const instanceUrls = await typeIndex.findInstanceUrls(Movie);
 const instances = await typeIndex.findInstances(Movie);
 ```
 
-A registration only matches a model if it includes **all** of the model's RDF classes (it can include more). When you register a model, the registration will be created with all of its RDF classes as well.
+A registration only matches a model if it includes all of the model's RDF classes (it can include more). Unless they were declared with [`anyOf()`](../core-concepts/models.md#rdf-classes), in which case including any of them is enough. When you register a model, the registration will be created with all of its RDF classes either way.
 
 ### Creating registrations
 
@@ -132,7 +132,7 @@ export default defineSchema({
 
 :::
 
-Another feature that makes this useful for interoperability is the ability to swap schemas at runtime:
+Another feature that helps interoperability is the ability to swap schemas at runtime:
 
 ::: code-group
 
@@ -160,14 +160,80 @@ export default defineSchema({
 
 This can be used to support different vocabularies, and adapt to the one existing data is using; or allow to change it with user preferences.
 
-Updating the schema will change the RDF declarations and mapping: the fields and Zod schema, RDF classes, RDF properties, and the default resource hash. Other aspects of the model don't change between schemas, so it's not necessary to redeclare things like relations or metadata settings like `timestamps` or `history`.
+Updating the schema will change the RDF declarations and mapping: the fields and Zod schema, RDF classes, RDF properties, the default resource hash, and hooks. Other aspects of the model don't change between schemas, so it's not necessary to redeclare things like relations or metadata settings like `timestamps` or `history`.
+
+### Hooks
+
+Some logic may only make sense for a given schema. For example, schema.org's Action has an `actionStatus` property that iCalendar Vtodo doesn't need (because it's derived from the completion date). You can implement that logic using `hooks`:
+
+```ts [Task.schema.ts]
+import { defineSchema } from 'soukai-bis';
+import { date, string } from 'zod';
+
+export const STATUS_COMPLETED = 'https://schema.org/CompletedActionStatus';
+export const STATUS_POTENTIAL = 'https://schema.org/PotentialActionStatus';
+
+export default defineSchema({
+    rdfContext: 'https://schema.org/',
+    rdfClass: 'Action',
+    fields: {
+        name: string(),
+        description: string().optional(),
+        status: string().rdfProperty('actionStatus').optional(),
+        completedAt: date().rdfProperty('endTime').nullable().optional(),
+    },
+    hooks: {
+        beforeInitialize(attributes) {
+            attributes.name ??= attributes.description;
+        },
+        beforeSave() {
+            this.status = this.completedAt ? STATUS_COMPLETED : STATUS_POTENTIAL;
+        },
+    },
+});
+```
+
+The `beforeInitialize` hook runs when a model is instantiated, before its attributes are validated. It receives the raw attributes, which it can change in place; so it can be used to fill in values that are missing in existing data. When the model is created from RDF, it also receives the statements it's being created from as `quads`, in case you need to read properties that aren't declared in the schema.
+
+The values set by `beforeInitialize` in existing models are not considered changes, so the model won't be dirty after loading and these values won't be written until the attributes are edited.
+
+The `beforeSave` hook runs before saving a model, with the model instance bound as `this`. It runs for every model that is being saved in the same document, not only the one where `save()` was called, and it can return a promise. Any changes made in this hook will be saved along with the rest, and recorded in the same [history](./local-first.md#history-tracking) operations.
+
+Hooks are merged when a schema extends another one, and they are swapped when calling `updateSchema()`; so updating to a schema without hooks will disable them.
+
+### Working with multiple vocabularies
+
+Swapping schemas works if you know which vocabulary the data is using, but you may also want to [support multiple vocabularies at once](https://www.w3.org/DesignIssues/BagOfChips.html).
+
+To do that, you can use Soukai's ability to declare multiple RDF classes with `anyOf()` and multiple RDF properties with `rdfProperties()`:
+
+```ts [Task.schema.ts]
+import { anyOf, defineSchema } from 'soukai-bis';
+import { date, string } from 'zod';
+
+export default defineSchema({
+    rdfContexts: {
+        default: 'https://schema.org/',
+        ical: 'http://www.w3.org/2002/12/cal/ical#',
+    },
+    rdfClasses: anyOf(['Action', 'ical:Vtodo']),
+    fields: {
+        name: string().rdfProperties(['name', 'ical:summary']),
+        completedAt: date().rdfProperties(['endTime', 'ical:completed']).nullable().optional(),
+    },
+});
+```
+
+With this schema, resources with either of the classes will be read as tasks, and each field will be read from the first of its properties that has a value (you can learn more about how this works in the [RDF classes](../core-concepts/models.md#rdf-classes) and [RDF properties](../core-concepts/models.md#rdf-properties) sections). When a field is updated, its value is written to all of its properties; and if the model has [history](./local-first.md#history-tracking) enabled, each of them gets its own operation.
+
+Existing resources are not upgraded until they are edited. For example, if a task only has the `ical:Vtodo` class and the `ical:summary` property, saving it won't add the `schema:Action` class or the `schema:name` property; but `schema:name` will be written the next time the name is updated. The same happens if the properties have different values: the value of the first one is used, and the others will be overridden once the field is updated.
+
+::: warning
+Matching resources with any of the classes means that you'll read data written by other applications, which may not have all the fields you need. If a matched resource fails validation, an `InvalidAttributesError` will be thrown. Make sure that required fields have a property in every vocabulary you're reading, or fill them in with a [`beforeInitialize` hook](#hooks).
+:::
 
 ::: warning TODO
-Previous versions of Soukai supported some features to work with multiple schemas that haven't been implemented yet:
-
-- Running logic specific to a schema with `hooks` (such as `afterInitialize`, `beforeSave`, and `afterSave`).
-- [Supporting multiple schemas at once](https://www.w3.org/DesignIssues/BagOfChips.html), using `alias` in fields. Multiple RDF classes can be declared using `rdfClasses`, but resources will only match the model if they have all of them.
-- Migrating existing data to a different schema, using `task.migrateSchema(OtherSchema)`.
+Previous versions of Soukai also supported migrating existing data to a different schema, using `task.migrateSchema(OtherSchema)`. This hasn't been implemented yet.
 :::
 
 ## RDF prefix aliases

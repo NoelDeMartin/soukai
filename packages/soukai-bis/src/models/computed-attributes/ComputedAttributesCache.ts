@@ -2,6 +2,7 @@ import { facade, objectWithout, urlRoute } from '@noeldemartin/utils';
 import InMemoryIDBStore from 'soukai-bis/lib/internals/InMemoryIDBStore';
 import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import { requireSafeContainerUrl } from 'soukai-bis/lib/internals/urls';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import { getBootedModels } from 'soukai-bis/models/registry';
 import type { SchemaComputedAttributeDefinition } from 'soukai-bis/models/relations/schema';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
@@ -41,7 +42,7 @@ export class ComputedAttributesCache {
             const attributeKeys = Object.keys(attributes);
 
             for (const attribute of attributeKeys) {
-                const definition = modelClass.schema.computed[attribute];
+                const definition = getSchema(modelClass).computed[attribute];
 
                 if (!definition || !this.shouldInvalidateCache(definition, entryUrl, options.documentUrls)) {
                     continue;

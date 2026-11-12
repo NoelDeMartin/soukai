@@ -3,7 +3,7 @@ import type { ZodType } from 'zod';
 
 export interface SoukaiZodMeta {
     rdfSlug?: boolean;
-    rdfProperty?: string;
+    rdfProperties?: string[];
 }
 
 export function deepMeta<T extends keyof SoukaiZodMeta>(type: ZodType, key: T): SoukaiZodMeta[T] | undefined {
@@ -24,14 +24,18 @@ export function deepMeta<T extends keyof SoukaiZodMeta>(type: ZodType, key: T): 
     return undefined;
 }
 
-export function rdfProperty<T extends ZodType>(type: T): string | undefined;
-export function rdfProperty<T extends ZodType>(type: T, value: string): T;
-export function rdfProperty<T extends ZodType>(type: T, value?: string): T | string | undefined {
-    if (typeof value !== 'string') {
-        return deepMeta(type, 'rdfProperty');
+export function rdfProperty<T extends ZodType>(type: T, value: string): T {
+    return rdfProperties(type, [value]);
+}
+
+export function rdfProperties<T extends ZodType>(type: T): string[] | undefined;
+export function rdfProperties<T extends ZodType>(type: T, values: string[]): T;
+export function rdfProperties<T extends ZodType>(type: T, values?: string[]): T | string[] | undefined {
+    if (!values) {
+        return deepMeta(type, 'rdfProperties');
     }
 
-    return type.meta({ rdfProperty: value });
+    return type.meta({ rdfProperties: values });
 }
 
 export function useAsSlug<T extends ZodType>(type: T): T {

@@ -1,4 +1,5 @@
 import { arrayFrom, objectOnly } from '@noeldemartin/utils';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 import { getFinalType } from 'soukai-bis/zod/utils';
@@ -25,7 +26,7 @@ export default class HasRelation<
         }
 
         const foreignKeyName = this.requireForeignKeyName() as ForeignKeyName;
-        const fieldDefinition = this.relatedClass.schema.fields.def.shape[String(foreignKeyName)];
+        const fieldDefinition = getSchema(this.relatedClass).fields.def.shape[String(foreignKeyName)];
         const fieldType = fieldDefinition && getFinalType(fieldDefinition);
         const foreignValue = (
             fieldType instanceof ZodArray

@@ -1,6 +1,7 @@
 import { turtleToQuads } from '@noeldemartin/solid-utils';
 import { required } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import { bootModels } from 'soukai-bis/models/registry';
 import { belongsToOne } from 'soukai-bis/models/relations/fluent';
 import { remote } from 'soukai-bis/models/remote';
@@ -39,21 +40,21 @@ describe('Schemas', () => {
         expect(turtle).toContain('<http://www.w3.org/2002/12/cal/ical#Vtodo>');
         expect(turtle).toContain('<http://www.w3.org/2002/12/cal/ical#summary>');
         expect(turtle).not.toContain('https://schema.org/');
-        expect(remote(Task).schema).toBe(Task.schema);
+        expect(getSchema(remote(Task))).toBe(getSchema(Task));
     });
 
     it('keeps relations, computed attributes, and config', () => {
         // Arrange
-        const { relations, computed } = Task.schema;
+        const { relations, computed } = getSchema(Task);
 
         // Act
         Task.updateSchema(TaskICalSchema);
 
         // Assert
-        expect(Task.schema.relations).toBe(relations);
-        expect(Task.schema.computed).toBe(computed);
-        expect(Task.schema.relations).toHaveProperty('project');
-        expect(Task.schema.relations).toHaveProperty('metadata');
+        expect(getSchema(Task).relations).toBe(relations);
+        expect(getSchema(Task).computed).toBe(computed);
+        expect(getSchema(Task).relations).toHaveProperty('project');
+        expect(getSchema(Task).relations).toHaveProperty('metadata');
     });
 
     it('uses the default RDF class without changing the schema', () => {
@@ -68,8 +69,8 @@ describe('Schemas', () => {
 
         // Assert
         expect(Task.getRdfClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Task']);
-        expect(ClasslessSchema.schema.rdfClasses).toEqual([]);
-        expect(Task.schema).not.toBe(ClasslessSchema.schema);
+        expect(getSchema(ClasslessSchema).rdfClasses.classes).toEqual([]);
+        expect(getSchema(Task)).not.toBe(getSchema(ClasslessSchema));
     });
 
     it('fails with different config', () => {
@@ -93,7 +94,7 @@ describe('Schemas', () => {
 
     it('restores the original schema when models are reset', () => {
         // Arrange
-        const originalSchema = Task.schema;
+        const originalSchema = getSchema(Task);
 
         Task.updateSchema(TaskICalSchema);
 
@@ -101,13 +102,13 @@ describe('Schemas', () => {
         bootModels({ Task }, { reset: true });
 
         // Assert
-        expect(Task.schema).toBe(originalSchema);
+        expect(getSchema(Task)).toBe(originalSchema);
         expect(Task.getRdfClasses()).toEqual(['https://schema.org/Action']);
     });
 
     it('restores the original schema after updating it multiple times', () => {
         // Arrange
-        const originalSchema = Task.schema;
+        const originalSchema = getSchema(Task);
 
         Task.updateSchema(TaskICalSchema);
         Task.updateSchema(defineSchema(TaskICalSchema, { rdfClass: 'Vevent' }));
@@ -116,6 +117,6 @@ describe('Schemas', () => {
         Task.reset();
 
         // Assert
-        expect(Task.schema).toBe(originalSchema);
+        expect(getSchema(Task)).toBe(originalSchema);
     });
 });

@@ -1,13 +1,15 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { isBooted } from 'soukai-bis/models/concerns/boot';
+import { getSchema } from 'soukai-bis/models/internals/model';
+import RDFClassesMatcher from 'soukai-bis/models/matching/RDFClassesMatcher';
 import type { Schema } from 'soukai-bis/models/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 const IMMUTABLE_CONFIG = ['timestamps', 'history', 'tombstone'] as const;
 
 export function updateModelSchema(modelClass: ModelConstructor, overrides: Schema): Schema {
-    const original = modelClass.schema;
+    const original = getSchema(modelClass);
 
     if (!isBooted(modelClass)) {
         throw new SoukaiError(`Can't update the schema of ${modelClass.name} model before booting it`);
@@ -33,14 +35,17 @@ export function updateModelSchema(modelClass: ModelConstructor, overrides: Schem
         fields: overrides.fields,
         relations: original.relations,
         computed: original.computed,
+        hooks: { ...overrides.hooks },
         timestamps: original.timestamps,
         history: original.history,
         tombstone: original.tombstone,
         rdfContext: { ...overrides.rdfContext },
         rdfClasses:
-            overrides.rdfClasses.length > 0
-                ? [...overrides.rdfClasses]
-                : [new RDFNamedNode(`${overrides.rdfContext.default}${modelClass.modelName}`)],
+            overrides.rdfClasses.classes.length > 0
+                ? overrides.rdfClasses.clone()
+                : new RDFClassesMatcher('all', [
+                      new RDFNamedNode(`${overrides.rdfContext.default}${modelClass.modelName}`),
+                  ]),
         rdfDefaultResourceHash: overrides.rdfDefaultResourceHash,
         rdfFieldProperties: { ...overrides.rdfFieldProperties },
         slugField: overrides.slugField,

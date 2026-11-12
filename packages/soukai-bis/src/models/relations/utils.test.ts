@@ -1,5 +1,6 @@
 import { required } from '@noeldemartin/utils';
 import { Metadata } from 'soukai-bis/models/crdts';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import { Resource } from 'soukai-bis/models/ldp';
 import { defineSchema } from 'soukai-bis/models/schema';
 import Post from 'soukai-bis/testing/stubs/Post';
@@ -35,7 +36,7 @@ describe('Relation utils', () => {
             },
         });
 
-        const definition = required(Review.schema.relations.author);
+        const definition = required(getSchema(Review).relations.author);
 
         // Act
         const relatedClass = getRelatedClass(Review, definition);

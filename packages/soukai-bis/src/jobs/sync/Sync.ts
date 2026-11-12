@@ -125,7 +125,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     private typeIndexes: Partial<Record<TypeIndexRegistration, Promise<TypeIndex>>> = {};
-    private syncedModelsRdfClasses: string[][];
+    private syncedModels: ModelConstructor[];
     private unsyncedContainers?: Set<string>;
 
     public constructor(private config: SyncConfig) {
@@ -166,11 +166,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 })
                 .filter(isTruthy),
         );
-        this.syncedModelsRdfClasses = Array.from(this.config.applicationModels)
+        this.syncedModels = Array.from(this.config.applicationModels)
             .map((model) => model.model)
             .concat(this.getExternalSources().flatMap((source) => source.models))
-            .concat([Container])
-            .map((model) => model.getRdfClasses());
+            .concat([Container]);
     }
 
     protected async run(): Promise<SyncJobResult> {
@@ -802,8 +801,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 continue;
             }
 
-            const hasModelClasses = (rdfClasses: Set<string>) =>
-                model.model.getRdfClasses().every((rdfClass) => rdfClasses.has(rdfClass));
+            const hasModelClasses = (rdfClasses: Set<string>) => model.model.matchesRdfClasses(rdfClasses);
 
             if (this.modelRegistrations.get(model.model)?.mode !== 'instance') {
                 const documentUrls = pushedDocuments
@@ -877,9 +875,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
 
         return Array.from(resourceTypes.entries())
-            .filter(([_, types]) =>
-                this.syncedModelsRdfClasses.some((rdfClasses) => rdfClasses.every((rdfClass) => types.has(rdfClass))),
-            )
+            .filter(([_, types]) => this.syncedModels.some((model) => model.matchesRdfClasses(types)))
             .map(([resourceUrl]) => resourceUrl);
     }
 

@@ -57,7 +57,7 @@ await User.create({
 Every model also has a built-in `url` field, which serves as its primary key. You can read more about it in the [Urls](#urls) section.
 
 ::: warning TODO
-Previous versions of Soukai supported some additional options in field definitions that haven't been implemented yet: `alias` (mirroring the value of another field), and `get`/`set`/`serialize`/`deserialize` hooks.
+Previous versions of Soukai supported some additional options in field definitions that haven't been implemented yet: `get`/`set`/`serialize`/`deserialize` hooks.
 :::
 
 ### Magic attributes
@@ -270,29 +270,13 @@ You can learn more about how to work with containers in the [Relations](./relati
 
 ## RDF definitions
 
-Because all models are RDF resources, there are a couple of things that can be defined for a model to be serialized properly.
-
-You can indicate the resource type using the `rdfClass` option. And property names can be defined calling `rdfProperty()` on field definitions (before you do, make sure to [configure Zod extensions](#zod-extensions)).
-
-Here's an example illustrating both:
-
-```ts
-import { defineSchema } from 'soukai-bis';
-import { string } from 'zod';
-
-export default defineSchema({
-    rdfClass: 'http://xmlns.com/foaf/0.1/Person',
-    fields: {
-        name: string().rdfProperty('http://xmlns.com/foaf/0.1/name'),
-    },
-});
-```
+Because all models end up as RDF resources, there are a couple of things you should configure to map them properly: the vocabularies they use, the classes of the resources, and the properties of each field.
 
 ### RDF contexts
 
-Declaring full urls all the time can become cumbersome, given that the same namespaces will probably be used multiple times. You can define reusable prefixes using the `rdfContexts` option, or the default prefix with `rdfContext`.
+RDF classes and properties are identified by urls, but declaring full urls all the time can become cumbersome.
 
-Here's a definition equivalent to the previous snippet:
+You can define reusable prefixes using the `rdfContexts` option, or the default prefix with `rdfContext`:
 
 ```ts
 import { defineSchema } from 'soukai-bis';
@@ -309,14 +293,99 @@ export default defineSchema({
 });
 ```
 
-All of these are optional, and these are their default values:
+In this example, `foaf:Person` will be interpreted as `http://xmlns.com/foaf/0.1/Person`, and `foaf:name` as `http://xmlns.com/foaf/0.1/name`. Values that are not urls or short-hand definitions using contexts will use the default context.
 
-- `rdfContext` is `http://www.w3.org/ns/solid/terms#` by default. If you use `rdfContexts`, the `default` key will be used as the default context.
-- Some common prefixes are available out of the box, and you don't need to declare them: `acl`, `acp`, `crdt`, `extra`, `foaf`, `ldp`, `pim`, `purl`, `rdf`, `rdfs`, `schema`, `solid`, `vcard`, and `xsd`.
-- `rdfClass` will use the name of the model with the default context. Values that are not urls or short-hand definitions using contexts will also use the default context.
-- `rdfProperty` will use the field name with the default context.
+Both options are optional. The default context is `http://www.w3.org/ns/solid/terms#`, and if you use `rdfContexts`, the `default` key will be used as the default context.
 
-The `Person` schema we defined before can be defined more concisely like this:
+Some common prefixes are available out of the box, and you don't need to declare them:
+
+| Prefix   | Url                                           |
+| -------- | --------------------------------------------- |
+| `acl`    | `http://www.w3.org/ns/auth/acl#`              |
+| `acp`    | `http://www.w3.org/ns/solid/acp#`             |
+| `crdt`   | `https://vocab.noeldemartin.com/crdt/`        |
+| `extra`  | `https://vocab.noeldemartin.com/solid-extra/` |
+| `foaf`   | `http://xmlns.com/foaf/0.1/`                  |
+| `ldp`    | `http://www.w3.org/ns/ldp#`                   |
+| `pim`    | `http://www.w3.org/ns/pim/space#`             |
+| `purl`   | `http://purl.org/dc/terms/`                   |
+| `rdf`    | `http://www.w3.org/1999/02/22-rdf-syntax-ns#` |
+| `rdfs`   | `http://www.w3.org/2000/01/rdf-schema#`       |
+| `schema` | `https://schema.org/`                         |
+| `solid`  | `http://www.w3.org/ns/solid/terms#`           |
+| `vcard`  | `http://www.w3.org/2006/vcard/ns#`            |
+| `xsd`    | `http://www.w3.org/2001/XMLSchema#`           |
+
+### RDF classes
+
+You can indicate the resource type using the `rdfClass` option:
+
+```ts
+import { defineSchema } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    rdfClass: 'foaf:Person',
+    fields: {
+        name: string(),
+    },
+});
+```
+
+If you don't declare it, the name of the model will be used with the default context. For example, a `Person` model with `rdfContext: 'http://xmlns.com/foaf/0.1/'` will have the `foaf:Person` class.
+
+If a resource needs more than one RDF class, you can declare them with the `rdfClasses` option instead:
+
+```ts
+import { defineSchema } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    rdfContext: 'https://www.w3.org/ns/activitystreams#',
+    rdfClasses: ['Activity', 'Announce'],
+    fields: {
+        summary: string(),
+    },
+});
+```
+
+The default behavior will be to match all the classes in the array, but you can also configure it to match only one of the classes with the `anyOf()` helper:
+
+```ts
+import { anyOf, defineSchema } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    rdfContexts: {
+        default: 'https://schema.org/',
+        ical: 'http://www.w3.org/2002/12/cal/ical#',
+    },
+    rdfClasses: anyOf(['Action', 'ical:Vtodo']),
+    fields: {
+        name: string().rdfProperties(['name', 'ical:summary']),
+    },
+});
+```
+
+Either way, new resources will be created with all of the classes.
+
+### RDF properties
+
+Property names can be defined calling `rdfProperty()` on field definitions (before you do, make sure to [configure Zod extensions](#zod-extensions)):
+
+```ts
+import { defineSchema } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    rdfClass: 'foaf:Person',
+    fields: {
+        name: string().rdfProperty('foaf:name'),
+    },
+});
+```
+
+If you don't declare it, the name of the field will be used with the default context. So the previous schema can be defined more concisely like this:
 
 ```ts
 import { defineSchema } from 'soukai-bis';
@@ -333,28 +402,32 @@ export default defineSchema({
 
     fields: {
         // Because "foaf" is the default context, and "name" is the name
-        // of the field, the rdfProperty will be interpreted as "foaf:name".
+        // of the field, the property will be interpreted as "foaf:name".
         name: string(),
     },
 });
 ```
 
-### Multiple RDF classes
-
-If a resource needs more than one RDF class, you can declare them with the `rdfClasses` option instead. In that case, resources will only be read as instances of the model if they have all of the classes:
+A field can also be stored in more than one RDF property using `rdfProperties()` instead. This is useful when different applications use different vocabularies for the same data:
 
 ```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
 export default defineSchema({
-    rdfContext: 'https://www.w3.org/ns/activitystreams#',
-    rdfClasses: ['Activity', 'Announce'],
+    rdfClass: 'foaf:Person',
     fields: {
-        summary: string(),
+        name: string().rdfProperties(['foaf:name', 'vcard:fn']),
     },
 });
 ```
+
+The model will still have a single `name` attribute:
+
+- When reading, the value is taken from the first property that has one, in the order they are declared.
+- When writing, the same value is written to all of them.
+
+Declaring properties disables the default behavior of using the field name to infer RDF properties, so if you want to keep using the field name you have to include it in the list: `.rdfProperties(['name', 'vcard:fn'])`.
 
 ### Converting to and from RDF
 

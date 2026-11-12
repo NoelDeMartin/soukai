@@ -32,6 +32,7 @@ export interface SerializedModelNode {
     legacyTimestamps: LegacyTimestamps;
     relations: Record<string, SerializedRelation>;
     computed: Record<string, unknown>;
+    staleRdfProperties: string[] | null;
 }
 
 export interface SerializedModel {
@@ -39,7 +40,17 @@ export interface SerializedModel {
 }
 
 function invaded(model: Model) {
-    return invade(model, ['_relations', '_legacyTimestamps', '_computedAttributes', 'restoreComputedAttributes']);
+    return invade(model, [
+        '_relations',
+        '_legacyTimestamps',
+        '_computedAttributes',
+        '_staleRdfProperties',
+        'restoreComputedAttributes',
+    ]);
+}
+
+function arrayFromNullable<T>(items: Iterable<T> | null): T[] | null {
+    return items && Array.from(items);
 }
 
 function nullOrUndefined(value: unknown): null | undefined {
@@ -95,6 +106,7 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
         documentExists: model.documentExists(),
         sourceDocumentUrl: model.getSourceDocumentUrl(),
         legacyTimestamps: invaded(model)._legacyTimestamps,
+        staleRdfProperties: arrayFromNullable(invaded(model)._staleRdfProperties),
         relations: {},
         computed: serializeComputedAttributes(model),
     };
@@ -205,6 +217,7 @@ export async function hydrateModel(serialized: SerializedModel): Promise<Model> 
         model.setDocumentExists(node.documentExists);
         model.setSourceDocumentUrl(node.sourceDocumentUrl);
         invaded(model)._legacyTimestamps = node.legacyTimestamps;
+        invaded(model)._staleRdfProperties = node.staleRdfProperties && new Set(node.staleRdfProperties);
 
         for (const [name, value] of Object.entries(node.computed)) {
             model.getComputedAttribute(name).setValue(value);

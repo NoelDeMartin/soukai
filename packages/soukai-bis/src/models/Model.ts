@@ -64,17 +64,26 @@ import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
-import { CLASS_MARKER, mintedUrls, originalSchemas } from './internals/model';
+import {
+    CLASS_MARKER,
+    SCHEMA,
+    getFieldRdfProperties,
+    getSchema,
+    mintedUrls,
+    originalSchemas,
+    setSchema,
+} from './internals/model';
 import { updatePublicPermissions } from './internals/permissions';
 import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
 import type TypeIndex from './interop/TypeIndex';
+import type { RdfClassesInput } from './matching/RDFClassesMatcher';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { DETACHED_MODELS, NEW_MODEL, NEW_MODELS } from './relations/internals';
 import type Relation from './relations/Relation';
-import type { GetLoadedRelationModels, SchemaComputedAttributeDefinition } from './relations/schema';
+import type { GetLoadedRelationModels, SchemaComputedAttributeDefinition, SchemaRelations } from './relations/schema';
 import { getRelatedClass } from './relations/utils';
 import type { Schema } from './schema';
 import type { LegacyTimestamps } from './types';
@@ -123,7 +132,7 @@ export default class Model<
     RelationName extends string = string & keyof Relations,
 > extends MagicObject {
     public static [CLASS_MARKER] = 'Model';
-    public static schema: Schema;
+    public static [SCHEMA]: Schema;
     public static remote: boolean = false;
     private static _hydrating: boolean = false;
 
@@ -151,10 +160,10 @@ export default class Model<
 
     public static updateSchema(other: ModelConstructor): void {
         if (!originalSchemas.has(this)) {
-            originalSchemas.set(this, this.schema);
+            originalSchemas.set(this, getSchema(this));
         }
 
-        this.schema = updateModelSchema(this, other.schema);
+        setSchema(this, updateModelSchema(this, getSchema(other)));
     }
 
     public static hydrating<T>(operation: () => T): T {
@@ -188,12 +197,24 @@ export default class Model<
     }
 
     public static getRdfClasses(): string[] {
-        return this.schema.rdfClasses.map((rdfClass) => rdfClass.value);
+        return getSchema(this).rdfClasses.classes.map((rdfClass) => rdfClass.value);
+    }
+
+    public static matchesRdfClasses(types: RdfClassesInput): boolean {
+        return getSchema(this).rdfClasses.matches(types);
+    }
+
+    public static getRelations(): SchemaRelations {
+        return getSchema(this).relations;
+    }
+
+    public static hasComputedAttribute(name: string): boolean {
+        return name in getSchema(this).computed;
     }
 
     public static urlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
         const documentUrl = this.documentUrlFromSlug(slug, options);
-        const resourceHash = this.schema.rdfDefaultResourceHash;
+        const resourceHash = getSchema(this).rdfDefaultResourceHash;
 
         return resourceHash ? `${documentUrl}#${resourceHash}` : documentUrl;
     }
@@ -313,7 +334,7 @@ export default class Model<
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
         const typeIndex = buildRDFTypeIndex(quads);
-        const isType = this.schema.rdfClasses.every((rdfClass) => typeIndex.get(rdfClass.value)?.has(url));
+        const isType = this.matchesRdfClasses((rdfClass) => !!typeIndex.get(rdfClass)?.has(url));
 
         if (!isType) {
             return null;
@@ -332,7 +353,7 @@ export default class Model<
         modelsCache.set(url, classCache);
         classCache.set(this, instance);
 
-        for (const [relationName, relationDefinition] of Object.entries(this.schema.relations)) {
+        for (const [relationName, relationDefinition] of Object.entries(getSchema(this).relations)) {
             if (relationDefinition.options.autoload === false) {
                 continue;
             }
@@ -375,9 +396,9 @@ export default class Model<
         options: { modelsCache?: ModelsCache } = {},
     ): Promise<ModelWithUrl<T>[]> {
         const typeIndex = buildRDFTypeIndex(quads);
-        const [firstRdfClass, ...otherRdfClasses] = this.schema.rdfClasses;
-        const matchingResourceUrls = Array.from(typeIndex.get(firstRdfClass?.value ?? '') ?? []).filter((url) =>
-            otherRdfClasses.every((rdfClass) => typeIndex.get(rdfClass.value)?.has(url)),
+        const candidateUrls = new Set(this.getRdfClasses().flatMap((rdfClass) => [...(typeIndex.get(rdfClass) ?? [])]));
+        const matchingResourceUrls = Array.from(candidateUrls).filter((url) =>
+            this.matchesRdfClasses((rdfClass) => !!typeIndex.get(rdfClass)?.has(url)),
         );
 
         if (matchingResourceUrls.length === 0) {
@@ -463,6 +484,7 @@ export default class Model<
     declare protected _attributes: Attributes;
     declare protected _originalAttributes: Attributes;
     declare protected _dirtyAttributes: Set<FieldName>;
+    declare protected _staleRdfProperties: Set<string> | null;
     declare protected _computedAttributes: Record<string, ComputedAttribute>;
     declare protected _relations: Record<string, Relation>;
     declare protected _legacyTimestamps: LegacyTimestamps;
@@ -475,6 +497,7 @@ export default class Model<
             this._attributes = {} as unknown as Attributes;
             this._originalAttributes = {} as unknown as Attributes;
             this._dirtyAttributes = new Set();
+            this._staleRdfProperties = null;
         }
     }
 
@@ -490,6 +513,7 @@ export default class Model<
         this._relations = {};
         this._legacyTimestamps = null;
         this._permissions = null;
+        this._staleRdfProperties = null;
 
         if (Model.isHydrating()) {
             this._attributes = objectDeepClone(attributes) as Attributes;
@@ -499,7 +523,7 @@ export default class Model<
             return;
         }
 
-        this._attributes = this.parseAttributes(attributes);
+        this._attributes = this.parseAttributes(attributes, options);
         this._originalAttributes = (exists ? objectDeepClone(this._attributes) : {}) as Attributes;
         this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
 
@@ -522,7 +546,7 @@ export default class Model<
 
     public setAttributes(attributes: Partial<Attributes>): void {
         const newAttributes: Record<string, unknown> = {};
-        const shape = this.static('schema').fields.def.shape;
+        const shape = getSchema(this.static()).fields.def.shape;
         const modifiedFields: string[] = [];
 
         for (const [field, value] of Object.entries(attributes)) {
@@ -557,6 +581,7 @@ export default class Model<
 
         Object.assign(this._attributes, newAttributes);
         Object.keys(newAttributes).forEach((field) => this._dirtyAttributes.add(field as FieldName));
+        modifiedFields.forEach((field) => this.removeStaleRdfProperties(this.getFieldRdfPropertyValues(field)));
 
         for (const field of modifiedFields) {
             // oxlint-disable-next-line typescript/no-floating-promises
@@ -574,7 +599,7 @@ export default class Model<
 
     public getComputedAttribute(name: string): ComputedAttribute {
         if (!(name in this._computedAttributes)) {
-            const definition = this.static('schema').computed[name] as SchemaComputedAttributeDefinition;
+            const definition = getSchema(this.static()).computed[name] as SchemaComputedAttributeDefinition;
 
             if (!definition) {
                 throw new SoukaiError(
@@ -596,7 +621,7 @@ export default class Model<
     public getRelation(name: RelationName): Relation {
         if (!(name in this._relations)) {
             const relation = required(
-                this.static('schema').relations[name],
+                getSchema(this.static()).relations[name],
                 `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
             );
 
@@ -911,7 +936,7 @@ export default class Model<
     }
 
     public hasTimestamps(): this is ModelWithTimestamps<this> {
-        return this.static('schema').timestamps;
+        return getSchema(this.static()).timestamps;
     }
 
     public hasUrl(): this is ModelWithUrl<this> {
@@ -919,11 +944,11 @@ export default class Model<
     }
 
     public tracksChanges(): this is ModelWithHistory<this> {
-        return this.static('schema').history;
+        return getSchema(this.static()).history;
     }
 
     public leavesTombstones(): this is ModelWithTombstones<this> {
-        return this.static('schema').tombstone;
+        return getSchema(this.static()).tombstone;
     }
 
     public exists(): this is ModelWithUrl<this> {
@@ -1083,25 +1108,25 @@ export default class Model<
             return this._attributes[property];
         }
 
-        if (this.static('schema').timestamps && (property === 'createdAt' || property === 'updatedAt')) {
+        if (getSchema(this.static()).timestamps && (property === 'createdAt' || property === 'updatedAt')) {
             return (
                 (this._relations.metadata?.related as Metadata)?._attributes[property] ??
                 this._legacyTimestamps?.[property]
             );
         }
 
-        if (property in this.static('schema').relations) {
+        if (property in getSchema(this.static()).relations) {
             return this.__instance().getRelation(property as RelationName)?.related;
         }
 
-        if (property in this.static('schema').computed) {
+        if (property in getSchema(this.static()).computed) {
             return this.__instance().getComputedAttribute(property);
         }
 
         if (property.startsWith('related')) {
             const relation = stringToCamelCase(property.slice(7)) as RelationName;
 
-            if (relation in this.static('schema').relations) {
+            if (relation in getSchema(this.static()).relations) {
                 return this.__instance().getRelation(relation);
             }
         }
@@ -1143,13 +1168,13 @@ export default class Model<
 
     protected newUrl(options: MintUrlOptions = {}): string {
         const documentUrl = options.documentUrl ?? this.newUrlDocumentUrl(options);
-        const resourceHash = options.resourceHash ?? this.static('schema').rdfDefaultResourceHash;
+        const resourceHash = options.resourceHash ?? getSchema(this.static()).rdfDefaultResourceHash;
 
         return resourceHash ? `${documentUrl}#${resourceHash}` : documentUrl;
     }
 
     protected newUrlSlug(): string | null {
-        const slugField = this.static('schema').slugField as FieldName;
+        const slugField = getSchema(this.static()).slugField as FieldName;
         const slugFieldValue = slugField && this.getAttribute(slugField);
 
         return slugFieldValue ? stringToSlug(String(slugFieldValue)) : null;
@@ -1255,6 +1280,14 @@ export default class Model<
         const thisExisted = this.exists();
         const dirtyDocumentModels = this.getDirtyDocumentModels();
         const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
+
+        for (const model of dirtyDocumentModels) {
+            if (model._markedForDeletion) {
+                continue;
+            }
+
+            await getSchema(model.static()).hooks.beforeSave?.call(model);
+        }
 
         await this.beforeSave({ containerUrl });
         await this.performSave(options);
@@ -1473,7 +1506,7 @@ export default class Model<
     }
 
     protected getMissingComputedAttributes(): ComputedAttribute[] {
-        return Object.keys(this.static('schema').computed)
+        return Object.keys(getSchema(this.static()).computed)
             .map((name) => this.getComputedAttribute(name))
             .filter((computedAttribute) => computedAttribute.value === undefined);
     }
@@ -1493,9 +1526,11 @@ export default class Model<
         this.metadata.setAttribute('updatedAt', now ?? new Date());
     }
 
-    private parseAttributes(values: unknown): Attributes {
+    private parseAttributes(values: Record<string, unknown>, options: ModelConstructorOptions): Attributes {
         try {
-            const attributes = this.static('schema').fields.parse(values) as Attributes;
+            const attributes = getSchema(this.static()).fields.parse(
+                this.preprocessAttributes(values, options),
+            ) as Attributes;
 
             for (const [field, value] of Object.entries(attributes)) {
                 if (value !== undefined) {
@@ -1512,6 +1547,28 @@ export default class Model<
             }
 
             throw error;
+        }
+    }
+
+    protected addStaleRdfProperties(properties: string[]): void {
+        if (properties.length === 0) {
+            return;
+        }
+
+        this._staleRdfProperties ??= new Set();
+
+        properties.forEach((property) => this._staleRdfProperties?.add(property));
+    }
+
+    protected removeStaleRdfProperties(properties: string[]): void {
+        if (!this._staleRdfProperties) {
+            return;
+        }
+
+        properties.forEach((property) => this._staleRdfProperties?.delete(property));
+
+        if (this._staleRdfProperties.size === 0) {
+            this._staleRdfProperties = null;
         }
     }
 
@@ -1559,11 +1616,11 @@ export default class Model<
     }
 
     private isField(property: string): property is FieldName {
-        return property in this.static('schema').fields.def.shape;
+        return property in getSchema(this.static()).fields.def.shape;
     }
 
     private isMagicProperty(property: string): boolean {
-        const schema = this.static('schema');
+        const schema = getSchema(this.static());
 
         return (
             (schema.timestamps && (property === 'createdAt' || property === 'updatedAt')) ||
@@ -1581,6 +1638,10 @@ export default class Model<
         throw new SoukaiError(
             `Cannot ${operation} '${property}' on ${this.static('modelName')} model, it's a read-only magic property.`,
         );
+    }
+
+    private getFieldRdfPropertyValues(field: string): string[] {
+        return getFieldRdfProperties(this.static(), field).map((property) => property.value);
     }
 
     private populateDocumentModels(documentModels: Set<Model>): void {
@@ -1644,5 +1705,34 @@ export default class Model<
 
             relation.getLoadedModels().forEach((model) => model.populateRelatedModels(relatedModels));
         }
+    }
+
+    private preprocessAttributes(
+        original: Record<string, unknown>,
+        options: ModelConstructorOptions,
+    ): Record<string, unknown> {
+        const { beforeInitialize } = getSchema(this.static()).hooks;
+
+        if (!beforeInitialize) {
+            return original;
+        }
+
+        const attributes = objectDeepClone(original);
+
+        beforeInitialize(attributes, { quads: options.source ?? undefined });
+
+        if (!options.exists) {
+            return attributes;
+        }
+
+        for (const field of arrayUnique([...Object.keys(original), ...Object.keys(attributes)])) {
+            if (!this.attributeValueChanged(original[field], attributes[field])) {
+                continue;
+            }
+
+            this.addStaleRdfProperties(this.getFieldRdfPropertyValues(field));
+        }
+
+        return attributes;
     }
 }

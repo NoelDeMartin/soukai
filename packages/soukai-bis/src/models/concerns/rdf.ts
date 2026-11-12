@@ -1,7 +1,8 @@
 import { RDFNamedNode, SolidStore } from '@noeldemartin/solid-utils';
-import { hasItems, tap, weakMemo } from '@noeldemartin/utils';
+import { deepEquals, hasItems, invade, tap, weakMemo } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
+import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { Relation } from 'soukai-bis/models/relations';
@@ -27,8 +28,16 @@ function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
     return new SolidStore(subjectQuadsIndex.get(subject));
 }
 
+function rdfValuesEqual(a: unknown, b: unknown): boolean {
+    if (!Array.isArray(a) || !Array.isArray(b)) {
+        return deepEquals(a, b);
+    }
+
+    return a.length === b.length && a.every((item) => b.some((other) => deepEquals(item, other)));
+}
+
 function getDocumentRelations(model: Model, names?: string[]): Relation[] {
-    return Object.entries(model.static('schema').relations)
+    return Object.entries(getSchema(model.static()).relations)
         .filter(([name, definition]) => definition.options.usingSameDocument && (!names || names.includes(name)))
         .map(([name]) => model.getRelation(name));
 }
@@ -110,25 +119,45 @@ export function createFromRDF<T extends Model>(
     url: string,
     quads: Quad[],
 ): ModelWithUrl<T> {
-    const { fields, rdfFieldProperties } = modelClass.schema;
+    const { fields } = getSchema(modelClass);
     const subject = new RDFNamedNode(url);
     const attributes: Record<string, unknown> = {};
+    const staleRdfProperties: string[] = [];
     const store = buildSubjectStore(url, quads);
 
     for (const [field, type] of Object.entries(fields.shape)) {
         const fieldType = getFinalType(type);
-        const property = rdfFieldProperties[field];
-        const objects = store.statements(subject, property).map((value) => value.object);
+        const values = getFieldRdfProperties(modelClass, field).map((property) => {
+            const objects = store.statements(subject, property).map((statement) => statement.object);
 
-        if (!property || !hasItems(objects)) {
+            return {
+                property: property.value,
+                value: hasItems(objects) ? castToJavaScript(objects, fieldType) : undefined,
+            };
+        });
+        const value = values.find((propertyValue) => propertyValue.value !== undefined)?.value;
+
+        if (value === undefined) {
             continue;
         }
 
-        attributes[field] = castToJavaScript(objects, fieldType);
+        attributes[field] = value;
+
+        for (const propertyValue of values) {
+            if (rdfValuesEqual(propertyValue.value, value)) {
+                continue;
+            }
+
+            staleRdfProperties.push(propertyValue.property);
+        }
     }
 
-    return modelClass.newInstance(
+    const instance = modelClass.newInstance(
         { url, ...attributes },
         { exists: true, initializeMetadata: false, source: quads },
     ) as ModelWithUrl<T>;
+
+    invade(instance, ['addStaleRdfProperties']).addStaleRdfProperties(staleRdfProperties);
+
+    return instance;
 }

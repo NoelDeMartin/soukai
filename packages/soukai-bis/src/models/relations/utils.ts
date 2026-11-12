@@ -1,3 +1,4 @@
+import { getSchema } from 'soukai-bis/models/internals/model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
@@ -8,7 +9,7 @@ function collectRelatedClasses(modelClass: ModelConstructor, visited?: Set<Model
     if (!visited.has(modelClass)) {
         visited.add(modelClass);
 
-        for (const relation of Object.values(modelClass.schema.relations)) {
+        for (const relation of Object.values(getSchema(modelClass).relations)) {
             const relatedClass = getRelatedClass(modelClass, relation);
 
             collectRelatedClasses(relatedClass, visited);

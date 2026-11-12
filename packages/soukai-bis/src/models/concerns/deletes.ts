@@ -1,4 +1,5 @@
 import { arrayUnique, invade, required } from '@noeldemartin/utils';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type Relation from 'soukai-bis/models/relations/Relation';
 
@@ -17,7 +18,7 @@ export interface CascadeDeletesResult {
 async function getCascadingRelations(model: Model, options: MarkCascadingModelsOptions): Promise<Relation[]> {
     const relations: Relation[] = [];
 
-    for (const name of Object.keys(model.static('schema').relations)) {
+    for (const name of Object.keys(getSchema(model.static()).relations)) {
         const relation = model.getRelation(name);
 
         if (relation.onDelete !== 'cascade') {

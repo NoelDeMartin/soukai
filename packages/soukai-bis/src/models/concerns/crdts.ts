@@ -1,5 +1,5 @@
 import type { SolidDocument } from '@noeldemartin/solid-utils';
-import { arrayFilter, arrayUnique, objectWithoutEmpty } from '@noeldemartin/utils';
+import { arrayFilter, arrayUnique, invade, objectWithoutEmpty } from '@noeldemartin/utils';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import { requireEngine } from 'soukai-bis/engines/state';
@@ -7,17 +7,29 @@ import { CRDT_RESOURCE_PREDICATE, CRDT_TOMBSTONE_OBJECT, RDF_TYPE_PREDICATE } fr
 import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
+import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import { getFinalType } from 'soukai-bis/zod/utils';
 import { ZodArray, ZodURL } from 'zod';
+import type { ZodType } from 'zod';
+
+function isNamedNodeField(fieldDefinition: ZodType): boolean {
+    const fieldType = getFinalType(fieldDefinition);
+
+    return (
+        fieldType instanceof ZodURL ||
+        (fieldType instanceof ZodArray && getFinalType(fieldType.def.element) instanceof ZodURL)
+    );
+}
 
 function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const operations: Operation[] = [];
-    const schema = model.static('schema');
+    const schema = getSchema(model.static());
     const originalAttributes = objectWithoutEmpty(model.getOriginalAttributes());
+    const staleRdfProperties = invade(model, ['_staleRdfProperties'])._staleRdfProperties;
 
     delete originalAttributes.url;
 
@@ -26,30 +38,30 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
             continue;
         }
 
-        const property = schema.rdfFieldProperties[field];
         const fieldDefinition = schema.fields.def.shape[field];
 
-        if (!property || !fieldDefinition) {
+        if (!fieldDefinition) {
             continue;
         }
 
-        const fieldType = getFinalType(fieldDefinition);
-        const isNamedNode =
-            fieldType instanceof ZodURL ||
-            (fieldType instanceof ZodArray && getFinalType(fieldType.def.element) instanceof ZodURL);
+        for (const property of getFieldRdfProperties(model.static(), field)) {
+            if (staleRdfProperties?.has(property.value)) {
+                continue;
+            }
 
-        const operation = new SetPropertyOperation({
-            resourceUrl: model.requireUrl(),
-            property: property.value,
-            value: Array.isArray(value) ? value : [value],
-            date: model.createdAt ?? createdAt,
-        }).setPredicate(property);
+            const operation = new SetPropertyOperation({
+                resourceUrl: model.requireUrl(),
+                property: property.value,
+                value: Array.isArray(value) ? value : [value],
+                date: model.createdAt ?? createdAt,
+            }).setPredicate(property);
 
-        if (isNamedNode) {
-            operation.setNamedNode(true);
+            if (isNamedNodeField(fieldDefinition)) {
+                operation.setNamedNode(true);
+            }
+
+            operations.push(operation);
         }
-
-        operations.push(operation);
     }
 
     return operations;
@@ -67,7 +79,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
         }
 
         const exists = model.exists();
-        const schema = model.static('schema');
+        const schema = getSchema(model.static());
         const attributes = model.getAttributes();
         const modelOperations = (operations[model.url] ??= []);
 
@@ -84,43 +96,40 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
             );
 
         for (const attribute of model.getDirtyAttributes()) {
-            const property = schema.rdfFieldProperties[attribute];
             const value = attributes[attribute];
             const fieldDefinition = schema.fields.def.shape[attribute];
 
-            if (!property || !fieldDefinition) {
+            if (!fieldDefinition) {
                 continue;
             }
 
-            if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
-                exists &&
-                    modelOperations.push(
-                        new UnsetPropertyOperation({
-                            resourceUrl: model.url,
-                            property: property.value,
-                            date: model.updatedAt ?? now,
-                        }).setPredicate(property),
-                    );
+            for (const property of getFieldRdfProperties(model.static(), attribute)) {
+                if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
+                    exists &&
+                        modelOperations.push(
+                            new UnsetPropertyOperation({
+                                resourceUrl: model.url,
+                                property: property.value,
+                                date: model.updatedAt ?? now,
+                            }).setPredicate(property),
+                        );
 
-                continue;
+                    continue;
+                }
+
+                const operation = new SetPropertyOperation({
+                    resourceUrl: model.url,
+                    property: property.value,
+                    value: Array.isArray(value) ? value : [value],
+                    date: model.updatedAt ?? now,
+                }).setPredicate(property);
+
+                if (isNamedNodeField(fieldDefinition)) {
+                    operation.setNamedNode(true);
+                }
+
+                modelOperations.push(operation);
             }
-
-            const fieldType = getFinalType(fieldDefinition);
-            const operation = new SetPropertyOperation({
-                resourceUrl: model.url,
-                property: property.value,
-                value: Array.isArray(value) ? value : [value],
-                date: model.updatedAt ?? now,
-            }).setPredicate(property);
-
-            if (
-                fieldType instanceof ZodURL ||
-                (fieldType instanceof ZodArray && getFinalType(fieldType.def.element) instanceof ZodURL)
-            ) {
-                operation.setNamedNode(true);
-            }
-
-            modelOperations.push(operation);
         }
     }
 
@@ -134,6 +143,8 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
         if (!model.operations || model.operations.length === 0) {
             crdtOperations.push(...createInceptionOperations(model, now));
         }
+
+        invade(model, ['_staleRdfProperties'])._staleRdfProperties = null;
 
         for (const operation of crdtOperations) {
             const url = operation.mintUrl();
@@ -154,7 +165,7 @@ export function createModelInceptionOperations(instance: ModelWithUrl, createdAt
         new SetPropertyOperation({
             resourceUrl: instance.url,
             property: RDF_TYPE_PREDICATE.value,
-            value: instance.static('schema').rdfClasses.map(({ value }) => value),
+            value: instance.static().getRdfClasses(),
             date: createdAt,
         })
             .setNamedNode(true)

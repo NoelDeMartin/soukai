@@ -1,6 +1,7 @@
 import { SolidDocument, expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { escapeRegexText, fail, objectDeepClone, required, urlRoute } from '@noeldemartin/utils';
+import { escapeRegexText, fail, invade, objectDeepClone, required, urlRoute } from '@noeldemartin/utils';
+import type { Quad } from '@rdfjs/types';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine, setRemoteEngine } from 'soukai-bis/engines/state';
@@ -16,6 +17,8 @@ import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import Project from 'soukai-bis/testing/stubs/Project';
 import Show from 'soukai-bis/testing/stubs/Show';
+import Task from 'soukai-bis/testing/stubs/Task';
+import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import User from 'soukai-bis/testing/stubs/User';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
@@ -23,10 +26,13 @@ import { metadataJsonLD, tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
 import z from 'zod';
 
+import type PropertyOperation from './crdts/PropertyOperation';
 import SetPropertyOperation from './crdts/SetPropertyOperation';
+import { allOf, anyOf } from './matching/fluent';
 import type { ModelConstructorOptions } from './Model';
 import { bootModels } from './registry';
 import { belongsToMany, belongsToOne } from './relations/fluent';
+import { remote } from './remote';
 import { defineSchema } from './schema';
 import type { ModelWithTimestamps, ModelWithUrl } from './types';
 
@@ -1582,8 +1588,8 @@ describe('Model', () => {
         const managers = await Manager.createManyFromRDF(rdf);
 
         // Assert
-        expect(Manager.schema.rdfClasses.map(({ value }) => value)).toEqual(['https://example.org/vocab#Manager']);
-        expect(Guest.schema.rdfClasses.map(({ value }) => value)).toEqual(['http://xmlns.com/foaf/0.1/Person']);
+        expect(Manager.getRdfClasses()).toEqual(['https://example.org/vocab#Manager']);
+        expect(Guest.getRdfClasses()).toEqual(['http://xmlns.com/foaf/0.1/Person']);
         expect(people.map(({ url }) => url)).toEqual([
             'https://alice.example/profile#me',
             'https://bob.example/profile#me',
@@ -1738,6 +1744,768 @@ describe('Model', () => {
             expect(tasksAfterAttach).toEqual([task]);
             expect(detached).toEqual([task]);
             expect(project.tasks).toHaveLength(0);
+        });
+    });
+
+    describe('hooks', () => {
+        const ACTION_STATUS = 'https://schema.org/actionStatus';
+        const COMPLETED = 'https://schema.org/CompletedActionStatus';
+        const POTENTIAL = 'https://schema.org/PotentialActionStatus';
+
+        const TodoSchema = defineSchema({
+            rdfContext: 'https://schema.org/',
+            rdfClass: 'Action',
+            history: true,
+            fields: {
+                name: z.string(),
+                description: z.string().optional(),
+                status: z.string().rdfProperty('actionStatus').optional(),
+                completedAt: z.date().rdfProperty('endTime').optional(),
+            },
+            hooks: {
+                beforeInitialize(attributes) {
+                    attributes.name ??= attributes.description;
+                },
+                beforeSave() {
+                    this.status = this.completedAt ? COMPLETED : POTENTIAL;
+                },
+            },
+        });
+
+        class Todo extends TodoSchema {}
+
+        async function loadOperations(url: string): Promise<PropertyOperation[]> {
+            const todo = await Todo.findOrFail(url);
+
+            return (await todo.loadRelation('operations')) as PropertyOperation[];
+        }
+
+        function documentStatements(engine: InMemoryEngine, documentUrl: string): Promise<Quad[]> {
+            return engine.readDocument(documentUrl).then((document) => document.getQuads());
+        }
+
+        beforeEach(() => {
+            bootModels({ Todo }, { reset: true });
+        });
+
+        describe('beforeInitialize', () => {
+            it('fills in attributes before validating', () => {
+                // Act
+                // @ts-expect-error The name is filled in by the hook.
+                const todo = new Todo({ description: 'Learn Solid' });
+
+                // Assert
+                expect(todo.name).toEqual('Learn Solid');
+                expect(todo.isDirty('name')).toBe(true);
+            });
+
+            it('receives the source quads', async () => {
+                // Arrange
+                const beforeInitialize = vi.fn();
+                const Schema = defineSchema(TodoSchema, { hooks: { beforeInitialize } });
+                const quads = await turtleToQuads(`
+                    @prefix schema: <https://schema.org/> .
+
+                    <solid://todos/learn-solid#it> a schema:Action ; schema:name "Learn Solid" .
+                `);
+
+                class SpiedTodo extends Schema {}
+
+                bootModels({ SpiedTodo });
+
+                // Act
+                await SpiedTodo.createFromRDF(quads, { url: 'solid://todos/learn-solid#it' });
+                new SpiedTodo({ name: 'Write docs' });
+
+                // Assert
+                expect(beforeInitialize).toHaveBeenCalledTimes(2);
+                expect(beforeInitialize.mock.calls[0]?.[0]).toMatchObject({ name: 'Learn Solid' });
+                expect(beforeInitialize.mock.calls[0]?.[1]).toEqual({ quads });
+                expect(beforeInitialize.mock.calls[1]?.[1]).toEqual({ quads: undefined });
+            });
+
+            it('does not run when hydrating', async () => {
+                // Arrange
+                const todo = await Todo.create({ name: 'Learn Solid' });
+                const serialized = todo.serialize();
+                const beforeInitialize = vi.fn();
+                const Schema = defineSchema(TodoSchema, { hooks: { beforeInitialize } });
+
+                Todo.updateSchema(Schema);
+
+                // Act
+                const hydrated = await Todo.hydrate(serialized);
+
+                // Assert
+                expect(hydrated.name).toEqual('Learn Solid');
+                expect(beforeInitialize).not.toHaveBeenCalled();
+            });
+
+            it('does not write filled in attributes until they are edited', async () => {
+                // Arrange
+                useFakeClock();
+
+                const documentUrl = 'solid://todos/learn-solid';
+                const url = `${documentUrl}#it`;
+                const quads = await turtleToQuads(`
+                    @prefix schema: <https://schema.org/> .
+
+                    <${url}> a schema:Action ; schema:description "Learn Solid" .
+                `);
+
+                await engine.createDocument(documentUrl, quads);
+
+                // Act
+                const todo = required(await Todo.createFromRDF(quads, { url }));
+                const serialized = todo.serialize();
+
+                vi.advanceTimersByTime(1000);
+                await todo.update({ completedAt: new Date() });
+
+                // Assert
+                const statements = await documentStatements(engine, documentUrl);
+                const operations = await loadOperations(url);
+                const operationProperties = operations.map((operation) => operation.property).sort();
+
+                expect(todo.name).toEqual('Learn Solid');
+                expect(serialized.nodes[0]?.staleRdfProperties).toEqual(['https://schema.org/name']);
+                expect(statements.some((quad) => quad.predicate.value === 'https://schema.org/name')).toBe(false);
+                expect(operationProperties).toEqual([
+                    ACTION_STATUS,
+                    'https://schema.org/description',
+                    'https://schema.org/endTime',
+                ]);
+
+                // Act
+                await todo.update({ name: 'Learn Solid (again)' });
+
+                // Assert
+                const updatedStatements = await documentStatements(engine, documentUrl);
+
+                expect(
+                    updatedStatements.find((quad) => quad.predicate.value === 'https://schema.org/name')?.object.value,
+                ).toEqual('Learn Solid (again)');
+            });
+
+            it('detects attributes modified in place', async () => {
+                // Arrange
+                const Schema = defineSchema({
+                    rdfContext: 'https://schema.org/',
+                    rdfClass: 'Action',
+                    fields: {
+                        name: z.string(),
+                        keywords: z.array(z.string()).default([]),
+                    },
+                    hooks: {
+                        beforeInitialize(attributes) {
+                            (attributes.keywords as string[] | undefined)?.push('todo');
+                        },
+                    },
+                });
+                const url = 'solid://todos/learn-solid#it';
+                const quads = await turtleToQuads(`
+                    @prefix schema: <https://schema.org/> .
+
+                    <${url}> a schema:Action ; schema:name "Learn Solid" ; schema:keywords "solid" .
+                `);
+                const keywords = ['docs'];
+
+                class TaggedTodo extends Schema {}
+
+                bootModels({ TaggedTodo });
+
+                // Act
+                const todo = required(await TaggedTodo.createFromRDF(quads, { url }));
+                const newTodo = new TaggedTodo({ name: 'Write docs', keywords });
+
+                // Assert
+                expect(todo.keywords).toEqual(['solid', 'todo']);
+                expect(todo.serialize().nodes[0]?.staleRdfProperties).toEqual(['https://schema.org/keywords']);
+                expect(newTodo.keywords).toEqual(['docs', 'todo']);
+                expect(keywords).toEqual(['docs']);
+            });
+
+            it('restores stale RDF properties when hydrating', async () => {
+                // Arrange
+                const documentUrl = 'solid://todos/learn-solid';
+                const url = `${documentUrl}#it`;
+                const quads = await turtleToQuads(`
+                    @prefix schema: <https://schema.org/> .
+
+                    <${url}> a schema:Action ; schema:description "Learn Solid" .
+                `);
+
+                await engine.createDocument(documentUrl, quads);
+
+                const todo = required(await Todo.createFromRDF(quads, { url }));
+
+                // Act
+                const hydrated = await Todo.hydrate(todo.serialize());
+
+                await hydrated.update({ completedAt: new Date() });
+
+                // Assert
+                const operations = await loadOperations(url);
+
+                expect(operations.map((operation) => operation.property)).not.toContain('https://schema.org/name');
+            });
+        });
+
+        describe('beforeSave', () => {
+            it('derives attributes when saving', async () => {
+                // Act
+                const todo = await Todo.create({ name: 'Learn Solid' });
+
+                // Assert
+                expect(todo.status).toEqual(POTENTIAL);
+
+                // Act
+                await todo.update({ completedAt: new Date() });
+
+                // Assert
+                const freshTodo = await Todo.findOrFail(todo.url);
+
+                expect(freshTodo.status).toEqual(COMPLETED);
+            });
+
+            it('records changes in the same history batch', async () => {
+                // Arrange
+                useFakeClock();
+
+                const todo = await Todo.create({ name: 'Learn Solid' });
+
+                // Act
+                vi.advanceTimersByTime(1000);
+                await todo.update({ completedAt: new Date() });
+
+                // Assert
+                const freshTodo = await Todo.findOrFail(todo.url);
+                const operations = await loadOperations(freshTodo.url);
+                const statusOperations = operations
+                    .filter((operation) => operation.property === ACTION_STATUS)
+                    .sort((a, b) => a.date.getTime() - b.date.getTime());
+                const completedAtOperation = required(
+                    operations.find((operation) => operation.property === 'https://schema.org/endTime'),
+                );
+
+                expect(statusOperations).toHaveLength(2);
+                expect(statusOperations[1]?.date).toEqual(completedAtOperation.date);
+            });
+
+            it('does not create redundant operations', async () => {
+                // Arrange
+                useFakeClock();
+
+                const todo = await Todo.create({ name: 'Learn Solid' });
+
+                // Act
+                vi.advanceTimersByTime(1000);
+                await todo.update({ name: 'Learn Solid (again)' });
+
+                // Assert
+                const freshTodo = await Todo.findOrFail(todo.url);
+                const operations = await loadOperations(freshTodo.url);
+
+                expect(operations.filter((operation) => operation.property === ACTION_STATUS)).toHaveLength(1);
+            });
+
+            it('runs for dirty models in the same document', async () => {
+                // Arrange
+                const beforeSave = vi.fn();
+                const Schema = defineSchema(TaskICalSchema, { hooks: { beforeSave } });
+
+                Task.updateSchema(Schema);
+
+                const project = new Project({ name: 'Solid' });
+                const task = project.relatedTasks.attach({ name: 'Learn Solid' });
+
+                const { url } = await project.save();
+                const freshProject = await Project.findOrFail(url);
+                const [freshTask, deletedTask] = [
+                    required(freshProject.tasks?.[0]),
+                    freshProject.relatedTasks.attach({ name: 'Delete me' }),
+                ];
+
+                await freshProject.save();
+
+                beforeSave.mockClear();
+                deletedTask.markForDeletion();
+                freshTask.name = 'Learn Solid (again)';
+
+                // Act
+                await freshProject.save();
+
+                // Assert
+                expect(task.exists()).toBe(true);
+                expect(beforeSave).toHaveBeenCalledTimes(1);
+                expect(beforeSave.mock.contexts[0]).toBe(freshTask);
+            });
+
+            it('does not run on clean models', async () => {
+                // Arrange
+                const beforeSave = vi.fn();
+                const Schema = defineSchema(TaskICalSchema, { hooks: { beforeSave } });
+
+                Task.updateSchema(Schema);
+
+                const task = await Task.create({ name: 'Learn Solid' });
+
+                // Act
+                await task.save();
+
+                // Assert
+                expect(beforeSave).toHaveBeenCalledTimes(1);
+            });
+        });
+
+        describe('schemas', () => {
+            it('merges hooks when extending schemas', () => {
+                // Arrange
+                const beforeSave = vi.fn();
+                const Schema = defineSchema(TodoSchema, { hooks: { beforeSave } });
+
+                class ExtendedTodo extends Schema {}
+
+                bootModels({ ExtendedTodo });
+
+                // Act
+                // @ts-expect-error The name is filled in by the hook.
+                const todo = new ExtendedTodo({ description: 'Learn Solid' });
+
+                // Assert
+                expect(todo.name).toEqual('Learn Solid');
+            });
+
+            it('swaps hooks when updating schemas', async () => {
+                // Arrange
+                const NoHooksSchema = defineSchema({
+                    rdfContext: 'https://schema.org/',
+                    rdfClass: 'Action',
+                    history: true,
+                    fields: {
+                        name: z.string().optional(),
+                        description: z.string().optional(),
+                        status: z.string().rdfProperty('actionStatus').optional(),
+                        completedAt: z.date().rdfProperty('endTime').optional(),
+                    },
+                });
+
+                // Act
+                Todo.updateSchema(NoHooksSchema);
+
+                // Assert
+                // @ts-expect-error The name is optional in the new schema.
+                const todo = await Todo.create({ description: 'Learn Solid' });
+
+                expect(todo.name).toBeUndefined();
+                expect(todo.status).toBeUndefined();
+            });
+
+            it('uses hooks in remote models', async () => {
+                // Arrange
+                // @ts-expect-error The name is filled in by the hook.
+                const todo = new (remote(Todo))({ description: 'Learn Solid' });
+
+                // Assert
+                expect(todo.name).toEqual('Learn Solid');
+            });
+        });
+
+        it('types hooks', () => {
+            defineSchema({
+                fields: { name: z.string(), description: z.string().optional() },
+                hooks: {
+                    beforeInitialize(attributes) {
+                        expectTypeOf(attributes.name).toEqualTypeOf<string | undefined>();
+                    },
+                    beforeSave() {
+                        expectTypeOf(this.name).toEqualTypeOf<string>();
+                        expectTypeOf(this.description).toEqualTypeOf<string | undefined>();
+                    },
+                },
+            });
+        });
+    });
+
+    describe('multiple vocabularies', () => {
+        const SCHEMA = 'https://schema.org/';
+        const ICAL = 'http://www.w3.org/2002/12/cal/ical#';
+
+        const TodoSchema = defineSchema({
+            rdfContext: SCHEMA,
+            rdfContexts: { ical: ICAL },
+            rdfClasses: anyOf(['Action', 'ical:Vtodo']),
+            history: true,
+            fields: {
+                name: z.string().rdfProperties(['name', 'ical:summary']),
+                completedAt: z.date().rdfProperties(['endTime', 'ical:completed']).optional(),
+                priority: z.string().rdfProperty('ical:priority').optional(),
+            },
+        });
+
+        class Todo extends TodoSchema {}
+
+        async function loadOperations(url: string): Promise<PropertyOperation[]> {
+            const task = await Todo.findOrFail(url);
+
+            return (await task.loadRelation('operations')) as PropertyOperation[];
+        }
+
+        function predicateValues(quads: Quad[], predicate: string): string[] {
+            return quads.filter((quad) => quad.predicate.value === predicate).map((quad) => quad.object.value);
+        }
+
+        beforeEach(() => {
+            bootModels({ Todo }, { reset: true });
+        });
+
+        describe('RDF classes', () => {
+            it('matches resources with any of the classes', async () => {
+                // Arrange
+                const quads = await turtleToQuads(`
+                    @prefix schema: <${SCHEMA}> .
+                    @prefix ical: <${ICAL}> .
+
+                    <solid://tasks#one> a schema:Action ; schema:name "One" .
+                    <solid://tasks#two> a ical:Vtodo ; ical:summary "Two" .
+                    <solid://tasks#three> a schema:Action, ical:Vtodo ; schema:name "Three" .
+                    <solid://tasks#four> a schema:Event ; schema:name "Four" .
+                `);
+
+                // Act
+                const tasks = await Todo.createManyFromRDF(quads);
+                const four = await Todo.createFromRDF(quads, { url: 'solid://tasks#four' });
+
+                // Assert
+                expect(tasks.map((task) => task.name).sort()).toEqual(['One', 'Three', 'Two']);
+                expect(four).toBeNull();
+            });
+
+            it('matches resources with all of the classes', async () => {
+                // Arrange
+                const quads = await turtleToQuads(`
+                    @prefix schema: <${SCHEMA}> .
+                    @prefix ical: <${ICAL}> .
+
+                    <solid://tasks#one> a schema:Action ; schema:name "One" .
+                    <solid://tasks#two> a schema:Action, ical:Vtodo ; schema:name "Two" .
+                `);
+
+                for (const rdfClasses of [['Action', 'ical:Vtodo'], allOf(['Action', 'ical:Vtodo'])]) {
+                    const Schema = defineSchema(TodoSchema, { rdfClasses });
+
+                    Todo.updateSchema(Schema);
+
+                    // Act
+                    const tasks = await Todo.createManyFromRDF(quads);
+
+                    // Assert
+                    expect(tasks.map((task) => task.name)).toEqual(['Two']);
+                    expect(Todo.matchesRdfClasses([`${SCHEMA}Action`])).toBe(false);
+                }
+            });
+
+            it('writes all the classes', async () => {
+                // Act
+                const task = await Todo.create({ name: 'Learn Solid' });
+
+                // Assert
+                const document = await engine.readDocument(task.requireDocumentUrl());
+                const types = document
+                    .statements(task.url, 'rdf:type')
+                    .map((statement) => statement.object.value)
+                    .sort();
+
+                expect(Todo.getRdfClasses()).toEqual([`${SCHEMA}Action`, `${ICAL}Vtodo`]);
+                expect(types).toEqual([`${ICAL}Vtodo`, `${SCHEMA}Action`]);
+            });
+
+            it('inherits the rule from parent schemas', () => {
+                // Arrange
+                const Schema = defineSchema(TodoSchema, { fields: { description: z.string().optional() } });
+
+                class ExtendedTodo extends Schema {}
+
+                bootModels({ ExtendedTodo });
+
+                // Act & Assert
+                expect(ExtendedTodo.matchesRdfClasses([`${ICAL}Vtodo`])).toBe(true);
+                expect(ExtendedTodo.getRdfClasses()).toEqual(Todo.getRdfClasses());
+            });
+
+            it('fails using rdfClass with anyOf', () => {
+                expect(() => defineSchema({ rdfClass: 'Action', rdfClasses: anyOf(['Event']) })).toThrow(SoukaiError);
+            });
+        });
+
+        describe('multiple RDF properties', () => {
+            it('reads values from the first property with values', async () => {
+                // Arrange
+                const quads = await turtleToQuads(`
+                    @prefix schema: <${SCHEMA}> .
+                    @prefix ical: <${ICAL}> .
+
+                    <solid://tasks#one> a ical:Vtodo ; ical:summary "One" .
+                    <solid://tasks#two> a schema:Action ; schema:name "Two" ; ical:summary "Old name" .
+                `);
+
+                // Act
+                const one = required(await Todo.createFromRDF(quads, { url: 'solid://tasks#one' }));
+                const two = required(await Todo.createFromRDF(quads, { url: 'solid://tasks#two' }));
+
+                // Assert
+                expect(one.name).toEqual('One');
+                expect(two.name).toEqual('Two');
+                expect(one.isDirty()).toBe(false);
+                expect(two.isDirty()).toBe(false);
+                expect(one.getAttributes()).not.toHaveProperty('summary');
+            });
+
+            it('writes values to all the properties', async () => {
+                // Arrange
+                useFakeClock();
+
+                // Act
+                const task = await Todo.create({ name: 'Learn Solid', completedAt: new Date() });
+
+                vi.advanceTimersByTime(1000);
+                await task.update({ name: 'Learn Solid (again)' });
+
+                // Assert
+                const quads = (await engine.readDocument(task.requireDocumentUrl())).getQuads();
+                const operations = await loadOperations(task.url);
+                const countOperations = (property: string) =>
+                    operations.filter((operation) => operation.property === property).length;
+
+                expect(predicateValues(quads, `${SCHEMA}name`)).toEqual(['Learn Solid (again)']);
+                expect(predicateValues(quads, `${ICAL}summary`)).toEqual(['Learn Solid (again)']);
+                expect(predicateValues(quads, `${SCHEMA}endTime`)).toHaveLength(1);
+                expect(predicateValues(quads, `${ICAL}completed`)).toHaveLength(1);
+                expect(countOperations(`${SCHEMA}name`)).toEqual(2);
+                expect(countOperations(`${ICAL}summary`)).toEqual(2);
+                expect(countOperations(`${SCHEMA}endTime`)).toEqual(1);
+                expect(countOperations(`${ICAL}completed`)).toEqual(1);
+            });
+
+            it('does not upgrade resources until fields are edited', async () => {
+                // Arrange
+                useFakeClock();
+
+                const documentUrl = 'solid://tasks/learn-solid';
+                const url = `${documentUrl}#it`;
+                const quads = await turtleToQuads(`
+                    @prefix ical: <${ICAL}> .
+
+                    <${url}> a ical:Vtodo ; ical:summary "Learn Solid" .
+                `);
+
+                await engine.createDocument(documentUrl, quads);
+
+                const task = required(await Todo.createFromRDF(quads, { url }));
+
+                // Act
+                vi.advanceTimersByTime(1000);
+                await task.update({ priority: '1' });
+
+                // Assert
+                const firstQuads = (await engine.readDocument(documentUrl)).getQuads();
+                const firstOperations = await loadOperations(url);
+
+                expect(predicateValues(firstQuads, `${SCHEMA}name`)).toEqual([]);
+                expect(
+                    predicateValues(
+                        firstQuads.filter((quad) => quad.subject.value === url),
+                        'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+                    ),
+                ).toEqual([`${ICAL}Vtodo`]);
+                expect(firstOperations.map((operation) => operation.property).sort()).toEqual([
+                    `${ICAL}priority`,
+                    `${ICAL}summary`,
+                ]);
+
+                // Act
+                vi.advanceTimersByTime(1000);
+                await task.update({ name: 'Learn Solid (again)' });
+
+                // Assert
+                const secondQuads = (await engine.readDocument(documentUrl)).getQuads();
+                const secondOperations = await loadOperations(url);
+
+                expect(predicateValues(secondQuads, `${SCHEMA}name`)).toEqual(['Learn Solid (again)']);
+                expect(predicateValues(secondQuads, `${ICAL}summary`)).toEqual(['Learn Solid (again)']);
+                expect(secondOperations.filter((operation) => operation.property === `${SCHEMA}name`)).toHaveLength(1);
+                expect(secondOperations.filter((operation) => operation.property === `${ICAL}summary`)).toHaveLength(2);
+            });
+
+            it('does not record stale properties in inception operations', async () => {
+                // Arrange
+                const documentUrl = 'solid://tasks/learn-solid';
+                const url = `${documentUrl}#it`;
+                const quads = await turtleToQuads(`
+                    @prefix schema: <${SCHEMA}> .
+                    @prefix ical: <${ICAL}> .
+
+                    <${url}> a schema:Action, ical:Vtodo ; schema:name "Learn Solid" ; ical:summary "Old name" .
+                `);
+
+                await engine.createDocument(documentUrl, quads);
+
+                const task = required(await Todo.createFromRDF(quads, { url }));
+
+                // Act
+                await task.update({ priority: '1' });
+
+                // Assert
+                const updatedQuads = (await engine.readDocument(documentUrl)).getQuads();
+                const operations = await loadOperations(url);
+
+                expect(predicateValues(updatedQuads, `${ICAL}summary`)).toEqual(['Old name']);
+                expect(operations.map((operation) => operation.property).sort()).toEqual([
+                    `${ICAL}priority`,
+                    `${SCHEMA}name`,
+                ]);
+            });
+
+            it('only keeps stale RDF properties when there are any', async () => {
+                // Arrange
+                const quads = await turtleToQuads(`
+                    @prefix schema: <${SCHEMA}> .
+                    @prefix ical: <${ICAL}> .
+
+                    <solid://todos#one> a ical:Vtodo ; ical:summary "One" .
+                    <solid://todos#two> a schema:Action, ical:Vtodo ; schema:name "Two" ; ical:summary "Two" .
+                `);
+                const staleRdfProperties = (todo: Todo) => invade(todo, ['_staleRdfProperties'])._staleRdfProperties;
+
+                // Act
+                const one = required(await Todo.createFromRDF(quads, { url: 'solid://todos#one' }));
+                const two = required(await Todo.createFromRDF(quads, { url: 'solid://todos#two' }));
+                const three = new Todo({ name: 'Three' });
+
+                // Assert
+                expect(staleRdfProperties(one)).toEqual(new Set([`${SCHEMA}name`]));
+                expect(staleRdfProperties(two)).toBeNull();
+                expect(staleRdfProperties(three)).toBeNull();
+
+                // Act
+                one.name = 'One (again)';
+
+                // Assert
+                expect(staleRdfProperties(one)).toBeNull();
+            });
+
+            it('ignores the order of values when detecting stale RDF properties', async () => {
+                // Arrange
+                const TaggedTodoSchema = defineSchema(TodoSchema, {
+                    fields: { keywords: z.array(z.string()).rdfProperties(['keywords', 'ical:categories']).optional() },
+                });
+
+                class TaggedTodo extends TaggedTodoSchema {}
+
+                bootModels({ TaggedTodo });
+
+                const quads = await turtleToQuads(`
+                    @prefix schema: <${SCHEMA}> .
+                    @prefix ical: <${ICAL}> .
+
+                    <solid://todos#one>
+                        a schema:Action ;
+                        schema:name "One" ;
+                        ical:summary "One" ;
+                        schema:keywords "solid", "todo" ;
+                        ical:categories "todo", "solid" .
+                `);
+
+                // Act
+                const todo = required(await TaggedTodo.createFromRDF(quads, { url: 'solid://todos#one' }));
+
+                // Assert
+                expect(todo.keywords).toEqual(['solid', 'todo']);
+                expect(invade(todo, ['_staleRdfProperties'])._staleRdfProperties).toBeNull();
+            });
+
+            it('keeps stale RDF properties when hydrating', async () => {
+                // Arrange
+                const documentUrl = 'solid://tasks/learn-solid';
+                const url = `${documentUrl}#it`;
+                const quads = await turtleToQuads(`
+                    @prefix ical: <${ICAL}> .
+
+                    <${url}> a ical:Vtodo ; ical:summary "Learn Solid" .
+                `);
+
+                await engine.createDocument(documentUrl, quads);
+
+                const task = required(await Todo.createFromRDF(quads, { url }));
+
+                // Act
+                const hydrated = await Todo.hydrate(task.serialize());
+
+                await hydrated.update({ priority: '1' });
+
+                // Assert
+                const operations = await loadOperations(url);
+
+                expect(operations.map((operation) => operation.property)).not.toContain(`${SCHEMA}name`);
+            });
+
+            it('inherits and swaps RDF properties', async () => {
+                // Arrange
+                const quads = await turtleToQuads(`
+                    @prefix ical: <${ICAL}> .
+
+                    <solid://tasks#it> a ical:Vtodo ; ical:summary "Learn Solid" .
+                `);
+                const ExtendedSchema = defineSchema(TodoSchema, { fields: { description: z.string().optional() } });
+                const OverriddenSchema = defineSchema(TodoSchema, { fields: { name: z.string() } });
+
+                class ExtendedTodo extends ExtendedSchema {}
+
+                bootModels({ ExtendedTodo });
+
+                // Act
+                const extendedTask = await ExtendedTodo.createFromRDF(quads, { url: 'solid://tasks#it' });
+
+                Todo.updateSchema(OverriddenSchema);
+
+                const overriddenTask = await Todo.createFromRDF(quads, { url: 'solid://tasks#it' }).catch(
+                    (error: unknown) => error,
+                );
+
+                // Assert
+                expect(extendedTask?.name).toEqual('Learn Solid');
+                expect(overriddenTask).toBeInstanceOf(Error);
+            });
+
+            it('reads values from multiple properties in order', async () => {
+                // Arrange
+                const quads = await turtleToQuads(`
+                    @prefix dc: <http://purl.org/dc/terms/> .
+
+                    <solid://tasks#it> a <${ICAL}Vtodo> ; dc:title "Learn Solid" .
+                `);
+                const nameDefinition = z.string().rdfProperties(['name', 'ical:summary', 'dc:title']);
+                const Schema = defineSchema(TodoSchema, {
+                    rdfContexts: { dc: 'http://purl.org/dc/terms/' },
+                    fields: { name: nameDefinition },
+                });
+
+                Todo.updateSchema(Schema);
+
+                // Act
+                const task = await Todo.createFromRDF(quads, { url: 'solid://tasks#it' });
+
+                // Assert
+                expect(task?.name).toEqual('Learn Solid');
+            });
+
+            it('reads and writes RDF properties in zod definitions', () => {
+                const definition = z.string().rdfProperties(['name', 'ical:summary']);
+
+                expect(definition.rdfProperties()).toEqual(['name', 'ical:summary']);
+                expect(z.string().rdfProperty('name').rdfProperties()).toEqual(['name']);
+                expect(z.string().rdfProperties()).toBeUndefined();
+            });
         });
     });
 });
