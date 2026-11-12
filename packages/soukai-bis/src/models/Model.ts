@@ -58,12 +58,13 @@ import {
     isUsingSameDocument,
     loadDocumentRelations,
 } from './concerns/rdf';
+import { updateModelSchema } from './concerns/schemas';
 import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
-import { CLASS_MARKER, mintedUrls } from './internals/model';
+import { CLASS_MARKER, mintedUrls, originalSchemas } from './internals/model';
 import { updatePublicPermissions } from './internals/permissions';
 import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
@@ -146,6 +147,14 @@ export default class Model<
 
     public static reset(): void {
         reset(this);
+    }
+
+    public static updateSchema(other: ModelConstructor): void {
+        if (!originalSchemas.has(this)) {
+            originalSchemas.set(this, this.schema);
+        }
+
+        this.schema = updateModelSchema(this, other.schema);
     }
 
     public static hydrating<T>(operation: () => T): T {

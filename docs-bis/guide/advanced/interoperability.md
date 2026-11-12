@@ -92,7 +92,7 @@ const privateMovieContainers = await user.findRegisteredContainers(Movie, {
 
 One of the key aspects to interoperate is juggling different shapes, or schemas.
 
-With Soukai, you can decouple Model functionality from their actual schema declaring it in a separate file:
+As we have seen, Soukai already decouples Model functionality from the data shape by defining the schema in a separate file:
 
 ::: code-group
 
@@ -121,6 +121,32 @@ import { defineSchema } from 'soukai-bis';
 import { date, string } from 'zod';
 
 export default defineSchema({
+    rdfContext: 'https://schema.org/',
+    rdfClass: 'Action',
+    fields: {
+        name: string(),
+        completedAt: date().rdfProperty('endTime').nullable().optional(),
+    },
+});
+```
+
+:::
+
+Another feature that makes this useful for interoperability is the ability to swap schemas at runtime:
+
+::: code-group
+
+```ts [main.ts]
+import ICalSchema from './Task.ical.schema';
+
+Task.updateSchema(ICalSchema);
+```
+
+```ts [Task.ical.schema.ts]
+import { defineSchema } from 'soukai-bis';
+import { date, string } from 'zod';
+
+export default defineSchema({
     rdfContext: 'http://www.w3.org/2002/12/cal/ical#',
     rdfClass: 'Vtodo',
     fields: {
@@ -132,10 +158,13 @@ export default defineSchema({
 
 :::
 
+This can be used to support different vocabularies, and adapt to the one existing data is using; or allow to change it with user preferences.
+
+Updating the schema will change the RDF declarations and mapping: the fields and Zod schema, RDF classes, RDF properties, and the default resource hash. Other aspects of the model don't change between schemas, so it's not necessary to redeclare things like relations or metadata settings like `timestamps` or `history`.
+
 ::: warning TODO
 Previous versions of Soukai supported some features to work with multiple schemas that haven't been implemented yet:
 
-- Swapping schemas at runtime, using `Task.updateSchema(OtherSchema)`.
 - Running logic specific to a schema with `hooks` (such as `afterInitialize`, `beforeSave`, and `afterSave`).
 - [Supporting multiple schemas at once](https://www.w3.org/DesignIssues/BagOfChips.html), using `alias` in fields. Multiple RDF classes can be declared using `rdfClasses`, but resources will only match the model if they have all of them.
 - Migrating existing data to a different schema, using `task.migrateSchema(OtherSchema)`.
