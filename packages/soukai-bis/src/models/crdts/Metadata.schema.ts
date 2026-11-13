@@ -10,5 +10,6 @@ export default defineSchema({
         resourceUrl: rdfProperty(url(), 'resource').optional(),
         createdAt: rdfProperty(date(), 'createdAt').optional(),
         updatedAt: rdfProperty(date(), 'updatedAt').optional(),
+        deletedAt: rdfProperty(date(), 'deletedAt').optional(),
     },
 });

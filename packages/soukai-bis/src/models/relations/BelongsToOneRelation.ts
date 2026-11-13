@@ -1,10 +1,11 @@
 import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import BelongsToRelation from './BelongsToRelation';
 import { MODEL_IN_OTHER_DOCUMENT_ID, MODEL_IN_SAME_DOCUMENT } from './internals';
+import type { LoadFromDocumentRDFOptions, RelationLoadOptions } from './Relation';
 import SingleModelRelation from './SingleModelRelation';
 
 export default class BelongsToOneRelation<
@@ -12,19 +13,19 @@ export default class BelongsToOneRelation<
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends mixed(SingleModelRelation, [BelongsToRelation])<Parent, Related, RelatedClass> {
-    public async load(): Promise<Related | null> {
-        this.related = await this.loadRelatedModel();
+    public async load(options: RelationLoadOptions = {}): Promise<Related | null> {
+        this.related = await this.loadRelatedModel(options);
 
         return this.related;
     }
 
-    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: ModelsCache } = {}): Promise<void> {
+    public async loadFromDocumentRDF(quads: Quad[], options: LoadFromDocumentRDFOptions = {}): Promise<void> {
         const foreignKey = this.parent.getAttribute(this.requireForeignKeyName());
         const related = foreignKey
             ? await this.relatedClass.createFromRDF(quads, {
+                  ...options,
                   // oxlint-disable-next-line typescript/no-base-to-string
                   url: String(foreignKey),
-                  modelsCache: options.modelsCache,
               })
             : null;
 
@@ -33,6 +34,8 @@ export default class BelongsToOneRelation<
         if (related) {
             this[MODEL_IN_SAME_DOCUMENT] = related;
             this.related = related;
+        } else if (this.usingSameDocument) {
+            this.related = null;
         } else if (foreignKey) {
             // oxlint-disable-next-line typescript/no-base-to-string
             this[MODEL_IN_OTHER_DOCUMENT_ID] = String(foreignKey);
@@ -55,7 +58,7 @@ export default class BelongsToOneRelation<
         this.parent.setAttribute(this.requireForeignKeyName(), foreignKey);
     }
 
-    private async loadRelatedModel(): Promise<Related | null> {
+    private async loadRelatedModel(options: RelationLoadOptions): Promise<Related | null> {
         const foreignKey = this.parent.getAttribute(this.requireForeignKeyName());
 
         if (!foreignKey) {
@@ -63,6 +66,9 @@ export default class BelongsToOneRelation<
         }
 
         // oxlint-disable-next-line typescript/no-base-to-string
-        return this.relatedClass.find(String(foreignKey), { modelsCache: this.getDocumentModelsCache() });
+        return this.relatedClass.find(String(foreignKey), {
+            modelsCache: this.getDocumentModelsCache(),
+            includeSoftDeleted: options.includeSoftDeleted,
+        });
     }
 }

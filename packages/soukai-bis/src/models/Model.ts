@@ -64,6 +64,7 @@ import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
+import { getSoftDeletedResourceUrls } from './crdts/soft-deletes';
 import type Tombstone from './crdts/Tombstone';
 import {
     CLASS_MARKER,
@@ -90,7 +91,7 @@ import type {
     SchemaRelationDefinition,
     SchemaRelations,
 } from './relations/schema';
-import { getRelatedClass } from './relations/utils';
+import { createRelation } from './relations/utils';
 import type { Schema } from './schema';
 import type { LegacyTimestamps } from './types';
 import type {
@@ -122,8 +123,18 @@ export interface ModelConstructorOptions {
     source?: Nullable<Quad[]>;
 }
 
+export interface CreateFromRDFOptions {
+    modelsCache?: ModelsCache;
+    includeSoftDeleted?: boolean;
+}
+
+export type FindOptions = CreateFromRDFOptions;
+
+export type PendingSoftDeletion = 'soft-delete' | 'restore';
+
 export interface LoadAllOptions {
     from?: string;
+    includeSoftDeleted?: boolean;
     deep?: boolean;
     depth?: number;
     $in?: string[];
@@ -244,13 +255,13 @@ export default class Model<
     public static async find<T extends Model>(
         this: ModelConstructor<T>,
         url: string,
-        options: { modelsCache?: ModelsCache } = {},
+        options: FindOptions = {},
     ): Promise<ModelWithUrl<T> | null> {
         const engine = this.requireEngine();
 
         try {
             const document = await engine.readDocument(urlRoute(url));
-            const model = await this.createFromDocument(document, { url, modelsCache: options.modelsCache });
+            const model = await this.createFromDocument(document, { ...options, url });
 
             return model;
         } catch (error) {
@@ -286,7 +297,9 @@ export default class Model<
             const models = await Promise.all(
                 Object.values(documents).map(async (document) => {
                     try {
-                        return await this.createManyFromDocument(document);
+                        return await this.createManyFromDocument(document, {
+                            includeSoftDeleted: options.includeSoftDeleted,
+                        });
                     } catch (error) {
                         if (!options.onDocumentError) {
                             throw error;
@@ -343,14 +356,14 @@ export default class Model<
     public static async createFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: { url: string; sourceDocumentUrl?: string; modelsCache?: ModelsCache },
+        options: CreateFromRDFOptions & { url: string; sourceDocumentUrl?: string },
     ): Promise<ModelWithUrl<T> | null> {
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
         const typeIndex = buildRDFTypeIndex(quads);
         const isType = this.matchesRdfClasses((rdfClass) => !!typeIndex.get(rdfClass)?.has(url));
 
-        if (!isType) {
+        if (!isType || (!options.includeSoftDeleted && getSoftDeletedResourceUrls(quads).has(url))) {
             return null;
         }
 
@@ -396,18 +409,18 @@ export default class Model<
     public static async createFromDocument<T extends Model>(
         this: ModelConstructor<T>,
         document: SolidDocument,
-        options: { url?: string; modelsCache?: ModelsCache } = {},
+        options: CreateFromRDFOptions & { url?: string } = {},
     ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? document.url;
         const quads = getDocumentQuads(document);
 
-        return this.createFromRDF(quads, { url, modelsCache: options.modelsCache });
+        return this.createFromRDF(quads, { ...options, url });
     }
 
     public static async createManyFromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: { modelsCache?: ModelsCache } = {},
+        options: CreateFromRDFOptions = {},
     ): Promise<ModelWithUrl<T>[]> {
         const typeIndex = buildRDFTypeIndex(quads);
         const candidateUrls = new Set(this.getRdfClasses().flatMap((rdfClass) => [...(typeIndex.get(rdfClass) ?? [])]));
@@ -421,7 +434,13 @@ export default class Model<
 
         const modelsCache = options.modelsCache ?? new Map();
         const models = await Promise.all(
-            matchingResourceUrls.map((resourceUrl) => this.createFromRDF(quads, { url: resourceUrl, modelsCache })),
+            matchingResourceUrls.map((resourceUrl) =>
+                this.createFromRDF(quads, {
+                    url: resourceUrl,
+                    modelsCache,
+                    includeSoftDeleted: options.includeSoftDeleted,
+                }),
+            ),
         );
 
         return models.filter(isTruthy);
@@ -430,7 +449,7 @@ export default class Model<
     public static async createManyFromDocument<T extends Model>(
         this: ModelConstructor<T>,
         document: SolidDocument,
-        options: { modelsCache?: ModelsCache } = {},
+        options: CreateFromRDFOptions = {},
     ): Promise<ModelWithUrl<T>[]> {
         const quads = getDocumentQuads(document);
 
@@ -494,6 +513,7 @@ export default class Model<
     declare protected _documentExists: boolean;
     declare protected _sourceDocumentUrl: string | null;
     declare protected _markedForDeletion: boolean;
+    declare protected _pendingSoftDeletion: PendingSoftDeletion | null;
     declare protected _deletedWith: Model[];
     declare protected _attributes: Attributes;
     declare protected _originalAttributes: Attributes;
@@ -522,6 +542,7 @@ export default class Model<
         this._documentExists = exists;
         this._sourceDocumentUrl = null;
         this._markedForDeletion = false;
+        this._pendingSoftDeletion = null;
         this._deletedWith = [];
         this._computedAttributes = {};
         this._relations = {};
@@ -634,20 +655,7 @@ export default class Model<
 
     public getRelation(name: RelationName): Relation {
         if (!(name in this._relations)) {
-            const relation = required(
-                getSchema(this.static()).relations[name],
-                `Relation '${name}' is not defined in the ${this.static().modelName} model.`,
-            );
-
-            const relatedClass = getRelatedClass(this.static(), relation);
-
-            this._relations[name] = relation.relationClass.newInstance(this.__instance(), relatedClass, {
-                foreignKeyName: relation.options.foreignKey,
-                localKeyName: relation.options.localKey,
-                usingSameDocument: relation.options.usingSameDocument,
-                from: relation.options.from,
-                onDelete: relation.options.onDelete,
-            });
+            this._relations[name] = createRelation(this.__instance(), name);
         }
 
         return this._relations[name] as Relation;
@@ -805,6 +813,10 @@ export default class Model<
             documentModel._originalAttributes = freshInstance._originalAttributes;
             documentModel._dirtyAttributes = new Set();
 
+            if (freshInstance._relations.metadata?.loaded) {
+                documentModel.getRelation('metadata').related = freshInstance._relations.metadata.related;
+            }
+
             await emitModelEvent(documentModel, 'saved');
             await emitModelEvent(documentModel, 'updated');
         }
@@ -938,13 +950,16 @@ export default class Model<
         }
 
         if (ignoreRelations) {
-            return this._markedForDeletion ? this.exists() : this._dirtyAttributes.size > 0;
+            return this._markedForDeletion
+                ? this.exists()
+                : this._dirtyAttributes.size > 0 || this._pendingSoftDeletion !== null;
         }
 
         return this.getDirtyDocumentModels().length > 0;
     }
 
     public cleanDirty(): void {
+        this._pendingSoftDeletion = null;
         this._dirtyAttributes.clear();
         this._originalAttributes = objectDeepClone(this._attributes);
     }
@@ -992,6 +1007,38 @@ export default class Model<
 
     public isMarkedForDeletion(): boolean {
         return this._markedForDeletion;
+    }
+
+    public isSoftDeleted(): boolean {
+        if (this._pendingSoftDeletion) {
+            return this._pendingSoftDeletion === 'soft-delete';
+        }
+
+        return !!(this._relations.metadata?.related as Metadata | undefined)?.deletedAt;
+    }
+
+    public getPendingSoftDeletion(): PendingSoftDeletion | null {
+        return this._pendingSoftDeletion;
+    }
+
+    public async softDelete(): Promise<this> {
+        if (!this.__isCanonical()) {
+            await this.__instance().softDelete();
+
+            return this;
+        }
+
+        return this.updateSoftDeletion('soft-delete');
+    }
+
+    public async restore(): Promise<this> {
+        if (!this.__isCanonical()) {
+            await this.__instance().restore();
+
+            return this;
+        }
+
+        return this.updateSoftDeletion('restore');
     }
 
     public async delete(): Promise<this> {
@@ -1074,9 +1121,9 @@ export default class Model<
             sourceDocumentUrl && this.isInAuthoritativeDocument() === false
                 ? await this.static().createFromDocument(
                       await this.static().requireEngine().readDocument(sourceDocumentUrl),
-                      { url: this.url },
+                      { url: this.url, includeSoftDeleted: true },
                   )
-                : await this.static().find(this.url);
+                : await this.static().find(this.url, { includeSoftDeleted: true });
 
         if (!freshInstance) {
             throw new SoukaiError(`Couldn't get fresh ${this.static('modelName')} instance with url '${this.url}'.`);
@@ -1278,7 +1325,7 @@ export default class Model<
 
             await deleteModels(cascade.otherDocumentModels, deletingUrls);
 
-            this._deletedWith = models;
+            this._deletedWith = [...models, ...markedModels];
 
             await this.save();
         } finally {
@@ -1540,14 +1587,55 @@ export default class Model<
             return;
         }
 
+        now ??= new Date();
+
         if (!this.metadata) {
             this.initializeMetadata({ createdAt: this._legacyTimestamps?.createdAt ?? now, updatedAt: now });
-
-            return;
+        } else {
+            this.exists() || this.metadata.setAttribute('createdAt', now);
+            this.metadata.setAttribute('updatedAt', now);
         }
 
-        this.exists() || this.metadata.setAttribute('createdAt', now ?? new Date());
-        this.metadata.setAttribute('updatedAt', now ?? new Date());
+        if (this._pendingSoftDeletion) {
+            this.metadata.setAttribute('deletedAt', this._pendingSoftDeletion === 'soft-delete' ? now : undefined);
+        }
+    }
+
+    protected async updateSoftDeletion(pendingSoftDeletion: PendingSoftDeletion): Promise<this> {
+        const action = pendingSoftDeletion === 'soft-delete' ? 'soft delete' : 'restore';
+
+        if (!this.tracksChanges() || !this.hasTimestamps()) {
+            throw new SoukaiError(
+                `Can't ${action} ${this.static('modelName')} models, only models with history and timestamps can be soft deleted.`,
+            );
+        }
+
+        if (!this.exists()) {
+            throw new SoukaiError(`Can't ${action} a ${this.static('modelName')} model that doesn't exist.`);
+        }
+
+        if (this.isSoftDeleted() === (pendingSoftDeletion === 'soft-delete')) {
+            return this;
+        }
+
+        const metadata = this.metadata;
+        const previousDeletedAt = metadata.deletedAt;
+        const deletedAtWasDirty = metadata.isDirty('deletedAt');
+
+        this._pendingSoftDeletion = pendingSoftDeletion;
+
+        try {
+            await this.save();
+        } catch (error) {
+            metadata.setAttribute('deletedAt', previousDeletedAt);
+            deletedAtWasDirty || metadata._dirtyAttributes.delete('deletedAt');
+
+            throw error;
+        } finally {
+            this._pendingSoftDeletion = null;
+        }
+
+        return this;
     }
 
     private parseAttributes(values: Record<string, unknown>, options: ModelConstructorOptions): Attributes {

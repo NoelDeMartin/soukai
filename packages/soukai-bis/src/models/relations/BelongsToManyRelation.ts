@@ -1,35 +1,38 @@
 import { arrayFrom, isTruthy, mixed, urlRoute } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import BelongsToRelation from './BelongsToRelation';
 import { MODELS_IN_OTHER_DOCUMENT_IDS, MODELS_IN_SAME_DOCUMENT } from './internals';
 import MultiModelRelation from './MultiModelRelation';
+import type { LoadFromDocumentRDFOptions, RelationLoadOptions } from './Relation';
 
 export default class BelongsToManyRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends mixed(MultiModelRelation, [BelongsToRelation])<Parent, Related, RelatedClass> {
-    public async load(): Promise<Related[]> {
-        this.related = await this.loadRelatedModels();
+    public async load(options: RelationLoadOptions = {}): Promise<Related[]> {
+        this.related = await this.loadRelatedModels(options);
 
         return this.related;
     }
 
-    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: ModelsCache } = {}): Promise<void> {
+    public async loadFromDocumentRDF(quads: Quad[], options: LoadFromDocumentRDFOptions = {}): Promise<void> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
         // oxlint-disable-next-line typescript/no-base-to-string
         const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true }).map((value) => String(value));
-        const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
+        const allRelated = await this.relatedClass.createManyFromRDF(quads, options);
         const related = allRelated.filter((model) =>
             foreignKeys.includes(model.getAttribute(this.localKeyName) as string),
         );
         const relatedKeys = related.map((model) => model.getAttribute(this.localKeyName));
 
         this[MODELS_IN_SAME_DOCUMENT] = related;
-        this[MODELS_IN_OTHER_DOCUMENT_IDS] = foreignKeys.filter((key) => !relatedKeys.includes(key));
+        this[MODELS_IN_OTHER_DOCUMENT_IDS] = this.usingSameDocument
+            ? []
+            : foreignKeys.filter((key) => !relatedKeys.includes(key));
         this.documentModelsLoaded = true;
 
         if (this[MODELS_IN_OTHER_DOCUMENT_IDS].length === 0) {
@@ -65,7 +68,7 @@ export default class BelongsToManyRelation<
         this.parent.setAttribute(foreignKeyName, foreignValues.concat([foreignKey]));
     }
 
-    private async loadRelatedModels(): Promise<Related[]> {
+    private async loadRelatedModels(options: RelationLoadOptions): Promise<Related[]> {
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
         const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true }).map(String);
 
@@ -81,7 +84,14 @@ export default class BelongsToManyRelation<
             foreignKeys.map(async (url) => {
                 const document = documents[urlRoute(url)];
 
-                return document && this.relatedClass.createFromDocument(document, { url, modelsCache });
+                return (
+                    document &&
+                    this.relatedClass.createFromDocument(document, {
+                        url,
+                        modelsCache,
+                        includeSoftDeleted: options.includeSoftDeleted,
+                    })
+                );
             }),
         );
 

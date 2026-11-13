@@ -1,22 +1,74 @@
 import { arrayUnique, invade, required } from '@noeldemartin/utils';
+import type { Quad } from '@rdfjs/types';
 import { getSchema } from 'soukai-bis/models/internals/model';
+import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type Relation from 'soukai-bis/models/relations/Relation';
+import { createRelation } from 'soukai-bis/models/relations/utils';
+import { buildModelsCache } from 'soukai-bis/models/utils';
 
 import { isUsingSameDocument } from './rdf';
 
 interface MarkCascadingModelsOptions {
     loadOtherDocumentRelations: boolean;
     deletingUrls?: Set<string>;
+    documentsQuads?: Map<string, Promise<Quad[]>>;
 }
 
-export interface CascadeDeletesResult {
-    markedModels: Model[];
-    otherDocumentModels: Model[];
+interface CascadingRelation {
+    relation: Relation;
+    models: Model[];
 }
 
-async function getCascadingRelations(model: Model, options: MarkCascadingModelsOptions): Promise<Relation[]> {
-    const relations: Relation[] = [];
+function readDocumentQuads(model: Model, options: MarkCascadingModelsOptions): Promise<Quad[]> {
+    const documentUrl = model.requireDocumentUrl();
+    const documentsQuads = (options.documentsQuads ??= new Map());
+
+    if (!documentsQuads.has(documentUrl)) {
+        documentsQuads.set(
+            documentUrl,
+            model
+                .static()
+                .requireEngine()
+                .readDocument(documentUrl)
+                .then((document) => getDocumentQuads(document)),
+        );
+    }
+
+    return required(documentsQuads.get(documentUrl));
+}
+
+async function loadSoftDeletedModels(
+    model: Model,
+    name: string,
+    options: MarkCascadingModelsOptions,
+): Promise<Model[]> {
+    const relation = createRelation(model, name);
+    const relatedSchema = getSchema(relation.relatedClass);
+
+    if (
+        !model.exists() ||
+        !relatedSchema.history ||
+        !relatedSchema.timestamps ||
+        (!relation.usingSameDocument && !options.loadOtherDocumentRelations)
+    ) {
+        return [];
+    }
+
+    if (relation.usingSameDocument) {
+        await relation.loadFromDocumentRDF(await readDocumentQuads(model, options), {
+            modelsCache: buildModelsCache(model.getDocumentModels()),
+            includeSoftDeleted: true,
+        });
+    } else {
+        await relation.load({ includeSoftDeleted: true });
+    }
+
+    return relation.getLoadedModels().filter((relatedModel) => relatedModel.isSoftDeleted());
+}
+
+async function getCascadingRelations(model: Model, options: MarkCascadingModelsOptions): Promise<CascadingRelation[]> {
+    const relations: CascadingRelation[] = [];
 
     for (const name of Object.keys(getSchema(model.static()).relations)) {
         const relation = model.getRelation(name);
@@ -29,7 +81,10 @@ async function getCascadingRelations(model: Model, options: MarkCascadingModelsO
             await model.loadRelation(name);
         }
 
-        relations.push(relation);
+        relations.push({
+            relation,
+            models: [...relation.getLoadedModels(), ...(await loadSoftDeletedModels(model, name, options))],
+        });
     }
 
     return relations;
@@ -37,14 +92,6 @@ async function getCascadingRelations(model: Model, options: MarkCascadingModelsO
 
 function isBeingDeleted(model: Model, deletingUrls?: Set<string>): boolean {
     return model.isMarkedForDeletion() || (!!model.url && model.exists() && !!deletingUrls?.has(model.url));
-}
-
-export function markForDeletion(model: Model, deletingUrls?: Set<string>): void {
-    model.markForDeletion();
-
-    if (model.url && model.exists()) {
-        deletingUrls?.add(model.url);
-    }
 }
 
 async function markCascadingModels(
@@ -60,8 +107,8 @@ async function markCascadingModels(
         while (pendingModels.length > 0) {
             const model = required(pendingModels.pop());
 
-            for (const relation of await getCascadingRelations(model, options)) {
-                for (const relatedModel of relation.getLoadedModels()) {
+            for (const { relation, models: relatedModels } of await getCascadingRelations(model, options)) {
+                for (const relatedModel of relatedModels) {
                     if (isBeingDeleted(relatedModel, options.deletingUrls)) {
                         continue;
                     }
@@ -85,6 +132,19 @@ async function markCascadingModels(
     }
 
     return { markedModels, otherDocumentModels: Array.from(otherDocumentModels) };
+}
+
+export interface CascadeDeletesResult {
+    markedModels: Model[];
+    otherDocumentModels: Model[];
+}
+
+export function markForDeletion(model: Model, deletingUrls?: Set<string>): void {
+    model.markForDeletion();
+
+    if (model.url && model.exists()) {
+        deletingUrls?.add(model.url);
+    }
 }
 
 export function cascadeDeletes(models: Model[], deletingUrls: Set<string>): Promise<CascadeDeletesResult> {

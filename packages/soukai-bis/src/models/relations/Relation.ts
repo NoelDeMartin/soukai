@@ -27,6 +27,14 @@ export interface RelationOptions {
     onDelete?: OnDeleteAction | null;
 }
 
+export interface RelationLoadOptions {
+    includeSoftDeleted?: boolean;
+}
+
+export interface LoadFromDocumentRDFOptions extends RelationLoadOptions {
+    modelsCache?: ModelsCache;
+}
+
 export interface DetachOptions {
     delete?: boolean;
 }
@@ -129,10 +137,12 @@ export default abstract class Relation<
         return typeof containerUrl === 'string' ? containerUrl : null;
     }
 
-    public async loadAllRelatedModels(): Promise<Related[]> {
+    public async loadAllRelatedModels(options: RelationLoadOptions = {}): Promise<Related[]> {
         const containerUrl = this.resolveRelatedContainerUrl();
 
-        return containerUrl ? this.relatedClass.all({ from: containerUrl }) : this.relatedClass.all();
+        return containerUrl
+            ? this.relatedClass.all({ from: containerUrl, includeSoftDeleted: options.includeSoftDeleted })
+            : this.relatedClass.all({ includeSoftDeleted: options.includeSoftDeleted });
     }
 
     public requireForeignKeyName(): string {
@@ -167,8 +177,8 @@ export default abstract class Relation<
         return tap(this.attach(attributes), (model) => this.save(model));
     }
 
-    public abstract load(): Promise<Related | Related[] | null>;
-    public abstract loadFromDocumentRDF(quads: Quad[], options?: { modelsCache?: ModelsCache }): Promise<void>;
+    public abstract load(options?: RelationLoadOptions): Promise<Related | Related[] | null>;
+    public abstract loadFromDocumentRDF(quads: Quad[], options?: LoadFromDocumentRDFOptions): Promise<void>;
     public abstract setForeignAttributes(related: Related): void;
     public abstract clearForeignAttributes(related: Related, options?: DetachOptions): void;
     public abstract isEmpty(): boolean | null;

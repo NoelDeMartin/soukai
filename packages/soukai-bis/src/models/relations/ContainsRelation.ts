@@ -6,6 +6,7 @@ import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import { CLASS_MARKER } from './internals';
 import MultiModelRelation from './MultiModelRelation';
+import type { RelationLoadOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default class ContainsRelation<
@@ -60,8 +61,8 @@ export default class ContainsRelation<
         );
     }
 
-    public async load(): Promise<Related[]> {
-        this.related = await this.loadContainedModels();
+    public async load(options: RelationLoadOptions = {}): Promise<Related[]> {
+        this.related = await this.loadContainedModels(options);
 
         return this.related;
     }
@@ -108,7 +109,7 @@ export default class ContainsRelation<
         throw new SoukaiError("Cannot save a model because the container doesn't exist");
     }
 
-    private async loadContainedModels(): Promise<Related[]> {
+    private async loadContainedModels(options: RelationLoadOptions): Promise<Related[]> {
         const documentUrls = this.parent.resourceUrls;
 
         if (documentUrls.length === 0) {
@@ -125,7 +126,7 @@ export default class ContainsRelation<
                     return [];
                 }
 
-                return this.relatedClass.createManyFromDocument(document);
+                return this.relatedClass.createManyFromDocument(document, options);
             }),
         );
 

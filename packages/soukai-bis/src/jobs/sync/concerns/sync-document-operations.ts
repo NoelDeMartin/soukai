@@ -1,3 +1,4 @@
+import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
@@ -8,14 +9,16 @@ import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation'
 import {
     CRDT_METADATA_OBJECT,
     CRDT_RESOURCE_PREDICATE,
+    CRDT_RESTORE_OPERATION_OBJECT,
     CRDT_SET_PROPERTY_OPERATION_OBJECT,
+    CRDT_SOFT_DELETE_OPERATION_OBJECT,
     CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
     CRDT_UPDATED_AT,
     CRDT_UPDATED_AT_PREDICATE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
-import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import { isLifecycleOperation, sortedOperations, supersedesOperation } from 'soukai-bis/models/crdts/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
@@ -92,12 +95,15 @@ function getMetadataUpdates({
 function getDocumentUpdateOperations({
     existingOperations,
     newOperations,
+    metadataUrls,
 }: {
     existingOperations: Operation[];
     newOperations: Operation[];
+    metadataUrls: Record<string, string>;
 }): EngineOperation[] {
     const operations: Operation[] = [];
     const existingPropertyOperations = existingOperations.filter((operation) => operation instanceof PropertyOperation);
+    const existingLifecycleOperations = existingOperations.filter(isLifecycleOperation);
 
     for (const newOperation of newOperations) {
         operations.push(...newOperation.createDocumentOperations());
@@ -112,6 +118,22 @@ function getDocumentUpdateOperations({
             )
         ) {
             continue;
+        }
+
+        if (isLifecycleOperation(newOperation)) {
+            if (
+                existingLifecycleOperations.some(
+                    (existingOperation) =>
+                        existingOperation.resourceUrl === newOperation.resourceUrl &&
+                        supersedesOperation(existingOperation, newOperation),
+                )
+            ) {
+                continue;
+            }
+
+            const metadataUrl = metadataUrls[newOperation.resourceUrl];
+
+            metadataUrl && newOperation.setMetadataSubject(new RDFNamedNode(metadataUrl));
         }
 
         operations.push(newOperation);
@@ -132,7 +154,16 @@ function getNewDocumentOperations({
     newOperations: Operation[];
 }): EngineOperation[] {
     const newSortedOperations = sortedOperations(newOperations);
-    const documentOperations = getDocumentUpdateOperations({ existingOperations, newOperations: newSortedOperations });
+    const metadataUrls = objectFromEntries(
+        [...otherDocumentMetadatas, ...documentMetadatas]
+            .filter((metadata) => !!metadata.resourceUrl)
+            .map((metadata) => [required(metadata.resourceUrl), metadata.url]),
+    );
+    const documentOperations = getDocumentUpdateOperations({
+        existingOperations,
+        newOperations: newSortedOperations,
+        metadataUrls,
+    });
     const metadataUpdates = getMetadataUpdates({
         documentMetadatas,
         otherDocumentMetadatas,
@@ -244,6 +275,8 @@ function getDeletedResourcesDocumentOperations({
     const deletedOperationUrls = [
         ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_SET_PROPERTY_OPERATION_OBJECT),
         ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_UNSET_PROPERTY_OPERATION_OBJECT),
+        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_SOFT_DELETE_OPERATION_OBJECT),
+        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_RESTORE_OPERATION_OBJECT),
     ]
         .filter((quad) =>
             deletedResourceUrls.some((resourceUrl) =>

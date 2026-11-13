@@ -14,12 +14,12 @@ import { allOf } from './matching/fluent';
 import type { RdfClassesDefinition } from './matching/fluent';
 import RDFClassesMatcher from './matching/RDFClassesMatcher';
 import Model from './Model';
-import type { ModelConstructorOptions } from './Model';
+import type { CreateFromRDFOptions, ModelConstructorOptions } from './Model';
 import HasOneRelation from './relations/HasOneRelation';
 import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
 import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRelations } from './relations/schema';
-import type { ModelConstructor, ModelInstanceType, ModelWithUrl, ModelsCache } from './types';
+import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
 import { isModelClass } from './utils';
 
 declare const SCHEMA_FIELDS_MARKER: unique symbol;
@@ -155,11 +155,12 @@ export type SchemaModelClass<
         createFromRDF<This>(
             this: This,
             quads: Quad[],
-            options: { url: string; modelsCache?: ModelsCache },
+            options: CreateFromRDFOptions & { url: string; sourceDocumentUrl?: string },
         ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
         createManyFromDocument<This>(
             this: This,
             document: SolidDocument,
+            options?: CreateFromRDFOptions,
         ): Promise<ModelWithUrl<ModelInstanceType<This>>[]>;
     }
 >;

@@ -1,6 +1,7 @@
 import type { MintUrlOptions } from 'soukai-bis/models/Model';
 
 import Model from './Metadata.schema';
+import { getMetadataUrl } from './soft-deletes';
 
 export default class Metadata extends Model {
     protected newUrl(options: MintUrlOptions = {}): string {
@@ -8,6 +9,6 @@ export default class Metadata extends Model {
             return super.newUrl(options);
         }
 
-        return this.resourceUrl.includes('#') ? `${this.resourceUrl}-metadata` : `${this.resourceUrl}#metadata`;
+        return getMetadataUrl(this.resourceUrl);
     }
 }

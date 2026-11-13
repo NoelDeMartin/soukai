@@ -4,7 +4,9 @@ import { md5 } from '@noeldemartin/utils';
 import type { Literal } from '@rdfjs/types';
 import { describe, expect, it } from 'vite-plus/test';
 
+import RestoreOperation from './RestoreOperation';
 import SetPropertyOperation from './SetPropertyOperation';
+import SoftDeleteOperation from './SoftDeleteOperation';
 import UnsetPropertyOperation from './UnsetPropertyOperation';
 
 describe('SetPropertyOperation', () => {
@@ -85,6 +87,7 @@ describe('SetPropertyOperation', () => {
             JSON.stringify([
                 `${documentUrl}#it`,
                 '2026-07-12T00:00:00.000Z',
+                'https://vocab.noeldemartin.com/crdt/SetPropertyOperation',
                 'https://schema.org/name',
                 '"Alice"^^<http://www.w3.org/2001/XMLSchema#string>',
                 '"Bob"^^<http://www.w3.org/2001/XMLSchema#string>',
@@ -100,6 +103,7 @@ describe('SetPropertyOperation', () => {
                 JSON.stringify([
                     documentUrl,
                     '2026-07-12T00:00:00.000Z',
+                    'https://vocab.noeldemartin.com/crdt/SetPropertyOperation',
                     'https://schema.org/name',
                     '"Alice"^^<http://www.w3.org/2001/XMLSchema#string>',
                     '"Bob"^^<http://www.w3.org/2001/XMLSchema#string>',
@@ -123,7 +127,36 @@ describe('SetPropertyOperation', () => {
         // Assert
         expect(url).toEqual(
             `${documentUrl}#it-operation-${md5(
-                JSON.stringify([`${documentUrl}#it`, '2026-07-12T00:00:00.000Z', 'https://schema.org/name']),
+                JSON.stringify([
+                    `${documentUrl}#it`,
+                    '2026-07-12T00:00:00.000Z',
+                    'https://vocab.noeldemartin.com/crdt/UnsetPropertyOperation',
+                    'https://schema.org/name',
+                ]),
+            )}`,
+        );
+    });
+
+    it('mints different urls for different operation types', () => {
+        // Arrange
+        const resourceUrl = `${fakeDocumentUrl()}#it`;
+        const date = new Date('2026-07-12T00:00:00.000Z');
+
+        // Act
+        const urls = [
+            new SoftDeleteOperation({ resourceUrl, date }).mintUrl(),
+            new RestoreOperation({ resourceUrl, date }).mintUrl(),
+        ];
+
+        // Assert
+        expect(urls[0]).not.toEqual(urls[1]);
+        expect(urls[0]).toEqual(
+            `${resourceUrl}-operation-${md5(
+                JSON.stringify([
+                    resourceUrl,
+                    '2026-07-12T00:00:00.000Z',
+                    'https://vocab.noeldemartin.com/crdt/SoftDeleteOperation',
+                ]),
             )}`,
         );
     });

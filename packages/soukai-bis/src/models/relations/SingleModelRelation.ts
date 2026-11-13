@@ -6,7 +6,7 @@ import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
 import { CLASS_MARKER, MODEL_IN_OTHER_DOCUMENT_ID, MODEL_IN_SAME_DOCUMENT, NEW_MODEL } from './internals';
 import Relation from './Relation';
-import type { DetachOptions } from './Relation';
+import type { DetachOptions, RelationLoadOptions } from './Relation';
 import type { GetRelatedModelInput } from './types';
 
 export default abstract class SingleModelRelation<
@@ -134,5 +134,5 @@ export default abstract class SingleModelRelation<
         }
     }
 
-    public abstract load(): Promise<Related | null>;
+    public abstract load(options?: RelationLoadOptions): Promise<Related | null>;
 }

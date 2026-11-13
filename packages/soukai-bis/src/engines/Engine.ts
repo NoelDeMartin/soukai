@@ -6,6 +6,7 @@ import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import {
+    CRDT_DELETED_AT,
     LDP_BASIC_CONTAINER,
     LDP_BASIC_CONTAINER_OBJECT,
     LDP_CONTAINER,
@@ -13,6 +14,8 @@ import {
     LDP_CONTAINS,
     LDP_CONTAINS_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
+import { isLifecycleOperation, supersedesOperation } from 'soukai-bis/models/crdts/helpers';
+import type Operation from 'soukai-bis/models/crdts/Operation';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
@@ -155,35 +158,38 @@ export default abstract class Engine {
     }
 
     protected filterSupersededOperations(operations: EngineOperation[]): EngineOperation[] {
-        const overridableOperations = operations.filter(
-            (operation): operation is SetPropertyOperation | UnsetPropertyOperation => {
-                return isInstanceOf(operation, SetPropertyOperation) || isInstanceOf(operation, UnsetPropertyOperation);
-            },
-        );
+        const getOverridableKey = (operation: EngineOperation): string | null => {
+            if (isInstanceOf(operation, SetPropertyOperation) || isInstanceOf(operation, UnsetPropertyOperation)) {
+                return `${operation.resourceUrl}-${operation.property}`;
+            }
+
+            if (isLifecycleOperation(operation)) {
+                return `${operation.resourceUrl}-${CRDT_DELETED_AT}`;
+            }
+
+            return null;
+        };
+        const overridableOperations = operations.filter((operation) => getOverridableKey(operation) !== null);
 
         if (overridableOperations.length <= 1) {
             return operations;
         }
 
-        const lastOperations = new Map<string, SetPropertyOperation | UnsetPropertyOperation>();
+        const lastOperations = new Map<string, Operation>();
 
-        for (const operation of overridableOperations) {
-            const key = `${operation.resourceUrl}-${operation.property}`;
+        for (const operation of overridableOperations as Operation[]) {
+            const key = getOverridableKey(operation) as string;
             const existing = lastOperations.get(key);
 
-            if (!existing || operation.date.getTime() > existing.date.getTime()) {
+            if (!existing || supersedesOperation(operation, existing)) {
                 lastOperations.set(key, operation);
             }
         }
 
         return operations.filter((operation) => {
-            if (!isInstanceOf(operation, SetPropertyOperation) && !isInstanceOf(operation, UnsetPropertyOperation)) {
-                return true;
-            }
+            const key = getOverridableKey(operation);
 
-            const key = `${operation.resourceUrl}-${operation.property}`;
-
-            return lastOperations.get(key) === operation;
+            return key === null || lastOperations.get(key) === operation;
         });
     }
 

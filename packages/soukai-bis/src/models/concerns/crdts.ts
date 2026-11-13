@@ -1,11 +1,21 @@
+import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
 import { arrayFilter, arrayUnique, invade, objectWithoutEmpty } from '@noeldemartin/utils';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import { requireEngine } from 'soukai-bis/engines/state';
-import { CRDT_RESOURCE_PREDICATE, CRDT_TOMBSTONE_OBJECT, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
-import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import {
+    CRDT_DELETED_AT_PREDICATE,
+    CRDT_RESOURCE_PREDICATE,
+    CRDT_TOMBSTONE_OBJECT,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/lib/internals/rdf';
+import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
+import { isSoftDeleteOperation, isLifecycleOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import type LifecycleOperation from 'soukai-bis/models/crdts/LifecycleOperation';
 import type Operation from 'soukai-bis/models/crdts/Operation';
+import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import { findMetadataSubject } from 'soukai-bis/models/crdts/soft-deletes';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
@@ -43,7 +53,9 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
                 property: property.value,
                 value: Array.isArray(value) ? value : [value],
                 date: model.createdAt ?? createdAt,
-            }).setPredicate(property);
+            });
+
+            operation.setPredicate(property);
 
             if (isUrlField(fieldDefinition)) {
                 operation.setNamedNode(true);
@@ -111,7 +123,9 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                     property: property.value,
                     value: Array.isArray(value) ? value : [value],
                     date: model.updatedAt ?? now,
-                }).setPredicate(property);
+                });
+
+                operation.setPredicate(property);
 
                 if (isUrlField(fieldDefinition)) {
                     operation.setNamedNode(true);
@@ -127,10 +141,27 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
             continue;
         }
 
-        const crdtOperations = new Array<Operation>().concat(operations[model.url] ?? []);
+        const updateOperations = new Array<Operation>().concat(operations[model.url] ?? []);
+        const crdtOperations = [...updateOperations];
 
         if (!model.operations || model.operations.length === 0) {
             crdtOperations.push(...createInceptionOperations(model, now));
+        }
+
+        const pendingSoftDeletion = model.getPendingSoftDeletion();
+
+        if (pendingSoftDeletion) {
+            const LifecycleOperationModel = requireBootedModel(
+                pendingSoftDeletion === 'soft-delete' ? 'SoftDeleteOperation' : 'RestoreOperation',
+            );
+            const lifecycleOperation = new LifecycleOperationModel({
+                resourceUrl: model.url,
+                date: model.updatedAt ?? now,
+            });
+
+            lifecycleOperation.setMetadataSubject(model.metadata?.url ? new RDFNamedNode(model.metadata.url) : null);
+            crdtOperations.push(lifecycleOperation);
+            updateOperations.push(lifecycleOperation);
         }
 
         invade(model, ['_staleRdfProperties'])._staleRdfProperties = null;
@@ -229,21 +260,47 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
 
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
-    const promisedOperations = await Promise.all([
-        SetPropertyOperation.createManyFromDocument(document),
-        UnsetPropertyOperation.createManyFromDocument(document),
-    ]);
+    const promisedOperations = await Promise.all(
+        getCoreOperationModels().map((operationModel) => operationModel.createManyFromDocument(document)),
+    );
 
-    const operations = sortedOperations(promisedOperations.flat());
-    const finalOperations: Record<string, Record<string, Operation>> = {};
+    const operations = sortedOperations(promisedOperations.flat() as Operation[]);
+    const finalOperations: Record<string, Record<string, PropertyOperation>> = {};
+    const finalLifecycleOperations: Record<string, LifecycleOperation> = {};
 
     for (const operation of operations) {
+        if (isLifecycleOperation(operation)) {
+            finalLifecycleOperations[operation.resourceUrl] = operation;
+
+            continue;
+        }
+
+        if (!(operation instanceof PropertyOperation)) {
+            continue;
+        }
+
         const resourceOperations = (finalOperations[operation.resourceUrl] ??= {});
 
         resourceOperations[operation.property] = operation;
     }
 
     const newOperations: Operation[] = [];
+    const quads = document.getQuads();
+
+    for (const [resourceUrl, operation] of Object.entries(finalLifecycleOperations)) {
+        const metadataSubject = findMetadataSubject(quads, resourceUrl);
+        const deletedAt = metadataSubject && document.statement(metadataSubject, CRDT_DELETED_AT_PREDICATE);
+        const isSoftDeleted = isSoftDeleteOperation(operation);
+
+        if (
+            isSoftDeleted === !!deletedAt &&
+            (!deletedAt || new Date(deletedAt.object.value).getTime() === operation.date.getTime())
+        ) {
+            continue;
+        }
+
+        newOperations.push(operation.setMetadataSubject(metadataSubject));
+    }
 
     for (const [resourceUrl, resourceOperations] of Object.entries(finalOperations)) {
         for (const [property, operation] of Object.entries(resourceOperations)) {

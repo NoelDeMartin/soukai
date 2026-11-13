@@ -3,10 +3,13 @@ import type { Literal, Term } from '@rdfjs/types';
 
 export const CRDT_CREATED_AT = expandIRI('crdt:createdAt');
 export const CRDT_DATE = expandIRI('crdt:date');
+export const CRDT_DELETED_AT = expandIRI('crdt:deletedAt');
 export const CRDT_METADATA = expandIRI('crdt:Metadata');
 export const CRDT_PROPERTY = expandIRI('crdt:property');
 export const CRDT_RESOURCE = expandIRI('crdt:resource');
+export const CRDT_RESTORE_OPERATION = expandIRI('crdt:RestoreOperation');
 export const CRDT_SET_PROPERTY_OPERATION = expandIRI('crdt:SetPropertyOperation');
+export const CRDT_SOFT_DELETE_OPERATION = expandIRI('crdt:SoftDeleteOperation');
 export const CRDT_TOMBSTONE = expandIRI('crdt:Tombstone');
 export const CRDT_UNSET_PROPERTY_OPERATION = expandIRI('crdt:UnsetPropertyOperation');
 export const CRDT_UPDATED_AT = expandIRI('crdt:updatedAt');
@@ -24,10 +27,13 @@ export const XSD_INTEGER = expandIRI('xsd:integer');
 
 export const CRDT_CREATED_AT_PREDICATE = new RDFNamedNode(CRDT_CREATED_AT);
 export const CRDT_DATE_PREDICATE = new RDFNamedNode(CRDT_DATE);
+export const CRDT_DELETED_AT_PREDICATE = new RDFNamedNode(CRDT_DELETED_AT);
 export const CRDT_METADATA_OBJECT = new RDFNamedNode(CRDT_METADATA);
 export const CRDT_PROPERTY_PREDICATE = new RDFNamedNode(CRDT_PROPERTY);
 export const CRDT_RESOURCE_PREDICATE = new RDFNamedNode(CRDT_RESOURCE);
+export const CRDT_RESTORE_OPERATION_OBJECT = new RDFNamedNode(CRDT_RESTORE_OPERATION);
 export const CRDT_SET_PROPERTY_OPERATION_OBJECT = new RDFNamedNode(CRDT_SET_PROPERTY_OPERATION);
+export const CRDT_SOFT_DELETE_OPERATION_OBJECT = new RDFNamedNode(CRDT_SOFT_DELETE_OPERATION);
 export const CRDT_TOMBSTONE_OBJECT = new RDFNamedNode(CRDT_TOMBSTONE);
 export const CRDT_UNSET_PROPERTY_OPERATION_OBJECT = new RDFNamedNode(CRDT_UNSET_PROPERTY_OPERATION);
 export const CRDT_UPDATED_AT_PREDICATE = new RDFNamedNode(CRDT_UPDATED_AT);

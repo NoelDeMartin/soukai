@@ -1,24 +1,25 @@
 import { mixed } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
+import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import HasRelation from './HasRelation';
 import { MODELS_IN_SAME_DOCUMENT } from './internals';
 import MultiModelRelation from './MultiModelRelation';
+import type { LoadFromDocumentRDFOptions, RelationLoadOptions } from './Relation';
 
 export default class HasManyRelation<
     Parent extends Model = Model,
     Related extends Model = Model,
     RelatedClass extends ModelConstructor<Related> = ModelConstructor<Related>,
 > extends mixed(MultiModelRelation, [HasRelation])<Parent, Related, RelatedClass> {
-    public async load(): Promise<Related[]> {
-        this.related = await this.loadRelatedModels();
+    public async load(options: RelationLoadOptions = {}): Promise<Related[]> {
+        this.related = await this.loadRelatedModels(options);
 
         return this.related;
     }
 
-    public async loadFromDocumentRDF(quads: Quad[], options: { modelsCache?: ModelsCache } = {}): Promise<void> {
+    public async loadFromDocumentRDF(quads: Quad[], options: LoadFromDocumentRDFOptions = {}): Promise<void> {
         const related = await this.loadRelatedModelsFromDocumentRDF(quads, options);
 
         this.documentModelsLoaded = true;
@@ -43,7 +44,7 @@ export default class HasManyRelation<
         return !this.usingSameDocument;
     }
 
-    protected async loadRelatedModels(): Promise<Related[]> {
+    protected async loadRelatedModels(options: RelationLoadOptions = {}): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
         const foreignKeyName = this.requireForeignKeyName();
 
@@ -62,22 +63,23 @@ export default class HasManyRelation<
             const document = await engine.readDocument(documentUrl);
             const relatedModels = await this.relatedClass.createManyFromDocument(document, {
                 modelsCache: this.getDocumentModelsCache(),
+                includeSoftDeleted: options.includeSoftDeleted,
             });
 
             return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
         }
 
-        const relatedModels = await this.loadAllRelatedModels();
+        const relatedModels = await this.loadAllRelatedModels(options);
 
         return relatedModels.filter((model) => model.getAttribute(foreignKeyName) === localKey);
     }
 
     protected async loadRelatedModelsFromDocumentRDF(
         quads: Quad[],
-        options: { modelsCache?: ModelsCache } = {},
+        options: LoadFromDocumentRDFOptions = {},
     ): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
-        const allRelated = await this.relatedClass.createManyFromRDF(quads, { modelsCache: options.modelsCache });
+        const allRelated = await this.relatedClass.createManyFromRDF(quads, options);
 
         return allRelated.filter((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
     }

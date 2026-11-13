@@ -91,6 +91,58 @@ describe('Deletes', () => {
         });
     });
 
+    it('cascades deletes into soft deleted models in the same document', async () => {
+        // Arrange
+        class HistoryRating extends defineSchema(Rating, { history: true }) {}
+
+        bootModels({ Rating: HistoryRating });
+
+        const review = new Review({ itemReviewedUrl: 'https://example.com/movie' });
+        const rating = review.relatedRating.attach({ ratingValue: 5 });
+
+        await review.save();
+        await rating.softDelete();
+
+        const freshReview = await Review.findOrFail(review.requireUrl());
+
+        // Act
+        await freshReview.delete();
+
+        // Assert
+        const document = await engine.readDocument(review.requireDocumentUrl());
+        const ratingUrl = rating.requireUrl();
+
+        expect(document.contains(review.requireUrl())).toBe(false);
+        expect(document.contains(ratingUrl)).toBe(false);
+        expect(document.statements(undefined, 'crdt:resource', ratingUrl)).toHaveLength(1);
+        expect(document.statements(undefined, 'rdf:type', 'crdt:Tombstone')).toHaveLength(1);
+    });
+
+    it('cascades deletes into soft deleted models in other documents', async () => {
+        // Arrange
+        class HistoryEpisode extends defineSchema(Episode, { history: true }) {}
+
+        bootModels({ Episode: HistoryEpisode });
+
+        const show = await Show.create({ name: 'Breaking Bad' });
+        const season = await show.relatedSeasons.create({});
+        const episode = await season.relatedEpisodes.create({ name: 'Pilot' });
+
+        await episode.softDelete();
+
+        const freshShow = await Show.findOrFail(show.url);
+
+        // Act
+        await freshShow.delete();
+
+        // Assert
+        const episodeDocument = await engine.readDocument(episode.requireDocumentUrl());
+
+        expect(await HistoryEpisode.find(episode.requireUrl(), { includeSoftDeleted: true })).toBeNull();
+        expect(episodeDocument.contains(episode.requireUrl())).toBe(false);
+        expect(episodeDocument.statements(undefined, 'rdf:type', 'crdt:Tombstone')).toHaveLength(1);
+    });
+
     it('cascades deletes in the same document when saving models marked for deletion', async () => {
         // Arrange
         const show = await Show.create({ name: 'Breaking Bad' });

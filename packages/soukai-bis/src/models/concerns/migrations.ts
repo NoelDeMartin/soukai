@@ -16,8 +16,9 @@ import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts
 import { readRDFAttributes } from 'soukai-bis/models/concerns/rdf';
 import { updateModelSchema } from 'soukai-bis/models/concerns/schemas';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
-import { sortedOperations } from 'soukai-bis/models/crdts/helpers';
-import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import { isLifecycleOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import type Operation from 'soukai-bis/models/crdts/Operation';
+import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import { getFieldRdfProperties, getSchema, migratedModels, setSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads, serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
@@ -408,7 +409,7 @@ async function createMigratedInstance(
     return instance;
 }
 
-async function readOperations(model: ModelWithUrl, quads: Quad[]): Promise<PropertyOperation[]> {
+async function readOperations(model: ModelWithUrl, quads: Quad[]): Promise<Operation[]> {
     if (!model.tracksChanges()) {
         return [];
     }
@@ -417,7 +418,19 @@ async function readOperations(model: ModelWithUrl, quads: Quad[]): Promise<Prope
         getCoreOperationModels().map((operationModel) => operationModel.createManyFromRDF(quads)),
     );
 
-    return (operations.flat() as PropertyOperation[]).filter((operation) => operation.resourceUrl === model.url);
+    return (operations.flat() as Operation[]).filter((operation) => operation.resourceUrl === model.url);
+}
+
+function getSoftDeletionOperationUpdates(model: ModelWithUrl, url: string, operations: Operation[]): EngineOperation[] {
+    if (url === model.url) {
+        return [];
+    }
+
+    return operations
+        .filter(isLifecycleOperation)
+        .map((operation) =>
+            setProperty(operation.requireUrl(), CRDT_RESOURCE, [new RDFNamedNode(url)], operation.date),
+        );
 }
 
 function getHistoryDate(model: ModelWithUrl, operations: PropertyOperation[]): Date {
@@ -436,13 +449,15 @@ async function getDocumentUpdates(
         targetValues,
         getPreservedQuads(getSchema(model.static()), targetSchema, resourceQuads),
     );
-    const operations = await readOperations(model, quads);
+    const allOperations = await readOperations(model, quads);
+    const operations = allOperations.filter((operation) => operation instanceof PropertyOperation);
     const date = getHistoryDate(model, operations);
     const operationUpdates = getOperationUpdates(model, instance.url, targetSchema, operations);
 
     return [
         ...getResourceUpdates(model, instance.url, resourceQuads, resourceValues, date),
         ...operationUpdates.updates,
+        ...getSoftDeletionOperationUpdates(model, instance.url, allOperations),
         ...(operations.length > 0 ? getNewOperations(instance, targetValues, operationUpdates.operations, date) : []),
         ...getMetadataUpdates(model, instance.url, date),
     ];
@@ -454,7 +469,9 @@ async function createMigratedModel(
     documentUrl: string,
     quads: Quad[],
 ): Promise<ModelWithUrl> {
-    const migratedModel = required(await MigratedModel.createFromRDF(quads, { url, sourceDocumentUrl: documentUrl }));
+    const migratedModel = required(
+        await MigratedModel.createFromRDF(quads, { url, sourceDocumentUrl: documentUrl, includeSoftDeleted: true }),
+    );
 
     if (migratedModel.tracksChanges()) {
         await migratedModel.getRelation('operations').loadFromDocumentRDF(quads);

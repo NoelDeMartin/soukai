@@ -85,7 +85,7 @@ export default class Operation extends Model implements EngineOperation {
     }
 
     protected getHashContent(): string[] {
-        return [this.resourceUrl, this.date.toISOString()];
+        return [this.resourceUrl, this.date.toISOString(), ...this.static().getRdfClasses().sort()];
     }
 
     protected getTypeQuads(): Quad_Object[] {

@@ -5,6 +5,7 @@ import { isContainerClass } from 'soukai-bis/models/ldp/utils';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
+import type { RelationLoadOptions } from './Relation';
 import SingleModelRelation from './SingleModelRelation';
 import type { GetRelatedModelInput } from './types';
 
@@ -28,14 +29,14 @@ export default class IsContainedByRelation<
         super(parent, relatedClass, { foreignKeyName: 'resourceUrls' });
     }
 
-    public async load(): Promise<Related | null> {
+    public async load(options: RelationLoadOptions = {}): Promise<Related | null> {
         if (!this.parent.url) {
             return null;
         }
 
         const containerUrl = requireUrlParentDirectory(this.parent.url);
 
-        this.related = await this.relatedClass.find(containerUrl);
+        this.related = await this.relatedClass.find(containerUrl, options);
 
         return this.related;
     }

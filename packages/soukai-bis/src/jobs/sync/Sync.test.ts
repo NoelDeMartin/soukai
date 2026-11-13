@@ -509,6 +509,300 @@ describe('Sync', () => {
         expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('remove-watch-action.sparql'));
     });
 
+    it('syncs soft deletes', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const remoteDocument = `
+            @prefix schema: <https://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <#it>
+                a schema:WatchAction ;
+                schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+            <#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <#it> ;
+                crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+        `;
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:WatchAction')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        await localEngine.createDocument(
+            documentUrl,
+            turtleToQuadsSync(
+                `
+                    @prefix schema: <https://schema.org/> .
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#it>
+                        a schema:WatchAction ;
+                        schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-metadata>
+                        a crdt:Metadata ;
+                        crdt:resource <#it> ;
+                        crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:updatedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:deletedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-operation-1>
+                        a crdt:SoftDeleteOperation ;
+                        crdt:resource <#it> ;
+                        crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+                `,
+                { baseIRI: documentUrl },
+            ),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: WatchAction, registration: true }],
+        });
+
+        // Assert
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+        expect(FakeServer.fetch).toHaveBeenNthCalledWith(4, documentUrl, expect.objectContaining({ method: 'PATCH' }));
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
+            DELETE DATA {
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it-metadata> crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+            } ;
+
+            INSERT DATA {
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it-operation-1>
+                    a crdt:SoftDeleteOperation ;
+                    crdt:resource <#it> ;
+                    crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                <#it-metadata>
+                    crdt:deletedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                    crdt:updatedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+            }
+        `);
+    });
+
+    it('keeps the latest soft delete or restore', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const remoteDocument = `
+            @prefix schema: <https://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <#it>
+                a schema:WatchAction ;
+                schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+            <#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <#it> ;
+                crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                crdt:updatedAt "2023-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                crdt:deletedAt "2023-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+            <#it-operation-3>
+                a crdt:SoftDeleteOperation ;
+                crdt:resource <#it> ;
+                crdt:date "2023-01-01T00:00:00.000Z"^^xsd:dateTime .
+        `;
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:WatchAction')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        await localEngine.createDocument(
+            documentUrl,
+            turtleToQuadsSync(
+                `
+                    @prefix schema: <https://schema.org/> .
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#it>
+                        a schema:WatchAction ;
+                        schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-metadata>
+                        a crdt:Metadata ;
+                        crdt:resource <#it> ;
+                        crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:updatedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-operation-1>
+                        a crdt:SoftDeleteOperation ;
+                        crdt:resource <#it> ;
+                        crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-operation-2>
+                        a crdt:RestoreOperation ;
+                        crdt:resource <#it> ;
+                        crdt:date "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+                `,
+                { baseIRI: documentUrl },
+            ),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: WatchAction, registration: true }],
+        });
+
+        // Assert
+        const localAction = await WatchAction.find(`${documentUrl}#it`, { includeSoftDeleted: true });
+
+        expect(localAction?.isSoftDeleted()).toBe(true);
+        expect(localAction?.metadata?.deletedAt).toEqual(new Date('2023-01-01T00:00:00.000Z'));
+        expect(await WatchAction.find(`${documentUrl}#it`)).toBeNull();
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it-operation-1>
+                    a crdt:SoftDeleteOperation ;
+                    crdt:resource <#it> ;
+                    crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                <#it-operation-2>
+                    a crdt:RestoreOperation ;
+                    crdt:resource <#it> ;
+                    crdt:date "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+            }
+        `);
+    });
+
+    it('prefers soft deletes over restores with the same date', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const remoteDocument = `
+            @prefix schema: <https://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <#it>
+                a schema:WatchAction ;
+                schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+            <#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <#it> ;
+                crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                crdt:updatedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime ;
+                crdt:deletedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+
+            <#it-operation-3>
+                a crdt:SoftDeleteOperation ;
+                crdt:resource <#it> ;
+                crdt:date "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+        `;
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('schema:WatchAction')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        await localEngine.createDocument(
+            documentUrl,
+            turtleToQuadsSync(
+                `
+                    @prefix schema: <https://schema.org/> .
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#it>
+                        a schema:WatchAction ;
+                        schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-metadata>
+                        a crdt:Metadata ;
+                        crdt:resource <#it> ;
+                        crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:updatedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-operation-1>
+                        a crdt:SoftDeleteOperation ;
+                        crdt:resource <#it> ;
+                        crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#it-operation-2>
+                        a crdt:RestoreOperation ;
+                        crdt:resource <#it> ;
+                        crdt:date "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+                `,
+                { baseIRI: documentUrl },
+            ),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: WatchAction, registration: true }],
+        });
+
+        // Assert
+        expect(await WatchAction.find(`${documentUrl}#it`)).toBeNull();
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it-operation-1>
+                    a crdt:SoftDeleteOperation ;
+                    crdt:resource <#it> ;
+                    crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                <#it-operation-2>
+                    a crdt:RestoreOperation ;
+                    crdt:resource <#it> ;
+                    crdt:date "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
+            }
+        `);
+    });
+
     it('pulls containers with metadata', async () => {
         // Arrange
         const storageUrl = config.userProfile.storageUrls[0];
