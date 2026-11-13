@@ -6,6 +6,7 @@ import type { Schema } from 'soukai-bis/models/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 export const remoteModels = new WeakMap<ModelConstructor, ModelConstructor>();
+export const migratedModels = new WeakMap<ModelConstructor, WeakMap<ModelConstructor, ModelConstructor>>();
 export const originalSchemas = new WeakMap<ModelConstructor, Schema>();
 export const mintedUrls = new WeakMap<Model, { url: string; options: MintUrlOptions }>();
 

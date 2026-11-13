@@ -3,7 +3,6 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type Model from 'soukai-bis/models/Model';
-import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 
 import HasManyRelation from './HasManyRelation';
@@ -30,7 +29,7 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
             return [];
         }
 
-        const engine = requireBootedModel('Operation').requireEngine();
+        const engine = this.parent.static().requireEngine();
         const document = await engine.readDocument(documentUrl);
         const modelsCache = this.getDocumentModelsCache();
         const allOperations = (await Promise.all(

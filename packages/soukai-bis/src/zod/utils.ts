@@ -11,8 +11,18 @@ import {
     XSD_INTEGER,
     numberDatatype,
 } from 'soukai-bis/lib/internals/rdf';
+import type { ZodType } from 'zod';
 import { ZodArray, ZodBoolean, ZodDate, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
 import type { SomeType } from 'zod/v4/core';
+
+export function isUrlField(fieldDefinition: ZodType): boolean {
+    const fieldType = getFinalType(fieldDefinition);
+
+    return (
+        fieldType instanceof ZodURL ||
+        (fieldType instanceof ZodArray && getFinalType(fieldType.def.element) instanceof ZodURL)
+    );
+}
 
 export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], definition: SomeType): unknown {
     const finalType = getFinalType(definition);

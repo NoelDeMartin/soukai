@@ -53,7 +53,7 @@ await typeIndex.registerContainer(movies, Movie);
 await typeIndex.registerInstance(movie);
 ```
 
-### Working with user profiles
+### User profiles
 
 In order to obtain the url of the type indexes (private and public), you should read the user profile as described in the [Solid WebID Profile Spec](https://solid.github.io/webid-profile/).
 
@@ -201,7 +201,7 @@ The `beforeSave` hook runs before saving a model, with the model instance bound 
 
 Hooks are merged when a schema extends another one, and they are swapped when calling `updateSchema()`; so updating to a schema without hooks will disable them.
 
-### Working with multiple vocabularies
+### Multiple vocabularies
 
 Swapping schemas works if you know which vocabulary the data is using, but you may also want to [support multiple vocabularies at once](https://www.w3.org/DesignIssues/BagOfChips.html).
 
@@ -232,8 +232,42 @@ Existing resources are not upgraded until they are edited. For example, if a tas
 Matching resources with any of the classes means that you'll read data written by other applications, which may not have all the fields you need. If a matched resource fails validation, an `InvalidAttributesError` will be thrown. Make sure that required fields have a property in every vocabulary you're reading, or fill them in with a [`beforeInitialize` hook](#hooks).
 :::
 
-::: warning TODO
-Previous versions of Soukai also supported migrating existing data to a different schema, using `task.migrateSchema(OtherSchema)`. This hasn't been implemented yet.
+### Migrations
+
+Reading data in different vocabularies is usually enough, but sometimes you'll want to rewrite existing data to a new schema. For example, to replace a legacy vocabulary, or to change the resource hash of your models.
+
+You can do this using `migrateSchema()`:
+
+```ts
+await task.migrateSchema(TaskICalSchema);
+```
+
+This rewrites the model's document in place, but doesn't change the schema of the `Task` class (you can update it with `updateSchema` after the migration). Values that only exist in the new schema can be filled in with [hooks](#hooks), which run during the migration as well.
+
+Migrating a model changes the following:
+
+- **Resource url:** if the new schema has a different `rdfDefaultResourceHash`, the resource is renamed. Other documents that reference the old url aren't updated, so you should be careful when you're doing this.
+- **Classes and properties:** the classes and properties of the old schema are replaced with the ones of the new schema. Fields are matched by name, so the values of fields that don't exist in the new schema are deleted.
+- **Unknown data:** classes and properties that the old schema didn't declare are kept, given that they were probably added by other applications. If the new schema declares some of them, they'll be read into its fields.
+- **History:** if the model has [history](./local-first.md#history-tracking) enabled, existing operations are updated to the new url and properties; and the ones for deleted fields are removed. New operations are added for the values that their history doesn't describe yet, for example new fields. The `updatedAt` date doesn't change, and new operations use it as their date.
+
+Operation urls are derived from their contents, so migrating the local and remote copies of a model separately produces the same document, and [synchronizing](./local-first.md#synchronization) them afterwards won't find any differences. A local-first application could migrate its data like this:
+
+```ts
+import { remote } from 'soukai-bis';
+
+for (const task of await Task.all()) {
+    const remoteTask = await remote(Task).find(task.url);
+
+    await remoteTask?.migrateSchema(TaskICalSchema);
+    await task.migrateSchema(TaskICalSchema);
+}
+
+Task.updateSchema(TaskICalSchema);
+```
+
+::: warning
+Migrating data with a `SolidEngine` modifies the data in the POD, which other applications may be using. Because of this, you should make sure that you aren't breaking any existing workflows and any migration should probably be confirmed with users. Also, keep in mind that devices that haven't migrated their local data in a local-first context won't work after the migration either, and you should make sure that both datasets are on the same page before syncing.
 :::
 
 ## RDF prefix aliases

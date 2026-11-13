@@ -11,18 +11,7 @@ import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/mo
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
-import { getFinalType } from 'soukai-bis/zod/utils';
-import { ZodArray, ZodURL } from 'zod';
-import type { ZodType } from 'zod';
-
-function isNamedNodeField(fieldDefinition: ZodType): boolean {
-    const fieldType = getFinalType(fieldDefinition);
-
-    return (
-        fieldType instanceof ZodURL ||
-        (fieldType instanceof ZodArray && getFinalType(fieldType.def.element) instanceof ZodURL)
-    );
-}
+import { isUrlField } from 'soukai-bis/zod/utils';
 
 function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
@@ -56,7 +45,7 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
                 date: model.createdAt ?? createdAt,
             }).setPredicate(property);
 
-            if (isNamedNodeField(fieldDefinition)) {
+            if (isUrlField(fieldDefinition)) {
                 operation.setNamedNode(true);
             }
 
@@ -124,7 +113,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                     date: model.updatedAt ?? now,
                 }).setPredicate(property);
 
-                if (isNamedNodeField(fieldDefinition)) {
+                if (isUrlField(fieldDefinition)) {
                     operation.setNamedNode(true);
                 }
 

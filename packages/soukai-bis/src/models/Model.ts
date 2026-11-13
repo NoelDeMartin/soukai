@@ -51,6 +51,7 @@ import {
 import { cascadeDeletes, cascadeDeletesInDocument, deleteModels, markForDeletion } from './concerns/deletes';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
+import { migrateSchema } from './concerns/migrations';
 import {
     buildRDFTypeIndex,
     createFromRDF,
@@ -95,6 +96,7 @@ import type { LegacyTimestamps } from './types';
 import type {
     ModelComputedAttributeDefinitions,
     ModelConstructor,
+    ModelInstanceType,
     ModelWithHistory,
     ModelWithTimestamps,
     ModelWithTombstones,
@@ -1044,6 +1046,16 @@ export default class Model<
         }
 
         return this as ModelWithUrl<this>;
+    }
+
+    public async migrateSchema<T extends ModelConstructor>(schema: T): Promise<ModelWithUrl<ModelInstanceType<T>>> {
+        if (!this.__isCanonical()) {
+            return this.__instance().migrateSchema(schema);
+        }
+
+        this.assertAuthoritativeDocument();
+
+        return (await migrateSchema(this, schema)) as ModelWithUrl<ModelInstanceType<T>>;
     }
 
     public update(attributes: Partial<Attributes>): Promise<ModelWithUrl<this>> {

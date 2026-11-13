@@ -6,6 +6,7 @@ import {
     CRDT_VALUE,
     CRDT_VALUE_PREDICATE,
     createRDFLiteral,
+    serializeTerm,
 } from 'soukai-bis/lib/internals/rdf';
 
 import type Operation from './Operation';
@@ -67,6 +68,10 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
                 .setPredicate(CRDT_VALUE_PREDICATE)
                 .setNamedNode(this.isNamedNode),
         ];
+    }
+
+    protected getHashContent(): string[] {
+        return [...super.getHashContent(), ...this.values.map((value) => serializeTerm(value)).sort()];
     }
 
     protected getValueQuads(): Quad[] {

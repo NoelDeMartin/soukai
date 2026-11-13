@@ -150,6 +150,6 @@ const RemoteContainer = remote(Container);
 await RemoteContainer.create({ url: 'https://alice.example.org/tasks/', name: 'Tasks' });
 ```
 
-This will create a subclass of the model booted as `RemoteContainer`, and calling it again with the same model will return the same class.
+This will create a subclass of the model booted as `RemoteContainer`, and calling it again with the same model will return the same class. Relations of remote models will be made remote as well.
 
 You can learn more about this in the [local-first](../advanced/local-first.md) section.

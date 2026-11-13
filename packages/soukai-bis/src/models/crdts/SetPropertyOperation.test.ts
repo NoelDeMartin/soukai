@@ -1,9 +1,11 @@
 import { turtleToQuads } from '@noeldemartin/solid-utils';
 import { fakeDocumentUrl } from '@noeldemartin/testing';
+import { md5 } from '@noeldemartin/utils';
 import type { Literal } from '@rdfjs/types';
 import { describe, expect, it } from 'vite-plus/test';
 
 import SetPropertyOperation from './SetPropertyOperation';
+import UnsetPropertyOperation from './UnsetPropertyOperation';
 
 describe('SetPropertyOperation', () => {
     it('preserves types on create from RDF', async () => {
@@ -60,5 +62,69 @@ describe('SetPropertyOperation', () => {
         const urlOperation = operations.find((operation) => operation.url === `${documentUrl}#url-operation`);
         expect(urlOperation?.values[0]?.termType).toBe('NamedNode');
         expect(urlOperation?.values[0]?.value).toBe(`${documentUrl}#friend`);
+    });
+
+    it('mints urls from content', () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const date = new Date('2026-07-12T00:00:00.000Z');
+        const createOperation = (resourceUrl: string, value: unknown[], isNamedNode: boolean = false) =>
+            new SetPropertyOperation({
+                resourceUrl,
+                property: 'https://schema.org/name',
+                value,
+                date,
+            }).setNamedNode(isNamedNode);
+
+        // Act
+        const operation = createOperation(`${documentUrl}#it`, ['Alice', 'Bob']);
+        const url = operation.mintUrl();
+
+        // Assert
+        const expectedHash = md5(
+            JSON.stringify([
+                `${documentUrl}#it`,
+                '2026-07-12T00:00:00.000Z',
+                'https://schema.org/name',
+                '"Alice"^^<http://www.w3.org/2001/XMLSchema#string>',
+                '"Bob"^^<http://www.w3.org/2001/XMLSchema#string>',
+            ]),
+        );
+
+        expect(url).toEqual(`${documentUrl}#it-operation-${expectedHash}`);
+        expect(createOperation(`${documentUrl}#it`, ['Bob', 'Alice']).mintUrl()).toEqual(url);
+        expect(createOperation(`${documentUrl}#it`, ['Alice']).mintUrl()).not.toEqual(url);
+        expect(createOperation(`${documentUrl}#it`, ['Alice', 'Bob'], true).mintUrl()).not.toEqual(url);
+        expect(createOperation(documentUrl, ['Alice', 'Bob']).mintUrl()).toEqual(
+            `${documentUrl}#operation-${md5(
+                JSON.stringify([
+                    documentUrl,
+                    '2026-07-12T00:00:00.000Z',
+                    'https://schema.org/name',
+                    '"Alice"^^<http://www.w3.org/2001/XMLSchema#string>',
+                    '"Bob"^^<http://www.w3.org/2001/XMLSchema#string>',
+                ]),
+            )}`,
+        );
+    });
+
+    it('mints unset property urls from content', () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const operation = new UnsetPropertyOperation({
+            resourceUrl: `${documentUrl}#it`,
+            property: 'https://schema.org/name',
+            date: new Date('2026-07-12T00:00:00.000Z'),
+        });
+
+        // Act
+        const url = operation.mintUrl();
+
+        // Assert
+        expect(url).toEqual(
+            `${documentUrl}#it-operation-${md5(
+                JSON.stringify([`${documentUrl}#it`, '2026-07-12T00:00:00.000Z', 'https://schema.org/name']),
+            )}`,
+        );
     });
 });

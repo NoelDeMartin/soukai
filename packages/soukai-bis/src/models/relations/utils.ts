@@ -1,6 +1,7 @@
 import { getSchema } from 'soukai-bis/models/internals/model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { SchemaRelationDefinition } from 'soukai-bis/models/relations/schema';
+import { remote } from 'soukai-bis/models/remote';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 function collectRelatedClasses(modelClass: ModelConstructor, visited?: Set<ModelConstructor>): Set<ModelConstructor> {
@@ -24,7 +25,7 @@ export function getRelatedClass(parentClass: ModelConstructor, definition: Schem
 
     definition.relationClass.validateRelatedClass(parentClass, relatedClass);
 
-    return relatedClass;
+    return parentClass.remote ? remote(relatedClass) : relatedClass;
 }
 
 export function getRelatedClasses(modelClass: ModelConstructor): ModelConstructor[] {

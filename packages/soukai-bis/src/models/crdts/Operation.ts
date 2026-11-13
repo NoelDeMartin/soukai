@@ -1,6 +1,6 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { SparqlUpdate } from '@noeldemartin/solid-utils';
-import { uuid } from '@noeldemartin/utils';
+import { md5 } from '@noeldemartin/utils';
 import type { Quad, Quad_Object, Quad_Subject } from '@rdfjs/types';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -77,11 +77,15 @@ export default class Operation extends Model implements EngineOperation {
             return super.newUrl(options);
         }
 
-        const hashSuffix = options.resourceHash ?? uuid();
+        const hashSuffix = options.resourceHash ?? md5(JSON.stringify(this.getHashContent()));
 
         return this.resourceUrl.includes('#')
             ? `${this.resourceUrl}-operation-${hashSuffix}`
             : `${this.resourceUrl}#operation-${hashSuffix}`;
+    }
+
+    protected getHashContent(): string[] {
+        return [this.resourceUrl, this.date.toISOString()];
     }
 
     protected getTypeQuads(): Quad_Object[] {

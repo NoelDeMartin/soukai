@@ -41,6 +41,10 @@ export default class PropertyOperation extends Model {
         ];
     }
 
+    protected getHashContent(): string[] {
+        return [...super.getHashContent(), this.property];
+    }
+
     protected filterQuads(quads: Quad[]): Quad[] {
         return quads.filter((q) => !this.subject.equals(q.subject) || !this.predicate.equals(q.predicate));
     }

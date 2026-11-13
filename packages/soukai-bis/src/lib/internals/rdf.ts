@@ -1,5 +1,5 @@
 import { RDFLiteral, RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
-import type { Literal } from '@rdfjs/types';
+import type { Literal, Term } from '@rdfjs/types';
 
 export const CRDT_CREATED_AT = expandIRI('crdt:createdAt');
 export const CRDT_DATE = expandIRI('crdt:date');
@@ -59,4 +59,19 @@ export function createRDFLiteral(value: unknown): Literal {
 
 export function numberDatatype(value: number): RDFNamedNode {
     return Number.isInteger(value) ? XSD_INTEGER_TYPE : XSD_DECIMAL_TYPE;
+}
+
+export function serializeTerm(term: Term): string {
+    switch (term.termType) {
+        case 'NamedNode':
+            return `<${term.value}>`;
+        case 'BlankNode':
+            return `_:${term.value}`;
+        case 'Literal':
+            return term.language
+                ? `${JSON.stringify(term.value)}@${term.language}`
+                : `${JSON.stringify(term.value)}^^<${term.datatype.value}>`;
+        default:
+            return `${term.termType}:${term.value}`;
+    }
 }

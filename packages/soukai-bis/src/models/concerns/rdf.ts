@@ -114,11 +114,11 @@ export function buildRDFTypeIndex(quads: Quad[]): Map<string, Set<string>> {
     });
 }
 
-export function createFromRDF<T extends Model>(
-    modelClass: ModelConstructor<T>,
+export function readRDFAttributes(
+    modelClass: ModelConstructor,
     url: string,
     quads: Quad[],
-): ModelWithUrl<T> {
+): { attributes: Record<string, unknown>; staleRdfProperties: string[] } {
     const { fields } = getSchema(modelClass);
     const subject = new RDFNamedNode(url);
     const attributes: Record<string, unknown> = {};
@@ -152,6 +152,15 @@ export function createFromRDF<T extends Model>(
         }
     }
 
+    return { attributes, staleRdfProperties };
+}
+
+export function createFromRDF<T extends Model>(
+    modelClass: ModelConstructor<T>,
+    url: string,
+    quads: Quad[],
+): ModelWithUrl<T> {
+    const { attributes, staleRdfProperties } = readRDFAttributes(modelClass, url, quads);
     const instance = modelClass.newInstance(
         { url, ...attributes },
         { exists: true, initializeMetadata: false, source: quads },
