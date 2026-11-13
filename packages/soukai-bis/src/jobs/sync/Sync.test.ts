@@ -766,6 +766,92 @@ describe('Sync', () => {
         expect(result.documentsWithErrors.size).toBe(1);
     });
 
+    it('ignores non-RDF resources declared in container metadata', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const imageUrl = `${containerUrl}image.jpg`;
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('foaf:Person')],
+            }),
+        ];
+
+        FakeServer.respond(
+            containerUrl,
+            `
+                ${containerTurtle([documentUrl, imageUrl])}
+                <${imageUrl}> a <http://www.w3.org/ns/iana/media-types/image/jpeg#Resource> .
+                <${documentUrl}> a <http://www.w3.org/ns/iana/media-types/text/turtle#Resource> .
+            `,
+        );
+        FakeServer.respond(documentUrl, fixture('person.ttl', { documentUrl }));
+
+        // Act
+        const result = {
+            syncedDocumentUrls: new Set<string>(),
+            documentsWithErrors: new Set<string>(),
+        };
+
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: User, registration: true }],
+            onFinished(res) {
+                result.syncedDocumentUrls = res.syncedDocumentUrls;
+                result.documentsWithErrors = res.documentsWithErrors;
+            },
+        });
+
+        // Assert
+        expect(result.syncedDocumentUrls.has(documentUrl)).toBe(true);
+        expect(result.syncedDocumentUrls.has(imageUrl)).toBe(false);
+        expect(result.documentsWithErrors.size).toBe(0);
+        expect(FakeServer.getRequests(imageUrl)).toHaveLength(0);
+    });
+
+    it('ignores non-RDF documents returning 501 or 406', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const imageUrl = `${containerUrl}image.jpg`;
+        const textUrl = `${containerUrl}notes.txt`;
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('foaf:Person')],
+            }),
+        ];
+
+        FakeServer.respond(containerUrl, containerTurtle([documentUrl, imageUrl, textUrl]));
+        FakeServer.respond(documentUrl, fixture('person.ttl', { documentUrl }));
+        FakeServer.respondOnce(imageUrl, new Response(null, { status: 501 }));
+        FakeServer.respondOnce(textUrl, new Response(null, { status: 406 }));
+
+        // Act
+        const result = {
+            syncedDocumentUrls: new Set<string>(),
+            documentsWithErrors: new Set<string>(),
+        };
+
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: User, registration: true }],
+            onFinished(res) {
+                result.syncedDocumentUrls = res.syncedDocumentUrls;
+                result.documentsWithErrors = res.documentsWithErrors;
+            },
+        });
+
+        // Assert
+        expect(result.syncedDocumentUrls.has(documentUrl)).toBe(true);
+        expect(result.documentsWithErrors.size).toBe(0);
+    });
+
     it('syncs resources matching any of the model classes', async () => {
         // Arrange
         const storageUrl = config.userProfile.storageUrls[0];

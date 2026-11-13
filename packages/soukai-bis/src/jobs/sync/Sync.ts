@@ -1,4 +1,4 @@
-import { SolidDocument } from '@noeldemartin/solid-utils';
+import { NetworkRequestFailed, SolidDocument, UnsuccessfulNetworkRequest } from '@noeldemartin/solid-utils';
 import type { SolidResponse, CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import {
     Semaphore,
@@ -58,6 +58,17 @@ export type {
 const DEFAULT_MAX_ERRORS = 10;
 const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
+const IANA_MEDIA_TYPE_PREFIX = 'http://www.w3.org/ns/iana/media-types/';
+const NON_RDF_HTTP_STATUS_CODES = new Set([406, 415, 501]);
+const RDF_MEDIA_TYPES = new Set([
+    'text/turtle',
+    'application/ld+json',
+    'application/n-triples',
+    'application/n-quads',
+    'text/n3',
+    'application/rdf+xml',
+    'application/trig',
+]);
 
 export interface SyncConfig {
     userProfile: CompleteSolidUserProfile;
@@ -542,7 +553,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             return childrenPullTasks;
         } catch (error) {
-            if (!isInstanceOf(error, DocumentNotFound)) {
+            if (this.isNonRdfDocumentError(error)) {
+                this.syncedDocumentUrls.delete(documentUrl);
+            } else if (!isInstanceOf(error, DocumentNotFound)) {
                 this.handleDocumentError(documentUrl, error);
             }
 
@@ -569,7 +582,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
             );
 
-            const resourceUrls = container?.resourceUrls ?? [];
+            const resourceUrls = (container?.resourceUrls ?? []).filter(
+                (childDocumentUrl) => !this.isNonRdfResource(remoteDocument, childDocumentUrl),
+            );
 
             if (status && resourceUrls.length > 0) {
                 status.children = resourceUrls.map(() => ({ completed: false }));
@@ -949,6 +964,35 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 : null;
 
         return lastModifiedAt ? parseDate(lastModifiedAt) : null;
+    }
+
+    private isNonRdfResource(containerDocument: SolidDocument, resourceUrl: string): boolean {
+        if (resourceUrl.endsWith('/')) {
+            return false;
+        }
+
+        const mediaTypeUrls = containerDocument
+            .statements(resourceUrl, RDF_TYPE_PREDICATE)
+            .map((statement) => statement.object.value)
+            .filter((type) => type.startsWith(IANA_MEDIA_TYPE_PREFIX));
+
+        if (mediaTypeUrls.length === 0) {
+            return false;
+        }
+
+        return !mediaTypeUrls.some((type) => {
+            const mediaType = type.slice(IANA_MEDIA_TYPE_PREFIX.length).replace(/#Resource$/, '');
+
+            return RDF_MEDIA_TYPES.has(mediaType);
+        });
+    }
+
+    private isNonRdfDocumentError(error: unknown): boolean {
+        return (
+            isInstanceOf(error, NetworkRequestFailed) &&
+            isInstanceOf(error.cause, UnsuccessfulNetworkRequest) &&
+            NON_RDF_HTTP_STATUS_CODES.has(error.cause.response.status)
+        );
     }
 
     private handleDocumentError(documentUrl: string, error: unknown): void {
