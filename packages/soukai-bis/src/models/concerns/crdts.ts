@@ -11,10 +11,15 @@ import {
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
-import { isSoftDeleteOperation, isLifecycleOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import {
+    isLifecycleOperation,
+    isPropertyOperation,
+    isSoftDeleteOperation,
+    sortedOperations,
+} from 'soukai-bis/models/crdts/helpers';
 import type LifecycleOperation from 'soukai-bis/models/crdts/LifecycleOperation';
 import type Operation from 'soukai-bis/models/crdts/Operation';
-import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import { findMetadataSubject } from 'soukai-bis/models/crdts/soft-deletes';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/model';
@@ -275,7 +280,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
             continue;
         }
 
-        if (!(operation instanceof PropertyOperation)) {
+        if (!isPropertyOperation(operation)) {
             continue;
         }
 

@@ -1,5 +1,6 @@
 import type LifecycleOperation from 'soukai-bis/models/crdts/LifecycleOperation';
 import type Operation from 'soukai-bis/models/crdts/Operation';
+import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import type RestoreOperation from 'soukai-bis/models/crdts/RestoreOperation';
 import type SoftDeleteOperation from 'soukai-bis/models/crdts/SoftDeleteOperation';
 import { requireBootedModel } from 'soukai-bis/models/registry';
@@ -19,6 +20,13 @@ export function supersedesOperation(operation: Operation, other: Operation): boo
 export function sortedOperations<T extends Operation>(operations: T[]): T[] {
     return [...operations].sort(
         (a, b) => a.date.getTime() - b.date.getTime() || getOperationPriority(a) - getOperationPriority(b),
+    );
+}
+
+export function isPropertyOperation(operation: unknown): operation is PropertyOperation {
+    return (
+        operation instanceof requireBootedModel('SetPropertyOperation') ||
+        operation instanceof requireBootedModel('UnsetPropertyOperation')
     );
 }
 

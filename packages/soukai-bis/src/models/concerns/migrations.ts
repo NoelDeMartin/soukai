@@ -16,9 +16,9 @@ import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts
 import { readRDFAttributes } from 'soukai-bis/models/concerns/rdf';
 import { updateModelSchema } from 'soukai-bis/models/concerns/schemas';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
-import { isLifecycleOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import { isLifecycleOperation, isPropertyOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
-import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import { getFieldRdfProperties, getSchema, migratedModels, setSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads, serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
@@ -450,7 +450,7 @@ async function getDocumentUpdates(
         getPreservedQuads(getSchema(model.static()), targetSchema, resourceQuads),
     );
     const allOperations = await readOperations(model, quads);
-    const operations = allOperations.filter((operation) => operation instanceof PropertyOperation);
+    const operations = allOperations.filter(isPropertyOperation);
     const date = getHistoryDate(model, operations);
     const operationUpdates = getOperationUpdates(model, instance.url, targetSchema, operations);
 
