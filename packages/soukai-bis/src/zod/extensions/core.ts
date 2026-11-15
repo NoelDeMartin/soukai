@@ -1,8 +1,9 @@
-import type { SoukaiZodMeta } from 'soukai-bis/zod/soukai';
+import type { SoukaiZodMeta, ContainerSlugOptions } from 'soukai-bis/zod/soukai';
 import {
     rdfProperties as _rdfProperties,
     deepMeta as _deepMeta,
     rdfProperty as _rdfProperty,
+    useAsContainerSlug as _useAsContainerSlug,
     useAsSlug as _useAsSlug,
 } from 'soukai-bis/zod/soukai';
 import type { ZodType } from 'zod';
@@ -26,4 +27,8 @@ export function rdfProperties<T extends ZodType>(this: T, values?: string[]): T 
 
 export function useAsSlug<T extends ZodType>(this: T): T {
     return _useAsSlug(this);
+}
+
+export function useAsContainerSlug<T extends ZodType>(this: T, options?: ContainerSlugOptions): T {
+    return _useAsContainerSlug(this, options);
 }

@@ -48,6 +48,6 @@ export function updateModelSchema(modelClass: ModelConstructor, overrides: Schem
                   ]),
         rdfDefaultResourceHash: overrides.rdfDefaultResourceHash,
         rdfFieldProperties: { ...overrides.rdfFieldProperties },
-        slugField: overrides.slugField,
+        slug: overrides.slug,
     };
 }

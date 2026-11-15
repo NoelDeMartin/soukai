@@ -1392,6 +1392,100 @@ describe('Model', () => {
         expect(PostsCollection.urlFromSlug('drafts')).toEqual(collection.url);
     });
 
+    it('mints container slug urls with default document slug', async () => {
+        const TVShow = defineSchema({
+            fields: {
+                name: z.string().useAsContainerSlug(),
+            },
+        });
+
+        bootModels({ TVShow });
+
+        const tvShow = await TVShow.create({ name: 'The Office' });
+
+        expect(tvShow.url).toBe(`${TVShow.defaultContainerUrl}the-office/index#it`);
+        expect(tvShow.getSlug()).toBe('the-office');
+        expect(TVShow.urlFromSlug('the-office')).toBe(`${TVShow.defaultContainerUrl}the-office/index#it`);
+        expect(TVShow.urlFromSlug('the-office', { containerUrl: 'local://shows/' })).toBe(
+            'local://shows/the-office/index#it',
+        );
+        expect(TVShow.documentUrlFromSlug('the-office')).toBe(`${TVShow.defaultContainerUrl}the-office/index`);
+        expect(TVShow.slugFromUrl(`${TVShow.defaultContainerUrl}the-office/index#it`)).toBe('the-office');
+    });
+
+    it('mints container slug urls with custom document slug', async () => {
+        const TVShow = defineSchema({
+            fields: {
+                name: z.string().useAsContainerSlug({ documentSlug: 'info' }),
+            },
+        });
+
+        bootModels({ TVShow });
+
+        const tvShow = await TVShow.create({ name: 'The Office' });
+
+        expect(tvShow.url).toBe(`${TVShow.defaultContainerUrl}the-office/info#it`);
+        expect(tvShow.getSlug()).toBe('the-office');
+        expect(TVShow.urlFromSlug('the-office')).toBe(`${TVShow.defaultContainerUrl}the-office/info#it`);
+        expect(TVShow.slugFromUrl(`${TVShow.defaultContainerUrl}the-office/info#it`)).toBe('the-office');
+    });
+
+    it('creates unique container slug urls when minted urls already exist', async () => {
+        const TVShow = defineSchema({
+            fields: {
+                name: z.string().useAsContainerSlug(),
+            },
+        });
+
+        bootModels({ TVShow });
+
+        const existingDocumentUrl = `${TVShow.defaultContainerUrl}the-office/index`;
+        const existingDocument = {
+            graph: {
+                '@id': existingDocumentUrl,
+                '@type': 'http://www.w3.org/ns/ldp#Document',
+            },
+        };
+
+        engine.documents[existingDocumentUrl] = objectDeepClone(existingDocument);
+
+        const tvShow = await TVShow.create({ name: 'The Office' });
+
+        expect(tvShow.url).toMatch(
+            new RegExp(`^${escapeRegexText(TVShow.defaultContainerUrl)}the-office-[\\w-]+/index#it$`),
+        );
+        expect(tvShow.getSlug()).toMatch(/^the-office-[\w-]+$/);
+        expect(engine.documents[existingDocumentUrl]).toEqual(existingDocument);
+        expect(engine.documents[tvShow.requireDocumentUrl()]).toBeDefined();
+    });
+
+    it('inherits and overrides container slug configuration in extended schemas', () => {
+        const TVShow = defineSchema({
+            fields: {
+                name: z.string().useAsContainerSlug({ documentSlug: 'info' }),
+            },
+        });
+        const ExtendedTVShow = defineSchema(TVShow, {
+            fields: {
+                description: z.string().optional(),
+            },
+        });
+        const DocumentSlugTVShow = defineSchema(TVShow, {
+            fields: {
+                title: z.string().useAsSlug(),
+            },
+        });
+
+        bootModels({ TVShow, ExtendedTVShow, DocumentSlugTVShow });
+
+        expect(ExtendedTVShow.urlFromSlug('the-office')).toBe(
+            `${ExtendedTVShow.defaultContainerUrl}the-office/info#it`,
+        );
+        expect(DocumentSlugTVShow.urlFromSlug('the-office')).toBe(
+            `${DocumentSlugTVShow.defaultContainerUrl}the-office#it`,
+        );
+    });
+
     it('infers attribute types for extended schemas', () => {
         // Arrange
         class Animal extends defineSchema({ fields: { name: z.string() } }) {

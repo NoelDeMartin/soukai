@@ -37,6 +37,41 @@ function getRdfClassesDefinition(config: SchemaConfig): RdfClassesDefinition {
     return config.rdfClass ? allOf([config.rdfClass, ...config.rdfClasses.classes]) : config.rdfClasses;
 }
 
+function parseSchemaSlug<TFields extends SchemaFields>(fields: TFields): SchemaSlug<TFields> | undefined {
+    for (const [field, definition] of Object.entries(fields)) {
+        const containerSlug = deepMeta(definition, 'rdfContainerSlug');
+        const documentSlug = deepMeta(definition, 'rdfSlug');
+
+        if (containerSlug) {
+            return {
+                type: 'container',
+                field,
+                documentSlug: containerSlug.documentSlug ?? 'index',
+            };
+        }
+
+        if (!documentSlug) {
+            continue;
+        }
+
+        return {
+            type: 'document',
+            field,
+        };
+    }
+}
+
+export type SchemaSlug<TFields extends SchemaFields = SchemaFields> =
+    | {
+          type: 'document';
+          field: string & keyof TFields;
+      }
+    | {
+          type: 'container';
+          field: string & keyof TFields;
+          documentSlug: string;
+      };
+
 export type Schema<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
@@ -52,7 +87,7 @@ export type Schema<
     rdfFieldProperties: Record<keyof TFields, NamedNode[]>;
     computed: Record<string, SchemaComputedAttributeDefinition>;
     hooks: SchemaHooks;
-    slugField?: string & keyof TFields;
+    slug?: SchemaSlug<TFields>;
 };
 
 export interface SchemaHookContext {
@@ -266,10 +301,8 @@ export function defineSchema<
             rdfContext,
             computed: {},
             hooks: { ...baseSchema?.hooks, ...(config.hooks as SchemaHooks) },
+            slug: parseSchemaSlug(fields) ?? baseSchema?.slug,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
-            slugField:
-                Object.entries(fields).find(([_, definition]) => deepMeta(definition, 'rdfSlug'))?.[0] ??
-                baseSchema?.slugField,
             rdfClasses:
                 ownRdfClasses.length > 0
                     ? new RDFClassesMatcher(

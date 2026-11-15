@@ -245,11 +245,17 @@ export default class Model<
     }
 
     public static documentUrlFromSlug(slug: string, options: UrlFromSlugOptions = {}): string {
-        return urlResolve(options.containerUrl ?? this.defaultContainerUrl, slug);
+        const schemaSlug = getSchema(this).slug;
+        const documentSlug = schemaSlug?.type === 'container' ? `${slug}/${schemaSlug.documentSlug}` : slug;
+
+        return urlResolve(options.containerUrl ?? this.defaultContainerUrl, documentSlug);
     }
 
     public static slugFromUrl(url: string): string | null {
-        return urlRoute(url).split('/').filter(isTruthy).pop() ?? null;
+        const schemaSlug = getSchema(this).slug;
+        const targetUrl = schemaSlug?.type === 'container' ? (urlParentDirectory(urlRoute(url)) ?? url) : url;
+
+        return urlRoute(targetUrl).split('/').filter(isTruthy).pop() ?? null;
     }
 
     public static async find<T extends Model>(
@@ -1245,7 +1251,7 @@ export default class Model<
     }
 
     protected newUrlSlug(): string | null {
-        const slugField = getSchema(this.static()).slugField as FieldName;
+        const slugField = getSchema(this.static()).slug?.field as FieldName | undefined;
         const slugFieldValue = slugField && this.getAttribute(slugField);
 
         return slugFieldValue ? stringToSlug(String(slugFieldValue)) : null;

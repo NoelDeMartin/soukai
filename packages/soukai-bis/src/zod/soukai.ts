@@ -3,7 +3,12 @@ import type { ZodType } from 'zod';
 
 export interface SoukaiZodMeta {
     rdfSlug?: boolean;
+    rdfContainerSlug?: ContainerSlugOptions;
     rdfProperties?: string[];
+}
+
+export interface ContainerSlugOptions {
+    documentSlug?: string;
 }
 
 export function deepMeta<T extends keyof SoukaiZodMeta>(type: ZodType, key: T): SoukaiZodMeta[T] | undefined {
@@ -40,6 +45,10 @@ export function rdfProperties<T extends ZodType>(type: T, values?: string[]): T 
 
 export function useAsSlug<T extends ZodType>(type: T): T {
     return type.meta({ rdfSlug: true });
+}
+
+export function useAsContainerSlug<T extends ZodType>(type: T, options?: ContainerSlugOptions): T {
+    return type.meta({ rdfContainerSlug: { documentSlug: options?.documentSlug ?? 'index' } });
 }
 
 declare module 'zod' {
