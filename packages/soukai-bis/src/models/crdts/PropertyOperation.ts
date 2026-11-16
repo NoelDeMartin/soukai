@@ -2,7 +2,7 @@ import type { SparqlUpdate } from '@noeldemartin/solid-utils';
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Predicate } from '@rdfjs/types';
 import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/lib/internals/rdf';
-import { getRDFIriVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getRDFIRIVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 
 import type Operation from './Operation';
@@ -48,7 +48,7 @@ export default class PropertyOperation extends Model {
     }
 
     protected filterQuads(quads: Quad[]): Quad[] {
-        const variants = getRDFIriVariants(this.predicate.value);
+        const variants = getRDFIRIVariants(this.predicate.value);
 
         return quads.filter((q) => !this.subject.equals(q.subject) || !variants.includes(q.predicate.value));
     }

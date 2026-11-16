@@ -2,7 +2,7 @@ import { RDFNamedNode, SolidStore } from '@noeldemartin/solid-utils';
 import { deepEquals, hasItems, invade, tap, weakMemo } from '@noeldemartin/utils';
 import type { Quad, Quad_Object } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
-import { getRDFIriVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getRDFIRIVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
@@ -190,18 +190,21 @@ export function createFromRDF<T extends Model>(
         { url, ...attributes },
         { exists: true, initializeMetadata: false, source: quads },
     ) as ModelWithUrl<T>;
-    const aliasesClasses =
+    const aliasedRDFClasses =
         options.typeMap &&
         modelClass.getRDFClasses().some((rdfClass) => {
-            const variants = getRDFIriVariants(rdfClass);
+            const variants = getRDFIRIVariants(rdfClass);
 
             return variants.length > 1 && variants.slice(1).some((variant) => options.typeMap?.get(variant)?.has(url));
         });
 
     invade(instance, ['addStaleRDFProperties']).addStaleRDFProperties(staleRDFProperties);
 
-    if (aliasesClasses || aliasedRDFProperties.length > 0) {
-        invade(instance, ['setRDFAliases']).setRDFAliases(!!aliasesClasses, aliasedRDFProperties);
+    if (aliasedRDFClasses || aliasedRDFProperties.length > 0) {
+        invade(instance, ['setRDFPrefixAliasesInUse']).setRDFPrefixAliasesInUse(
+            !!aliasedRDFClasses,
+            aliasedRDFProperties,
+        );
     }
 
     return instance;

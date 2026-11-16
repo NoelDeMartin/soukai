@@ -16,7 +16,7 @@ export type GetModelAttributes<T extends Model> = T extends Model<infer TAttribu
 export type GetModelInput<T extends ModelConstructor> = Pretty<NonNullable<ConstructorParameters<T>[0]>>;
 export type GetModelRelationName<T extends ModelConstructor> = string & keyof T[typeof SCHEMA]['relations'];
 export type LegacyTimestamps = { createdAt?: Date; updatedAt?: Date };
-export type ModelRDFAliases = { classes: boolean; properties: Set<string> };
+export type ModelRDFPrefixAliases = { classes: boolean; properties: Set<string> };
 export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<typeof Model, 'new'>;
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;
 export type ModelWithUrl<T extends Model = Model> = T & Model & { url: string };

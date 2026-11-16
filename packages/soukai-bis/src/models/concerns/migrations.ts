@@ -12,7 +12,7 @@ import {
     PURL_MODIFIED,
     RDF_TYPE,
 } from 'soukai-bis/lib/internals/rdf';
-import { getRDFIriVariants, normalizeRDFIri } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getRDFIRIVariants, normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
 import { readRDFAttributes } from 'soukai-bis/models/concerns/rdf';
 import { updateModelSchema } from 'soukai-bis/models/concerns/schemas';
@@ -66,10 +66,10 @@ function getMigratedModel(modelClass: ModelConstructor, schemaClass: ModelConstr
 }
 
 function getPropertyField(schema: Schema, property: string): string | null {
-    const normalizedProperty = normalizeRDFIri(property);
+    const normalizedProperty = normalizeRDFIRI(property);
 
     for (const [field, properties] of Object.entries(schema.rdfFieldProperties)) {
-        if (properties.some((fieldProperty) => normalizeRDFIri(fieldProperty.value) === normalizedProperty)) {
+        if (properties.some((fieldProperty) => normalizeRDFIRI(fieldProperty.value) === normalizedProperty)) {
             return field;
         }
     }
@@ -81,15 +81,15 @@ function getFieldProperties(schema: Schema): Set<string> {
     return new Set(
         Object.values(schema.rdfFieldProperties)
             .flat()
-            .flatMap((property) => getRDFIriVariants(property.value)),
+            .flatMap((property) => getRDFIRIVariants(property.value)),
     );
 }
 
 function getUnknownQuads(schema: Schema, resourceQuads: Quad[]): Quad[] {
-    const rdfClasses = new Set(schema.rdfClasses.classes.flatMap((rdfClass) => getRDFIriVariants(rdfClass.value)));
+    const rdfClasses = new Set(schema.rdfClasses.classes.flatMap((rdfClass) => getRDFIRIVariants(rdfClass.value)));
     const properties = new Set([
-        ...getRDFIriVariants(PURL_CREATED),
-        ...getRDFIriVariants(PURL_MODIFIED),
+        ...getRDFIRIVariants(PURL_CREATED),
+        ...getRDFIRIVariants(PURL_MODIFIED),
         ...getFieldProperties(schema),
     ]);
 
@@ -145,7 +145,7 @@ function getChangedPropertiesUpdates(
     const updates: EngineOperation[] = [];
 
     for (const [property, propertyValues] of values) {
-        const hasAliasVariant = getRDFIriVariants(property)
+        const hasAliasVariant = getRDFIRIVariants(property)
             .slice(1)
             .some((variant) => currentValues.has(variant));
 
@@ -157,7 +157,7 @@ function getChangedPropertiesUpdates(
     }
 
     for (const property of currentValues.keys()) {
-        if (getRDFIriVariants(property).some((variant) => values.has(variant))) {
+        if (getRDFIRIVariants(property).some((variant) => values.has(variant))) {
             continue;
         }
 

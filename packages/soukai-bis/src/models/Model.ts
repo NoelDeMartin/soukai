@@ -32,7 +32,7 @@ import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/lib/internals/rdf';
-import { getRDFIriVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { ZodError } from 'zod';
 
 import type ACPAccessControlResource from './acp/ACPAccessControlResource';
@@ -94,7 +94,7 @@ import type {
 } from './relations/schema';
 import { createRelation } from './relations/utils';
 import type { Schema } from './schema';
-import type { LegacyTimestamps, ModelRDFAliases } from './types';
+import type { LegacyTimestamps, ModelRDFPrefixAliases } from './types';
 import type {
     ModelComputedAttributeDefinitions,
     ModelConstructor,
@@ -432,7 +432,7 @@ export default class Model<
         const typeMap = buildRDFTypeMap(quads);
         const candidateUrls = new Set(
             this.getRDFClasses()
-                .flatMap((rdfClass) => getRDFIriVariants(rdfClass))
+                .flatMap((rdfClass) => getRDFIRIVariants(rdfClass))
                 .flatMap((rdfClass) => [...(typeMap.get(rdfClass) ?? [])]),
         );
         const matchingResourceUrls = Array.from(candidateUrls).filter((url) =>
@@ -530,7 +530,7 @@ export default class Model<
     declare protected _originalAttributes: Attributes;
     declare protected _dirtyAttributes: Set<FieldName>;
     declare protected _staleRDFProperties: Set<string> | null;
-    declare protected _rdfAliases: ModelRDFAliases | null;
+    declare protected _rdfPrefixAliases: ModelRDFPrefixAliases | null;
     declare protected _computedAttributes: Record<string, ComputedAttribute>;
     declare protected _relations: Record<string, Relation>;
     declare protected _legacyTimestamps: LegacyTimestamps | null;
@@ -544,7 +544,7 @@ export default class Model<
             this._originalAttributes = {} as unknown as Attributes;
             this._dirtyAttributes = new Set();
             this._staleRDFProperties = null;
-            this._rdfAliases = null;
+            this._rdfPrefixAliases = null;
         }
     }
 
@@ -562,7 +562,7 @@ export default class Model<
         this._legacyTimestamps = null;
         this._permissions = null;
         this._staleRDFProperties = null;
-        this._rdfAliases = null;
+        this._rdfPrefixAliases = null;
 
         if (Model.isHydrating()) {
             this._attributes = objectDeepClone(attributes) as Attributes;
@@ -975,15 +975,15 @@ export default class Model<
     public cleanDirty(): void {
         this._pendingSoftDeletion = null;
 
-        if (this._rdfAliases) {
+        if (this._rdfPrefixAliases) {
             for (const field of this._dirtyAttributes) {
                 for (const property of this.getFieldRDFPropertyValues(field)) {
-                    this._rdfAliases.properties.delete(property);
+                    this._rdfPrefixAliases.properties.delete(property);
                 }
             }
 
-            if (!this._rdfAliases.classes && this._rdfAliases.properties.size === 0) {
-                this._rdfAliases = null;
+            if (!this._rdfPrefixAliases.classes && this._rdfPrefixAliases.properties.size === 0) {
+                this._rdfPrefixAliases = null;
             }
         }
 
@@ -991,8 +991,8 @@ export default class Model<
         this._originalAttributes = objectDeepClone(this._attributes);
     }
 
-    public usesRDFAliases(): boolean {
-        return this._rdfAliases !== null;
+    public usesRDFPrefixAliases(): boolean {
+        return this._rdfPrefixAliases !== null;
     }
 
     public hasTimestamps(): this is ModelWithTimestamps<this> {
@@ -1587,7 +1587,7 @@ export default class Model<
         }
 
         const legacyDate = (predicate: string) => {
-            const variants = getRDFIriVariants(predicate);
+            const variants = getRDFIRIVariants(predicate);
             const quad = quads.find((q) => q.subject.value === this.url && variants.includes(q.predicate.value));
             const date = quad && new Date(quad.object.value);
 
@@ -1716,14 +1716,14 @@ export default class Model<
         }
     }
 
-    protected setRDFAliases(classes: boolean, properties: string[]): void {
+    protected setRDFPrefixAliasesInUse(classes: boolean, properties: string[]): void {
         if (!classes && properties.length === 0) {
-            this._rdfAliases = null;
+            this._rdfPrefixAliases = null;
 
             return;
         }
 
-        this._rdfAliases = {
+        this._rdfPrefixAliases = {
             classes,
             properties: new Set(properties),
         };

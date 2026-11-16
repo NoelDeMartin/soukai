@@ -10,7 +10,7 @@ import {
     CRDT_TOMBSTONE_OBJECT,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
-import { getRDFIriVariants, normalizeRDFIri } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getRDFIRIVariants, normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import {
     isLifecycleOperation,
@@ -72,6 +72,39 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
     }
 
     return operations;
+}
+
+function rewriteRDFPrefixAliases(
+    model: Model,
+    inceptionOperations: Operation[],
+    documentOperations: Operation[],
+): void {
+    const rdfPrefixAliases = invade(model, ['_rdfPrefixAliases'])._rdfPrefixAliases;
+
+    if (!rdfPrefixAliases || rdfPrefixAliases.properties.size === 0) {
+        return;
+    }
+
+    const updatedProperties = new Set(
+        documentOperations.filter(isPropertyOperation).map((operation) => operation.property),
+    );
+
+    for (const operation of inceptionOperations) {
+        if (
+            !isPropertyOperation(operation) ||
+            !rdfPrefixAliases.properties.has(operation.property) ||
+            updatedProperties.has(operation.property)
+        ) {
+            continue;
+        }
+
+        documentOperations.push(operation);
+        rdfPrefixAliases.properties.delete(operation.property);
+    }
+
+    if (!rdfPrefixAliases.classes && rdfPrefixAliases.properties.size === 0) {
+        invade(model, ['_rdfPrefixAliases'])._rdfPrefixAliases = null;
+    }
 }
 
 export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
@@ -151,7 +184,10 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
         const crdtOperations = [...updateOperations];
 
         if (!model.operations || model.operations.length === 0) {
-            crdtOperations.push(...createInceptionOperations(model, now));
+            const inceptionOperations = createInceptionOperations(model, now);
+
+            crdtOperations.push(...inceptionOperations);
+            rewriteRDFPrefixAliases(model, inceptionOperations, (operations[model.url] ??= []));
         }
 
         const pendingSoftDeletion = model.getPendingSoftDeletion();
@@ -287,7 +323,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
 
         const resourceOperations = (finalOperations[operation.resourceUrl] ??= {});
 
-        resourceOperations[normalizeRDFIri(operation.property)] = operation;
+        resourceOperations[normalizeRDFIRI(operation.property)] = operation;
     }
 
     const newOperations: Operation[] = [];
@@ -310,7 +346,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
 
     for (const [resourceUrl, resourceOperations] of Object.entries(finalOperations)) {
         for (const operation of Object.values(resourceOperations)) {
-            const quads = getRDFIriVariants(operation.property).flatMap((variant) =>
+            const quads = getRDFIRIVariants(operation.property).flatMap((variant) =>
                 document.statements(resourceUrl, variant),
             );
 

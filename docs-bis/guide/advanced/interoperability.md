@@ -288,7 +288,7 @@ However, writing data will still continue using the prefixes declared in the mod
 
 ### Replacing prefixes
 
-You can use `model.usesRDFAliases()` to check whether the data has been parsed using any of the aliases. If that's the case, you may want to respect the existing convention and use the aliased prefix for writing as well.
+You can use `model.usesRDFPrefixAliases()` to check whether the data has been parsed using any of the aliases. If that's the case, you may want to respect the existing convention and use the aliased prefix for writing as well.
 
 You can update booted models' schemas with `replaceRDFPrefixes()`:
 
@@ -297,7 +297,7 @@ import { replaceRDFPrefixes } from 'soukai-bis';
 
 const tasks = await Task.all();
 
-if (tasks.some((task) => task.usesRDFAliases())) {
+if (tasks.some((task) => task.usesRDFPrefixAliases())) {
     replaceRDFPrefixes({ 'https://schema.org/': 'http://schema.org/' });
 }
 ```

@@ -5,7 +5,10 @@ import type InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { requireEngine, setEngine } from 'soukai-bis/engines/state';
 import Sync from 'soukai-bis/jobs/sync/Sync';
-import { getRDFIriVariants, setRDFPrefixAliases } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
+import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
+import { setRDFPrefixAliases } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { isPropertyOperation } from 'soukai-bis/models/crdts/helpers';
 import { TypeIndex } from 'soukai-bis/models/interop';
 import { bootModels, replaceRDFPrefixes } from 'soukai-bis/models/registry';
 import { remote } from 'soukai-bis/models/remote';
@@ -170,7 +173,7 @@ describe('RDF prefix aliases', () => {
             const localMovie = await SyncedMovie.findOrFail(resourceUrl);
 
             expect(localMovie.title).toBe('Remote aliased movie');
-            expect(localMovie.usesRDFAliases()).toBe(true);
+            expect(localMovie.usesRDFPrefixAliases()).toBe(true);
         });
     });
 
@@ -242,11 +245,11 @@ describe('RDF prefix aliases', () => {
         });
     });
 
-    describe('usesRDFAliases()', () => {
+    describe('usesRDFPrefixAliases()', () => {
         it('returns false for new models and models with only main IRIs', async () => {
             const newMovie = new Movie({ title: 'New' });
 
-            expect(newMovie.usesRDFAliases()).toBe(false);
+            expect(newMovie.usesRDFPrefixAliases()).toBe(false);
 
             const docUrl = 'https://alice.example.org/movies/main';
             const resourceUrl = `${docUrl}#it`;
@@ -263,11 +266,11 @@ describe('RDF prefix aliases', () => {
             );
 
             const withAliases = await Movie.findOrFail(resourceUrl);
-            expect(withAliases.usesRDFAliases()).toBe(false);
+            expect(withAliases.usesRDFPrefixAliases()).toBe(false);
 
             setRDFPrefixAliases({});
             const withoutAliases = await Movie.findOrFail(resourceUrl);
-            expect(withoutAliases.usesRDFAliases()).toBe(false);
+            expect(withoutAliases.usesRDFPrefixAliases()).toBe(false);
         });
 
         it('tracks alias classes, alias properties, mixed properties, updates, and serialization', async () => {
@@ -285,14 +288,14 @@ describe('RDF prefix aliases', () => {
             );
 
             const propMovie = await Movie.findOrFail(propResourceUrl);
-            expect(propMovie.usesRDFAliases()).toBe(true);
+            expect(propMovie.usesRDFPrefixAliases()).toBe(true);
 
             // Survives serialization/deserialization
             const hydrated = await hydrateModel(propMovie.serialize());
-            expect(hydrated.usesRDFAliases()).toBe(true);
+            expect(hydrated.usesRDFPrefixAliases()).toBe(true);
 
             await propMovie.update({ title: 'Updated prop' });
-            expect(propMovie.usesRDFAliases()).toBe(false);
+            expect(propMovie.usesRDFPrefixAliases()).toBe(false);
 
             // Alias class -> stays true after updating properties
             const classDocUrl = 'https://alice.example.org/movies/class-alias';
@@ -308,10 +311,10 @@ describe('RDF prefix aliases', () => {
             );
 
             const classMovie = await Movie.findOrFail(classResourceUrl);
-            expect(classMovie.usesRDFAliases()).toBe(true);
+            expect(classMovie.usesRDFPrefixAliases()).toBe(true);
 
             await classMovie.update({ title: 'Updated' });
-            expect(classMovie.usesRDFAliases()).toBe(true);
+            expect(classMovie.usesRDFPrefixAliases()).toBe(true);
 
             // Mixed property (main + alias) -> true
             const mixedDocUrl = 'https://alice.example.org/movies/mixed-prop';
@@ -328,7 +331,7 @@ describe('RDF prefix aliases', () => {
             );
 
             const mixedMovie = await Movie.findOrFail(mixedResourceUrl);
-            expect(mixedMovie.usesRDFAliases()).toBe(true);
+            expect(mixedMovie.usesRDFPrefixAliases()).toBe(true);
         });
     });
 
@@ -372,6 +375,52 @@ describe('RDF prefix aliases', () => {
             await movie.syncOperations();
 
             expect(movie.title).toBe('Second');
+        });
+
+        it('rewrites aliased properties when creating inception operations', async () => {
+            class TrackedTask extends defineSchema(Task, { history: true, timestamps: false }) {}
+
+            bootModels({ TrackedTask }, { reset: true });
+
+            const docUrl = 'https://alice.example.org/tasks/inception';
+            const resourceUrl = `${docUrl}#it`;
+            const projectUrl = 'https://alice.example.org/projects/solid#it';
+
+            await engine.createDocument(
+                docUrl,
+                await turtleToQuads(`
+                    @prefix schema: <${HTTP_SCHEMA}> .
+
+                    <${resourceUrl}>
+                        a <${HTTPS_SCHEMA}Action> ;
+                        schema:name "Old name" ;
+                        schema:object <${projectUrl}> .
+                `),
+            );
+
+            const task = await TrackedTask.findOrFail(resourceUrl);
+
+            expect(task.usesRDFPrefixAliases()).toBe(true);
+
+            await task.update({ name: 'New name' });
+
+            const document = await engine.readDocument(docUrl);
+            const resourceQuads = document.getQuads().filter((quad) => quad.subject.value === resourceUrl);
+
+            expect(task.usesRDFPrefixAliases()).toBe(false);
+            expect(quadsToTurtle(resourceQuads)).toEqualTurtle(`
+                <${resourceUrl}>
+                    a <${HTTPS_SCHEMA}Action> ;
+                    <${HTTPS_SCHEMA}name> "New name" ;
+                    <${HTTPS_SCHEMA}object> <${projectUrl}> .
+            `);
+            expect(
+                task.operations
+                    ?.filter(isPropertyOperation)
+                    .filter((operation) => operation.property !== RDF_TYPE)
+                    .map((operation) => operation.property)
+                    .sort(),
+            ).toEqual([`${HTTPS_SCHEMA}name`, `${HTTPS_SCHEMA}name`, `${HTTPS_SCHEMA}object`]);
         });
     });
 
@@ -459,12 +508,12 @@ describe('RDF prefix aliases', () => {
         });
 
         it('replaces previous aliases when calling setRDFPrefixAliases() again', () => {
-            expect(getRDFIriVariants(`${HTTPS_SCHEMA}name`)).toEqual([`${HTTPS_SCHEMA}name`, `${HTTP_SCHEMA}name`]);
+            expect(getRDFIRIVariants(`${HTTPS_SCHEMA}name`)).toEqual([`${HTTPS_SCHEMA}name`, `${HTTP_SCHEMA}name`]);
 
             setRDFPrefixAliases({ 'https://example.org/': 'http://example.org/' });
 
-            expect(getRDFIriVariants(`${HTTPS_SCHEMA}name`)).toEqual([`${HTTPS_SCHEMA}name`]);
-            expect(getRDFIriVariants('https://example.org/foo')).toEqual([
+            expect(getRDFIRIVariants(`${HTTPS_SCHEMA}name`)).toEqual([`${HTTPS_SCHEMA}name`]);
+            expect(getRDFIRIVariants('https://example.org/foo')).toEqual([
                 'https://example.org/foo',
                 'http://example.org/foo',
             ]);

@@ -1,5 +1,5 @@
 import type { NamedNode } from '@rdfjs/types';
-import { getRDFIriVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 
 export type RDFClassesMatch = 'all' | 'any';
 export type RDFClassesInput = Iterable<string> | ((rdfClass: string) => boolean);
@@ -20,8 +20,8 @@ export default class RDFClassesMatcher {
         const hasClass = types;
 
         return this.match === 'all'
-            ? this.classes.every((rdfClass) => getRDFIriVariants(rdfClass.value).some((variant) => hasClass(variant)))
-            : this.classes.some((rdfClass) => getRDFIriVariants(rdfClass.value).some((variant) => hasClass(variant)));
+            ? this.classes.every((rdfClass) => getRDFIRIVariants(rdfClass.value).some((variant) => hasClass(variant)))
+            : this.classes.some((rdfClass) => getRDFIRIVariants(rdfClass.value).some((variant) => hasClass(variant)));
     }
 
     public clone(): RDFClassesMatcher {

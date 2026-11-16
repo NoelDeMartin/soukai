@@ -33,7 +33,7 @@ export interface SerializedModelNode {
     relations: Record<string, SerializedRelation>;
     computed: Record<string, unknown>;
     staleRDFProperties: string[] | null;
-    rdfAliases: { classes: boolean; properties: string[] } | null;
+    rdfPrefixAliases: { classes: boolean; properties: string[] } | null;
 }
 
 export interface SerializedModel {
@@ -46,7 +46,7 @@ function invaded(model: Model) {
         '_legacyTimestamps',
         '_computedAttributes',
         '_staleRDFProperties',
-        '_rdfAliases',
+        '_rdfPrefixAliases',
         'restoreComputedAttributes',
     ]);
 }
@@ -101,7 +101,7 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
     }
 
     const index = serialized.nodes.length;
-    const rdfAliases = invaded(model)._rdfAliases;
+    const rdfPrefixAliases = invaded(model)._rdfPrefixAliases;
     const node: SerializedModelNode = {
         modelName: model.static().modelName,
         attributes: model.getAttributes(),
@@ -110,9 +110,9 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
         sourceDocumentUrl: model.getSourceDocumentUrl(),
         legacyTimestamps: invaded(model)._legacyTimestamps,
         staleRDFProperties: arrayFromNullable(invaded(model)._staleRDFProperties),
-        rdfAliases: rdfAliases && {
-            classes: rdfAliases.classes,
-            properties: Array.from(rdfAliases.properties),
+        rdfPrefixAliases: rdfPrefixAliases && {
+            classes: rdfPrefixAliases.classes,
+            properties: Array.from(rdfPrefixAliases.properties),
         },
         relations: {},
         computed: serializeComputedAttributes(model),
@@ -225,10 +225,10 @@ export async function hydrateModel(serialized: SerializedModel): Promise<Model> 
         model.setSourceDocumentUrl(node.sourceDocumentUrl);
         invaded(model)._legacyTimestamps = node.legacyTimestamps;
         invaded(model)._staleRDFProperties = node.staleRDFProperties && new Set(node.staleRDFProperties);
-        invaded(model)._rdfAliases = node.rdfAliases
+        invaded(model)._rdfPrefixAliases = node.rdfPrefixAliases
             ? {
-                  classes: node.rdfAliases.classes,
-                  properties: new Set(node.rdfAliases.properties),
+                  classes: node.rdfPrefixAliases.classes,
+                  properties: new Set(node.rdfPrefixAliases.properties),
               }
             : null;
 
