@@ -553,7 +553,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             return childrenPullTasks;
         } catch (error) {
-            if (this.isNonRdfDocumentError(error)) {
+            if (this.isNonRDFDocumentError(error)) {
                 this.syncedDocumentUrls.delete(documentUrl);
             } else if (!isInstanceOf(error, DocumentNotFound)) {
                 this.handleDocumentError(documentUrl, error);
@@ -583,7 +583,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             );
 
             const resourceUrls = (container?.resourceUrls ?? []).filter(
-                (childDocumentUrl) => !this.isNonRdfResource(remoteDocument, childDocumentUrl),
+                (childDocumentUrl) => !this.isNonRDFResource(remoteDocument, childDocumentUrl),
             );
 
             if (status && resourceUrls.length > 0) {
@@ -781,10 +781,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     for (const quad of localDocument.statements(undefined, RDF_TYPE_PREDICATE)) {
                         const resourceId =
                             quad.subject.termType === 'BlankNode' ? `_:${quad.subject.value}` : quad.subject.value;
-                        const resourceRdfClasses = documentResources.get(resourceId) ?? new Set();
+                        const resourceRDFClasses = documentResources.get(resourceId) ?? new Set();
 
-                        resourceRdfClasses.add(quad.object.value);
-                        documentResources.set(resourceId, resourceRdfClasses);
+                        resourceRDFClasses.add(quad.object.value);
+                        documentResources.set(resourceId, resourceRDFClasses);
                     }
 
                     pushedDocumentResources.set(documentUrl, documentResources);
@@ -816,7 +816,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 continue;
             }
 
-            const hasModelClasses = (rdfClasses: Set<string>) => model.model.matchesRdfClasses(rdfClasses);
+            const hasModelClasses = (rdfClasses: Set<string>) => model.model.matchesRDFClasses(rdfClasses);
 
             if (this.modelRegistrations.get(model.model)?.mode !== 'instance') {
                 const documentUrls = pushedDocuments
@@ -890,7 +890,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
 
         return Array.from(resourceTypes.entries())
-            .filter(([_, types]) => this.syncedModels.some((model) => model.matchesRdfClasses(types)))
+            .filter(([_, types]) => this.syncedModels.some((model) => model.matchesRDFClasses(types)))
             .map(([resourceUrl]) => resourceUrl);
     }
 
@@ -966,7 +966,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return lastModifiedAt ? parseDate(lastModifiedAt) : null;
     }
 
-    private isNonRdfResource(containerDocument: SolidDocument, resourceUrl: string): boolean {
+    private isNonRDFResource(containerDocument: SolidDocument, resourceUrl: string): boolean {
         if (resourceUrl.endsWith('/')) {
             return false;
         }
@@ -987,7 +987,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         });
     }
 
-    private isNonRdfDocumentError(error: unknown): boolean {
+    private isNonRDFDocumentError(error: unknown): boolean {
         return (
             isInstanceOf(error, NetworkRequestFailed) &&
             isInstanceOf(error.cause, UnsuccessfulNetworkRequest) &&

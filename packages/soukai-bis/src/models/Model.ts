@@ -32,6 +32,7 @@ import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/lib/internals/rdf';
+import { getRDFIriVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
 import { ZodError } from 'zod';
 
 import type ACPAccessControlResource from './acp/ACPAccessControlResource';
@@ -53,7 +54,7 @@ import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 import { migrateSchema } from './concerns/migrations';
 import {
-    buildRDFTypeIndex,
+    buildRDFTypeMap,
     createFromRDF,
     initializeEmptyDocumentRelations,
     isUsingSameDocument,
@@ -69,7 +70,7 @@ import type Tombstone from './crdts/Tombstone';
 import {
     CLASS_MARKER,
     SCHEMA,
-    getFieldRdfProperties,
+    getFieldRDFProperties,
     getSchema,
     mintedUrls,
     originalSchemas,
@@ -79,7 +80,7 @@ import { updatePublicPermissions } from './internals/permissions';
 import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
 import type TypeIndex from './interop/TypeIndex';
-import type { RdfClassesInput } from './matching/RDFClassesMatcher';
+import type { RDFClassesInput } from './matching/RDFClassesMatcher';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
@@ -93,7 +94,7 @@ import type {
 } from './relations/schema';
 import { createRelation } from './relations/utils';
 import type { Schema } from './schema';
-import type { LegacyTimestamps } from './types';
+import type { LegacyTimestamps, ModelRDFAliases } from './types';
 import type {
     ModelComputedAttributeDefinitions,
     ModelConstructor,
@@ -214,11 +215,11 @@ export default class Model<
         return this.remote ? requireRemoteEngine() : requireEngine();
     }
 
-    public static getRdfClasses(): string[] {
+    public static getRDFClasses(): string[] {
         return getSchema(this).rdfClasses.classes.map((rdfClass) => rdfClass.value);
     }
 
-    public static matchesRdfClasses(types: RdfClassesInput): boolean {
+    public static matchesRDFClasses(types: RDFClassesInput): boolean {
         return getSchema(this).rdfClasses.matches(types);
     }
 
@@ -366,8 +367,8 @@ export default class Model<
     ): Promise<ModelWithUrl<T> | null> {
         const modelsCache = options.modelsCache ?? new Map();
         const url = options.url;
-        const typeIndex = buildRDFTypeIndex(quads);
-        const isType = this.matchesRdfClasses((rdfClass) => !!typeIndex.get(rdfClass)?.has(url));
+        const typeMap = buildRDFTypeMap(quads);
+        const isType = this.matchesRDFClasses((rdfClass) => !!typeMap.get(rdfClass)?.has(url));
 
         if (!isType || (!options.includeSoftDeleted && getSoftDeletedResourceUrls(quads).has(url))) {
             return null;
@@ -380,7 +381,7 @@ export default class Model<
         }
 
         const classCache = existingClassCache ?? new WeakMap();
-        const instance = createFromRDF<T>(this, url, quads);
+        const instance = createFromRDF<T>(this, url, quads, { typeMap });
 
         instance.setSourceDocumentUrl(options.sourceDocumentUrl ?? quadsSourceDocumentUrls.get(quads) ?? null);
         modelsCache.set(url, classCache);
@@ -428,10 +429,14 @@ export default class Model<
         quads: Quad[],
         options: CreateFromRDFOptions = {},
     ): Promise<ModelWithUrl<T>[]> {
-        const typeIndex = buildRDFTypeIndex(quads);
-        const candidateUrls = new Set(this.getRdfClasses().flatMap((rdfClass) => [...(typeIndex.get(rdfClass) ?? [])]));
+        const typeMap = buildRDFTypeMap(quads);
+        const candidateUrls = new Set(
+            this.getRDFClasses()
+                .flatMap((rdfClass) => getRDFIriVariants(rdfClass))
+                .flatMap((rdfClass) => [...(typeMap.get(rdfClass) ?? [])]),
+        );
         const matchingResourceUrls = Array.from(candidateUrls).filter((url) =>
-            this.matchesRdfClasses((rdfClass) => !!typeIndex.get(rdfClass)?.has(url)),
+            this.matchesRDFClasses((rdfClass) => !!typeMap.get(rdfClass)?.has(url)),
         );
 
         if (matchingResourceUrls.length === 0) {
@@ -524,10 +529,11 @@ export default class Model<
     declare protected _attributes: Attributes;
     declare protected _originalAttributes: Attributes;
     declare protected _dirtyAttributes: Set<FieldName>;
-    declare protected _staleRdfProperties: Set<string> | null;
+    declare protected _staleRDFProperties: Set<string> | null;
+    declare protected _rdfAliases: ModelRDFAliases | null;
     declare protected _computedAttributes: Record<string, ComputedAttribute>;
     declare protected _relations: Record<string, Relation>;
-    declare protected _legacyTimestamps: LegacyTimestamps;
+    declare protected _legacyTimestamps: LegacyTimestamps | null;
     declare protected _permissions: ModelPermissions | null;
 
     public constructor(attributes: Record<string, unknown> = {}, options: ModelConstructorOptions = {}) {
@@ -537,7 +543,8 @@ export default class Model<
             this._attributes = {} as unknown as Attributes;
             this._originalAttributes = {} as unknown as Attributes;
             this._dirtyAttributes = new Set();
-            this._staleRdfProperties = null;
+            this._staleRDFProperties = null;
+            this._rdfAliases = null;
         }
     }
 
@@ -554,7 +561,8 @@ export default class Model<
         this._relations = {};
         this._legacyTimestamps = null;
         this._permissions = null;
-        this._staleRdfProperties = null;
+        this._staleRDFProperties = null;
+        this._rdfAliases = null;
 
         if (Model.isHydrating()) {
             this._attributes = objectDeepClone(attributes) as Attributes;
@@ -622,7 +630,7 @@ export default class Model<
 
         Object.assign(this._attributes, newAttributes);
         Object.keys(newAttributes).forEach((field) => this._dirtyAttributes.add(field as FieldName));
-        modifiedFields.forEach((field) => this.removeStaleRdfProperties(this.getFieldRdfPropertyValues(field)));
+        modifiedFields.forEach((field) => this.removeStaleRDFProperties(this.getFieldRDFPropertyValues(field)));
 
         for (const field of modifiedFields) {
             // oxlint-disable-next-line typescript/no-floating-promises
@@ -966,8 +974,25 @@ export default class Model<
 
     public cleanDirty(): void {
         this._pendingSoftDeletion = null;
+
+        if (this._rdfAliases) {
+            for (const field of this._dirtyAttributes) {
+                for (const property of this.getFieldRDFPropertyValues(field)) {
+                    this._rdfAliases.properties.delete(property);
+                }
+            }
+
+            if (!this._rdfAliases.classes && this._rdfAliases.properties.size === 0) {
+                this._rdfAliases = null;
+            }
+        }
+
         this._dirtyAttributes.clear();
         this._originalAttributes = objectDeepClone(this._attributes);
+    }
+
+    public usesRDFAliases(): boolean {
+        return this._rdfAliases !== null;
     }
 
     public hasTimestamps(): this is ModelWithTimestamps<this> {
@@ -1562,7 +1587,8 @@ export default class Model<
         }
 
         const legacyDate = (predicate: string) => {
-            const quad = quads.find((q) => q.subject.value === this.url && q.predicate.value === predicate);
+            const variants = getRDFIriVariants(predicate);
+            const quad = quads.find((q) => q.subject.value === this.url && variants.includes(q.predicate.value));
             const date = quad && new Date(quad.object.value);
 
             return date && !isNaN(date.getTime()) ? date : undefined;
@@ -1668,26 +1694,39 @@ export default class Model<
         }
     }
 
-    protected addStaleRdfProperties(properties: string[]): void {
+    protected addStaleRDFProperties(properties: string[]): void {
         if (properties.length === 0) {
             return;
         }
 
-        this._staleRdfProperties ??= new Set();
+        this._staleRDFProperties ??= new Set();
 
-        properties.forEach((property) => this._staleRdfProperties?.add(property));
+        properties.forEach((property) => this._staleRDFProperties?.add(property));
     }
 
-    protected removeStaleRdfProperties(properties: string[]): void {
-        if (!this._staleRdfProperties) {
+    protected removeStaleRDFProperties(properties: string[]): void {
+        if (!this._staleRDFProperties) {
             return;
         }
 
-        properties.forEach((property) => this._staleRdfProperties?.delete(property));
+        properties.forEach((property) => this._staleRDFProperties?.delete(property));
 
-        if (this._staleRdfProperties.size === 0) {
-            this._staleRdfProperties = null;
+        if (this._staleRDFProperties.size === 0) {
+            this._staleRDFProperties = null;
         }
+    }
+
+    protected setRDFAliases(classes: boolean, properties: string[]): void {
+        if (!classes && properties.length === 0) {
+            this._rdfAliases = null;
+
+            return;
+        }
+
+        this._rdfAliases = {
+            classes,
+            properties: new Set(properties),
+        };
     }
 
     protected assertAuthoritativeDocument(action?: string): void {
@@ -1758,8 +1797,8 @@ export default class Model<
         );
     }
 
-    private getFieldRdfPropertyValues(field: string): string[] {
-        return getFieldRdfProperties(this.static(), field).map((property) => property.value);
+    private getFieldRDFPropertyValues(field: string): string[] {
+        return getFieldRDFProperties(this.static(), field).map((property) => property.value);
     }
 
     private populateDocumentModels(documentModels: Set<Model>): void {
@@ -1848,7 +1887,7 @@ export default class Model<
                 continue;
             }
 
-            this.addStaleRdfProperties(this.getFieldRdfPropertyValues(field));
+            this.addStaleRDFProperties(this.getFieldRDFPropertyValues(field));
         }
 
         return attributes;

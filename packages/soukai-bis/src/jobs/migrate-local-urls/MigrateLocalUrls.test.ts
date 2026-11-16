@@ -1,5 +1,5 @@
 import { faker } from '@noeldemartin/faker';
-import { quadsToTurtle } from '@noeldemartin/solid-utils';
+import { quadsToTurtle, turtleToQuads } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
@@ -80,5 +80,122 @@ describe('MigrateLocalUrls', () => {
                 safeContainerUrl(requireSafeContainerUrl(migratedDocumentUrl)),
             ]),
         );
+    });
+
+    it('migrates prefixes along with urls', async () => {
+        // Arrange
+        const localDocUrl = 'local://tasks/task-1';
+        const remoteContainerUrl = 'https://alice.example.org/tasks/';
+        const remoteDocUrl = 'https://alice.example.org/tasks/task-1';
+        const quads = await turtleToQuads(`
+            @prefix schema: <https://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+
+            <${localDocUrl}#it>
+                a schema:Action ;
+                schema:name "Buy milk" ;
+                schema:actionStatus schema:CompletedActionStatus .
+
+            <${localDocUrl}#op-1>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${localDocUrl}#it> ;
+                crdt:property schema:name ;
+                crdt:value "Buy milk" .
+
+            <${localDocUrl}#op-type>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${localDocUrl}#it> ;
+                crdt:property <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ;
+                crdt:value schema:Action .
+        `);
+
+        await engine.createDocument(localDocUrl, quads);
+
+        // Act
+        await MigrateLocalUrls.run({
+            ...config,
+            migrations: { 'local://tasks/': remoteContainerUrl },
+            prefixes: { 'https://schema.org/': 'http://schema.org/' },
+        });
+
+        // Assert
+        const migrated = await engine.readDocument(remoteDocUrl);
+
+        expect(quadsToTurtle(migrated.getQuads())).toEqualTurtle(`
+            @prefix schema: <http://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+
+            <${remoteDocUrl}#it>
+                a schema:Action ;
+                schema:name "Buy milk" ;
+                schema:actionStatus schema:CompletedActionStatus .
+
+            <${remoteDocUrl}#op-1>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${remoteDocUrl}#it> ;
+                crdt:property schema:name ;
+                crdt:value "Buy milk" .
+
+            <${remoteDocUrl}#op-type>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <${remoteDocUrl}#it> ;
+                crdt:property <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ;
+                crdt:value schema:Action .
+        `);
+    });
+
+    it('rewrites prefixes in place for documents that do not move', async () => {
+        // Arrange
+        const taskDocUrl = 'local://tasks/task-1';
+        const noteDocUrl = 'local://notes/note-1';
+        const dataUrl = 'https://schema.org.example.org/resource';
+
+        await engine.createDocument(
+            taskDocUrl,
+            await turtleToQuads(`
+                @prefix schema: <https://schema.org/> .
+
+                <${taskDocUrl}#it>
+                    a schema:Action ;
+                    schema:name "Task" ;
+                    schema:sameAs <${dataUrl}> .
+            `),
+        );
+        await engine.createDocument(
+            noteDocUrl,
+            await turtleToQuads(`
+                @prefix schema: <https://schema.org/> .
+
+                <${noteDocUrl}#it>
+                    a schema:Note ;
+                    schema:text "Note" .
+            `),
+        );
+
+        // Act - only prefixes, no migrations
+        await MigrateLocalUrls.run({
+            ...config,
+            prefixes: { 'https://schema.org/': 'http://schema.org/' },
+        });
+
+        // Assert - both documents rewritten in place, data url untouched, containers not dropped
+        const taskDoc = await engine.readDocument(taskDocUrl);
+        const noteDoc = await engine.readDocument(noteDocUrl);
+
+        expect(quadsToTurtle(taskDoc.getQuads())).toEqualTurtle(`
+            @prefix schema: <http://schema.org/> .
+
+            <${taskDocUrl}#it>
+                a schema:Action ;
+                schema:name "Task" ;
+                schema:sameAs <${dataUrl}> .
+        `);
+        expect(quadsToTurtle(noteDoc.getQuads())).toEqualTurtle(`
+            @prefix schema: <http://schema.org/> .
+
+            <${noteDocUrl}#it>
+                a schema:Note ;
+                schema:text "Note" .
+        `);
     });
 });

@@ -52,7 +52,7 @@ export default class SetPropertyOperation extends SetPropertyOperationModel {
     }
 
     public applyToSparql(sparql: SparqlUpdate): void {
-        sparql.delete(this.subject, this.predicate);
+        this.deleteFromSparql(sparql);
         sparql.insert(this.getValueQuads());
     }
 

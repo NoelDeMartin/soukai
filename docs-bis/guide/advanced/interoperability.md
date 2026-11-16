@@ -272,6 +272,32 @@ Migrating data with a `SolidEngine` modifies the data in the POD, which other ap
 
 ## RDF prefix aliases
 
-::: warning TODO
-Previous versions of Soukai supported reading data that uses different RDF prefixes than the ones declared in the schema (for example, `http://schema.org/` instead of `https://schema.org/`), using `aliasRdfPrefixes`, `usesRdfAliases`, `resetRdfAliases`, and `replaceRdfPrefixes`. This hasn't been implemented yet.
-:::
+Some vocabularies are not used consistently in the wild, for example [`http://schema.org` and `https://schema.org`](https://github.com/schemaorg/schemaorg/issues/2886). Given that RDF compares IRIs as plain strings, a Soukai model declared with `https://schema.org/` won't match data declared with `http://schema.org/` by default.
+
+In order to alleviate this limitation, you can use RDF Prefix Aliases:
+
+```ts
+import { setRDFPrefixAliases } from 'soukai-bis';
+
+setRDFPrefixAliases({ 'https://schema.org/': 'http://schema.org/' });
+```
+
+With aliases configured, both versions will be supported when reading data, including type index registrations, attribute lookups, history replay, and migrating schemas.
+
+However, writing data will still continue using the prefixes declared in the model schema.
+
+### Replacing prefixes
+
+You can use `model.usesRDFAliases()` to check whether the data has been parsed using any of the aliases. If that's the case, you may want to respect the existing convention and use the aliased prefix for writing as well.
+
+You can update booted models' schemas with `replaceRDFPrefixes()`:
+
+```ts
+import { replaceRDFPrefixes } from 'soukai-bis';
+
+const tasks = await Task.all();
+
+if (tasks.some((task) => task.usesRDFAliases())) {
+    replaceRDFPrefixes({ 'https://schema.org/': 'http://schema.org/' });
+}
+```

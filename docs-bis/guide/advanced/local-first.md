@@ -160,3 +160,21 @@ await MigrateLocalUrls.run({
     },
 });
 ```
+
+If during login you've also detected a user preference to use some different [RDF prefixes](./interoperability.md#rdf-prefix-aliases), you can also use the `prefixes` option to replace them in the existing data:
+
+```ts
+import { MigrateLocalUrls, Sync, replaceRDFPrefixes } from 'soukai-bis';
+
+replaceRDFPrefixes({ 'https://schema.org/': 'http://schema.org/' });
+
+await MigrateLocalUrls.run({
+    engine: localEngine,
+    migrations: {
+        'local://tasks/': 'https://alice.example.org/tasks/',
+    },
+    prefixes: {
+        'https://schema.org/': 'http://schema.org/',
+    },
+});
+```

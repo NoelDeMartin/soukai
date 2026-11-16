@@ -1,8 +1,9 @@
 import { RDFNamedNode, SolidStore } from '@noeldemartin/solid-utils';
 import { deepEquals, hasItems, invade, tap, weakMemo } from '@noeldemartin/utils';
-import type { Quad } from '@rdfjs/types';
+import type { Quad, Quad_Object } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
-import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/model';
+import { getRDFIriVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { Relation } from 'soukai-bis/models/relations';
@@ -41,6 +42,8 @@ function getDocumentRelations(model: Model, names?: string[]): Relation[] {
         .filter(([name, definition]) => definition.options.usingSameDocument && (!names || names.includes(name)))
         .map(([name]) => model.getRelation(name));
 }
+
+export type RDFTypeMap = Map<string, Set<string>>;
 
 export function initializeEmptyDocumentRelations(model: Model): void {
     for (const relation of getDocumentRelations(model)) {
@@ -95,9 +98,9 @@ export function isUsingSameDocument(documentUrl: string | null, relation: Relati
     return (documentUrl && model.getDocumentUrl() === documentUrl) || relation.usingSameDocument;
 }
 
-export function buildRDFTypeIndex(quads: Quad[]): Map<string, Set<string>> {
-    return weakMemo('quads-type-index', quads, () => {
-        const typeIndex = new Map();
+export function buildRDFTypeMap(quads: Quad[]): RDFTypeMap {
+    return weakMemo('quads-type-map', quads, () => {
+        const typeMap = new Map();
 
         for (const quad of quads) {
             if (quad.predicate.value !== RDF_TYPE) {
@@ -105,12 +108,12 @@ export function buildRDFTypeIndex(quads: Quad[]): Map<string, Set<string>> {
             }
 
             const resourceUrls =
-                typeIndex.get(quad.object.value) ?? tap(new Set(), (set) => void typeIndex.set(quad.object.value, set));
+                typeMap.get(quad.object.value) ?? tap(new Set(), (set) => void typeMap.set(quad.object.value, set));
 
             resourceUrls.add(quad.subject.value);
         }
 
-        return typeIndex;
+        return typeMap;
     });
 }
 
@@ -118,21 +121,42 @@ export function readRDFAttributes(
     modelClass: ModelConstructor,
     url: string,
     quads: Quad[],
-): { attributes: Record<string, unknown>; staleRdfProperties: string[] } {
+): { attributes: Record<string, unknown>; staleRDFProperties: string[]; aliasedRDFProperties: string[] } {
     const { fields } = getSchema(modelClass);
     const subject = new RDFNamedNode(url);
     const attributes: Record<string, unknown> = {};
-    const staleRdfProperties: string[] = [];
+    const staleRDFProperties: string[] = [];
+    const aliasedRDFProperties: string[] = [];
     const store = buildSubjectStore(url, quads);
 
     for (const [field, type] of Object.entries(fields.shape)) {
         const fieldType = getFinalType(type);
-        const values = getFieldRdfProperties(modelClass, field).map((property) => {
-            const objects = store.statements(subject, property).map((statement) => statement.object);
+        const values = getFieldRDFProperties(modelClass, field).map((property) => {
+            const variants = getRDFNamedNodeVariants(property);
+            let objects: [Quad_Object, ...Quad_Object[]] | undefined;
+            let aliasMatched = false;
+
+            for (let i = 0; i < variants.length; i++) {
+                const variantObjects = store.statements(subject, variants[i]!).map((statement) => statement.object);
+
+                if (!hasItems(variantObjects)) {
+                    continue;
+                }
+
+                if (i > 0) {
+                    aliasMatched = true;
+                }
+
+                objects ??= variantObjects;
+            }
+
+            if (aliasMatched) {
+                aliasedRDFProperties.push(property.value);
+            }
 
             return {
                 property: property.value,
-                value: hasItems(objects) ? castToJavaScript(objects, fieldType) : undefined,
+                value: objects ? castToJavaScript(objects, fieldType) : undefined,
             };
         });
         const value = values.find((propertyValue) => propertyValue.value !== undefined)?.value;
@@ -148,25 +172,37 @@ export function readRDFAttributes(
                 continue;
             }
 
-            staleRdfProperties.push(propertyValue.property);
+            staleRDFProperties.push(propertyValue.property);
         }
     }
 
-    return { attributes, staleRdfProperties };
+    return { attributes, staleRDFProperties, aliasedRDFProperties };
 }
 
 export function createFromRDF<T extends Model>(
     modelClass: ModelConstructor<T>,
     url: string,
     quads: Quad[],
+    options: { typeMap?: RDFTypeMap } = {},
 ): ModelWithUrl<T> {
-    const { attributes, staleRdfProperties } = readRDFAttributes(modelClass, url, quads);
+    const { attributes, staleRDFProperties, aliasedRDFProperties } = readRDFAttributes(modelClass, url, quads);
     const instance = modelClass.newInstance(
         { url, ...attributes },
         { exists: true, initializeMetadata: false, source: quads },
     ) as ModelWithUrl<T>;
+    const aliasesClasses =
+        options.typeMap &&
+        modelClass.getRDFClasses().some((rdfClass) => {
+            const variants = getRDFIriVariants(rdfClass);
 
-    invade(instance, ['addStaleRdfProperties']).addStaleRdfProperties(staleRdfProperties);
+            return variants.length > 1 && variants.slice(1).some((variant) => options.typeMap?.get(variant)?.has(url));
+        });
+
+    invade(instance, ['addStaleRDFProperties']).addStaleRDFProperties(staleRDFProperties);
+
+    if (aliasesClasses || aliasedRDFProperties.length > 0) {
+        invade(instance, ['setRDFAliases']).setRDFAliases(!!aliasesClasses, aliasedRDFProperties);
+    }
 
     return instance;
 }

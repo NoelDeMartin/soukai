@@ -17,6 +17,7 @@ import {
     CRDT_UPDATED_AT_PREDICATE,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
+import { normalizeRDFIri } from 'soukai-bis/lib/rdf-prefix-aliases';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
 import { isLifecycleOperation, sortedOperations, supersedesOperation } from 'soukai-bis/models/crdts/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
@@ -113,7 +114,7 @@ function getDocumentUpdateOperations({
             existingPropertyOperations.some(
                 (existingOperation) =>
                     existingOperation.resourceUrl === newOperation.resourceUrl &&
-                    existingOperation.property === newOperation.property &&
+                    normalizeRDFIri(existingOperation.property) === normalizeRDFIri(newOperation.property) &&
                     existingOperation.date > newOperation.date,
             )
         ) {

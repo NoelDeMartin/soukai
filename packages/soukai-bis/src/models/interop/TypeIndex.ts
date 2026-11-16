@@ -130,7 +130,7 @@ export default class TypeIndex extends Model {
             return;
         }
 
-        const registration = new TypeRegistration({ forClass: modelClass.getRdfClasses(), ...attributes });
+        const registration = new TypeRegistration({ forClass: modelClass.getRDFClasses(), ...attributes });
 
         this.relatedRegistrations.attach(registration);
 

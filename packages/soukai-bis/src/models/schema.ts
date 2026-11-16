@@ -11,7 +11,7 @@ import { object, url } from 'zod';
 import type { ZodObject, ZodType, z } from 'zod';
 
 import { allOf } from './matching/fluent';
-import type { RdfClassesDefinition } from './matching/fluent';
+import type { RDFClassesDefinition } from './matching/fluent';
 import RDFClassesMatcher from './matching/RDFClassesMatcher';
 import Model from './Model';
 import type { CreateFromRDFOptions, ModelConstructorOptions } from './Model';
@@ -25,7 +25,7 @@ import { isModelClass } from './utils';
 declare const SCHEMA_FIELDS_MARKER: unique symbol;
 declare const SCHEMA_RELATIONS_MARKER: unique symbol;
 
-function getRdfClassesDefinition(config: SchemaConfig): RdfClassesDefinition {
+function getRDFClassesDefinition(config: SchemaConfig): RDFClassesDefinition {
     if (!config.rdfClasses || Array.isArray(config.rdfClasses)) {
         return allOf(arrayFilter([config.rdfClass, ...(config.rdfClasses ?? [])]));
     }
@@ -213,7 +213,7 @@ export interface SchemaConfig<
     rdfContext?: string;
     rdfContexts?: Record<string, string>;
     rdfClass?: string;
-    rdfClasses?: string[] | RdfClassesDefinition;
+    rdfClasses?: string[] | RDFClassesDefinition;
     rdfDefaultResourceHash?: string;
     fields?: TFields;
     relations?: TRelations;
@@ -254,8 +254,8 @@ export function defineSchema<
     const { default: defaultPrefix, ...extraContext } = rdfContext;
     const relations = { ...baseSchema?.relations, ...config.relations };
     const expand = (iri: string) => new RDFNamedNode(expandIRI(iri, { defaultPrefix, extraContext }));
-    const rdfClassesDefinition = getRdfClassesDefinition(config);
-    const ownRdfClasses = arrayUnique(rdfClassesDefinition.classes.map((rdfClass) => expand(rdfClass).value));
+    const rdfClassesDefinition = getRDFClassesDefinition(config);
+    const ownRDFClasses = arrayUnique(rdfClassesDefinition.classes.map((rdfClass) => expand(rdfClass).value));
     const rdfFieldProperties: Record<string, NamedNode[]> = {
         ...baseSchema?.rdfFieldProperties,
         ...Object.fromEntries(
@@ -304,10 +304,10 @@ export function defineSchema<
             slug: parseSchemaSlug(fields) ?? baseSchema?.slug,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
             rdfClasses:
-                ownRdfClasses.length > 0
+                ownRDFClasses.length > 0
                     ? new RDFClassesMatcher(
                           rdfClassesDefinition.match,
-                          ownRdfClasses.map((rdfClass) => new RDFNamedNode(rdfClass)),
+                          ownRDFClasses.map((rdfClass) => new RDFNamedNode(rdfClass)),
                       )
                     : (baseSchema?.rdfClasses.clone() ?? new RDFClassesMatcher('all', [])),
             rdfFieldProperties,

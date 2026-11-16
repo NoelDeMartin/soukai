@@ -1,15 +1,16 @@
 import type { NamedNode } from '@rdfjs/types';
+import { getRDFIriVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
 
-export type RdfClassesMatch = 'all' | 'any';
-export type RdfClassesInput = Iterable<string> | ((rdfClass: string) => boolean);
+export type RDFClassesMatch = 'all' | 'any';
+export type RDFClassesInput = Iterable<string> | ((rdfClass: string) => boolean);
 
 export default class RDFClassesMatcher {
     constructor(
-        public readonly match: RdfClassesMatch,
+        public readonly match: RDFClassesMatch,
         public readonly classes: NamedNode[],
     ) {}
 
-    public matches(types: RdfClassesInput): boolean {
+    public matches(types: RDFClassesInput): boolean {
         if (typeof types !== 'function') {
             const typesSet = new Set(types);
 
@@ -19,8 +20,8 @@ export default class RDFClassesMatcher {
         const hasClass = types;
 
         return this.match === 'all'
-            ? this.classes.every((rdfClass) => hasClass(rdfClass.value))
-            : this.classes.some((rdfClass) => hasClass(rdfClass.value));
+            ? this.classes.every((rdfClass) => getRDFIriVariants(rdfClass.value).some((variant) => hasClass(variant)))
+            : this.classes.some((rdfClass) => getRDFIriVariants(rdfClass.value).some((variant) => hasClass(variant)));
     }
 
     public clone(): RDFClassesMatcher {

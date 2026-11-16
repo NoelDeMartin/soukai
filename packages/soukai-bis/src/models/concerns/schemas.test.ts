@@ -35,7 +35,7 @@ describe('Schemas', () => {
 
         expect(task.name).toEqual('Learn Solid');
         expect(task.projectUrl).toEqual('solid://projects/solid#it');
-        expect(Task.getRdfClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Vtodo']);
+        expect(Task.getRDFClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Vtodo']);
         expect(Task.urlFromSlug('write-docs')).toMatch(/write-docs#task$/);
         expect(turtle).toContain('<http://www.w3.org/2002/12/cal/ical#Vtodo>');
         expect(turtle).toContain('<http://www.w3.org/2002/12/cal/ical#summary>');
@@ -68,7 +68,7 @@ describe('Schemas', () => {
         Task.updateSchema(ClasslessSchema);
 
         // Assert
-        expect(Task.getRdfClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Task']);
+        expect(Task.getRDFClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Task']);
         expect(getSchema(ClasslessSchema).rdfClasses.classes).toEqual([]);
         expect(getSchema(Task)).not.toBe(getSchema(ClasslessSchema));
     });
@@ -103,7 +103,7 @@ describe('Schemas', () => {
 
         // Assert
         expect(getSchema(Task)).toBe(originalSchema);
-        expect(Task.getRdfClasses()).toEqual(['https://schema.org/Action']);
+        expect(Task.getRDFClasses()).toEqual(['https://schema.org/Action']);
     });
 
     it('restores the original schema after updating it multiple times', () => {

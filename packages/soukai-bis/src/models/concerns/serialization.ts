@@ -29,10 +29,11 @@ export interface SerializedModelNode {
     exists: boolean;
     documentExists: boolean;
     sourceDocumentUrl: string | null;
-    legacyTimestamps: LegacyTimestamps;
+    legacyTimestamps: LegacyTimestamps | null;
     relations: Record<string, SerializedRelation>;
     computed: Record<string, unknown>;
-    staleRdfProperties: string[] | null;
+    staleRDFProperties: string[] | null;
+    rdfAliases: { classes: boolean; properties: string[] } | null;
 }
 
 export interface SerializedModel {
@@ -44,7 +45,8 @@ function invaded(model: Model) {
         '_relations',
         '_legacyTimestamps',
         '_computedAttributes',
-        '_staleRdfProperties',
+        '_staleRDFProperties',
+        '_rdfAliases',
         'restoreComputedAttributes',
     ]);
 }
@@ -99,6 +101,7 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
     }
 
     const index = serialized.nodes.length;
+    const rdfAliases = invaded(model)._rdfAliases;
     const node: SerializedModelNode = {
         modelName: model.static().modelName,
         attributes: model.getAttributes(),
@@ -106,7 +109,11 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
         documentExists: model.documentExists(),
         sourceDocumentUrl: model.getSourceDocumentUrl(),
         legacyTimestamps: invaded(model)._legacyTimestamps,
-        staleRdfProperties: arrayFromNullable(invaded(model)._staleRdfProperties),
+        staleRDFProperties: arrayFromNullable(invaded(model)._staleRDFProperties),
+        rdfAliases: rdfAliases && {
+            classes: rdfAliases.classes,
+            properties: Array.from(rdfAliases.properties),
+        },
         relations: {},
         computed: serializeComputedAttributes(model),
     };
@@ -217,7 +224,13 @@ export async function hydrateModel(serialized: SerializedModel): Promise<Model> 
         model.setDocumentExists(node.documentExists);
         model.setSourceDocumentUrl(node.sourceDocumentUrl);
         invaded(model)._legacyTimestamps = node.legacyTimestamps;
-        invaded(model)._staleRdfProperties = node.staleRdfProperties && new Set(node.staleRdfProperties);
+        invaded(model)._staleRDFProperties = node.staleRDFProperties && new Set(node.staleRDFProperties);
+        invaded(model)._rdfAliases = node.rdfAliases
+            ? {
+                  classes: node.rdfAliases.classes,
+                  properties: new Set(node.rdfAliases.properties),
+              }
+            : null;
 
         for (const [name, value] of Object.entries(node.computed)) {
             model.getComputedAttribute(name).setValue(value);

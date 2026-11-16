@@ -1,6 +1,8 @@
+import type { SparqlUpdate } from '@noeldemartin/solid-utils';
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Predicate } from '@rdfjs/types';
 import { CRDT_PROPERTY, CRDT_PROPERTY_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import { getRDFIriVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/rdf-prefix-aliases';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 
 import type Operation from './Operation';
@@ -46,6 +48,17 @@ export default class PropertyOperation extends Model {
     }
 
     protected filterQuads(quads: Quad[]): Quad[] {
-        return quads.filter((q) => !this.subject.equals(q.subject) || !this.predicate.equals(q.predicate));
+        const variants = getRDFIriVariants(this.predicate.value);
+
+        return quads.filter((q) => !this.subject.equals(q.subject) || !variants.includes(q.predicate.value));
+    }
+
+    protected deleteFromSparql(sparql: SparqlUpdate): void {
+        const predicates =
+            this.predicate.termType === 'NamedNode' ? getRDFNamedNodeVariants(this.predicate) : [this.predicate];
+
+        for (const predicate of predicates) {
+            sparql.delete(this.subject, predicate);
+        }
     }
 }

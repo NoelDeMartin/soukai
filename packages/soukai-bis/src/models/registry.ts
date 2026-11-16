@@ -1,11 +1,27 @@
+import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import { fail } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 
+import { getSchema } from './internals/model';
+import RDFClassesMatcher from './matching/RDFClassesMatcher';
 import type Model from './Model';
+import type { Schema } from './schema';
 import type { ModelConstructor } from './types';
 import { isModelClass } from './utils';
 
 const bootedModels: Map<string, ModelConstructor> = new Map();
+
+function replacePrefix(iri: string, entries: [string, string][]): string | null {
+    for (const [source, target] of entries) {
+        if (!iri.startsWith(source)) {
+            continue;
+        }
+
+        return `${target}${iri.slice(source.length)}`;
+    }
+
+    return null;
+}
 
 export interface ModelsRegistry {}
 
@@ -76,4 +92,49 @@ export function bootModelsFromViteGlob(
     const models = getModelsFromViteGlob(glob, suffixes);
 
     bootModels(models, bootOptions);
+}
+
+export function replaceRDFPrefixes(replacements: Record<string, string>): void {
+    const entries = Object.entries(replacements).filter(([source, target]) => source && target && source !== target);
+
+    if (entries.length === 0) {
+        return;
+    }
+
+    const seenSchemas = new Set<Schema>();
+
+    for (const modelClass of bootedModels.values()) {
+        const schema = getSchema(modelClass);
+
+        if (seenSchemas.has(schema)) {
+            continue;
+        }
+
+        seenSchemas.add(schema);
+
+        for (const [alias, prefix] of Object.entries(schema.rdfContext)) {
+            const replaced = replacePrefix(prefix, entries);
+
+            if (replaced) {
+                schema.rdfContext[alias] = replaced;
+            }
+        }
+
+        schema.rdfClasses = new RDFClassesMatcher(
+            schema.rdfClasses.match,
+            schema.rdfClasses.classes.map((rdfClass) => {
+                const replaced = replacePrefix(rdfClass.value, entries);
+
+                return replaced ? new RDFNamedNode(replaced) : rdfClass;
+            }),
+        );
+
+        for (const [field, properties] of Object.entries(schema.rdfFieldProperties)) {
+            schema.rdfFieldProperties[field] = properties.map((property) => {
+                const replaced = replacePrefix(property.value, entries);
+
+                return replaced ? new RDFNamedNode(replaced) : property;
+            });
+        }
+    }
 }

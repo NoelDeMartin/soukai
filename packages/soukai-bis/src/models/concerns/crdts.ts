@@ -10,6 +10,7 @@ import {
     CRDT_TOMBSTONE_OBJECT,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
+import { getRDFIriVariants, normalizeRDFIri } from 'soukai-bis/lib/rdf-prefix-aliases';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import {
     isLifecycleOperation,
@@ -22,7 +23,7 @@ import type Operation from 'soukai-bis/models/crdts/Operation';
 import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import { findMetadataSubject } from 'soukai-bis/models/crdts/soft-deletes';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
-import { getFieldRdfProperties, getSchema } from 'soukai-bis/models/internals/model';
+import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
@@ -33,7 +34,7 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
     const operations: Operation[] = [];
     const schema = getSchema(model.static());
     const originalAttributes = objectWithoutEmpty(model.getOriginalAttributes());
-    const staleRdfProperties = invade(model, ['_staleRdfProperties'])._staleRdfProperties;
+    const staleRDFProperties = invade(model, ['_staleRDFProperties'])._staleRDFProperties;
 
     delete originalAttributes.url;
 
@@ -48,8 +49,8 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
             continue;
         }
 
-        for (const property of getFieldRdfProperties(model.static(), field)) {
-            if (staleRdfProperties?.has(property.value)) {
+        for (const property of getFieldRDFProperties(model.static(), field)) {
+            if (staleRDFProperties?.has(property.value)) {
                 continue;
             }
 
@@ -94,7 +95,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                 new SetPropertyOperation({
                     resourceUrl: model.url,
                     property: RDF_TYPE_PREDICATE.value,
-                    value: model.static().getRdfClasses(),
+                    value: model.static().getRDFClasses(),
                     date: model.updatedAt ?? now,
                 })
                     .setNamedNode(true)
@@ -109,7 +110,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
                 continue;
             }
 
-            for (const property of getFieldRdfProperties(model.static(), attribute)) {
+            for (const property of getFieldRDFProperties(model.static(), attribute)) {
                 if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
                     exists &&
                         modelOperations.push(
@@ -169,7 +170,7 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
             updateOperations.push(lifecycleOperation);
         }
 
-        invade(model, ['_staleRdfProperties'])._staleRdfProperties = null;
+        invade(model, ['_staleRDFProperties'])._staleRDFProperties = null;
 
         for (const operation of crdtOperations) {
             const url = operation.mintUrl();
@@ -190,7 +191,7 @@ export function createModelInceptionOperations(instance: ModelWithUrl, createdAt
         new SetPropertyOperation({
             resourceUrl: instance.url,
             property: RDF_TYPE_PREDICATE.value,
-            value: instance.static().getRdfClasses(),
+            value: instance.static().getRDFClasses(),
             date: createdAt,
         })
             .setNamedNode(true)
@@ -286,7 +287,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
 
         const resourceOperations = (finalOperations[operation.resourceUrl] ??= {});
 
-        resourceOperations[operation.property] = operation;
+        resourceOperations[normalizeRDFIri(operation.property)] = operation;
     }
 
     const newOperations: Operation[] = [];
@@ -308,8 +309,10 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
     }
 
     for (const [resourceUrl, resourceOperations] of Object.entries(finalOperations)) {
-        for (const [property, operation] of Object.entries(resourceOperations)) {
-            const quads = document.statements(resourceUrl, property);
+        for (const operation of Object.values(resourceOperations)) {
+            const quads = getRDFIriVariants(operation.property).flatMap((variant) =>
+                document.statements(resourceUrl, variant),
+            );
 
             if (operation instanceof SetPropertyOperation) {
                 if (

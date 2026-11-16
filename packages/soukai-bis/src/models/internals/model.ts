@@ -21,7 +21,7 @@ export function setSchema(modelClass: ModelConstructor, schema: Schema): void {
     modelClass[SCHEMA] = schema;
 }
 
-export function getFieldRdfProperties(modelClass: ModelConstructor, field: string): NamedNode[] {
+export function getFieldRDFProperties(modelClass: ModelConstructor, field: string): NamedNode[] {
     return getSchema(modelClass).rdfFieldProperties[field] ?? [];
 }
 

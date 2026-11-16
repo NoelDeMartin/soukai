@@ -12,6 +12,7 @@ import {
     PURL_MODIFIED,
     RDF_TYPE,
 } from 'soukai-bis/lib/internals/rdf';
+import { getRDFIriVariants, normalizeRDFIri } from 'soukai-bis/lib/rdf-prefix-aliases';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
 import { readRDFAttributes } from 'soukai-bis/models/concerns/rdf';
 import { updateModelSchema } from 'soukai-bis/models/concerns/schemas';
@@ -19,7 +20,7 @@ import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import { isLifecycleOperation, isPropertyOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
-import { getFieldRdfProperties, getSchema, migratedModels, setSchema } from 'soukai-bis/models/internals/model';
+import { getFieldRDFProperties, getSchema, migratedModels, setSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads, serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import { bootModels, requireBootedModel } from 'soukai-bis/models/registry';
@@ -65,8 +66,10 @@ function getMigratedModel(modelClass: ModelConstructor, schemaClass: ModelConstr
 }
 
 function getPropertyField(schema: Schema, property: string): string | null {
+    const normalizedProperty = normalizeRDFIri(property);
+
     for (const [field, properties] of Object.entries(schema.rdfFieldProperties)) {
-        if (properties.some((fieldProperty) => fieldProperty.value === property)) {
+        if (properties.some((fieldProperty) => normalizeRDFIri(fieldProperty.value) === normalizedProperty)) {
             return field;
         }
     }
@@ -78,13 +81,17 @@ function getFieldProperties(schema: Schema): Set<string> {
     return new Set(
         Object.values(schema.rdfFieldProperties)
             .flat()
-            .map((property) => property.value),
+            .flatMap((property) => getRDFIriVariants(property.value)),
     );
 }
 
 function getUnknownQuads(schema: Schema, resourceQuads: Quad[]): Quad[] {
-    const rdfClasses = new Set(schema.rdfClasses.classes.map((rdfClass) => rdfClass.value));
-    const properties = new Set([PURL_CREATED, PURL_MODIFIED, ...getFieldProperties(schema)]);
+    const rdfClasses = new Set(schema.rdfClasses.classes.flatMap((rdfClass) => getRDFIriVariants(rdfClass.value)));
+    const properties = new Set([
+        ...getRDFIriVariants(PURL_CREATED),
+        ...getRDFIriVariants(PURL_MODIFIED),
+        ...getFieldProperties(schema),
+    ]);
 
     return resourceQuads.filter((quad) =>
         quad.predicate.value === RDF_TYPE ? !rdfClasses.has(quad.object.value) : !properties.has(quad.predicate.value),
@@ -138,7 +145,11 @@ function getChangedPropertiesUpdates(
     const updates: EngineOperation[] = [];
 
     for (const [property, propertyValues] of values) {
-        if (valuesEqual(propertyValues, currentValues.get(property) ?? [])) {
+        const hasAliasVariant = getRDFIriVariants(property)
+            .slice(1)
+            .some((variant) => currentValues.has(variant));
+
+        if (!hasAliasVariant && valuesEqual(propertyValues, currentValues.get(property) ?? [])) {
             continue;
         }
 
@@ -146,7 +157,7 @@ function getChangedPropertiesUpdates(
     }
 
     for (const property of currentValues.keys()) {
-        if (values.has(property)) {
+        if (getRDFIriVariants(property).some((variant) => values.has(variant))) {
             continue;
         }
 
@@ -234,7 +245,7 @@ function getNewOperations(
     const updates: EngineOperation[] = [];
 
     for (const field of Object.keys(getSchema(instance.static()).fields.def.shape)) {
-        for (const property of getFieldRdfProperties(instance.static(), field)) {
+        for (const property of getFieldRDFProperties(instance.static(), field)) {
             const values = targetValues.get(property.value) ?? [];
             const latestOperation = latestOperations.get(property.value);
 

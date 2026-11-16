@@ -9,6 +9,7 @@ import {
     bootCoreModels,
     bootModels,
     setEngine,
+    setRDFPrefixAliases,
     setRemoteEngine,
 } from 'soukai-bis';
 import { forgetAuthorizationProtocols } from 'soukai-bis/models/internals/permissions';
@@ -36,9 +37,10 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { afterEach, beforeEach, vi } from 'vite-plus/test';
 
 beforeEach(() => {
-    FakeServer.reset();
+    setRDFPrefixAliases({});
     forgetAuthorizationProtocols();
     vi.resetAllMocks();
+    FakeServer.reset();
     ComputedAttribute.disableLoadingRelations();
 
     setEngine(new InMemoryEngine());

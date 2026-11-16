@@ -1686,8 +1686,8 @@ describe('Model', () => {
         const managers = await Manager.createManyFromRDF(rdf);
 
         // Assert
-        expect(Manager.getRdfClasses()).toEqual(['https://example.org/vocab#Manager']);
-        expect(Guest.getRdfClasses()).toEqual(['http://xmlns.com/foaf/0.1/Person']);
+        expect(Manager.getRDFClasses()).toEqual(['https://example.org/vocab#Manager']);
+        expect(Guest.getRDFClasses()).toEqual(['http://xmlns.com/foaf/0.1/Person']);
         expect(people.map(({ url }) => url)).toEqual([
             'https://alice.example/profile#me',
             'https://bob.example/profile#me',
@@ -2200,7 +2200,7 @@ describe('Model', () => {
                 const operationProperties = operations.map((operation) => operation.property).sort();
 
                 expect(todo.name).toEqual('Learn Solid');
-                expect(serialized.nodes[0]?.staleRdfProperties).toEqual(['https://schema.org/name']);
+                expect(serialized.nodes[0]?.staleRDFProperties).toEqual(['https://schema.org/name']);
                 expect(statements.some((quad) => quad.predicate.value === 'https://schema.org/name')).toBe(false);
                 expect(operationProperties).toEqual([
                     ACTION_STATUS,
@@ -2252,7 +2252,7 @@ describe('Model', () => {
 
                 // Assert
                 expect(todo.keywords).toEqual(['solid', 'todo']);
-                expect(todo.serialize().nodes[0]?.staleRdfProperties).toEqual(['https://schema.org/keywords']);
+                expect(todo.serialize().nodes[0]?.staleRDFProperties).toEqual(['https://schema.org/keywords']);
                 expect(newTodo.keywords).toEqual(['docs', 'todo']);
                 expect(keywords).toEqual(['docs']);
             });
@@ -2533,7 +2533,7 @@ describe('Model', () => {
 
                     // Assert
                     expect(tasks.map((task) => task.name)).toEqual(['Two']);
-                    expect(Todo.matchesRdfClasses([`${SCHEMA}Action`])).toBe(false);
+                    expect(Todo.matchesRDFClasses([`${SCHEMA}Action`])).toBe(false);
                 }
             });
 
@@ -2548,7 +2548,7 @@ describe('Model', () => {
                     .map((statement) => statement.object.value)
                     .sort();
 
-                expect(Todo.getRdfClasses()).toEqual([`${SCHEMA}Action`, `${ICAL}Vtodo`]);
+                expect(Todo.getRDFClasses()).toEqual([`${SCHEMA}Action`, `${ICAL}Vtodo`]);
                 expect(types).toEqual([`${ICAL}Vtodo`, `${SCHEMA}Action`]);
             });
 
@@ -2561,8 +2561,8 @@ describe('Model', () => {
                 bootModels({ ExtendedTodo });
 
                 // Act & Assert
-                expect(ExtendedTodo.matchesRdfClasses([`${ICAL}Vtodo`])).toBe(true);
-                expect(ExtendedTodo.getRdfClasses()).toEqual(Todo.getRdfClasses());
+                expect(ExtendedTodo.matchesRDFClasses([`${ICAL}Vtodo`])).toBe(true);
+                expect(ExtendedTodo.getRDFClasses()).toEqual(Todo.getRDFClasses());
             });
 
             it('fails using rdfClass with anyOf', () => {
@@ -2707,7 +2707,7 @@ describe('Model', () => {
                     <solid://todos#one> a ical:Vtodo ; ical:summary "One" .
                     <solid://todos#two> a schema:Action, ical:Vtodo ; schema:name "Two" ; ical:summary "Two" .
                 `);
-                const staleRdfProperties = (todo: Todo) => invade(todo, ['_staleRdfProperties'])._staleRdfProperties;
+                const staleRDFProperties = (todo: Todo) => invade(todo, ['_staleRDFProperties'])._staleRDFProperties;
 
                 // Act
                 const one = required(await Todo.createFromRDF(quads, { url: 'solid://todos#one' }));
@@ -2715,15 +2715,15 @@ describe('Model', () => {
                 const three = new Todo({ name: 'Three' });
 
                 // Assert
-                expect(staleRdfProperties(one)).toEqual(new Set([`${SCHEMA}name`]));
-                expect(staleRdfProperties(two)).toBeNull();
-                expect(staleRdfProperties(three)).toBeNull();
+                expect(staleRDFProperties(one)).toEqual(new Set([`${SCHEMA}name`]));
+                expect(staleRDFProperties(two)).toBeNull();
+                expect(staleRDFProperties(three)).toBeNull();
 
                 // Act
                 one.name = 'One (again)';
 
                 // Assert
-                expect(staleRdfProperties(one)).toBeNull();
+                expect(staleRDFProperties(one)).toBeNull();
             });
 
             it('ignores the order of values when detecting stale RDF properties', async () => {
@@ -2753,7 +2753,7 @@ describe('Model', () => {
 
                 // Assert
                 expect(todo.keywords).toEqual(['solid', 'todo']);
-                expect(invade(todo, ['_staleRdfProperties'])._staleRdfProperties).toBeNull();
+                expect(invade(todo, ['_staleRDFProperties'])._staleRDFProperties).toBeNull();
             });
 
             it('keeps stale RDF properties when hydrating', async () => {

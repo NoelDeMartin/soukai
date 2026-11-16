@@ -10,7 +10,7 @@ export default class UnsetPropertyOperation extends Model {
     }
 
     public applyToSparql(sparql: SparqlUpdate): void {
-        sparql.delete(this.subject, this.predicate);
+        this.deleteFromSparql(sparql);
     }
 
     protected getTypeQuads(): Quad_Object[] {
