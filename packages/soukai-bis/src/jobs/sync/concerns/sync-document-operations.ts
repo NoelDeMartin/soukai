@@ -1,12 +1,10 @@
-import { RDFNamedNode } from '@noeldemartin/solid-utils';
-import type { SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
+import { RDFNamedNode, RDFQuad, SolidDocument } from '@noeldemartin/solid-utils';
 import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-import type Engine from 'soukai-bis/engines/Engine';
-import type { EngineMetadata } from 'soukai-bis/engines/Engine';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import {
+    CRDT_DELETED_AT_PREDICATE,
     CRDT_METADATA_OBJECT,
     CRDT_RESOURCE_PREDICATE,
     CRDT_RESTORE_OPERATION_OBJECT,
@@ -15,11 +13,18 @@ import {
     CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
     CRDT_UPDATED_AT,
     CRDT_UPDATED_AT_PREDICATE,
+    CRDT_TOMBSTONE_OBJECT,
     RDF_TYPE_PREDICATE,
+    createRDFLiteral,
 } from 'soukai-bis/lib/internals/rdf';
 import { normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
-import { isLifecycleOperation, sortedOperations, supersedesOperation } from 'soukai-bis/models/crdts/helpers';
+import {
+    getTombstoneUrl,
+    isLifecycleOperation,
+    sortedOperations,
+    supersedesOperation,
+} from 'soukai-bis/models/crdts/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
@@ -260,16 +265,18 @@ function getDeletedResourcesDocumentOperations({
     documentMetadatas,
     otherDocumentTombstones,
     deletedResourceUrls,
+    copyTombstones,
 }: {
     document: SolidDocument;
     documentMetadatas: ModelWithUrl<Metadata>[];
     otherDocumentTombstones: ModelWithUrl<Tombstone>[];
     deletedResourceUrls: string[];
+    copyTombstones: boolean;
 }): EngineOperation[] {
     const documentOperations: EngineOperation[] = [];
-    const createdTombstones = otherDocumentTombstones.filter((tombstone) =>
-        deletedResourceUrls.includes(tombstone.resourceUrl),
-    );
+    const createdTombstones = copyTombstones
+        ? otherDocumentTombstones.filter((tombstone) => deletedResourceUrls.includes(tombstone.resourceUrl))
+        : [];
     const deletedMetadatas = documentMetadatas.filter(
         (metadata) => metadata.resourceUrl && deletedResourceUrls.includes(metadata.resourceUrl),
     );
@@ -305,23 +312,23 @@ function getDeletedResourcesDocumentOperations({
     return documentOperations;
 }
 
-export async function syncDocumentOperations({
-    document,
-    otherDocument,
-    engine,
-    existingOperations,
-    newOperations,
-    resourceUrls,
-    metadata,
-}: {
+export interface SyncDocumentOperationsOptions {
     document: SolidDocument;
     otherDocument: SolidDocument;
-    engine: Engine;
     existingOperations: Operation[];
     newOperations: Operation[];
     resourceUrls: string[];
-    metadata?: EngineMetadata;
-}): Promise<SolidResponse | null> {
+    copyTombstones?: boolean;
+}
+
+export async function getSyncDocumentOperations({
+    document,
+    otherDocument,
+    existingOperations,
+    newOperations,
+    resourceUrls,
+    copyTombstones = true,
+}: SyncDocumentOperationsOptions): Promise<EngineOperation[]> {
     const documentTombstones = await Tombstone.createManyFromDocument(document);
     const otherDocumentTombstones = await Tombstone.createManyFromDocument(otherDocument);
     const documentMetadatas = await Metadata.createManyFromDocument(document);
@@ -360,8 +367,57 @@ export async function syncDocumentOperations({
                 documentMetadatas,
                 otherDocumentTombstones,
                 deletedResourceUrls,
+                copyTombstones,
             }),
         );
 
-    return engine.updateDocument(document.url, documentOperations, metadata);
+    return documentOperations;
+}
+
+export function addLocalDeletionTombstones(
+    localDocument: SolidDocument,
+    remoteDocument: SolidDocument,
+    deletedResourceUrls: Set<string>,
+): SolidDocument {
+    if (deletedResourceUrls.size === 0) {
+        return localDocument;
+    }
+
+    const deletedAt = createRDFLiteral(new Date());
+    const quads = [...localDocument.getQuads()];
+
+    for (const resourceUrl of deletedResourceUrls) {
+        if (!remoteDocument.contains(resourceUrl)) {
+            continue;
+        }
+
+        const tombstone = new RDFNamedNode(getTombstoneUrl(resourceUrl));
+
+        quads.push(
+            new RDFQuad(tombstone, RDF_TYPE_PREDICATE, CRDT_TOMBSTONE_OBJECT),
+            new RDFQuad(tombstone, CRDT_RESOURCE_PREDICATE, new RDFNamedNode(resourceUrl)),
+            new RDFQuad(tombstone, CRDT_DELETED_AT_PREDICATE, deletedAt),
+        );
+    }
+
+    return new SolidDocument(localDocument.url, quads, localDocument.headers);
+}
+
+export function applyOperationsToDocument(document: SolidDocument, operations: EngineOperation[]): SolidDocument {
+    const quads = operations.reduce(
+        (documentQuads, operation) => operation.applyToQuads(documentQuads),
+        [...document.getQuads()],
+    );
+
+    return new SolidDocument(document.url, quads, document.headers);
+}
+
+export function withoutTombstones(quads: Quad[]): Quad[] {
+    const tombstoneUrls = new Set(
+        quads
+            .filter((quad) => quad.predicate.equals(RDF_TYPE_PREDICATE) && quad.object.equals(CRDT_TOMBSTONE_OBJECT))
+            .map((quad) => quad.subject.value),
+    );
+
+    return tombstoneUrls.size === 0 ? quads : quads.filter((quad) => !tombstoneUrls.has(quad.subject.value));
 }

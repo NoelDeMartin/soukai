@@ -3,7 +3,14 @@ import { tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
-import { getSchema, migratedModels, originalSchemas, remoteModels, setSchema } from 'soukai-bis/models/internals/model';
+import {
+    getSchema,
+    migratedModels,
+    modelsTrackingLocalChanges,
+    originalSchemas,
+    remoteModels,
+    setSchema,
+} from 'soukai-bis/models/internals/model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
 
@@ -83,5 +90,6 @@ export function reset(model: ModelConstructor): void {
 
     store.delete(model);
     remoteModels.delete(model);
+    modelsTrackingLocalChanges.delete(model);
     migratedModels.delete(model);
 }

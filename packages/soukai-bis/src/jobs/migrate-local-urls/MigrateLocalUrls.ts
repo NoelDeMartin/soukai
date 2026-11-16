@@ -1,13 +1,21 @@
 import { RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
-import type { Term } from '@rdfjs/types';
-import type ManagesContainers from 'soukai-bis/engines/contracts/ManagesContainers';
-import type Engine from 'soukai-bis/engines/Engine';
+import { isInstanceOf } from '@noeldemartin/utils';
+import type { Quad, Term } from '@rdfjs/types';
+import { mergeLocalChanges, migrateLocalChanges } from 'soukai-bis/engines/local-changes';
+import type LocalEngine from 'soukai-bis/engines/LocalEngine';
+import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
+import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import Job from 'soukai-bis/jobs/Job';
-import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import {
+    LDP_BASIC_CONTAINER_OBJECT,
+    LDP_CONTAINER_OBJECT,
+    LDP_CONTAINS_PREDICATE,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/lib/internals/rdf';
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 
 export interface MigrateLocalUrlsConfig {
-    engine: Engine & ManagesContainers;
+    engine: LocalEngine;
     migrations?: Record<string, string>;
     prefixes?: Record<string, string>;
 }
@@ -31,13 +39,15 @@ export default class MigrateLocalUrls extends Job {
             return;
         }
 
-        const localContainerUrls = await this.config.engine.getContainerUrls();
+        const localContainerUrls = (await this.config.engine.getContainerUrls())
+            .filter((localContainerUrl) => hasPrefixes || !!this.migrateUrl(localContainerUrl))
+            .sort((a, b) => a.length - b.length);
 
         for (const localContainerUrl of localContainerUrls) {
-            if (!hasPrefixes && !this.migrateUrl(localContainerUrl)) {
-                continue;
-            }
+            await this.migrateContainer(localContainerUrl);
+        }
 
+        for (const localContainerUrl of localContainerUrls) {
             const container = await this.config.engine.readDocument(localContainerUrl);
             const documentUrls = container
                 .statements(new RDFNamedNode(localContainerUrl), LDP_CONTAINS_PREDICATE)
@@ -47,12 +57,51 @@ export default class MigrateLocalUrls extends Job {
             for (const documentUrl of documentUrls) {
                 await this.migrateDocument(documentUrl);
             }
-
-            // TODO migrate containers metadata
         }
 
         if (hasMigrations) {
             await this.config.engine.dropContainers(new RegExp(`^${LOCAL_URL_PROTOCOL}//`));
+        }
+    }
+
+    protected async migrateContainer(containerUrl: string): Promise<void> {
+        const remoteUrl = this.migrateUrl(containerUrl);
+
+        if (!remoteUrl) {
+            return;
+        }
+
+        const container = await this.config.engine.readDocument(containerUrl);
+        const localChanges = await this.config.engine.getDocumentLocalChanges(containerUrl);
+        const metaQuads = container
+            .getQuads()
+            .filter(
+                (quad) =>
+                    !quad.predicate.equals(LDP_CONTAINS_PREDICATE) &&
+                    !(
+                        quad.predicate.equals(RDF_TYPE_PREDICATE) &&
+                        (quad.object.equals(LDP_CONTAINER_OBJECT) || quad.object.equals(LDP_BASIC_CONTAINER_OBJECT))
+                    ),
+            );
+
+        if (metaQuads.length === 0 && !localChanges) {
+            return;
+        }
+
+        const migratedLocalChanges = this.migrateLocalChanges(localChanges);
+
+        try {
+            await this.config.engine.createDocument(remoteUrl, this.migrateQuads(container.getQuads()), {
+                localChanges: migratedLocalChanges,
+            });
+        } catch (error) {
+            if (!isInstanceOf(error, DocumentAlreadyExists)) {
+                throw error;
+            }
+
+            if (migratedLocalChanges) {
+                await this.config.engine.updateDocument(remoteUrl, [], { localChanges: migratedLocalChanges });
+            }
         }
     }
 
@@ -63,9 +112,37 @@ export default class MigrateLocalUrls extends Job {
             return;
         }
 
-        let changed = false;
         const document = await this.config.engine.readDocument(documentUrl);
-        const migratedQuads = document.getQuads().map((quad) => {
+        const quads = document.getQuads();
+        const migratedQuads = this.migrateQuads(quads);
+
+        if (remoteUrl) {
+            const localChanges = await this.config.engine.getDocumentLocalChanges(documentUrl);
+
+            await this.config.engine.createDocument(remoteUrl, migratedQuads, {
+                localChanges: this.migrateLocalChanges(localChanges),
+            });
+            await this.config.engine.deleteDocument(documentUrl);
+
+            return;
+        }
+
+        if (migratedQuads.every((quad, index) => quad === quads[index])) {
+            return;
+        }
+
+        await this.config.engine.updateDocument(documentUrl, [
+            {
+                applyToQuads: () => migratedQuads,
+                applyToSparql: () => {
+                    throw new Error('MigrateLocalUrls in-place prefix rewrite is only supported on local engines');
+                },
+            },
+        ]);
+    }
+
+    protected migrateQuads(quads: Quad[]): Quad[] {
+        return quads.map((quad) => {
             const migratedSubject = this.migrateTerm(quad.subject);
             const migratedPredicate = this.migratePrefixTerm(quad.predicate);
             const migratedObject = this.migrateTerm(quad.object);
@@ -74,32 +151,12 @@ export default class MigrateLocalUrls extends Job {
                 return quad;
             }
 
-            changed = true;
-
             return new RDFQuad(
                 migratedSubject ?? quad.subject,
                 migratedPredicate ?? quad.predicate,
                 migratedObject ?? quad.object,
             );
         });
-
-        if (remoteUrl) {
-            await this.config.engine.createDocument(remoteUrl, migratedQuads);
-            await this.config.engine.deleteDocument(documentUrl);
-
-            return;
-        }
-
-        if (changed) {
-            await this.config.engine.updateDocument(documentUrl, [
-                {
-                    applyToQuads: () => migratedQuads,
-                    applyToSparql: () => {
-                        throw new Error('MigrateLocalUrls in-place prefix rewrite is only supported on local engines');
-                    },
-                },
-            ]);
-        }
     }
 
     protected hasMigrations(): boolean {
@@ -108,6 +165,16 @@ export default class MigrateLocalUrls extends Job {
 
     protected hasPrefixes(): boolean {
         return Object.keys(this.config.prefixes ?? {}).length > 0;
+    }
+
+    protected migrateLocalChanges(localChanges: DocumentLocalChanges | null): LocalChangesUpdate | undefined {
+        if (!localChanges) {
+            return undefined;
+        }
+
+        const migratedLocalChanges = migrateLocalChanges(localChanges, (url) => this.migrateUrl(url));
+
+        return (changes) => mergeLocalChanges(changes, migratedLocalChanges);
     }
 
     protected migrateUrl(url: string): string | null {

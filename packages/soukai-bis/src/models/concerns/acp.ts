@@ -3,7 +3,7 @@ import type ACPAccessControlResource from 'soukai-bis/models/acp/ACPAccessContro
 import type { ParsedACR } from 'soukai-bis/models/acp/internals';
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
-import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
+import type { FetchPermissionsOptions, ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 async function loadAccessControlsAs(
     accessControlResources: ACPAccessControlResource[],
@@ -41,14 +41,10 @@ async function loadAccessControlsAs(
     }
 }
 
-export interface ACPPermissionsOptions {
-    accessControlClass?: ModelConstructor<ACPAccessControl>;
-}
-
 export async function readACPAccessControlResources(
     model: Model,
     acr: ParsedACR,
-    options: ACPPermissionsOptions = {},
+    options: FetchPermissionsOptions = {},
 ): Promise<ModelWithUrl<ACPAccessControlResource>[]> {
     const AccessControlResource = requireBootedModel('ACPAccessControlResource');
     const accessControlResources = await AccessControlResource.createManyFromRDF(acr.modelQuads);

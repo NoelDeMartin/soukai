@@ -66,6 +66,8 @@ In a pure local-first approach, you wouldn't be able to delete documents, given 
 await alice.delete(); // This will delete all data and operations from alice, and leave a crdt:Tombstone with the deletion date.
 ```
 
+If the model [tracks local changes](#tracking-local-changes), its data is removed from the local engine right away and the deletion is recorded, so that the tombstone is written to the POD on the next sync instead. Models that were never pushed to the POD don't need a tombstone at all.
+
 This behavior can be disabled by setting the `tombstone` option in the schema, but it's not recommended:
 
 ```ts
@@ -110,13 +112,15 @@ Keep in mind that calling `delete()` on a soft deleted model will still delete i
 
 ## Synchronization
 
-The typical setup for a local-first application is to store all the data in a local engine (such as the `IndexedDBEngine`), and synchronize it with a Solid POD when the user is online. This can be done using the `Sync` job, which uses the default engine as the local engine and the [remote engine](../core-concepts/engines.md#remote-engine) to reach the POD:
+The typical setup for a local-first application is to store all the data in a local engine (such as the `IndexedDBEngine`), and synchronize it with a Solid POD when the user is online. This can be done using the `Sync` job, which uses the default engine as the local engine (so it must be a local engine, such as the `IndexedDBEngine` or the `InMemoryEngine`) and the [remote engine](../core-concepts/engines.md#remote-engine) to reach the POD:
 
 ```ts
-import { IndexedDBEngine, SolidEngine, Sync, setEngine, setRemoteEngine } from 'soukai-bis';
+import { IndexedDBEngine, SolidEngine, Sync, setEngine, setRemoteEngine, trackLocalChanges } from 'soukai-bis';
 
 setEngine(new IndexedDBEngine());
 setRemoteEngine(new SolidEngine({ fetch }));
+trackLocalChanges(Task);
+trackLocalChanges(Tag);
 
 await Sync.run({
     userProfile,
@@ -133,6 +137,14 @@ This will pull changes from the POD into the local engine, push local changes to
 - `path`: The path of the container, relative to the user's storage. Defaults to the [default container name](../core-concepts/models.md#containers) of the model.
 - `public`: Whether to register the container in the public type index (defaults to `false`, using the private type index).
 - `mode`: Use `'container'` (the default) to register the container where the models are stored, or `'instance'` to register each model individually.
+
+### Tracking local changes
+
+`Sync` only pushes the changes recorded by the local engine, and these are only recorded for models that call `trackLocalChanges()`. Changes to other models will stay in the local engine.
+
+Make sure to call it for every synced model when the application boots, before any data is created. Otherwise, models created before calling it (for example, while the user isn't logged in) won't be pushed once they log in.
+
+Tracked models without [history tracking](#history-tracking) can only be created and deleted, because their updates couldn't be merged with changes from other devices. Trying to update one will throw an error.
 
 ### External sources
 

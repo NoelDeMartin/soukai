@@ -1,12 +1,16 @@
 import { faker } from '@noeldemartin/faker';
 import { quadsToTurtle, turtleToQuads } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
+import { urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
+import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import Movie from 'soukai-bis/testing/stubs/Movie';
+import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import MigrateLocalUrls from './MigrateLocalUrls';
 import type { MigrateLocalUrlsConfig } from './MigrateLocalUrls';
@@ -197,5 +201,34 @@ describe('MigrateLocalUrls', () => {
                 a schema:Note ;
                 schema:text "Note" .
         `);
+    });
+
+    it('migrates local changes', async () => {
+        // Arrange
+        useFakeClock();
+
+        trackLocalChanges(WatchAction);
+
+        const action = await WatchAction.create({ startTime: new Date() });
+        const remoteContainerUrl = fakeContainerUrl({ baseUrl: 'https://my-pod.com/' });
+
+        vi.advanceTimersByTime(1000);
+        await action.update({ startTime: new Date() });
+
+        // Act
+        await MigrateLocalUrls.run({
+            ...config,
+            migrations: { [WatchAction.defaultContainerUrl]: remoteContainerUrl },
+        });
+
+        // Assert
+        const migratedUrl = action.url.replace(WatchAction.defaultContainerUrl, remoteContainerUrl);
+        const localChanges = await engine.getDocumentLocalChanges(urlRoute(migratedUrl));
+        const operationUrls = localChanges?.resources[migratedUrl]?.operations ?? [];
+
+        expect(Object.keys(await engine.getDocumentsLocalChanges())).toEqual([urlRoute(migratedUrl)]);
+        expect(localChanges?.resources[migratedUrl]?.state).toEqual('created');
+        expect(operationUrls).toHaveLength(1);
+        expect(operationUrls[0]?.startsWith(migratedUrl)).toBe(true);
     });
 });

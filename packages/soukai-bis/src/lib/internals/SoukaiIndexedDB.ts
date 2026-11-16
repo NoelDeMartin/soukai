@@ -2,15 +2,22 @@ import { ListenersManager, PromisedValue, facade } from '@noeldemartin/utils';
 import type { Listeners } from '@noeldemartin/utils';
 import { deleteDB, openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
+import type { DocumentLocalChanges, LocalDocumentStatus } from 'soukai-bis/engines/LocalEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type { IDBGraph } from 'soukai-bis/lib/internals/idb-quads';
 import { getNamespace } from 'soukai-bis/lib/namespace';
+
+export interface LocalDocumentChanges extends DocumentLocalChanges {
+    documentUrl: string;
+    containerUrl: string;
+}
 
 export interface LocalDocument {
     url: string;
     containerUrl: string;
     resources: IDBGraph;
     lastModifiedAt?: Date | null;
+    status?: LocalDocumentStatus;
 }
 
 export interface SoukaiIndexedDBListener {
@@ -24,6 +31,7 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
         indexes: {
             containerUrl: string;
             lastModifiedAt: Date;
+            status: LocalDocumentStatus;
         };
     };
     containers: {
@@ -31,6 +39,13 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
         value: {
             url: string;
             dropped?: boolean;
+        };
+    };
+    localChanges: {
+        key: string;
+        value: LocalDocumentChanges;
+        indexes: {
+            containerUrl: string;
         };
     };
     computedAttributes: {
@@ -59,12 +74,17 @@ export class SoukaiIndexedDB {
                 const connection = await openDB<SoukaiIndexedDBSchema>(getNamespace(), 1, {
                     upgrade(database) {
                         const documentsStore = database.createObjectStore('documents', { keyPath: 'url' });
+                        const localChangesStore = database.createObjectStore('localChanges', {
+                            keyPath: 'documentUrl',
+                        });
 
                         database.createObjectStore('containers', { keyPath: 'url' });
                         database.createObjectStore('computedAttributes', { keyPath: ['model', 'url'] });
 
                         documentsStore.createIndex('containerUrl', 'containerUrl', { unique: false });
                         documentsStore.createIndex('lastModifiedAt', 'lastModifiedAt', { unique: false });
+                        documentsStore.createIndex('status', 'status', { unique: false });
+                        localChangesStore.createIndex('containerUrl', 'containerUrl', { unique: false });
                     },
                     blocked: () => this.throwDatabaseBlockedError(),
                     blocking: (_, blockedVersion) => {

@@ -1,8 +1,9 @@
 import { SolidDocument, expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { escapeRegexText, fail, invade, objectDeepClone, required, urlRoute } from '@noeldemartin/utils';
+import { arrayUnique, escapeRegexText, fail, invade, objectDeepClone, required, urlRoute } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine, setRemoteEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
@@ -10,6 +11,7 @@ import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
+import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Playlist from 'soukai-bis/testing/stubs/Playlist';
@@ -18,6 +20,7 @@ import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import Project from 'soukai-bis/testing/stubs/Project';
 import BaseRating from 'soukai-bis/testing/stubs/Rating';
 import Review from 'soukai-bis/testing/stubs/Review';
+import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
@@ -502,7 +505,7 @@ describe('Model', () => {
             },
         });
 
-        expect(updateDocumentSpy).toHaveBeenCalledWith(user.requireDocumentUrl(), expect.any(Array));
+        expect(updateDocumentSpy).toHaveBeenCalledWith(user.requireDocumentUrl(), expect.any(Array), undefined);
         expectOperations(updateDocumentSpy.mock.calls[0]?.[1], [
             new SetPropertyOperation({
                 resourceUrl: user.url,
@@ -562,7 +565,7 @@ describe('Model', () => {
         });
 
         expect(createDocumentSpy).not.toHaveBeenCalled();
-        expect(updateDocumentSpy).toHaveBeenCalledWith(documentUrl, expect.any(Array));
+        expect(updateDocumentSpy).toHaveBeenCalledWith(documentUrl, expect.any(Array), undefined);
         expectOperations(updateDocumentSpy.mock.calls[0]?.[1], [
             new SetPropertyOperation({
                 resourceUrl: secondUser.url,
@@ -1929,6 +1932,183 @@ describe('Model', () => {
 
             // Assert
             expect(updateDocumentSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('local changes', () => {
+        async function markAsSynced(model: Model): Promise<void> {
+            await engine.updateDocument(model.requireDocumentUrl(), [], { localChanges: () => null });
+        }
+
+        beforeEach(() => {
+            useFakeClock();
+
+            trackLocalChanges(Movie);
+            trackLocalChanges(Show);
+            trackLocalChanges(Season);
+            trackLocalChanges(WatchAction);
+        });
+
+        it('records created resources', async () => {
+            // Act
+            const action = await WatchAction.create({ startTime: new Date() });
+
+            // Assert
+            expect(await engine.getDocumentLocalChanges(action.requireDocumentUrl())).toEqual({
+                resources: { [action.url]: { state: 'created' } },
+            });
+            expect(Object.keys(await engine.getDocumentsLocalChanges())).toEqual([action.requireDocumentUrl()]);
+        });
+
+        it('records operations without inception operations', async () => {
+            // Arrange
+            const action = await WatchAction.create({ startTime: new Date() });
+
+            await markAsSynced(action);
+
+            vi.advanceTimersByTime(1000);
+
+            // Act
+            await action.update({ startTime: new Date() });
+
+            // Assert
+            const updateOperation = action.operations?.find((operation) => operation.date.getTime() === Date.now());
+
+            expect(action.operations?.length).toBeGreaterThan(1);
+            expect(await engine.getDocumentLocalChanges(action.requireDocumentUrl())).toEqual({
+                resources: { [action.url]: { state: 'updated', operations: [updateOperation?.url] } },
+            });
+        });
+
+        it('ignores models that do not record local changes', async () => {
+            // Act
+            const post = await Post.create({ title: 'Hello World' });
+
+            // Assert
+            expect(await engine.getDocumentLocalChanges(post.requireDocumentUrl())).toBeNull();
+            expect(await engine.getDocumentsLocalChanges()).toEqual({});
+        });
+
+        it('records local deletions', async () => {
+            // Arrange
+            const action = await WatchAction.create({ startTime: new Date() });
+            const listener = vi.fn();
+
+            await markAsSynced(action);
+
+            WatchAction.on('deleted', listener);
+
+            // Act
+            await action.delete();
+
+            // Assert
+            const documentUrl = action.requireDocumentUrl();
+            const rawDocument = await engine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+            expect(listener).toHaveBeenCalledTimes(1);
+            expect(action.exists()).toBe(false);
+            expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
+                resources: { [action.url]: { state: 'deleted' } },
+            });
+            expect(rawDocument.getQuads()).toHaveLength(0);
+            expect(await engine.readDocumentIfExists(documentUrl)).toBeNull();
+            expect(await WatchAction.find(action.url)).toBeNull();
+            expect(await WatchAction.all()).toHaveLength(0);
+        });
+
+        it('removes resources created locally', async () => {
+            // Arrange
+            const action = await WatchAction.create({ startTime: new Date() });
+
+            // Act
+            await action.delete();
+
+            // Assert
+            const documentUrl = action.requireDocumentUrl();
+
+            expect(await engine.readDocumentIfExists(documentUrl, { includeEmptyDocuments: true })).toBeNull();
+            expect(await engine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
+
+        it('mixes local deletions and removals in the same document', async () => {
+            // Arrange
+            const show = await Show.create({ name: 'Breaking Bad' });
+
+            await markAsSynced(show);
+
+            const season = await show.relatedSeasons.create({});
+
+            // Act
+            await show.delete();
+
+            // Assert
+            const documentUrl = show.requireDocumentUrl();
+            const rawDocument = await engine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+            expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
+                resources: { [show.url]: { state: 'deleted' } },
+            });
+            expect(rawDocument.contains(show.url)).toBe(false);
+            expect(rawDocument.contains(season.requireUrl())).toBe(false);
+        });
+
+        it('keeps local deletions when removing other resources', async () => {
+            // Arrange
+            const show = await Show.create({ name: 'Breaking Bad' });
+            const documentUrl = show.requireDocumentUrl();
+
+            await markAsSynced(show);
+
+            const season = await show.relatedSeasons.create({});
+            const showSubjects = (await engine.readDocument(documentUrl))
+                .getQuads()
+                .map((quad) => quad.subject.value)
+                .filter((subject) => !subject.startsWith(season.requireUrl()));
+
+            await engine.updateDocument(
+                documentUrl,
+                arrayUnique(showSubjects).map((subject) => new DeleteResourceOperation(subject)),
+                {
+                    localChanges: (changes) => ({
+                        resources: { ...changes?.resources, [show.url]: { state: 'deleted' } },
+                    }),
+                },
+            );
+
+            // Act
+            await season.delete();
+
+            // Assert
+            const rawDocument = await engine.readDocumentIfExists(documentUrl, { includeEmptyDocuments: true });
+
+            expect(rawDocument?.getQuads()).toHaveLength(0);
+            expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
+                resources: { [show.url]: { state: 'deleted' } },
+            });
+        });
+
+        it('rejects updates on synced models without history', async () => {
+            // Arrange
+            const movie = await Movie.create({ title: 'Spirited Away' });
+
+            // Act & Assert
+            await expect(movie.update({ title: 'Princess Mononoke' })).rejects.toThrow(SoukaiError);
+        });
+
+        it('allows updates on synced models without history in remote engines', async () => {
+            // Arrange
+            const documentUrl = fakeDocumentUrl();
+            const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' }, { exists: true });
+
+            setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
+            movie.setDocumentExists(true);
+            FakeServer.respond(documentUrl, FakeResponse.success());
+
+            // Act
+            await movie.update({ title: 'Princess Mononoke' });
+
+            // Assert
+            expect(FakeServer.getRequest('PATCH', documentUrl)).not.toBeNull();
         });
     });
 

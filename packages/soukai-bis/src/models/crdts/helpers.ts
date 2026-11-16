@@ -23,6 +23,10 @@ export function sortedOperations<T extends Operation>(operations: T[]): T[] {
     );
 }
 
+export function getTombstoneUrl(resourceUrl: string): string {
+    return resourceUrl.includes('#') ? `${resourceUrl}-tombstone` : `${resourceUrl}#tombstone`;
+}
+
 export function isPropertyOperation(operation: unknown): operation is PropertyOperation {
     return (
         operation instanceof requireBootedModel('SetPropertyOperation') ||

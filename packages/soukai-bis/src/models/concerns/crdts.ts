@@ -107,7 +107,7 @@ function rewriteRDFPrefixAliases(
     }
 }
 
-export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
+export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<string, string[]>): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
     const now = new Date();
@@ -215,6 +215,11 @@ export function getDirtyDocumentsUpdates(models: Model[]): Operation[] {
 
             operations[url] = operation.createDocumentOperations();
         }
+
+        localOperations?.set(
+            model.url,
+            updateOperations.map((operation) => operation.requireUrl()),
+        );
     }
 
     return Object.values(operations).flat();
@@ -264,21 +269,29 @@ export function getDeletedModelsCrdtModels(models: Model[]): Set<Model> {
     return new Set(deletedModels.flatMap((model) => arrayFilter([model.metadata, ...(model.operations ?? [])])));
 }
 
-export function deletingModelsEmptiesDocument(models: ModelWithUrl[], document: SolidDocument): boolean {
+export function deletingModelsEmptiesDocument(
+    models: ModelWithUrl[],
+    document: SolidDocument,
+    recordsLocalChanges: (model: Model) => boolean = () => false,
+): boolean {
     const deletedResourceUrls = getDeletedResourceUrls(models, document);
     const leavesOtherResources = document.getQuads().some((quad) => !deletedResourceUrls.includes(quad.subject.value));
-    const leavesTombstones = models.some((model) => model.leavesTombstones());
+    const leavesTombstones = models.some((model) => model.leavesTombstones() && !recordsLocalChanges(model));
 
     return !leavesOtherResources && !leavesTombstones;
 }
 
-export function getDeleteModelsOperations(models: ModelWithUrl[], document: SolidDocument): EngineOperation[] {
+export function getDeleteModelsOperations(
+    models: ModelWithUrl[],
+    document: SolidDocument,
+    recordsLocalChanges: (model: Model) => boolean = () => false,
+): EngineOperation[] {
     const operations: EngineOperation[] = getDeletedResourceUrls(models, document).map(
         (resourceUrl) => new DeleteResourceOperation(resourceUrl),
     );
 
     for (const model of models) {
-        if (!model.leavesTombstones()) {
+        if (!model.leavesTombstones() || recordsLocalChanges(model)) {
             continue;
         }
 

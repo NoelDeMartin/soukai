@@ -4,6 +4,7 @@ import {
     PromisedValue,
     arrayChunk,
     arrayUnique,
+    fail,
     isTruthy,
     objectEntries,
     objectFromEntries,
@@ -12,31 +13,30 @@ import {
 } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type { IDBPIndex, IDBPObjectStore, IDBPTransaction } from 'idb';
-import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import ContainersIndex from 'soukai-bis/lib/internals/ContainersIndex';
 import { parseIDBQuads, serializeIDBQuads } from 'soukai-bis/lib/internals/idb-quads';
-import {
-    LDP_BASIC_CONTAINER_OBJECT,
-    LDP_CONTAINER_OBJECT,
-    LDP_CONTAINS_PREDICATE,
-    RDF_TYPE_PREDICATE,
-} from 'soukai-bis/lib/internals/rdf';
+import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
-import type { LocalDocument, SoukaiIndexedDBSchema } from 'soukai-bis/lib/internals/SoukaiIndexedDB';
+import type {
+    LocalDocument,
+    LocalDocumentChanges,
+    SoukaiIndexedDBSchema,
+} from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import { requireSafeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
-import type ManagesContainers from './contracts/ManagesContainers';
-import type ManagesDocuments from './contracts/ManagesDocuments';
-import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
-import type PurgesMetadata from './contracts/PurgesMetadata';
-import type { PurgesMetadataOptions } from './contracts/PurgesMetadata';
-import Engine from './Engine';
-import type { EngineMetadata } from './Engine';
+import LocalEngine from './LocalEngine';
+import type {
+    DocumentLocalChanges,
+    LocalChangesUpdate,
+    LocalEngineReadOptions,
+    LocalEngineWriteOptions,
+    PurgeMetadataOptions,
+} from './LocalEngine';
 import type EngineOperation from './operations/EngineOperation';
 
-export default class IndexedDBEngine extends Engine implements ManagesContainers, PurgesMetadata, ManagesDocuments {
+export default class IndexedDBEngine extends LocalEngine {
     public static readonly engineName = 'IndexedDBEngine';
 
     private containersIndexCache: PromisedValue<ContainersIndex> | null = null;
@@ -45,38 +45,33 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     public async createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: EngineMetadata,
+        options?: LocalEngineWriteOptions,
     ): Promise<SolidDocument> {
-        const existingDocument = await this.readDocumentIfExists(url);
-
-        if (existingDocument) {
-            throw new DocumentAlreadyExists(url, existingDocument);
-        }
+        await this.assertDocumentDoesNotExist(url);
 
         const containerUrl = requireSafeContainerUrl(url);
         const allQuads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
         const quads = url.endsWith('/') ? this.filterContainerQuads(allQuads, { keepTypes: true }) : allQuads;
         const resources = serializeIDBQuads(quads);
 
-        return this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+        await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
             await transaction.objectStore('documents').add({
                 url,
                 containerUrl,
                 resources,
-                lastModifiedAt: metadata?.lastModifiedAt,
+                lastModifiedAt: options?.lastModifiedAt,
+                status: this.getDocumentStatus(url, quads),
             });
 
-            return new SolidDocument(
-                url,
-                quads,
-                metadata?.lastModifiedAt ? new Headers({ Date: metadata.lastModifiedAt.toUTCString() }) : undefined,
-            );
+            await this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
         });
+
+        return new SolidDocument(url, quads);
     }
 
-    public async readDocument(url: string): Promise<SolidDocument> {
+    public async readDocument(url: string, options: LocalEngineReadOptions = {}): Promise<SolidDocument> {
         if (url.endsWith('/')) {
-            return this.readContainerDocument(url);
+            return this.readContainerDocument(url, options);
         }
 
         const containerUrl = requireSafeContainerUrl(url);
@@ -86,33 +81,26 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             throw new DocumentNotFound(url);
         }
 
-        const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-            return transaction.objectStore('documents').get(url);
-        });
+        const localDocument = await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) =>
+            transaction.objectStore('documents').get(url),
+        );
 
-        if (!localDocument) {
-            throw new DocumentNotFound(url);
-        }
-
-        const document = new SolidDocument(url, parseIDBQuads(localDocument.resources));
-
-        if (localDocument.lastModifiedAt) {
-            document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
-        }
-
-        return document;
+        return (
+            (localDocument &&
+                this.toReadableDocument(url, parseIDBQuads(localDocument.resources), localDocument.status, options)) ??
+            fail<SolidDocument>(DocumentNotFound, url)
+        );
     }
 
     public async updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: EngineMetadata,
+        options?: LocalEngineWriteOptions,
     ): Promise<SolidResponse | null> {
         const isContainer = url.endsWith('/');
+        const updateOperations = this.filterDocumentOperations(url, operations);
 
-        operations = isContainer ? this.filterContainerOperations(operations) : operations;
-
-        if (operations.length === 0 && !metadata?.lastModifiedAt) {
+        if (this.isEmptyUpdate(updateOperations, options)) {
             return null;
         }
 
@@ -123,65 +111,51 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             throw new DocumentNotFound(url);
         }
 
-        const document = containerExists
-            ? await this.withDocumentsTransaction(containerUrl, 'readonly', (transaction) => {
-                  return transaction.objectStore('documents').get(url);
-              })
-            : undefined;
+        await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+            const documentsStore = transaction.objectStore('documents');
+            const document = await documentsStore.get(url);
 
-        if (!document) {
-            if (url.endsWith('/')) {
-                const subject = new RDFNamedNode(url);
-                const quads = [
-                    new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
-                    new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
-                ];
-                const resources = serializeIDBQuads(quads);
+            if (!document) {
+                if (!isContainer) {
+                    throw new DocumentNotFound(url);
+                }
 
-                await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-                    await transaction.objectStore('documents').add({
-                        url,
-                        containerUrl,
-                        resources,
-                        lastModifiedAt: metadata?.lastModifiedAt,
-                    });
+                await documentsStore.add({
+                    url,
+                    containerUrl,
+                    resources: serializeIDBQuads(this.containerQuads(url)),
+                    lastModifiedAt: options?.lastModifiedAt,
                 });
 
-                return { headers: new Headers() };
+                await this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
+
+                return;
             }
 
-            throw new DocumentNotFound(url);
-        }
+            const quads = this.applyOperations(parseIDBQuads(document.resources), updateOperations);
 
-        let quads = parseIDBQuads(document.resources);
-
-        for (const operation of operations) {
-            quads = operation.applyToQuads(quads);
-        }
-
-        const resources = serializeIDBQuads(quads);
-
-        await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
-            return transaction.objectStore('documents').put({
+            await documentsStore.put({
                 url,
                 containerUrl,
-                resources,
-                lastModifiedAt: metadata?.lastModifiedAt,
+                resources: serializeIDBQuads(quads),
+                lastModifiedAt: this.getUpdatedLastModifiedAt(document.lastModifiedAt, options),
+                status: this.getDocumentStatus(url, quads),
             });
+
+            await this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
         });
 
         return { headers: new Headers() };
     }
 
     public async dropContainers(containerUrls: string[] | RegExp): Promise<void> {
-        const containerMatches = Array.isArray(containerUrls)
-            ? (url: string) => containerUrls.includes(url)
-            : (url: string) => containerUrls.test(url);
+        const containerMatches = this.containerMatcher(containerUrls);
 
         const connection = await SoukaiIndexedDB.connect();
-        const transaction = connection.transaction(['containers', 'documents'], 'readwrite');
+        const transaction = connection.transaction(['containers', 'documents', 'localChanges'], 'readwrite');
         const containersStore = transaction.objectStore('containers');
         const documentsStore = transaction.objectStore('documents');
+        const localChangesStore = transaction.objectStore('localChanges');
         const containersMetadata = await containersStore.getAll();
 
         for (const containerMetadata of containersMetadata) {
@@ -197,6 +171,14 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             for (const key of documentKeys) {
                 await documentsStore.delete(key);
             }
+
+            const localChangesKeys = await localChangesStore.index('containerUrl').getAllKeys(containerMetadata.url);
+
+            for (const key of localChangesKeys) {
+                await localChangesStore.delete(key);
+            }
+
+            await localChangesStore.delete(containerMetadata.url);
         }
 
         await transaction.done;
@@ -209,14 +191,29 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             return { headers: new Headers() };
         }
 
-        await this.withDocumentsTransaction(containerUrl, 'readwrite', (transaction) => {
-            return transaction.objectStore('documents').delete(url);
+        await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+            await transaction.objectStore('documents').delete(url);
+            await transaction.objectStore('localChanges').delete(url);
         });
 
         return { headers: new Headers() };
     }
 
-    public async purgeMetadata(options: PurgesMetadataOptions = {}): Promise<void> {
+    public async getDocumentLocalChanges(documentUrl: string): Promise<DocumentLocalChanges | null> {
+        const connection = await SoukaiIndexedDB.connect();
+        const record = await connection.get('localChanges', documentUrl);
+
+        return record ? this.toDocumentLocalChanges(record) : null;
+    }
+
+    public async getDocumentsLocalChanges(): Promise<Record<string, DocumentLocalChanges>> {
+        const connection = await SoukaiIndexedDB.connect();
+        const records = await connection.getAll('localChanges');
+
+        return Object.fromEntries(records.map((record) => [record.documentUrl, this.toDocumentLocalChanges(record)]));
+    }
+
+    public async purgeMetadata(options: PurgeMetadataOptions = {}): Promise<void> {
         if (options.documentUrls) {
             const connection = await SoukaiIndexedDB.connect();
             const transaction = connection.transaction('documents', 'readwrite');
@@ -300,26 +297,6 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         return Array.from(visited);
     }
 
-    public async getDocumentUrls(options?: GetDocumentUrlsOptions): Promise<string[]> {
-        const connection = await SoukaiIndexedDB.connect();
-        const transaction = connection.transaction('documents', 'readonly');
-        const store = transaction.store;
-        const metadata = options?.metadata ?? {};
-
-        if (metadata.lastModifiedAt === undefined) {
-            return store.getAllKeys();
-        }
-
-        if (metadata.lastModifiedAt === null) {
-            const allUrls = await store.getAllKeys();
-            const syncedUrls = new Set(await store.index('lastModifiedAt').getAllKeys());
-
-            return allUrls.filter((url) => !syncedUrls.has(url));
-        }
-
-        return store.index('lastModifiedAt').getAllKeys(metadata.lastModifiedAt);
-    }
-
     public async countDocuments(options: { containerUrl: string; deep?: boolean; depth?: number }): Promise<number> {
         const { containerUrl, ...containerOptions } = options;
         const documentUrls = await this.getContainerDocumentUrls(containerUrl, containerOptions);
@@ -363,13 +340,16 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         this.containersIndexCache = null;
     }
 
-    protected async readDocumentsByUrl(urls: string[]): Promise<Record<string, SolidDocument>> {
+    protected async readDocumentsByUrl(
+        urls: string[],
+        options: LocalEngineReadOptions = {},
+    ): Promise<Record<string, SolidDocument>> {
         const documents: Record<string, SolidDocument | null> = {};
         const documentUrlsByContainer: Record<string, string[]> = {};
 
         for (const url of urls) {
             if (url.endsWith('/')) {
-                documents[url] = await silenced(this.readContainerDocument(url));
+                documents[url] = await silenced(this.readContainerDocument(url, options));
 
                 continue;
             }
@@ -402,15 +382,17 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
                 for (const url of containerDocumentUrls) {
                     const localDocument = idbDocumentsMap[url];
+                    const document =
+                        localDocument &&
+                        this.toReadableDocument(
+                            url,
+                            parseIDBQuads(localDocument.resources),
+                            localDocument.status,
+                            options,
+                        );
 
-                    if (!localDocument) {
+                    if (!document) {
                         continue;
-                    }
-
-                    const document = new SolidDocument(url, parseIDBQuads(localDocument.resources));
-
-                    if (localDocument.lastModifiedAt) {
-                        document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
                     }
 
                     documents[url] = document;
@@ -426,6 +408,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
     protected async readDocumentsByContainer(
         containerUrl: string,
         options: { deep?: boolean; depth?: number } = {},
+        readOptions: LocalEngineReadOptions = {},
     ): Promise<Record<string, SolidDocument>> {
         const containersIndex = await this.getContainersIndex();
 
@@ -441,6 +424,10 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         const documentsByContainer = new Map<string, LocalDocument[]>();
 
         for (const document of documents) {
+            if (document.status === 'empty' && !readOptions.includeEmptyDocuments) {
+                continue;
+            }
+
             const containerDocuments =
                 documentsByContainer.get(document.containerUrl) ??
                 tap([], (docs) => documentsByContainer.set(document.containerUrl, docs));
@@ -455,7 +442,6 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         return this.prepareSolidDocuments({
             containerUrls,
-            documents,
             documentsByUrl,
             documentsByContainer,
             containersIndex,
@@ -476,8 +462,9 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             root: (store) => store.getKey(containerUrl),
             children: (index, query) => index.getAllKeys(query),
         });
+        const emptyDocumentUrls = await this.getEmptyDocumentUrls();
 
-        return arrayUnique([...containerUrls, ...documentUrls]);
+        return arrayUnique([...containerUrls, ...documentUrls]).filter((url) => !emptyDocumentUrls.has(url));
     }
 
     private async queryContainerDocuments<T>(
@@ -541,13 +528,11 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     private async prepareSolidDocuments({
         containerUrls,
-        documents,
         documentsByUrl,
         documentsByContainer,
         containersIndex,
     }: {
         containerUrls: Set<string>;
-        documents: LocalDocument[];
         documentsByUrl: Map<string, LocalDocument>;
         documentsByContainer: Map<string, LocalDocument[]>;
         containersIndex: ContainersIndex;
@@ -557,17 +542,8 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             const localDocument = documentsByUrl.get(url);
             const document = new SolidDocument(
                 url,
-                localDocument
-                    ? parseIDBQuads(localDocument.resources)
-                    : [
-                          new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
-                          new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
-                      ],
+                localDocument ? parseIDBQuads(localDocument.resources) : this.containerQuads(url),
             );
-
-            if (localDocument?.lastModifiedAt) {
-                document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
-            }
 
             const childrenUrls = (documentsByContainer.get(url) ?? [])
                 .map((doc) => doc.url)
@@ -582,24 +558,16 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             return document;
         });
 
-        const nonContainerDocuments = documents
+        const nonContainerDocuments = Array.from(documentsByUrl.values())
             .filter((localDocument) => !localDocument.url.endsWith('/'))
-            .map((localDocument) => {
-                const document = new SolidDocument(localDocument.url, parseIDBQuads(localDocument.resources));
-
-                if (localDocument.lastModifiedAt) {
-                    document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
-                }
-
-                return document;
-            });
+            .map((localDocument) => new SolidDocument(localDocument.url, parseIDBQuads(localDocument.resources)));
 
         return objectFromEntries(
             containerDocuments.concat(nonContainerDocuments).map((document) => [document.url, document]),
         );
     }
 
-    private async readContainerDocument(url: string): Promise<SolidDocument> {
+    private async readContainerDocument(url: string, options: LocalEngineReadOptions): Promise<SolidDocument> {
         const containersIndex = await this.getContainersIndex();
         const exists = containersIndex.has(url);
         const childContainerUrls = containersIndex.childrenOf(url);
@@ -618,8 +586,10 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
         childrenUrls.push(...(childContainerUrls ?? []));
 
+        const hiddenDocumentUrls = options.includeEmptyDocuments ? new Set() : await this.getEmptyDocumentUrls();
+
         document.addQuads(
-            arrayUnique(childrenUrls).map(
+            arrayUnique(childrenUrls.filter((childUrl) => !hiddenDocumentUrls.has(childUrl))).map(
                 (child) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(child)),
             ),
         );
@@ -629,11 +599,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
 
     private async readContainerDocumentMeta(url: string): Promise<SolidDocument> {
         const containerUrl = requireSafeContainerUrl(url);
-        const subject = new RDFNamedNode(url);
-        const defaultQuads = [
-            new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_CONTAINER_OBJECT),
-            new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_BASIC_CONTAINER_OBJECT),
-        ];
+        const defaultQuads = this.containerQuads(url);
 
         if (!(await this.containerExists(containerUrl))) {
             return new SolidDocument(url, defaultQuads);
@@ -643,14 +609,43 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
             return transaction.objectStore('documents').get(url);
         });
 
-        const quads = localDocument ? parseIDBQuads(localDocument.resources) : defaultQuads;
-        const document = new SolidDocument(url, quads);
+        return new SolidDocument(url, localDocument ? parseIDBQuads(localDocument.resources) : defaultQuads);
+    }
 
-        if (localDocument?.lastModifiedAt) {
-            document.headers.set('Last-Modified', localDocument.lastModifiedAt.toUTCString());
+    private async getEmptyDocumentUrls(): Promise<Set<string>> {
+        const connection = await SoukaiIndexedDB.connect();
+
+        return new Set(await connection.getAllKeysFromIndex('documents', 'status', 'empty'));
+    }
+
+    private toDocumentLocalChanges(record: LocalDocumentChanges): DocumentLocalChanges {
+        return { resources: record.resources };
+    }
+
+    private async writeLocalChanges(
+        transaction: IDBPTransaction<
+            SoukaiIndexedDBSchema,
+            readonly ['documents', 'containers', 'localChanges'],
+            'readwrite'
+        >,
+        documentUrl: string,
+        containerUrl: string,
+        update?: LocalChangesUpdate,
+    ): Promise<void> {
+        if (!update) {
+            return;
         }
 
-        return document;
+        const store = transaction.objectStore('localChanges');
+        const record = await store.get(documentUrl);
+        const previousChanges = record ? this.toDocumentLocalChanges(record) : null;
+        const changes = this.applyLocalChangesUpdate(previousChanges, update);
+
+        if (changes) {
+            await store.put({ documentUrl, containerUrl, ...changes });
+        } else if (previousChanges) {
+            await store.delete(documentUrl);
+        }
     }
 
     private async containerExists(url: string): Promise<boolean> {
@@ -671,7 +666,11 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         containerUrl: string,
         mode: TMode,
         operation: (
-            transaction: IDBPTransaction<SoukaiIndexedDBSchema, readonly ['documents', 'containers'], TMode>,
+            transaction: IDBPTransaction<
+                SoukaiIndexedDBSchema,
+                readonly ['documents', 'containers', 'localChanges'],
+                TMode
+            >,
         ) => Promise<TResult>,
     ): Promise<TResult> {
         const containerExists = await this.containerExists(containerUrl);
@@ -690,7 +689,7 @@ export default class IndexedDBEngine extends Engine implements ManagesContainers
         }
 
         const connection = await SoukaiIndexedDB.connect();
-        const transaction = connection.transaction(['documents', 'containers'] as const, mode);
+        const transaction = connection.transaction(['documents', 'containers', 'localChanges'] as const, mode);
 
         const result = await operation(transaction);
 

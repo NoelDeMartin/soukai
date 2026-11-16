@@ -3,38 +3,39 @@ import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-uti
 import { fail, urlParentDirectory } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
-import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
-import type ManagesContainers from './contracts/ManagesContainers';
-import type ManagesDocuments from './contracts/ManagesDocuments';
-import type { GetDocumentUrlsOptions } from './contracts/ManagesDocuments';
-import type PurgesMetadata from './contracts/PurgesMetadata';
-import type { PurgesMetadataOptions } from './contracts/PurgesMetadata';
-import Engine from './Engine';
-import type { EngineMetadata } from './Engine';
+import LocalEngine from './LocalEngine';
+import type {
+    DocumentLocalChanges,
+    LocalChangesUpdate,
+    LocalDocumentStatus,
+    LocalEngineReadOptions,
+    LocalEngineWriteOptions,
+    PurgeMetadataOptions,
+} from './LocalEngine';
 import type EngineOperation from './operations/EngineOperation';
 
 export interface InMemoryDocument {
     graph: JsonLD;
     lastModifiedAt?: Nullable<Date>;
+    status?: LocalDocumentStatus;
 }
 
-export default class InMemoryEngine extends Engine implements ManagesContainers, PurgesMetadata, ManagesDocuments {
+export default class InMemoryEngine extends LocalEngine {
     public static readonly engineName = 'InMemoryEngine';
 
     public documents: Record<string, InMemoryDocument> = {};
+    public localChanges: Record<string, DocumentLocalChanges> = {};
 
     public async createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: EngineMetadata,
+        options?: LocalEngineWriteOptions,
     ): Promise<SolidDocument> {
-        if (url in this.documents) {
-            throw new DocumentAlreadyExists(url, await this.readDocument(url));
-        }
+        await this.assertDocumentDoesNotExist(url);
 
         const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
         const graph = Array.isArray(contents) ? await quadsToJsonLD(contents) : contents;
@@ -43,37 +44,32 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
             this.removeContainerProperties(graph, { keepTypes: true });
         }
 
-        this.documents[url] = { graph, lastModifiedAt: metadata?.lastModifiedAt };
+        this.documents[url] = {
+            graph,
+            lastModifiedAt: options?.lastModifiedAt,
+            status: this.getDocumentStatus(url, quads),
+        };
+
+        this.writeLocalChanges(url, options?.localChanges);
 
         let containerUrl: string | null = url;
 
         while ((containerUrl = safeContainerUrl(containerUrl)) !== null) {
-            this.documents[containerUrl] ??= {
-                graph: {
-                    '@id': containerUrl,
-                    '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-                },
-            };
+            this.documents[containerUrl] ??= { graph: await quadsToJsonLD(this.containerQuads(containerUrl)) };
         }
 
-        return new SolidDocument(
-            url,
-            quads,
-            metadata?.lastModifiedAt ? new Headers({ Date: metadata.lastModifiedAt.toUTCString() }) : undefined,
-        );
+        return new SolidDocument(url, quads);
     }
 
-    public async readDocument(url: string): Promise<SolidDocument> {
-        const { graph: jsonld, lastModifiedAt } = this.documents[url] ?? fail<InMemoryDocument>(DocumentNotFound, url);
-        const document = new SolidDocument(url, await jsonldToQuads(jsonld));
-
-        if (lastModifiedAt) {
-            document.headers.set('Last-Modified', lastModifiedAt.toUTCString());
-        }
+    public async readDocument(url: string, options: LocalEngineReadOptions = {}): Promise<SolidDocument> {
+        const { graph, status } = this.documents[url] ?? fail<InMemoryDocument>(DocumentNotFound, url);
+        const document =
+            this.toReadableDocument(url, await jsonldToQuads(graph), status, options) ??
+            fail<SolidDocument>(DocumentNotFound, url);
 
         if (url.endsWith('/')) {
             // oxlint-disable-next-line typescript/no-floating-promises
-            this.populateContainer(document);
+            this.populateContainer(document, options);
         }
 
         return document;
@@ -82,11 +78,11 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
     public async updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: EngineMetadata,
+        options?: LocalEngineWriteOptions,
     ): Promise<SolidResponse | null> {
-        operations = url.endsWith('/') ? this.filterContainerOperations(operations) : operations;
+        const updateOperations = this.filterDocumentOperations(url, operations);
 
-        if (operations.length === 0 && !metadata?.lastModifiedAt) {
+        if (this.isEmptyUpdate(updateOperations, options)) {
             return null;
         }
 
@@ -95,9 +91,11 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         if (!document) {
             if (url.endsWith('/')) {
                 this.documents[url] = {
-                    graph: { '@graph': [{ '@id': url, '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER] }] },
-                    lastModifiedAt: metadata?.lastModifiedAt,
+                    graph: await quadsToJsonLD(this.containerQuads(url)),
+                    lastModifiedAt: options?.lastModifiedAt,
                 };
+
+                this.writeLocalChanges(url, options?.localChanges);
 
                 return { headers: new Headers() };
             }
@@ -105,24 +103,34 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
             throw new DocumentNotFound(url);
         }
 
-        let quads = await jsonldToQuads(document.graph);
-
-        for (const operation of operations) {
-            quads = operation.applyToQuads(quads);
-        }
+        const quads = this.applyOperations(await jsonldToQuads(document.graph), updateOperations);
 
         this.documents[url] = {
             graph: await quadsToJsonLD(quads),
-            lastModifiedAt: metadata?.lastModifiedAt,
+            lastModifiedAt: this.getUpdatedLastModifiedAt(document.lastModifiedAt, options),
+            status: this.getDocumentStatus(url, quads),
         };
+
+        this.writeLocalChanges(url, options?.localChanges);
 
         return { headers: new Headers() };
     }
 
     public async deleteDocument(url: string): Promise<SolidResponse> {
         delete this.documents[url];
+        delete this.localChanges[url];
 
         return { headers: new Headers() };
+    }
+
+    public async getDocumentLocalChanges(documentUrl: string): Promise<DocumentLocalChanges | null> {
+        const changes = this.localChanges[documentUrl];
+
+        return changes ? structuredClone(changes) : null;
+    }
+
+    public async getDocumentsLocalChanges(): Promise<Record<string, DocumentLocalChanges>> {
+        return structuredClone(this.localChanges);
     }
 
     public async getContainerUrls(): Promise<string[]> {
@@ -139,21 +147,6 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         return Array.from(containerUrls);
     }
 
-    public async getDocumentUrls(options?: GetDocumentUrlsOptions): Promise<string[]> {
-        const metadata = options?.metadata ?? {};
-
-        return Object.entries(this.documents)
-            .filter(([_, document]) => {
-                return (
-                    metadata.lastModifiedAt === undefined ||
-                    (metadata.lastModifiedAt === null
-                        ? !document.lastModifiedAt
-                        : metadata.lastModifiedAt?.getTime() === document.lastModifiedAt?.getTime())
-                );
-            })
-            .map(([url]) => url);
-    }
-
     public async getDocumentsLastModifiedAt(): Promise<Record<string, Date | null>> {
         const timestamps: Record<string, Date | null> = {};
 
@@ -165,13 +158,11 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
     }
 
     public async dropContainers(containerUrls: string[] | RegExp): Promise<void> {
-        const containerMatches = Array.isArray(containerUrls)
-            ? (url: string) => containerUrls.includes(url)
-            : (url: string) => containerUrls.test(url);
+        const containerMatches = this.containerMatcher(containerUrls);
 
         for (const documentUrl of Object.keys(this.documents)) {
             if (documentUrl.endsWith('/') && containerMatches(documentUrl)) {
-                delete this.documents[documentUrl];
+                await this.deleteDocument(documentUrl);
 
                 continue;
             }
@@ -182,11 +173,11 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
                 continue;
             }
 
-            delete this.documents[documentUrl];
+            await this.deleteDocument(documentUrl);
         }
     }
 
-    public async purgeMetadata(options: PurgesMetadataOptions = {}): Promise<void> {
+    public async purgeMetadata(options: PurgeMetadataOptions = {}): Promise<void> {
         const documentUrls = options.documentUrls ?? Object.keys(this.documents);
 
         for (const documentUrl of documentUrls) {
@@ -198,12 +189,30 @@ export default class InMemoryEngine extends Engine implements ManagesContainers,
         }
     }
 
-    private async populateContainer(document: SolidDocument): Promise<void> {
+    private writeLocalChanges(documentUrl: string, update?: LocalChangesUpdate): void {
+        if (!update) {
+            return;
+        }
+
+        const changes = this.applyLocalChangesUpdate(this.localChanges[documentUrl] ?? null, update);
+
+        if (changes) {
+            this.localChanges[documentUrl] = changes;
+        } else {
+            delete this.localChanges[documentUrl];
+        }
+    }
+
+    private async populateContainer(document: SolidDocument, options: LocalEngineReadOptions): Promise<void> {
         const quads: Quad[] = [];
         const subject = new RDFNamedNode(document.url);
 
-        for (const url of Object.keys(this.documents)) {
+        for (const [url, childDocument] of Object.entries(this.documents)) {
             const parentUrl = urlParentDirectory(url);
+
+            if (childDocument.status === 'empty' && !options.includeEmptyDocuments) {
+                continue;
+            }
 
             if (!parentUrl || parentUrl !== document.url) {
                 continue;

@@ -1,12 +1,15 @@
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
 import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { arrayFilter, arraySorted, requireUrlDirectoryName, urlRoute } from '@noeldemartin/utils';
+import { arrayFilter, arraySorted, arrayUnique, requireUrlDirectoryName, urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
+import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type { ExternalSource } from 'soukai-bis/jobs/utils';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
+import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import { anyOf } from 'soukai-bis/models/matching/fluent';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
@@ -14,6 +17,7 @@ import type { ModelConstructor } from 'soukai-bis/models/types';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -51,6 +55,25 @@ describe('Sync', () => {
         writableProfileUrl: 'https://myprofile.com/profile',
     } satisfies CompleteSolidUserProfile;
 
+    async function createUnsyncedDocument(
+        url: string,
+        contents: Parameters<InMemoryEngine['createDocument']>[1],
+    ): Promise<void> {
+        const document = await localEngine.createDocument(url, contents);
+        const resourceUrls = arrayUnique(
+            document
+                .statements(undefined, expandIRI('rdf:type'))
+                .map((quad) => quad.subject.value)
+                .filter((resourceUrl) => resourceUrl !== url),
+        );
+
+        await localEngine.updateDocument(url, [], {
+            localChanges: () => ({
+                resources: Object.fromEntries(resourceUrls.map((resourceUrl) => [resourceUrl, { state: 'created' }])),
+            }),
+        });
+    }
+
     beforeEach(() => {
         localEngine = new InMemoryEngine();
         typeIndex = new TypeIndex();
@@ -60,6 +83,14 @@ describe('Sync', () => {
         };
 
         setEngine(localEngine);
+    });
+
+    it('requires a local engine', () => {
+        // Arrange
+        setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
+
+        // Act & Assert
+        expect(() => new Sync({ ...config, applicationModels: [] })).toThrow(SoukaiError);
     });
 
     it('uses type indexes', async () => {
@@ -160,7 +191,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument); // FIXME avoid calling this twice
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(documentUrl, localDocument);
+        await createUnsyncedDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
@@ -198,7 +229,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument); // FIXME avoid calling this twice
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(documentUrl, localDocument);
+        await createUnsyncedDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
@@ -238,7 +269,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument); // FIXME avoid calling this twice
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(documentUrl, localDocument);
+        await createUnsyncedDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
@@ -281,7 +312,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(userProfile.writableProfileUrl, FakeResponse.success());
         FakeServer.respondOnce(preferencesFileUrl, FakeResponse.success());
 
-        await localEngine.createDocument(documentUrl, localDocument);
+        await createUnsyncedDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
@@ -329,7 +360,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(preferencesFileUrl, FakeResponse.success());
         FakeServer.respond(typeIndexUrl, fixture('type-index.ttl'));
 
-        await localEngine.createDocument(documentUrl, localDocument);
+        await createUnsyncedDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
@@ -394,7 +425,7 @@ describe('Sync', () => {
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, containerUrl, expect.anything());
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
-        expect(updatedLocalDocument.getLastModified()).toEqual(lastModifiedAt);
+        expect((await localEngine.getDocumentsLastModifiedAt())[documentUrl]).toEqual(lastModifiedAt);
 
         await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
 
@@ -428,7 +459,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(
+        await createUnsyncedDocument(
             documentUrl,
             await quadsToJsonLD([
                 ...turtleToQuadsSync(remoteDocument),
@@ -474,7 +505,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(
+        await createUnsyncedDocument(
             documentUrl,
             await quadsToJsonLD([
                 ...turtleToQuadsSync(fixture('movie.ttl', { documentUrl })),
@@ -542,7 +573,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(
+        await createUnsyncedDocument(
             documentUrl,
             turtleToQuadsSync(
                 `
@@ -642,7 +673,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(
+        await createUnsyncedDocument(
             documentUrl,
             turtleToQuadsSync(
                 `
@@ -745,7 +776,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, remoteDocument);
         FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(
+        await createUnsyncedDocument(
             documentUrl,
             turtleToQuadsSync(
                 `
@@ -856,7 +887,7 @@ describe('Sync', () => {
 
         FakeServer.respond(documentUrl, FakeResponse.success(remoteDocument));
 
-        await localEngine.createDocument(documentUrl, localDocument);
+        await createUnsyncedDocument(documentUrl, localDocument);
 
         // Act
         await Sync.run({
@@ -995,7 +1026,7 @@ describe('Sync', () => {
             },
         );
 
-        await localEngine.createDocument(documentUrl, {
+        await createUnsyncedDocument(documentUrl, {
             '@id': `${documentUrl}#it`,
             '@type': expandIRI('schema:Movie'),
             [expandIRI('schema:name')]: 'Interstellar',
@@ -1182,7 +1213,7 @@ describe('Sync', () => {
         FakeServer.respond(localDocumentUrl, FakeResponse.notFound());
         FakeServer.respond(localDocumentUrl, FakeResponse.success());
 
-        await localEngine.createDocument(
+        await createUnsyncedDocument(
             localDocumentUrl,
             turtleToQuadsSync(
                 `
@@ -1211,6 +1242,444 @@ describe('Sync', () => {
         expect(
             FakeServer.getRequests().some((request) => request.method !== 'GET' && request.url === localDocumentUrl),
         ).toBe(true);
+    });
+
+    describe('local changes', () => {
+        let containerUrl: string;
+        let documentUrl: string;
+
+        const tombstoneTurtle = (resourceUrl: string, deletedAt: string) => `
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <${resourceUrl}-tombstone>
+                a crdt:Tombstone ;
+                crdt:resource <${resourceUrl}> ;
+                crdt:deletedAt "${deletedAt}"^^xsd:dateTime .
+        `;
+
+        async function syncMovies(): Promise<void> {
+            await Sync.run({
+                ...config,
+                applicationModels: [
+                    { model: Movie, registration: true },
+                    { model: WatchAction, registration: false },
+                ],
+            });
+        }
+
+        async function createSyncedDocument(contents: string, options: { deleted?: string } = {}): Promise<void> {
+            const deletedUrl = options.deleted;
+
+            await localEngine.createDocument(documentUrl, turtleToQuadsSync(contents), {
+                lastModifiedAt: new Date('2021-01-01T00:00:00.000Z'),
+                localChanges: deletedUrl ? () => ({ resources: { [deletedUrl]: { state: 'deleted' } } }) : undefined,
+            });
+        }
+
+        beforeEach(() => {
+            const storageUrl = config.userProfile.storageUrls[0];
+
+            useFakeClock();
+            vi.setSystemTime(new Date('2022-01-01T00:00:00.000Z'));
+
+            containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+            documentUrl = fakeDocumentUrl({ containerUrl });
+            typeIndex.relatedRegistrations.related = [
+                new TypeRegistration({
+                    instanceContainer: containerUrl,
+                    forClass: [expandIRI('schema:Movie')],
+                }),
+            ];
+        });
+
+        it('clears pushed local changes', async () => {
+            // Arrange
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.created());
+
+            await createUnsyncedDocument(documentUrl, turtleToQuadsSync(fixture('movie.ttl', { documentUrl })));
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+            expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+                3,
+                documentUrl,
+                expect.objectContaining({ method: 'PATCH' }),
+            );
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+            expect((await localEngine.getDocumentsLastModifiedAt())[documentUrl]).toBeInstanceOf(Date);
+        });
+
+        it('pushes models created locally', async () => {
+            // Arrange
+            trackLocalChanges(Movie);
+
+            const movie = await Movie.createAt(containerUrl, { title: 'Spirited Away' });
+            const movieDocumentUrl = movie.requireDocumentUrl();
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(movieDocumentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(movieDocumentUrl, FakeResponse.created());
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+            expect(FakeServer.fetch).toHaveBeenNthCalledWith(
+                3,
+                movieDocumentUrl,
+                expect.objectContaining({ method: 'PATCH' }),
+            );
+            expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(`
+                INSERT DATA {
+                    @prefix schema: <https://schema.org/> .
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#it>
+                        a schema:Movie ;
+                        schema:name "Spirited Away" .
+
+                    <#it-metadata>
+                        a crdt:Metadata ;
+                        crdt:resource <#it> ;
+                        crdt:createdAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:updatedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
+                }
+            `);
+            expect(await localEngine.getDocumentsLocalChanges()).toEqual({});
+        });
+
+        it('keeps the date of the merge when pushing to existing remote documents', async () => {
+            // Arrange
+            const mergedAt = new Date('2022-02-02T00:00:00.000Z');
+            const remoteDocument = () =>
+                FakeResponse.success(fixture('movie.ttl', { documentUrl }), {
+                    'Last-Modified': new Date('2021-06-01T00:00:00.000Z').toUTCString(),
+                });
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(documentUrl, remoteDocument());
+            FakeServer.respondOnce(documentUrl, remoteDocument());
+            FakeServer.respondOnce(
+                documentUrl,
+                FakeResponse.success(undefined, { 'Last-Modified': mergedAt.toUTCString() }),
+            );
+
+            await createUnsyncedDocument(documentUrl, turtleToQuadsSync(fixture('movie-watched.ttl', { documentUrl })));
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            // Assert
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+            expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
+                INSERT DATA {
+                    @prefix schema: <https://schema.org/> .
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#action>
+                        a schema:WatchAction ;
+                        schema:object <#it> ;
+                        schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#action-metadata>
+                        a crdt:Metadata ;
+                        crdt:resource <#action> ;
+                        crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+                }
+            `);
+            expect((await localEngine.getDocumentsLastModifiedAt())[documentUrl]).toEqual(mergedAt);
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
+
+        it('keeps local changes saved during the sync', async () => {
+            // Arrange
+            trackLocalChanges(WatchAction);
+            typeIndex.relatedRegistrations.related = [
+                new TypeRegistration({
+                    instanceContainer: containerUrl,
+                    forClass: [expandIRI('schema:WatchAction')],
+                }),
+            ];
+
+            const action = await WatchAction.createAt(containerUrl, { startTime: new Date() });
+            const actionDocumentUrl = action.requireDocumentUrl();
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(actionDocumentUrl, FakeResponse.notFound());
+            FakeServer.respondOnceWith(actionDocumentUrl, async () => {
+                vi.advanceTimersByTime(1000);
+
+                await action.update({ startTime: new Date() });
+
+                return FakeResponse.created();
+            });
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [{ model: WatchAction, registration: true }],
+            });
+
+            // Assert
+            const updateOperation = action.operations?.find((operation) => operation.date.getTime() === Date.now());
+
+            expect(updateOperation).toBeDefined();
+            expect(await localEngine.getDocumentLocalChanges(actionDocumentUrl)).toEqual({
+                resources: { [action.url]: { state: 'updated', operations: [updateOperation?.url] } },
+            });
+        });
+
+        it('keeps local changes when pushes fail', async () => {
+            // Arrange
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.internalServerError());
+
+            await createUnsyncedDocument(documentUrl, turtleToQuadsSync(fixture('movie.ttl', { documentUrl })));
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localChanges = await localEngine.getDocumentLocalChanges(documentUrl);
+
+            expect(localChanges?.resources[`${documentUrl}#it`]).toEqual({ state: 'created' });
+        });
+
+        it('pulls up to date documents with local changes', async () => {
+            // Arrange
+            const lastModifiedAt = new Date('2021-01-02T00:00:00.000Z');
+            const remoteDocument = fixture('person-missing-second-name.ttl', { documentUrl });
+
+            typeIndex.relatedRegistrations.related = [
+                new TypeRegistration({
+                    instanceContainer: containerUrl,
+                    forClass: [expandIRI('foaf:Person')],
+                }),
+            ];
+
+            FakeServer.respondOnce(
+                containerUrl,
+                `
+                    @prefix ldp: <http://www.w3.org/ns/ldp#> .
+                    @prefix purl: <http://purl.org/dc/terms/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <> a ldp:Container ; ldp:contains <${documentUrl}> .
+
+                    <${documentUrl}>
+                        a ldp:Resource ;
+                        purl:modified "${lastModifiedAt.toISOString()}"^^xsd:dateTime .
+                `,
+            );
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+            await localEngine.createDocument(documentUrl, turtleToQuadsSync(fixture('person.ttl', { documentUrl })), {
+                lastModifiedAt,
+                localChanges: () => ({
+                    resources: {
+                        [`${documentUrl}#it`]: { state: 'updated', operations: [`${documentUrl}#operation-2`] },
+                    },
+                }),
+            });
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [{ model: User, registration: true }],
+            });
+
+            // Assert
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+            expect(FakeServer.fetch).toHaveBeenNthCalledWith(2, documentUrl, expect.anything());
+            expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-second-name.sparql'));
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
+
+        it('pushes local deletions as tombstones', async () => {
+            // Arrange
+            const remoteDocument = fixture('movie-watched.ttl', { documentUrl });
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+            await createSyncedDocument(fixture('movie.ttl', { documentUrl }), { deleted: `${documentUrl}#action` });
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+            expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('remove-watch-action.sparql'));
+            expect(localDocument.contains(`${documentUrl}#action`)).toBe(false);
+            expect(localDocument.statements(undefined, 'rdf:type', 'crdt:Tombstone')).toHaveLength(0);
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
+
+        it('keeps empty documents after pushing tombstones', async () => {
+            // Arrange
+            const remoteDocument = fixture('watch-action.ttl', { documentUrl });
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+            await createSyncedDocument('', { deleted: `${documentUrl}#action` });
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+            const localContainer = await localEngine.readDocument(containerUrl);
+
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+            expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
+                DELETE DATA {
+                    @prefix schema: <https://schema.org/> .
+                    @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    <#action>
+                        a schema:WatchAction, schema:Action ;
+                        schema:object <#it> ;
+                        schema:startTime "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+                    <#action-metadata>
+                        a crdt:Metadata ;
+                        crdt:resource <#action> ;
+                        crdt:createdAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+                        crdt:updatedAt "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+                } ;
+
+                INSERT DATA { ${tombstoneTurtle('#action', '2022-01-01T00:00:00.000Z')} }
+            `);
+            expect(localDocument.getQuads()).toHaveLength(0);
+            expect((await localEngine.getDocumentsLastModifiedAt())[documentUrl]).toBeInstanceOf(Date);
+            expect(await localEngine.readDocumentIfExists(documentUrl)).toBeNull();
+            expect(localContainer.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(false);
+        });
+
+        it('removes empty documents missing remotely', async () => {
+            // Arrange
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+
+            await createSyncedDocument('', { deleted: `${documentUrl}#action` });
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
+            expect(await localEngine.readDocumentIfExists(documentUrl, { includeEmptyDocuments: true })).toBeNull();
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
+
+        it('keeps local deletions when pushing tombstones fails', async () => {
+            // Arrange
+            const remoteDocument = fixture('movie-watched.ttl', { documentUrl });
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, FakeResponse.internalServerError());
+
+            await createSyncedDocument(fixture('movie.ttl', { documentUrl }), { deleted: `${documentUrl}#action` });
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+            expect(localDocument.contains(`${documentUrl}#action`)).toBe(false);
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toEqual({
+                resources: { [`${documentUrl}#action`]: { state: 'deleted' } },
+            });
+        });
+
+        it('pulls remote tombstones without copying them', async () => {
+            // Arrange
+            const remoteDocument = [
+                fixture('movie.ttl', { documentUrl }),
+                tombstoneTurtle(`${documentUrl}#action`, '2022-01-01T00:00:00.000Z'),
+            ].join('\n');
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+            FakeServer.respondOnce(documentUrl, remoteDocument);
+            FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+            await createSyncedDocument(fixture('movie-watched.ttl', { documentUrl }));
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+            expect(localDocument.contains(`${documentUrl}#it`)).toBe(true);
+            expect(localDocument.contains(`${documentUrl}#action`)).toBe(false);
+            expect(localDocument.statements(undefined, 'rdf:type', 'crdt:Tombstone')).toHaveLength(0);
+        });
+
+        it('strips tombstones from documents pulled for the first time', async () => {
+            // Arrange
+            FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+            FakeServer.respondOnce(
+                documentUrl,
+                FakeResponse.success(tombstoneTurtle(`${documentUrl}#action`, '2022-01-01T00:00:00.000Z'), {
+                    'Last-Modified': new Date().toUTCString(),
+                }),
+            );
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+            expect(localDocument.getQuads()).toHaveLength(0);
+            expect((await localEngine.getDocumentsLastModifiedAt())[documentUrl]).toBeInstanceOf(Date);
+            expect(await localEngine.readDocumentIfExists(documentUrl)).toBeNull();
+        });
+
+        it('drops pending deletions when re-creating missing remote documents', async () => {
+            // Arrange
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.created());
+
+            await createSyncedDocument(fixture('movie.ttl', { documentUrl }), { deleted: `${documentUrl}#action` });
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            expect(FakeServer.fetch).toHaveBeenCalledTimes(3);
+            expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(
+                `INSERT DATA { ${fixture('movie.ttl')} }`,
+            );
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
     });
 
     describe('external sources', () => {
@@ -1258,7 +1727,7 @@ describe('Sync', () => {
             FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
             FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-            await localEngine.createDocument(
+            await createUnsyncedDocument(
                 documentUrl,
                 await quadsToJsonLD(turtleToQuadsSync(fixture('movie.ttl', { documentUrl }))),
             );
@@ -1275,7 +1744,58 @@ describe('Sync', () => {
             expect(FakeServer.getRequests('PATCH', documentUrl)).toHaveLength(1);
             expect(FakeServer.getRequests().filter(({ method }) => method === 'PATCH')).toHaveLength(1);
             expect(registeredModels).toEqual([]);
-            expect((await localEngine.readDocument(documentUrl)).getLastModified()).not.toBeNull();
+            expect((await localEngine.getDocumentsLastModifiedAt())[documentUrl]).toBeInstanceOf(Date);
+        });
+
+        it('pushes external instances missing remotely', async () => {
+            // Arrange
+            const instanceUrl = `${otherStorageUrl}people/alice#it`;
+            const documentUrl = urlRoute(instanceUrl);
+
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
+            FakeServer.respondOnce(documentUrl, FakeResponse.created());
+
+            await createUnsyncedDocument(
+                documentUrl,
+                await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl }))),
+            );
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [{ model: User, registration: true }],
+                externalSources: [{ instanceUrl, models: [User] }],
+            });
+
+            // Assert
+            expect(FakeServer.getRequests('PATCH', documentUrl)).toHaveLength(1);
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        });
+
+        it('pushes external instances once', async () => {
+            // Arrange
+            const instanceUrl = `${otherStorageUrl}people/alice#it`;
+            const documentUrl = urlRoute(instanceUrl);
+
+            FakeServer.respond(documentUrl, fixture('person-missing-second-name.ttl', { documentUrl }));
+
+            await createUnsyncedDocument(
+                documentUrl,
+                await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl }))),
+            );
+
+            // Act
+            await Sync.run({
+                ...config,
+                applicationModels: [{ model: User, registration: true }],
+                externalSources: [{ instanceUrl, models: [User] }],
+            });
+
+            // Assert
+            expect(FakeServer.getRequests('PATCH', documentUrl)).toHaveLength(1);
+            expect(FakeServer.getRequest('PATCH', documentUrl)?.body).toEqualSparql(fixture('add-second-name.sparql'));
+            expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
         });
 
         it('keeps syncing external sources with failing documents', async () => {
@@ -1372,7 +1892,7 @@ describe('Sync', () => {
             FakeServer.respondOnce(documentUrl, FakeResponse.notFound());
             FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-            await localEngine.createDocument(
+            await createUnsyncedDocument(
                 documentUrl,
                 await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl }))),
             );
@@ -1555,7 +2075,7 @@ describe('Sync', () => {
             FakeServer.respondOnce(otherDocumentUrl, FakeResponse.notFound());
             FakeServer.respondOnce(otherDocumentUrl, FakeResponse.success());
 
-            await localEngine.createDocument(
+            await createUnsyncedDocument(
                 otherDocumentUrl,
                 await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl: otherDocumentUrl }))),
             );
@@ -1736,7 +2256,7 @@ describe('Sync', () => {
             FakeServer.respond(containerUrl, containerTurtle([]));
 
             await localEngine.deleteDocument(documentUrl);
-            await localEngine.createDocument(
+            await createUnsyncedDocument(
                 documentUrl,
                 await quadsToJsonLD(
                     turtleToQuadsSync(
@@ -1794,7 +2314,7 @@ describe('Sync', () => {
             FakeServer.respondOnce(nestedDocumentUrl, FakeResponse.notFound());
             FakeServer.respondOnce(nestedDocumentUrl, FakeResponse.success());
 
-            await localEngine.createDocument(
+            await createUnsyncedDocument(
                 nestedDocumentUrl,
                 await quadsToJsonLD(turtleToQuadsSync(fixture('person.ttl', { documentUrl: nestedDocumentUrl }))),
             );
@@ -1820,8 +2340,13 @@ describe('Sync', () => {
                 [[User], error],
                 [[User], error],
             ]);
-            expect((await localEngine.readDocument(documentUrl)).getLastModified()).toBeNull();
-            expect((await localEngine.readDocument(nestedDocumentUrl)).getLastModified()).toBeNull();
+            const restoredLocalChanges = await localEngine.getDocumentsLocalChanges();
+            const restoredStates = Object.values(restoredLocalChanges).flatMap((changes) =>
+                Object.values(changes.resources).map((resourceChanges) => resourceChanges.state),
+            );
+
+            expect(Object.keys(restoredLocalChanges)).toEqual(expect.arrayContaining([documentUrl, nestedDocumentUrl]));
+            expect(new Set(restoredStates)).toEqual(new Set(['updated']));
 
             // Act - Retry
             FakeServer.respondOnce(documentUrl, fixture('person.ttl', { documentUrl }));
@@ -1841,8 +2366,10 @@ describe('Sync', () => {
             expect(privateTypeIndex.registrations?.map((registration) => registration.instanceContainer)).toEqual([
                 containerUrl,
             ]);
-            expect((await localEngine.readDocument(documentUrl)).getLastModified()).not.toBeNull();
-            expect((await localEngine.readDocument(nestedDocumentUrl)).getLastModified()).not.toBeNull();
+            expect(await localEngine.getDocumentsLastModifiedAt()).toEqual(
+                expect.objectContaining({ [documentUrl]: expect.any(Date), [nestedDocumentUrl]: expect.any(Date) }),
+            );
+            expect(await localEngine.getDocumentsLocalChanges()).toEqual({});
         });
     });
 });

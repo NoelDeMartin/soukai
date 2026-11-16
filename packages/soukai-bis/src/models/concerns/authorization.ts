@@ -6,18 +6,16 @@ import {
     fetchSolidDocumentIfFound,
     getLinkHeaderUrl,
 } from '@noeldemartin/solid-utils';
-import type { Fetch, SolidDocumentPermission } from '@noeldemartin/solid-utils';
+import type { Fetch } from '@noeldemartin/solid-utils';
 import { requireUrlParentDirectory } from '@noeldemartin/utils';
 import { requireRemoteEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import type ACPAccessControlResource from 'soukai-bis/models/acp/ACPAccessControlResource';
 import { parseACR } from 'soukai-bis/models/acp/internals';
 import { getAuthorizationProtocol, rememberAuthorizationProtocol } from 'soukai-bis/models/internals/permissions';
 import type Model from 'soukai-bis/models/Model';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
+import type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from 'soukai-bis/models/types';
 
 import { readACPAccessControlResources } from './acp';
-import type { ACPPermissionsOptions } from './acp';
 
 interface AuthorizationDocument {
     url: string;
@@ -96,26 +94,6 @@ async function detectAuthorizationProtocol(
 
     throw new SoukaiError(`Couldn't find any access control documents for ${documentUrl}`);
 }
-
-export type AuthorizationProtocol = 'wac' | 'acp';
-
-export type FetchPermissionsOptions = ACPPermissionsOptions;
-
-export type ModelPermissions =
-    | {
-          protocol: 'wac';
-          publicPermissions: SolidDocumentPermission[] | null;
-      }
-    | {
-          protocol: 'acp';
-          publicPermissions: SolidDocumentPermission[] | null;
-          accessControlResources: ModelWithUrl<ACPAccessControlResource>[];
-          acr: { url: string; exists: boolean };
-      }
-    | {
-          protocol: 'unknown';
-          publicPermissions: SolidDocumentPermission[];
-      };
 
 export async function fetchPermissions(model: Model, options: FetchPermissionsOptions = {}): Promise<ModelPermissions> {
     const fetch = requireRemoteEngine().requireFetch();

@@ -24,7 +24,10 @@ import {
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type Engine from 'soukai-bis/engines/Engine';
+import { hasLocalDeletions } from 'soukai-bis/engines/local-changes';
+import type { LocalEngineWriteOptions } from 'soukai-bis/engines/LocalEngine';
 import { getEngine, getRemoteEngine, requireEngine, requireRemoteEngine } from 'soukai-bis/engines/state';
+import { isLocalEngine } from 'soukai-bis/engines/utils';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import InvalidAttributeError from 'soukai-bis/errors/InvalidAttributeError';
@@ -40,7 +43,6 @@ import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
 import { newACPAccessControlResource } from './concerns/acp';
 import { fetchPermissions } from './concerns/authorization';
-import type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from './concerns/authorization';
 import { boot, getMeta, reset, setMeta } from './concerns/boot';
 import {
     deletingModelsEmptiesDocument,
@@ -52,6 +54,13 @@ import {
 import { cascadeDeletes, cascadeDeletesInDocument, deleteModels, markForDeletion } from './concerns/deletes';
 import { emitModelEvent, onModelEvent } from './concerns/events';
 import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
+import {
+    assertMutableModels,
+    createdModelsLocalChanges,
+    isCreatedLocally,
+    recordsLocalChanges,
+    updatedModelsLocalChanges,
+} from './concerns/local-changes';
 import { migrateSchema } from './concerns/migrations';
 import {
     buildRDFTypeMap,
@@ -94,7 +103,13 @@ import type {
 } from './relations/schema';
 import { createRelation } from './relations/utils';
 import type { Schema } from './schema';
-import type { LegacyTimestamps, ModelRDFPrefixAliases } from './types';
+import type {
+    AuthorizationProtocol,
+    FetchPermissionsOptions,
+    LegacyTimestamps,
+    ModelPermissions,
+    ModelRDFPrefixAliases,
+} from './types';
 import type {
     ModelComputedAttributeDefinitions,
     ModelConstructor,
@@ -1383,6 +1398,8 @@ export default class Model<
         const dirtyDocumentModels = this.getDirtyDocumentModels();
         const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
 
+        assertMutableModels(dirtyDocumentModels, this.static().getEngine());
+
         for (const model of dirtyDocumentModels) {
             if (model._markedForDeletion) {
                 continue;
@@ -1443,7 +1460,8 @@ export default class Model<
     }
 
     protected async performSave(options: SaveOptions = {}): Promise<void> {
-        const engine = this.static().requireEngine();
+        const engine: Engine<object, LocalEngineWriteOptions> = this.static().requireEngine();
+        const localEngine = isLocalEngine(engine) ? engine : null;
 
         if (this._documentExists) {
             const documentUrl = this.requireDocumentUrl();
@@ -1455,24 +1473,52 @@ export default class Model<
 
             await loadDocumentRelations(this, { models: updatedModels, relations: ['operations'] });
 
+            const documentLocalChanges =
+                localEngine && deletedModels.length > 0 ? await localEngine.getDocumentLocalChanges(documentUrl) : null;
+            const locallyDeletedModels = deletedModels.filter(
+                (model) => recordsLocalChanges(model, localEngine) && !isCreatedLocally(model, documentLocalChanges),
+            );
+            const removedModels = deletedModels.filter((model) => !locallyDeletedModels.includes(model));
             const document = deletedModels.length > 0 ? await engine.readDocument(documentUrl) : null;
 
-            if (document && updatedModels.length === 0 && deletingModelsEmptiesDocument(deletedModels, document)) {
+            if (
+                document &&
+                updatedModels.length === 0 &&
+                locallyDeletedModels.length === 0 &&
+                !hasLocalDeletions(documentLocalChanges) &&
+                deletingModelsEmptiesDocument(deletedModels, document, (model) =>
+                    recordsLocalChanges(model, localEngine),
+                )
+            ) {
                 await engine.deleteDocument(documentUrl);
 
                 return;
             }
 
-            const deleteOperations = document ? getDeleteModelsOperations(deletedModels, document) : [];
+            const localOperations = new Map<string, string[]>();
+            const deleteOperations = document
+                ? getDeleteModelsOperations(deletedModels, document, (model) => recordsLocalChanges(model, localEngine))
+                : [];
+            const updateOperations = getDirtyDocumentsUpdates(updatedModels, localOperations);
+            const localChanges =
+                localEngine &&
+                updatedModelsLocalChanges({ updatedModels, localOperations, removedModels, locallyDeletedModels });
 
-            await engine.updateDocument(documentUrl, [...getDirtyDocumentsUpdates(updatedModels), ...deleteOperations]);
+            await engine.updateDocument(
+                documentUrl,
+                [...updateOperations, ...deleteOperations],
+                localChanges ? { localChanges } : undefined,
+            );
         } else if (options.postToContainer) {
             const postDocument = async () => {
                 const documentUrl = this.requireDocumentUrl();
+                const documentModels = this.getDocumentModels().filter((model) => !model._markedForDeletion);
+                const localChanges = localEngine && createdModelsLocalChanges(documentModels);
                 const document = await engine.createDocumentInContainer(
                     this.requireContainerUrl(),
                     documentUrl,
-                    serializeToRDF(this.getDocumentModels().filter((model) => !model._markedForDeletion)),
+                    serializeToRDF(documentModels),
+                    localChanges ? { localChanges } : undefined,
                 );
 
                 if (document.url !== documentUrl) {
@@ -1493,9 +1539,13 @@ export default class Model<
             }
         } else {
             const createDocument = async () => {
+                const documentModels = this.getDocumentModels().filter((model) => !model._markedForDeletion);
+                const localChanges = localEngine && createdModelsLocalChanges(documentModels);
+
                 await engine.createDocument(
                     this.requireDocumentUrl(),
-                    serializeToRDF(this.getDocumentModels().filter((model) => !model._markedForDeletion)),
+                    serializeToRDF(documentModels),
+                    localChanges ? { localChanges } : undefined,
                 );
             };
 

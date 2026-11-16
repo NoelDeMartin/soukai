@@ -1,7 +1,11 @@
+export * from './Engine';
+export * from './IndexedDBEngine';
+export * from './InMemoryEngine';
+export * from './LocalEngine';
 export * from './state';
-export * from './contracts';
 export * from './utils';
 export { default as IndexedDBEngine } from './IndexedDBEngine';
 export { default as InMemoryEngine } from './InMemoryEngine';
+export { default as LocalEngine } from './LocalEngine';
 export { default as SolidEngine } from './SolidEngine';
 export type { default as Engine } from './Engine';

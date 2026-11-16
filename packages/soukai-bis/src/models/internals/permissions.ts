@@ -5,10 +5,9 @@ import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { requireRemoteEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type ACLAuthorization from 'soukai-bis/models/acl/ACLAuthorization';
-import type { AuthorizationProtocol } from 'soukai-bis/models/concerns/authorization';
 import { serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import { requireBootedModel } from 'soukai-bis/models/registry';
-import type { ModelWithUrl } from 'soukai-bis/models/types';
+import type { AuthorizationProtocol, ModelWithUrl } from 'soukai-bis/models/types';
 
 const authorizationProtocols = new Map<string, AuthorizationProtocol>();
 const PUBLIC_AGENT_CLASS = expandIRI('foaf:Agent');

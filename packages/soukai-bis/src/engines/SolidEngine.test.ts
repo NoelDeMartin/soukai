@@ -1,9 +1,7 @@
 import { faker } from '@noeldemartin/faker';
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import type { JsonLD } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
@@ -397,14 +395,5 @@ describe('SolidEngine', () => {
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, documentUrl, expect.objectContaining({ method: 'DELETE' }));
-    });
-
-    it('throws error when using metadata', async () => {
-        const documentUrl = fakeDocumentUrl();
-        const document: JsonLD = { '@id': documentUrl };
-        const metadata = { lastModifiedAt: new Date() };
-
-        await expect(engine.createDocument(documentUrl, document, metadata)).rejects.toBeInstanceOf(SoukaiError);
-        await expect(engine.updateDocument(documentUrl, [], metadata)).rejects.toBeInstanceOf(SoukaiError);
     });
 });

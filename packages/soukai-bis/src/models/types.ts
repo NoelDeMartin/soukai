@@ -1,6 +1,9 @@
+import type { SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import type { Constructor, Pretty } from '@noeldemartin/utils';
 import type { SCHEMA } from 'soukai-bis/models/internals/model';
 
+import type ACPAccessControl from './acp/ACPAccessControl';
+import type ACPAccessControlResource from './acp/ACPAccessControlResource';
 import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
@@ -48,3 +51,25 @@ export type ModelComputedAttributeDefinitions = Record<
 >;
 
 export type ModelsCache = Map<string, WeakMap<typeof Model, Model>>;
+
+export type AuthorizationProtocol = 'wac' | 'acp';
+
+export interface FetchPermissionsOptions {
+    accessControlClass?: ModelConstructor<ACPAccessControl>;
+}
+
+export type ModelPermissions =
+    | {
+          protocol: 'wac';
+          publicPermissions: SolidDocumentPermission[] | null;
+      }
+    | {
+          protocol: 'acp';
+          publicPermissions: SolidDocumentPermission[] | null;
+          accessControlResources: ModelWithUrl<ACPAccessControlResource>[];
+          acr: { url: string; exists: boolean };
+      }
+    | {
+          protocol: 'unknown';
+          publicPermissions: SolidDocumentPermission[];
+      };

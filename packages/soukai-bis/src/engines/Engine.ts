@@ -1,7 +1,6 @@
 import { RDFNamedNode, isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
-import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -22,11 +21,10 @@ import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperati
 
 import type EngineOperation from './operations/EngineOperation';
 
-export interface EngineMetadata {
-    lastModifiedAt?: Nullable<Date>;
-}
+export type ReadDocumentsOptions<TReadOptions extends object = object> = TReadOptions &
+    ({ urls: string[] } | { containerUrl: string; deep?: boolean; depth?: number });
 
-export default abstract class Engine {
+export default abstract class Engine<TReadOptions extends object = object, TWriteOptions extends object = never> {
     public static readonly engineName: string = 'Engine';
 
     public static(): typeof Engine {
@@ -36,32 +34,33 @@ export default abstract class Engine {
     public abstract createDocument(
         url: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        metadata?: EngineMetadata,
+        options?: TWriteOptions,
     ): Promise<SolidDocument>;
 
     public async createDocumentInContainer(
         containerUrl: string,
         proposedUrl: string,
         contents: JsonLD | JsonLDGraph | Quad[],
+        options?: TWriteOptions,
     ): Promise<SolidDocument> {
         this.assertContainerDocumentSlug(containerUrl, proposedUrl);
 
-        return this.createDocument(proposedUrl, contents);
+        return this.createDocument(proposedUrl, contents, options);
     }
 
-    public abstract readDocument(url: string): Promise<SolidDocument>;
+    public abstract readDocument(url: string, options?: TReadOptions): Promise<SolidDocument>;
 
     public abstract updateDocument(
         url: string,
         operations: EngineOperation[],
-        metadata?: EngineMetadata,
+        options?: TWriteOptions,
     ): Promise<SolidResponse | null>;
 
     public abstract deleteDocument(url: string): Promise<SolidResponse>;
 
-    public async readDocumentIfExists(url: string): Promise<SolidDocument | null> {
+    public async readDocumentIfExists(url: string, options?: TReadOptions): Promise<SolidDocument | null> {
         try {
-            const document = await this.readDocument(url);
+            const document = await this.readDocument(url, options);
 
             return document;
         } catch (error) {
@@ -73,14 +72,16 @@ export default abstract class Engine {
         }
     }
 
-    public async readDocuments(
-        options: { urls: string[] } | { containerUrl: string; deep?: boolean; depth?: number },
-    ): Promise<Record<string, SolidDocument>> {
+    public async readDocuments(options: ReadDocumentsOptions<TReadOptions>): Promise<Record<string, SolidDocument>> {
         if ('urls' in options) {
-            return this.readDocumentsByUrl(options.urls);
+            const { urls, ...readOptions } = options;
+
+            return this.readDocumentsByUrl(urls, readOptions as TReadOptions);
         }
 
-        return this.readDocumentsByContainer(options.containerUrl, { deep: options.deep, depth: options.depth });
+        const { containerUrl, deep, depth, ...readOptions } = options;
+
+        return this.readDocumentsByContainer(containerUrl, { deep, depth }, readOptions as TReadOptions);
     }
 
     protected assertContainerDocumentSlug(containerUrl: string, documentUrl: string): string {
@@ -97,11 +98,11 @@ export default abstract class Engine {
         return slug;
     }
 
-    protected async readDocumentsByUrl(urls: string[]): Promise<Record<string, SolidDocument>> {
+    protected async readDocumentsByUrl(urls: string[], options?: TReadOptions): Promise<Record<string, SolidDocument>> {
         const documents: SolidDocument[] = [];
 
         for (const chunk of arrayChunk(urls, 10)) {
-            const chunkDocuments = await Promise.all(chunk.map((url) => this.readDocumentIfExists(url)));
+            const chunkDocuments = await Promise.all(chunk.map((url) => this.readDocumentIfExists(url, options)));
 
             documents.push(...chunkDocuments.filter((document): document is SolidDocument => !!document));
         }
@@ -111,24 +112,26 @@ export default abstract class Engine {
 
     protected async readDocumentsByContainer(
         containerUrl: string,
-        options: { deep?: boolean; depth?: number } = {},
+        { deep, depth }: { deep?: boolean; depth?: number } = {},
+        readOptions?: TReadOptions,
     ): Promise<Record<string, SolidDocument>> {
-        const container = await this.readDocument(containerUrl);
+        const container = await this.readDocument(containerUrl, readOptions);
         const containsQuads = container.statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE);
         const documentUrls = containsQuads.map((quad) => quad.object.value);
-        const documents = await this.readDocumentsByUrl(documentUrls);
+        const documents = await this.readDocumentsByUrl(documentUrls, readOptions);
         const results: Record<string, SolidDocument> = { [containerUrl]: container, ...documents };
 
-        if (options.deep || (options.depth ?? 0) > 0) {
+        if (deep || (depth ?? 0) > 0) {
             for (const document of Object.values(documents)) {
                 if (!document.url.endsWith('/')) {
                     continue;
                 }
 
-                const childResults = await this.readDocumentsByContainer(document.url, {
-                    deep: options.deep,
-                    depth: options.depth !== undefined ? options.depth - 1 : undefined,
-                });
+                const childResults = await this.readDocumentsByContainer(
+                    document.url,
+                    { deep, depth: depth !== undefined ? depth - 1 : undefined },
+                    readOptions,
+                );
 
                 Object.assign(results, childResults);
             }

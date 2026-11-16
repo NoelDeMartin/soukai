@@ -1,3 +1,4 @@
+import { getTombstoneUrl } from 'soukai-bis/models/crdts/helpers';
 import type { MintUrlOptions } from 'soukai-bis/models/Model';
 
 import Model from './Tombstone.schema';
@@ -8,6 +9,6 @@ export default class Tombstone extends Model {
             return super.newUrl(options);
         }
 
-        return this.resourceUrl.includes('#') ? `${this.resourceUrl}-tombstone` : `${this.resourceUrl}#tombstone`;
+        return getTombstoneUrl(this.resourceUrl);
     }
 }

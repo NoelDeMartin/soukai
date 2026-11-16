@@ -10,6 +10,7 @@ import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import InMemoryEngine from './InMemoryEngine';
+import DeleteResourceOperation from './operations/DeleteResourceOperation';
 
 describe('InMemoryEngine', () => {
     let engine: InMemoryEngine;
@@ -267,20 +268,6 @@ describe('InMemoryEngine', () => {
         expect(engine.documents[documentUrl]?.lastModifiedAt).toEqual(lastModifiedAt);
     });
 
-    it('reads documents with metadata', async () => {
-        // Arrange
-        const documentUrl = fakeDocumentUrl();
-        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
-
-        await engine.createDocument(documentUrl, { '@id': documentUrl }, { lastModifiedAt });
-
-        // Act
-        const document = await engine.readDocument(documentUrl);
-
-        // Assert
-        expect(document.headers.get('Last-Modified')).toEqual(lastModifiedAt.toUTCString());
-    });
-
     it('updates documents with metadata', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
@@ -328,29 +315,6 @@ describe('InMemoryEngine', () => {
         );
     });
 
-    it('gets document urls', async () => {
-        // Arrange
-        const firstUrl = fakeDocumentUrl();
-        const secondUrl = fakeDocumentUrl();
-        const lastModifiedAt = new Date();
-
-        await engine.createDocument(firstUrl, { '@id': firstUrl }, { lastModifiedAt });
-        await engine.createDocument(secondUrl, { '@id': secondUrl });
-
-        // Act & Assert
-        const allUrls = await engine.getDocumentUrls();
-        expect(allUrls).toContain(firstUrl);
-        expect(allUrls).toContain(secondUrl);
-
-        const unsyncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt: null } });
-        expect(unsyncedUrls).not.toContain(firstUrl);
-        expect(unsyncedUrls).toContain(secondUrl);
-
-        const syncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt } });
-        expect(syncedUrls).toContain(firstUrl);
-        expect(syncedUrls).not.toContain(secondUrl);
-    });
-
     it('gets documents last modified at', async () => {
         // Arrange
         const firstUrl = fakeDocumentUrl();
@@ -393,5 +357,59 @@ describe('InMemoryEngine', () => {
 
         // Assert
         await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
+    });
+
+    it('hides empty documents', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        await engine.createDocument(documentUrl, {
+            '@id': `${documentUrl}#it`,
+            '@type': expandIRI('foaf:Person'),
+        });
+
+        // Act
+        await engine.updateDocument(documentUrl, [new DeleteResourceOperation(`${documentUrl}#it`)]);
+
+        // Assert
+        const container = await engine.readDocument(containerUrl);
+        const rawContainer = await engine.readDocument(containerUrl, { includeEmptyDocuments: true });
+        const rawDocument = await engine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+        expect(await engine.readDocumentIfExists(documentUrl)).toBeNull();
+        expect(rawDocument.getQuads()).toHaveLength(0);
+        expect(container.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(false);
+        expect(rawContainer.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(true);
+    });
+
+    it('removes local changes with documents and containers', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl({ containerUrl: fakeContainerUrl() });
+        const otherContainerUrl = fakeContainerUrl();
+        const otherDocumentUrl = fakeDocumentUrl({ containerUrl: otherContainerUrl });
+        const created = (url: string) => () => ({
+            resources: { [`${url}#it`]: { state: 'created' as const } },
+        });
+
+        await engine.createDocument(
+            documentUrl,
+            { '@id': `${documentUrl}#it` },
+            { localChanges: created(documentUrl) },
+        );
+        await engine.createDocument(
+            otherDocumentUrl,
+            { '@id': `${otherDocumentUrl}#it` },
+            { localChanges: created(otherDocumentUrl) },
+        );
+
+        // Act
+        await engine.deleteDocument(documentUrl);
+        await engine.dropContainers([otherContainerUrl]);
+
+        // Assert
+        expect(await engine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        expect(await engine.getDocumentLocalChanges(otherDocumentUrl)).toBeNull();
+        expect(await engine.getDocumentsLocalChanges()).toEqual({});
     });
 });

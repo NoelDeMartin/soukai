@@ -14,6 +14,7 @@ import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import IndexedDBEngine from './IndexedDBEngine';
+import DeleteResourceOperation from './operations/DeleteResourceOperation';
 
 describe('IndexedDBEngine', () => {
     let engine: IndexedDBEngine;
@@ -400,22 +401,8 @@ describe('IndexedDBEngine', () => {
             containerUrl,
             resources: {},
             lastModifiedAt,
+            status: 'empty',
         });
-    });
-
-    it('reads documents with metadata', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
-
-        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl }, { lastModifiedAt });
-
-        // Act
-        const document = await engine.readDocument(documentUrl);
-
-        // Assert
-        expect(document.headers.get('Last-Modified')).toEqual(lastModifiedAt.toUTCString());
     });
 
     it('updates documents with metadata', async () => {
@@ -448,7 +435,7 @@ describe('IndexedDBEngine', () => {
         expect(documents[0]?.lastModifiedAt).toEqual(newLastModifiedAt);
     });
 
-    it('updating documents clears last modified at', async () => {
+    it('keeps last modified at when updating documents', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
@@ -470,7 +457,7 @@ describe('IndexedDBEngine', () => {
         const documents = await getDatabaseDocuments(containerUrl);
 
         expect(documents).toHaveLength(1);
-        expect(documents[0]?.lastModifiedAt).toBeUndefined();
+        expect(documents[0]?.lastModifiedAt).toEqual(lastModifiedAt);
     });
 
     it('drops containers', async () => {
@@ -592,40 +579,6 @@ describe('IndexedDBEngine', () => {
 
         expect(doc1?.lastModifiedAt).toBeUndefined();
         expect(doc2?.lastModifiedAt).toEqual(lastModifiedAt);
-    });
-
-    it('gets document urls', async () => {
-        // Arrange
-        const containerUrl = 'http://localhost:3000/alice/movies/';
-        const firstUrl = `${containerUrl}first`;
-        const secondUrl = `${containerUrl}second`;
-        const lastModifiedAt = new Date();
-
-        await engine.createDocument(
-            firstUrl,
-            {
-                '@id': firstUrl,
-                '@type': 'http://schema.org/CreativeWork',
-            },
-            { lastModifiedAt },
-        );
-        await engine.createDocument(secondUrl, {
-            '@id': secondUrl,
-            '@type': 'http://schema.org/CreativeWork',
-        });
-
-        // Act & Assert
-        const allUrls = await engine.getDocumentUrls();
-        expect(allUrls).toContain(firstUrl);
-        expect(allUrls).toContain(secondUrl);
-
-        const unsyncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt: null } });
-        expect(unsyncedUrls).not.toContain(firstUrl);
-        expect(unsyncedUrls).toContain(secondUrl);
-
-        const syncedUrls = await engine.getDocumentUrls({ metadata: { lastModifiedAt } });
-        expect(syncedUrls).toContain(firstUrl);
-        expect(syncedUrls).not.toContain(secondUrl);
     });
 
     it('gets documents last modified at', async () => {
@@ -904,6 +857,60 @@ describe('IndexedDBEngine', () => {
         const containers = await db.getAll('containers');
 
         expect(containers).toEqual([{ url: containerUrl }]);
+    });
+
+    it('hides empty documents', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        await engine.createDocument(documentUrl, {
+            '@id': `${documentUrl}#it`,
+            '@type': expandIRI('foaf:Person'),
+        });
+
+        // Act
+        await engine.updateDocument(documentUrl, [new DeleteResourceOperation(`${documentUrl}#it`)]);
+
+        // Assert
+        const container = await engine.readDocument(containerUrl);
+        const rawContainer = await engine.readDocument(containerUrl, { includeEmptyDocuments: true });
+        const rawDocument = await engine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+        expect(await engine.readDocumentIfExists(documentUrl)).toBeNull();
+        expect(rawDocument.getQuads()).toHaveLength(0);
+        expect(container.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(false);
+        expect(rawContainer.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(true);
+    });
+
+    it('removes local changes with documents and containers', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl({ containerUrl: fakeContainerUrl() });
+        const otherContainerUrl = fakeContainerUrl();
+        const otherDocumentUrl = fakeDocumentUrl({ containerUrl: otherContainerUrl });
+        const created = (url: string) => () => ({
+            resources: { [`${url}#it`]: { state: 'created' as const } },
+        });
+
+        await engine.createDocument(
+            documentUrl,
+            { '@id': `${documentUrl}#it` },
+            { localChanges: created(documentUrl) },
+        );
+        await engine.createDocument(
+            otherDocumentUrl,
+            { '@id': `${otherDocumentUrl}#it` },
+            { localChanges: created(otherDocumentUrl) },
+        );
+
+        // Act
+        await engine.deleteDocument(documentUrl);
+        await engine.dropContainers([otherContainerUrl]);
+
+        // Assert
+        expect(await engine.getDocumentLocalChanges(documentUrl)).toBeNull();
+        expect(await engine.getDocumentLocalChanges(otherDocumentUrl)).toBeNull();
+        expect(await engine.getDocumentsLocalChanges()).toEqual({});
     });
 
     async function resetDatabase(): Promise<void> {
