@@ -302,7 +302,7 @@ Some built-in relations disable autoloading. The `operations` and `tombstone` re
 
 There is also a `documentContainsMany` relation, which can be used to declare models that are stored in the same document without any foreign keys pointing to each other:
 
-```ts [TypeIndex.schema.ts]
+```ts
 import { defineSchema, documentContainsMany } from 'soukai-bis';
 
 export default defineSchema({

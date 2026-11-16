@@ -1,26 +1,24 @@
 # Local-first
 
-Soukai implements a simple, yet powerful, CRDT (Conflict-Free Replicated Datatype) to build [local-first applications](http://inkandswitch.com/local-first/) using the Solid Protocol.
+[Local-first](http://inkandswitch.com/local-first/) is a software architecture that puts data ownership and sovereignty at its center, and it's the perfect companion for Solid applications.
 
-You can learn more about CRDTs and the design philosophy in this presentation (12 min):
+With Soukai, making a local-first application is very easy, because it provides a first-party CRDT (Conflict-Free Replicated Datatype) for working with Solid.
+
+If you're interested in learning more about local-first and how it works with Solid, check out this presentation:
 
 <iframe class="aspect-video w-full" src="https://www.youtube.com/embed/vYQmGeaQt8E?si=ZqZkScUuZa2I6GGV" title="Solid CRDTs in Practice" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-These are the requirements that guided the implementation:
+In particular, these are some of the design decisions that guided Soukai's local-first approach:
 
-- Support both local-first and online usage.
-- Make CRDTs optional for online usage.
-- Each Resource should be its own CRDT (usually, that will mean each document).
-- Support relations sync (E.g., Shows are registered in the type index, and their seasons and episodes also sync).
-- Follow a "Sync the world" strategy, all changes should be pulled into each device.
+- Support both local-first and online usage, making CRDTs optional for online usage. This ensures that data remains interoperable with other apps.
+- Each RDF resource represents its own CRDT history, instead of having a single CRDT graph for the entire POD.
+- Follow a "Sync the world" strategy, all the data relevant to an application should be pulled into every device; not just the data that's visited. This means the app can be used completely offline after its initial Sync.
 
 ## History tracking
 
-In some situations, it is desirable to keep track of changes made to a model over time. That is the cornerstone of making local-first applications.
+Local-first behavior is opted in by activating history tracking. You can enable it in the model schema:
 
-History tracking is disabled by default, but you can enable it in the model schema:
-
-```ts [Person.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -32,12 +30,12 @@ export default defineSchema({
 });
 ```
 
-Once this is enabled, any changes that are made to the model will create new operations using the built-in `operations` relation. This relation isn't loaded by default, so you'll need to load it explicitly if you want to inspect it:
+Once this is enabled, any changes that are made to the model will create new operations using the built-in `operations` relation. This relation isn't loaded by default, so you'll need to load it explicitly if you want to inspect the changes:
 
 ```ts
 const alice = await Person.create({ name: 'Alice' });
 
-await alice.update({ name: 'Alice Doe' });
+await alice.update({ name: 'Alice Cooper' });
 
 const operations = await alice.loadRelation('operations');
 
@@ -48,7 +46,7 @@ console.log(operations.length);
 The code above will generate the following operations:
 
 - Set `name` to "Alice"
-- Set `name` to "Alice Doe"
+- Set `name` to "Alice Cooper"
 
 ### Merging operations
 
@@ -58,19 +56,19 @@ Operations are stored as RDF resources in the same document as the model, so the
 await alice.syncOperations();
 ```
 
-You won't need to do this manually in most cases, though, because it's done automatically when [synchronizing](#synchronization) models.
+In most cases, you won't need to do this manually because it's done automatically when [synchronizing](#synchronization) models.
 
 ## Deletions
 
-In a pure local-first approach, you wouldn't be able to delete documents, given that CRDT operations are supposed to be immutable. However, this library allows to delete models. In order to make sure that these are not re-created on sync, models with history tracking will leave a `crdt:Tombstone` behind:
+In a pure local-first approach, you wouldn't be able to delete documents, given that CRDT operations are supposed to be immutable. However, given the privacy concerns of Solid, this library allows you to delete models. In order to make sure that these are not re-created on sync, models with history tracking will leave a `crdt:Tombstone` behind:
 
 ```ts
 await alice.delete(); // This will delete all data and operations from alice, and leave a crdt:Tombstone with the deletion date.
 ```
 
-This behaviour can be disabled by setting the `tombstone` option in the schema, but it's not recommended:
+This behavior can be disabled by setting the `tombstone` option in the schema, but it's not recommended:
 
-```ts [Person.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { string } from 'zod';
 
@@ -83,9 +81,32 @@ export default defineSchema({
 });
 ```
 
-::: warning TODO
-Previous versions of Soukai supported soft-deleting models, using `softDelete()`, `isSoftDeleted()`, `useSoftDeletes()`, and `forceDelete()`. This hasn't been implemented yet.
-:::
+### Soft deletes
+
+If you'd rather keep the data around, models with history tracking and timestamps can also be soft deleted. This will store the deletion date in the model metadata, and create a `crdt:SoftDeleteOperation` so that it is merged properly on sync:
+
+```ts
+await alice.softDelete();
+
+console.log(alice.isSoftDeleted());
+// console output: true
+```
+
+Soft deleted models will be ignored when using `find()`, `all()`, and loading relations. If you want to retrieve them, you can use the `includeSoftDeleted` option:
+
+```ts
+await Person.find(alice.url); // null
+await Person.find(alice.url, { includeSoftDeleted: true }); // alice
+await Person.all({ includeSoftDeleted: true }); // [alice, ...]
+```
+
+And they can be restored at any time, creating a `crdt:RestoreOperation`:
+
+```ts
+await alice.restore();
+```
+
+Keep in mind that calling `delete()` on a soft deleted model will still delete it permanently, and cascade deletes also include related models that have been soft deleted.
 
 ## Synchronization
 

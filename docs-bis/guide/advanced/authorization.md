@@ -66,7 +66,7 @@ Access controls attached with `relatedMemberAccessControls` will also apply to t
 
 If you want to store your own data in access controls, you can extend the `ACPAccessControl` model and pass it to `fetchPermissions` using the `accessControlClass` option. Access controls will be read using your model whenever they match all of its RDF classes:
 
-```ts [Grant.schema.ts]
+```ts
 import { ACPAccessControl, defineSchema } from 'soukai-bis';
 import { date } from 'zod';
 

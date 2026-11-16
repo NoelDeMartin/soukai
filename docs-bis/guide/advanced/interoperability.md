@@ -166,7 +166,7 @@ Updating the schema will change the RDF declarations and mapping: the fields and
 
 Some logic may only make sense for a given schema. For example, schema.org's Action has an `actionStatus` property that iCalendar Vtodo doesn't need (because it's derived from the completion date). You can implement that logic using `hooks`:
 
-```ts [Task.schema.ts]
+```ts
 import { defineSchema } from 'soukai-bis';
 import { date, string } from 'zod';
 
@@ -207,7 +207,7 @@ Swapping schemas works if you know which vocabulary the data is using, but you m
 
 To do that, you can use Soukai's ability to declare multiple RDF classes with `anyOf()` and multiple RDF properties with `rdfProperties()`:
 
-```ts [Task.schema.ts]
+```ts
 import { anyOf, defineSchema } from 'soukai-bis';
 import { date, string } from 'zod';
 
