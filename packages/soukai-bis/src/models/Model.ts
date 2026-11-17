@@ -53,8 +53,6 @@ import {
     syncDocumentOperations,
 } from './concerns/crdts';
 import { cascadeDeletes, cascadeDeletesInDocument, deleteModels, markForDeletion } from './concerns/deletes';
-import { emitModelEvent, onModelEvent } from './concerns/events';
-import type { ModelEvent, ModelEvents, ModelInstanceListener, ModelListener } from './concerns/events';
 import {
     assertMutableModels,
     createdModelsLocalChanges,
@@ -77,6 +75,9 @@ import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import { getSoftDeletedResourceUrls } from './crdts/soft-deletes';
 import type Tombstone from './crdts/Tombstone';
+import type { ModelClassEvent, ModelInstanceEvent, ModelInstanceListener, ModelListener } from './events';
+import { emitModelClassEvent, emitModelInstanceEvent } from './events';
+import { offModelEvent, onModelEvent } from './internals/events';
 import {
     CLASS_MARKER,
     SCHEMA,
@@ -194,12 +195,14 @@ export default class Model<
         reset(this);
     }
 
-    public static updateSchema(other: ModelConstructor): void {
+    public static async updateSchema(other: ModelConstructor): Promise<void> {
         if (!originalSchemas.has(this)) {
             originalSchemas.set(this, getSchema(this));
         }
 
         setSchema(this, updateModelSchema(this, getSchema(other)));
+
+        await emitModelClassEvent(this, 'schema-updated', { schema: other });
     }
 
     public static hydrating<T>(operation: () => T): T {
@@ -496,7 +499,7 @@ export default class Model<
         return model;
     }
 
-    public static on<TModel extends Model, TEvent extends ModelEvent>(
+    public static on<TModel extends Model, TEvent extends ModelInstanceEvent | ModelClassEvent>(
         this: ModelConstructor<TModel>,
         event: TEvent,
         listener: ModelListener<TModel, TEvent>,
@@ -504,20 +507,16 @@ export default class Model<
         return onModelEvent(this, event, listener);
     }
 
-    public static once<TModel extends Model, TEvent extends ModelEvent>(
+    public static once<TModel extends Model, TEvent extends ModelInstanceEvent | ModelClassEvent>(
         this: ModelConstructor<TModel>,
         event: TEvent,
         listener: ModelListener<TModel, TEvent>,
     ): () => void {
-        let unsubscribe: (() => void) | undefined = undefined;
-        const wrapperListener = (...args: any[]) => {
-            listener(...(args as [TModel, ModelEvents[TEvent]]));
-            unsubscribe?.();
-        };
+        return onModelEvent(this, event, listener, { once: true });
+    }
 
-        unsubscribe = onModelEvent(this, event, wrapperListener);
-
-        return unsubscribe;
+    public static off(event: ModelInstanceEvent | ModelClassEvent | '*', listener: (payload: never) => unknown): void {
+        offModelEvent(this, event, listener);
     }
 
     public static<T extends ModelConstructor<this>>(): T;
@@ -651,7 +650,7 @@ export default class Model<
 
         for (const field of modifiedFields) {
             // oxlint-disable-next-line typescript/no-floating-promises
-            emitModelEvent(this.__instance(), 'modified', field);
+            emitModelInstanceEvent(this.__instance(), 'modified', { field });
         }
     }
 
@@ -696,7 +695,7 @@ export default class Model<
         const relation = this.getRelation(name);
 
         await relation.load();
-        await emitModelEvent(this.__instance(), 'relation-loaded', relation);
+        await emitModelInstanceEvent(this.__instance(), 'relation-loaded', { relation });
 
         return relation.related as GetLoadedRelationModels<Relations[K]>;
     }
@@ -709,7 +708,7 @@ export default class Model<
 
         relation.related = related;
 
-        await emitModelEvent(this.__instance(), 'relation-loaded', relation);
+        await emitModelInstanceEvent(this.__instance(), 'relation-loaded', { relation });
     }
 
     public isRelationLoaded(name: RelationName): boolean {
@@ -787,34 +786,22 @@ export default class Model<
         return this._sourceDocumentUrl === documentUrl;
     }
 
-    public on<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
-        const self = this.__instance();
-        const wrapperListener = (instance: Model, ...args: any[]) => {
-            if (instance !== self) {
-                return;
-            }
-
-            listener(...(args as [ModelEvents[TEvent]]));
-        };
-
-        return this.static().on(event, wrapperListener);
+    public on<TEvent extends ModelInstanceEvent>(
+        event: TEvent,
+        listener: ModelInstanceListener<this, TEvent>,
+    ): () => void {
+        return onModelEvent(this.__instance(), event, listener as ModelListener<Model, TEvent>);
     }
 
-    public once<TEvent extends ModelEvent>(event: TEvent, listener: ModelInstanceListener<TEvent>): () => void {
-        let unsubscribe: (() => void) | undefined = undefined;
-        const self = this.__instance();
-        const wrapperListener = (instance: Model, ...args: any[]) => {
-            if (instance !== self) {
-                return;
-            }
+    public once<TEvent extends ModelInstanceEvent>(
+        event: TEvent,
+        listener: ModelInstanceListener<this, TEvent>,
+    ): () => void {
+        return onModelEvent(this.__instance(), event, listener as ModelListener<Model, TEvent>, { once: true });
+    }
 
-            listener(...(args as [ModelEvents[TEvent]]));
-            unsubscribe?.();
-        };
-
-        unsubscribe = this.static().on(event, wrapperListener);
-
-        return unsubscribe;
+    public off(event: ModelInstanceEvent | '*', listener: (payload: never) => unknown): void {
+        offModelEvent(this.__instance(), event, listener);
     }
 
     public async syncOperations(): Promise<void> {
@@ -848,8 +835,8 @@ export default class Model<
                 documentModel.getRelation('metadata').related = freshInstance._relations.metadata.related;
             }
 
-            await emitModelEvent(documentModel, 'saved');
-            await emitModelEvent(documentModel, 'updated');
+            await emitModelInstanceEvent(documentModel, 'updated');
+            await emitModelInstanceEvent(documentModel, 'saved');
         }
     }
 
@@ -1440,20 +1427,20 @@ export default class Model<
             const existed = dirtyDocumentModelsExisted[index];
 
             if (model._markedForDeletion) {
-                await emitModelEvent(model, 'deleted');
+                await emitModelInstanceEvent(model, 'deleted');
 
                 model._markedForDeletion = false;
 
                 continue;
             }
 
-            await emitModelEvent(model, existed ? 'updated' : 'created');
-            await emitModelEvent(model, 'saved');
+            await emitModelInstanceEvent(model, existed ? 'updated' : 'created');
+            await emitModelInstanceEvent(model, 'saved');
         }
 
         if (!dirtyDocumentModels.includes(this)) {
-            await emitModelEvent(this, thisExisted ? 'updated' : 'created');
-            await emitModelEvent(this, 'saved');
+            await emitModelInstanceEvent(this, thisExisted ? 'updated' : 'created');
+            await emitModelInstanceEvent(this, 'saved');
         }
     }
 

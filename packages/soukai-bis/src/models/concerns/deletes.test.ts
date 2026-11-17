@@ -32,8 +32,8 @@ describe('Deletes', () => {
         const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
         const deleteDocumentSpy = vi.spyOn(engine, 'deleteDocument');
 
-        Show.on('deleted', (model) => deletedUrls.push(model.requireUrl()));
-        Season.on('deleted', (model) => deletedUrls.push(model.requireUrl()));
+        Show.on('deleted', ({ model }) => deletedUrls.push(model.requireUrl()));
+        Season.on('deleted', ({ model }) => deletedUrls.push(model.requireUrl()));
 
         // Act
         await freshShow.delete();

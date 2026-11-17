@@ -27,7 +27,7 @@ describe('Schemas', () => {
         );
 
         // Act
-        Task.updateSchema(TaskICalSchema);
+        await Task.updateSchema(TaskICalSchema);
 
         // Assert
         const task = required(await Task.createFromRDF(quads, { url: 'solid://tasks/learn-solid#task' }));
@@ -43,12 +43,12 @@ describe('Schemas', () => {
         expect(getSchema(remote(Task))).toBe(getSchema(Task));
     });
 
-    it('keeps relations, computed attributes, and config', () => {
+    it('keeps relations, computed attributes, and config', async () => {
         // Arrange
         const { relations, computed } = getSchema(Task);
 
         // Act
-        Task.updateSchema(TaskICalSchema);
+        await Task.updateSchema(TaskICalSchema);
 
         // Assert
         expect(getSchema(Task).relations).toBe(relations);
@@ -57,7 +57,7 @@ describe('Schemas', () => {
         expect(getSchema(Task).relations).toHaveProperty('metadata');
     });
 
-    it('uses the default RDF class without changing the schema', () => {
+    it('uses the default RDF class without changing the schema', async () => {
         // Arrange
         const ClasslessSchema = defineSchema({
             rdfContext: 'http://www.w3.org/2002/12/cal/ical#',
@@ -65,7 +65,7 @@ describe('Schemas', () => {
         });
 
         // Act
-        Task.updateSchema(ClasslessSchema);
+        await Task.updateSchema(ClasslessSchema);
 
         // Assert
         expect(Task.getRDFClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Task']);
@@ -73,15 +73,15 @@ describe('Schemas', () => {
         expect(getSchema(Task)).not.toBe(getSchema(ClasslessSchema));
     });
 
-    it('fails with different config', () => {
+    it('fails with different config', async () => {
         // Arrange
         const HistorySchema = defineSchema(TaskICalSchema, { history: true });
 
         // Act & Assert
-        expect(() => Task.updateSchema(HistorySchema)).toThrow(SoukaiError);
+        await expect(Task.updateSchema(HistorySchema)).rejects.toThrow(SoukaiError);
     });
 
-    it('fails with unknown relations', () => {
+    it('fails with unknown relations', async () => {
         // Arrange
         const RelationsSchema = defineSchema(TaskICalSchema, {
             fields: { assigneeUrl: url().optional() },
@@ -89,14 +89,14 @@ describe('Schemas', () => {
         });
 
         // Act & Assert
-        expect(() => Task.updateSchema(RelationsSchema)).toThrow(SoukaiError);
+        await expect(Task.updateSchema(RelationsSchema)).rejects.toThrow(SoukaiError);
     });
 
-    it('restores the original schema when models are reset', () => {
+    it('restores the original schema when models are reset', async () => {
         // Arrange
         const originalSchema = getSchema(Task);
 
-        Task.updateSchema(TaskICalSchema);
+        await Task.updateSchema(TaskICalSchema);
 
         // Act
         bootModels({ Task }, { reset: true });
@@ -106,12 +106,12 @@ describe('Schemas', () => {
         expect(Task.getRDFClasses()).toEqual(['https://schema.org/Action']);
     });
 
-    it('restores the original schema after updating it multiple times', () => {
+    it('restores the original schema after updating it multiple times', async () => {
         // Arrange
         const originalSchema = getSchema(Task);
 
-        Task.updateSchema(TaskICalSchema);
-        Task.updateSchema(defineSchema(TaskICalSchema, { rdfClass: 'Vevent' }));
+        await Task.updateSchema(TaskICalSchema);
+        await Task.updateSchema(defineSchema(TaskICalSchema, { rdfClass: 'Vevent' }));
 
         // Act
         Task.reset();

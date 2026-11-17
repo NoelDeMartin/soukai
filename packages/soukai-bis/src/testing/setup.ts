@@ -12,6 +12,7 @@ import {
     setRDFPrefixAliases,
     setRemoteEngine,
 } from 'soukai-bis';
+import { resetModelListeners } from 'soukai-bis/models/events';
 import { forgetAuthorizationProtocols } from 'soukai-bis/models/internals/permissions';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Episode from 'soukai-bis/testing/stubs/Episode';
@@ -39,6 +40,7 @@ import { afterEach, beforeEach, vi } from 'vite-plus/test';
 beforeEach(() => {
     setRDFPrefixAliases({});
     forgetAuthorizationProtocols();
+    resetModelListeners();
     vi.resetAllMocks();
     FakeServer.reset();
     ComputedAttribute.disableLoadingRelations();

@@ -139,7 +139,7 @@ Another feature that helps interoperability is the ability to swap schemas at ru
 ```ts [main.ts]
 import ICalSchema from './Task.ical.schema';
 
-Task.updateSchema(ICalSchema);
+await Task.updateSchema(ICalSchema);
 ```
 
 ```ts [Task.ical.schema.ts]
@@ -263,7 +263,7 @@ for (const task of await Task.all()) {
     await task.migrateSchema(TaskICalSchema);
 }
 
-Task.updateSchema(TaskICalSchema);
+await Task.updateSchema(TaskICalSchema);
 ```
 
 ::: warning

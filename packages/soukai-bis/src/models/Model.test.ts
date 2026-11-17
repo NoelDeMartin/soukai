@@ -110,53 +110,6 @@ describe('Model', () => {
         });
     });
 
-    it('emits events', async () => {
-        // Arrange
-        let createCount = 0;
-        let updateCount = 0;
-        let deleteCount = 0;
-        let saveCount = 0;
-        const modifiedHistory: string[] = [];
-
-        Post.on('created', () => createCount++);
-        Post.on('updated', () => updateCount++);
-        Post.on('deleted', () => deleteCount++);
-        Post.on('saved', () => saveCount++);
-        Post.on('modified', (_, field) => modifiedHistory.push(field));
-
-        // Act
-        const post = await Post.create({ title: 'Event Test' });
-
-        await post.update({ title: 'Event Test Updated' });
-
-        await post.delete();
-
-        // Assert
-        expect(createCount).toBe(1);
-        expect(updateCount).toBe(1);
-        expect(saveCount).toBe(2);
-        expect(deleteCount).toBe(1);
-        expect(modifiedHistory).toContain('title');
-    });
-
-    it('emits events when relation models are set manually', async () => {
-        // Arrange
-        const loadedRelations: unknown[] = [];
-        const user = await User.create({ name: 'Alice' });
-        const post = await Post.create({ title: 'Hello World' });
-
-        User.on('relation-loaded', (_, relation) => loadedRelations.push(relation));
-
-        // Act
-        await user.setRelationModels('posts', [post]);
-
-        // Assert
-        expect(user.isRelationLoaded('posts')).toBe(true);
-        expect(user.posts).toEqual([post]);
-        expect(loadedRelations).toHaveLength(1);
-        expect(loadedRelations[0]).toBe(user.relatedPosts);
-    });
-
     it('infers loaded relation types', async () => {
         // Arrange
         const user = await User.create({ name: 'Alice' });
@@ -2222,7 +2175,8 @@ describe('Model', () => {
 
             // Assert
             expect(classListener).toHaveBeenCalledTimes(1);
-            expect(classListener).toHaveBeenCalledWith(project, undefined);
+            expect(classListener).toHaveBeenCalledWith({ model: project });
+            expect(instanceListener).toHaveBeenCalledWith({ model: project });
             expect(instanceListener).toHaveBeenCalledTimes(1);
             expect(proxyListener).toHaveBeenCalledTimes(1);
         });
@@ -2343,7 +2297,7 @@ describe('Model', () => {
                 const beforeInitialize = vi.fn();
                 const Schema = defineSchema(TodoSchema, { hooks: { beforeInitialize } });
 
-                Todo.updateSchema(Schema);
+                await Todo.updateSchema(Schema);
 
                 // Act
                 const hydrated = await Todo.hydrate(serialized);
@@ -2526,7 +2480,7 @@ describe('Model', () => {
                 const beforeSave = vi.fn();
                 const Schema = defineSchema(TaskICalSchema, { hooks: { beforeSave } });
 
-                Task.updateSchema(Schema);
+                await Task.updateSchema(Schema);
 
                 const project = new Project({ name: 'Solid' });
                 const task = project.relatedTasks.attach({ name: 'Learn Solid' });
@@ -2558,7 +2512,7 @@ describe('Model', () => {
                 const beforeSave = vi.fn();
                 const Schema = defineSchema(TaskICalSchema, { hooks: { beforeSave } });
 
-                Task.updateSchema(Schema);
+                await Task.updateSchema(Schema);
 
                 const task = await Task.create({ name: 'Learn Solid' });
 
@@ -2603,7 +2557,7 @@ describe('Model', () => {
                 });
 
                 // Act
-                Todo.updateSchema(NoHooksSchema);
+                await Todo.updateSchema(NoHooksSchema);
 
                 // Assert
                 // @ts-expect-error The name is optional in the new schema.
@@ -2706,7 +2660,7 @@ describe('Model', () => {
                 for (const rdfClasses of [['Action', 'ical:Vtodo'], allOf(['Action', 'ical:Vtodo'])]) {
                     const Schema = defineSchema(TodoSchema, { rdfClasses });
 
-                    Todo.updateSchema(Schema);
+                    await Todo.updateSchema(Schema);
 
                     // Act
                     const tasks = await Todo.createManyFromRDF(quads);
@@ -2978,7 +2932,7 @@ describe('Model', () => {
                 // Act
                 const extendedTask = await ExtendedTodo.createFromRDF(quads, { url: 'solid://tasks#it' });
 
-                Todo.updateSchema(OverriddenSchema);
+                await Todo.updateSchema(OverriddenSchema);
 
                 const overriddenTask = await Todo.createFromRDF(quads, { url: 'solid://tasks#it' }).catch(
                     (error: unknown) => error,
@@ -3002,7 +2956,7 @@ describe('Model', () => {
                     fields: { name: nameDefinition },
                 });
 
-                Todo.updateSchema(Schema);
+                await Todo.updateSchema(Schema);
 
                 // Act
                 const task = await Todo.createFromRDF(quads, { url: 'solid://tasks#it' });

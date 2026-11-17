@@ -3,8 +3,8 @@ import type { Constructor, Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { cascadeDeletes, deleteModels, markForDeletion } from 'soukai-bis/models/concerns/deletes';
-import { emitModelEvent } from 'soukai-bis/models/concerns/events';
 import { isUsingSameDocument } from 'soukai-bis/models/concerns/rdf';
+import { emitModelInstanceEvent } from 'soukai-bis/models/events';
 import { getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
@@ -269,7 +269,7 @@ export default abstract class Relation<
                 return;
             }
 
-            await emitModelEvent(this.parent, 'updated');
+            await emitModelInstanceEvent(this.parent, 'updated');
         } finally {
             cascade.markedModels.forEach((model) => model.unmarkForDeletion());
         }
