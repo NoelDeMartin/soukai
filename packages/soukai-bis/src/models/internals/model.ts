@@ -5,10 +5,11 @@ import type Model from 'soukai-bis/models/Model';
 import type { Schema } from 'soukai-bis/models/schema';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
+const originalSchemas = new WeakMap<ModelConstructor, Schema | null>();
+
 export const remoteModels = new WeakMap<ModelConstructor, ModelConstructor>();
 export const modelsTrackingLocalChanges = new WeakSet<ModelConstructor>();
 export const migratedModels = new WeakMap<ModelConstructor, WeakMap<ModelConstructor, ModelConstructor>>();
-export const originalSchemas = new WeakMap<ModelConstructor, Schema>();
 export const mintedUrls = new WeakMap<Model, { url: string; options: MintUrlOptions }>();
 
 export const CLASS_MARKER: unique symbol = Symbol('classMarker');
@@ -20,6 +21,30 @@ export function getSchema(modelClass: ModelConstructor): Schema {
 
 export function setSchema(modelClass: ModelConstructor, schema: Schema): void {
     modelClass[SCHEMA] = schema;
+}
+
+export function replaceSchema(modelClass: ModelConstructor, schema: Schema): void {
+    if (!originalSchemas.has(modelClass)) {
+        originalSchemas.set(modelClass, Object.hasOwn(modelClass, SCHEMA) ? getSchema(modelClass) : null);
+    }
+
+    setSchema(modelClass, schema);
+}
+
+export function restoreOriginalSchema(modelClass: ModelConstructor): void {
+    if (!originalSchemas.has(modelClass)) {
+        return;
+    }
+
+    const originalSchema = originalSchemas.get(modelClass);
+
+    if (originalSchema) {
+        setSchema(modelClass, originalSchema);
+    } else {
+        delete (modelClass as { [SCHEMA]?: Schema })[SCHEMA];
+    }
+
+    originalSchemas.delete(modelClass);
 }
 
 export function getFieldRDFProperties(modelClass: ModelConstructor, field: string): NamedNode[] {

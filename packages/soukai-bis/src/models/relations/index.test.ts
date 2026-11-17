@@ -2,10 +2,21 @@ import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { bootModels } from 'soukai-bis/models/registry';
+import type BelongsToManyRelation from 'soukai-bis/models/relations/BelongsToManyRelation';
+import type ContainsRelation from 'soukai-bis/models/relations/ContainsRelation';
 import { hasMany, hasOne } from 'soukai-bis/models/relations/fluent';
+import type HasManyRelation from 'soukai-bis/models/relations/HasManyRelation';
+import type HasOneRelation from 'soukai-bis/models/relations/HasOneRelation';
 import { defineSchema } from 'soukai-bis/models/schema';
+import type Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import type PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
+import type Review from 'soukai-bis/testing/stubs/Review';
+import type Season from 'soukai-bis/testing/stubs/Season';
+import type Show from 'soukai-bis/testing/stubs/Show';
+import type User from 'soukai-bis/testing/stubs/User';
+import type WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vite-plus/test';
 import { url } from 'zod';
 
 describe('Relations', () => {
@@ -123,5 +134,26 @@ describe('Relations', () => {
 
         // Assert
         await expect(promisedPosts).rejects.toBeInstanceOf(SoukaiError);
+    });
+
+    it('infers relation instances from schema definitions', () => {
+        expectTypeOf<User['relatedPosts']>().toExtend<HasManyRelation>();
+        expectTypeOf<User['relatedPosts']['relatedClass']>().toEqualTypeOf<typeof Post>();
+        expectTypeOf<User['relatedPosts']['parent']['name']>().toEqualTypeOf<string>();
+        expectTypeOf<User['relatedLastPost']>().toExtend<HasOneRelation>();
+        expectTypeOf<User['relatedLastPost']['related']>().toEqualTypeOf<Post | null | undefined>();
+        expectTypeOf<User['relatedFriends']['relatedClass']>().toEqualTypeOf<typeof User>();
+        expectTypeOf<Show['relatedSeasons']>().toExtend<BelongsToManyRelation>();
+        expectTypeOf<Show['relatedSeasons']['relatedClass']>().toEqualTypeOf<typeof Season>();
+        expectTypeOf<PostsCollection['relatedPosts']>().toExtend<ContainsRelation>();
+        expectTypeOf<PostsCollection['relatedPosts']['relatedClass']>().toEqualTypeOf<typeof Post>();
+        expectTypeOf<Post['relatedCollection']['related']>().toEqualTypeOf<PostsCollection | null | undefined>();
+    });
+
+    it('supports overriding relation instances manually', () => {
+        expectTypeOf<Review['relatedRating']['parent']>().toEqualTypeOf<Review>();
+        expectTypeOf<Movie['relatedAction']>().toEqualTypeOf<
+            HasOneRelation<Movie, WatchAction, typeof WatchAction, 'objectUrl'>
+        >();
     });
 });

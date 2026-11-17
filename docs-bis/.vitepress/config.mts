@@ -49,7 +49,7 @@ export default defineConfig({
                         { text: 'Local-first', link: 'local-first' },
                         { text: 'Authorization', link: 'authorization' },
                         { text: 'Observability', link: 'observability' },
-                        { text: 'Computed attributes', link: 'computed-attributes' },
+                        { text: 'Caching', link: 'caching' },
                         { text: 'Bag of Tricks', link: 'bag-of-tricks' },
                     ],
                 },

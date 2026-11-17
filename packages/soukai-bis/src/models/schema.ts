@@ -4,6 +4,12 @@ import { arrayFilter, arrayUnique } from '@noeldemartin/utils';
 import type { Override } from '@noeldemartin/utils';
 import type { NamedNode, Quad } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes/ComputedAttribute';
+import type {
+    ComputedAttributeCompute,
+    InvalidationStrategy,
+} from 'soukai-bis/models/computed-attributes/ComputedAttribute';
+import type ComputedAttribute from 'soukai-bis/models/computed-attributes/ComputedAttribute';
 import { getSchema, SCHEMA } from 'soukai-bis/models/internals/model';
 import { deepMeta, rdfProperties } from 'soukai-bis/zod/soukai';
 import type { SafeInferObject } from 'soukai-bis/zod/types';
@@ -18,7 +24,7 @@ import type { CreateFromRDFOptions, ModelConstructorOptions } from './Model';
 import HasOneRelation from './relations/HasOneRelation';
 import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
-import type { SchemaComputedAttributeDefinition, SchemaModelRelations, SchemaRelations } from './relations/schema';
+import type { SchemaModelRelations, SchemaRelations } from './relations/schema';
 import type { ModelConstructor, ModelInstanceType, ModelWithUrl } from './types';
 import { isModelClass } from './utils';
 
@@ -127,6 +133,22 @@ export type BaseSchemaRelations<TBaseClass> = TBaseClass extends {
     ? TBaseRelations
     : {};
 
+export type SchemaComputed = Record<string, unknown>;
+export type SchemaComputedDefinitions<TComputed extends SchemaComputed, TModel extends Model> = {
+    [K in keyof TComputed]: SchemaComputedAttributeConfig<TModel, TComputed[K]>;
+};
+export type SchemaComputedAttributeConfig<TTarget extends Model = Model, TValue = unknown> =
+    | ComputedAttributeCompute<TTarget, TValue>
+    | { invalidationStrategy: InvalidationStrategy; compute: ComputedAttributeCompute<TTarget, TValue> };
+export type SchemaComputedAttributeDefinition = {
+    invalidationStrategy: InvalidationStrategy;
+    // oxlint-disable-next-line typescript/no-explicit-any
+    compute: ComputedAttributeCompute<any, unknown>;
+};
+export type SchemaModelComputed<T extends SchemaComputed = SchemaComputed> = {
+    readonly [K in keyof T]: ComputedAttribute<T[K]>;
+};
+
 export type ExtendedSchemaFields<
     TFields extends SchemaFields = SchemaFields,
     TBaseClass extends ModelConstructor = typeof Model,
@@ -140,6 +162,15 @@ export type ExtendedSchemaRelations<
 export type SchemaModel<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
+    TComputed extends SchemaComputed = {},
+    TBaseClass extends ModelConstructor = typeof Model,
+> = SchemaModelBase<TFields, TRelations, TBaseClass> &
+    SchemaModelRelations<TRelations, SchemaModelBase<TFields, TRelations, TBaseClass>> &
+    SchemaModelComputed<TComputed>;
+
+export type SchemaModelBase<
+    TFields extends SchemaFields = SchemaFields,
+    TRelations extends SchemaRelations = SchemaRelations,
     TBaseClass extends ModelConstructor = typeof Model,
 > = (typeof Model extends TBaseClass
     ? Model<SchemaModelAttributes<TFields>, TRelations>
@@ -148,12 +179,12 @@ export type SchemaModel<
           ExtendedSchemaRelations<TRelations, TBaseClass>
       > &
           InstanceType<TBaseClass>) &
-    SafeInferObject<TFields> &
-    SchemaModelRelations<TRelations>;
+    SafeInferObject<TFields>;
 
 export type SchemaModelClass<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
+    TComputed extends SchemaComputed = {},
     TBaseClass extends ModelConstructor = typeof Model,
 > = Override<
     TBaseClass,
@@ -164,7 +195,7 @@ export type SchemaModelClass<
         new (
             attributes?: SchemaModelInput<TFields, TBaseClass>,
             options?: ModelConstructorOptions,
-        ): SchemaModel<TFields, TRelations, TBaseClass>;
+        ): SchemaModel<TFields, TRelations, TComputed, TBaseClass>;
         getRelation<K extends string & keyof ExtendedSchemaRelations<TRelations, TBaseClass>>(
             name: K,
         ): ExtendedSchemaRelations<TRelations, TBaseClass>[K];
@@ -205,6 +236,7 @@ export type SchemaFields = Record<string, ZodType>;
 export interface SchemaConfig<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = {},
+    TComputed extends SchemaComputed = {},
     TBaseClass extends ModelConstructor = typeof Model,
 > {
     history?: boolean;
@@ -217,32 +249,37 @@ export interface SchemaConfig<
     rdfDefaultResourceHash?: string;
     fields?: TFields;
     relations?: TRelations;
-    hooks?: SchemaHooks<SchemaModel<TFields, TRelations, TBaseClass>, SchemaHookAttributes<TFields, TBaseClass>>;
+    hooks?: SchemaHooks<SchemaModel<TFields, TRelations, {}, TBaseClass>, SchemaHookAttributes<TFields, TBaseClass>>;
+    computed?: SchemaComputedDefinitions<TComputed, NoInfer<SchemaModel<TFields, TRelations, {}, TBaseClass>>>;
 }
 
 export function defineSchema<
     TFields extends SchemaFields = {},
     TRelations extends SchemaRelations = {},
-    TBaseClass extends ModelConstructor = typeof Model,
->(
-    baseClass: TBaseClass,
-    config?: SchemaConfig<TFields, TRelations, TBaseClass>,
-): SchemaModelClass<TFields, TRelations, TBaseClass>;
-export function defineSchema<TFields extends SchemaFields = {}, TRelations extends SchemaRelations = {}>(
-    config: SchemaConfig<TFields, TRelations>,
-): SchemaModelClass<TFields, TRelations>;
+    TComputed extends SchemaComputed = {},
+>(config: SchemaConfig<TFields, TRelations, TComputed>): SchemaModelClass<TFields, TRelations, TComputed>;
 export function defineSchema<
     TFields extends SchemaFields = {},
     TRelations extends SchemaRelations = {},
+    TComputed extends SchemaComputed = {},
     TBaseClass extends ModelConstructor = typeof Model,
 >(
-    baseClassOrConfig: TBaseClass | SchemaConfig<TFields, TRelations, TBaseClass>,
-    configArg?: SchemaConfig<TFields, TRelations, TBaseClass>,
-): SchemaModelClass<TFields, TRelations, TBaseClass> {
+    baseClass: TBaseClass,
+    config?: SchemaConfig<TFields, TRelations, TComputed, TBaseClass>,
+): SchemaModelClass<TFields, TRelations, TComputed, TBaseClass>;
+export function defineSchema<
+    TFields extends SchemaFields = {},
+    TRelations extends SchemaRelations = {},
+    TComputed extends SchemaComputed = {},
+    TBaseClass extends ModelConstructor = typeof Model,
+>(
+    baseClassOrConfig: TBaseClass | SchemaConfig<TFields, TRelations, TComputed, TBaseClass>,
+    configArg?: SchemaConfig<TFields, TRelations, TComputed, TBaseClass>,
+): SchemaModelClass<TFields, TRelations, TComputed, TBaseClass> {
     const baseClass = isModelClass(baseClassOrConfig) ? baseClassOrConfig : null;
     const baseSchema = baseClass ? getSchema(baseClass) : undefined;
     const config = isModelClass(baseClassOrConfig)
-        ? (configArg ?? ({ fields: {} } as SchemaConfig<TFields, TRelations, TBaseClass>))
+        ? (configArg ?? ({ fields: {} } as SchemaConfig<TFields, TRelations, TComputed, TBaseClass>))
         : baseClassOrConfig;
     const fields = config.fields ?? ({} as TFields);
     const rdfContext = {
@@ -299,7 +336,17 @@ export function defineSchema<
             history,
             tombstone,
             rdfContext,
-            computed: {},
+            computed: {
+                ...baseSchema?.computed,
+                ...Object.fromEntries(
+                    Object.entries(config.computed ?? {}).map(([name, definition]) => [
+                        name,
+                        typeof definition === 'function'
+                            ? { invalidationStrategy: InvalidationStrategies.DOCUMENT, compute: definition }
+                            : definition,
+                    ]),
+                ),
+            },
             hooks: { ...baseSchema?.hooks, ...(config.hooks as SchemaHooks) },
             slug: parseSchemaSlug(fields) ?? baseSchema?.slug,
             rdfDefaultResourceHash: config.rdfDefaultResourceHash ?? baseSchema?.rdfDefaultResourceHash ?? 'it',
@@ -312,5 +359,5 @@ export function defineSchema<
                     : (baseSchema?.rdfClasses.clone() ?? new RDFClassesMatcher('all', [])),
             rdfFieldProperties,
         };
-    } as unknown as SchemaModelClass<TFields, TRelations, TBaseClass>;
+    } as unknown as SchemaModelClass<TFields, TRelations, TComputed, TBaseClass>;
 }

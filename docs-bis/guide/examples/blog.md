@@ -38,14 +38,9 @@ console.log('database', engine.documents);
 ```
 
 ```ts [User.ts]
-import type { HasManyRelation } from 'soukai-bis';
-
-import type Post from './Post';
 import Model from './User.schema';
 
-export default class User extends Model {
-    declare public readonly relatedPosts: HasManyRelation<this, Post, typeof Post>;
-}
+export default class User extends Model {}
 ```
 
 ```ts [User.schema.ts]
@@ -63,14 +58,9 @@ export default defineSchema({
 ```
 
 ```ts [Post.ts]
-import type { BelongsToOneRelation } from 'soukai-bis';
-
 import Model from './Post.schema';
-import type User from './User';
 
-export default class Post extends Model {
-    declare public readonly relatedAuthor: BelongsToOneRelation<this, User, typeof User>;
-}
+export default class Post extends Model {}
 ```
 
 ```ts [Post.schema.ts]

@@ -1,4 +1,4 @@
-import { belongsToMany, defineSchema } from 'soukai-bis';
+import { belongsToMany, defineSchema, InvalidationStrategies, loaded } from 'soukai-bis';
 import { z } from 'zod';
 
 export default defineSchema({
@@ -10,5 +10,16 @@ export default defineSchema({
     },
     relations: {
         seasons: belongsToMany('Season', 'seasonUrls').usingSameDocument().onDelete('cascade'),
+    },
+    computed: {
+        pendingEpisodeDates: {
+            invalidationStrategy: InvalidationStrategies.CONTAINER,
+            compute(show) {
+                return loaded(show, 'seasons')
+                    .flatMap((season) => loaded(season, 'episodes'))
+                    .map((episode) => loaded(episode, 'watchAction')?.startTime)
+                    .filter((date) => !!date);
+            },
+        },
     },
 });

@@ -155,9 +155,9 @@ export default class ComputedAttribute<TValue = unknown> {
         const refresh = !ComputedAttribute.refreshesDisabled && options.refresh;
         const useCache = options.useCache;
         const loadRelations = !ComputedAttribute.relationsDisabled && options.loadRelations;
-        const cachedValue = useCache && !refresh && (await this.getCachedValue());
+        const cachedValue = useCache && !refresh ? await this.getCachedValue() : undefined;
 
-        if (cachedValue) {
+        if (cachedValue !== undefined) {
             return (this._value = cachedValue);
         }
 

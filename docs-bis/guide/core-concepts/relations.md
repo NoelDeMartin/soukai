@@ -152,9 +152,9 @@ The `Relation` instance comes with some helper methods to manage related models:
 
 ### Typing relation instances
 
-Related model properties are typed automatically from the schema, so `user.posts` will be typed as `Post[] | undefined`. But that's not the case for relation instances, so methods like `user.relatedPosts.create()` will return a generic `Model` instead of a `Post`.
+Both related model properties and relation instances are typed automatically from the schema. For example, `user.posts` will be typed as `Post[] | undefined`, and `user.relatedPosts.create()` will return a `Post`.
 
-If you want these to be typed, you can declare the relation instances in your model classes:
+However, the parent of relation instances will be typed using the model defined in the schema, rather than your model class. So if you need to access methods or getters defined in your class through `relation.parent`, you can declare the relation instances manually:
 
 ::: code-group
 

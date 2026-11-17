@@ -78,15 +78,7 @@ import type Tombstone from './crdts/Tombstone';
 import type { ModelClassEvent, ModelInstanceEvent, ModelInstanceListener, ModelListener } from './events';
 import { emitModelClassEvent, emitModelInstanceEvent } from './events';
 import { offModelEvent, onModelEvent } from './internals/events';
-import {
-    CLASS_MARKER,
-    SCHEMA,
-    getFieldRDFProperties,
-    getSchema,
-    mintedUrls,
-    originalSchemas,
-    setSchema,
-} from './internals/model';
+import { CLASS_MARKER, SCHEMA, getFieldRDFProperties, getSchema, mintedUrls, replaceSchema } from './internals/model';
 import { createWACAuthorization, updatePublicPermissions } from './internals/permissions';
 import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
@@ -97,14 +89,9 @@ import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
 import { DETACHED_MODELS, NEW_MODEL, NEW_MODELS } from './relations/internals';
 import type Relation from './relations/Relation';
-import type {
-    GetLoadedRelationModels,
-    SchemaComputedAttributeDefinition,
-    SchemaRelationDefinition,
-    SchemaRelations,
-} from './relations/schema';
+import type { GetLoadedRelationModels, SchemaRelationDefinition, SchemaRelations } from './relations/schema';
 import { createRelation } from './relations/utils';
-import type { Schema } from './schema';
+import type { Schema, SchemaComputedAttributeDefinition } from './schema';
 import type {
     AuthorizationProtocol,
     FetchPermissionsOptions,
@@ -114,7 +101,6 @@ import type {
     WACAuthorizationInput,
 } from './types';
 import type {
-    ModelComputedAttributeDefinitions,
     ModelConstructor,
     ModelInstanceType,
     ModelWithHistory,
@@ -173,8 +159,6 @@ export default class Model<
     public static remote: boolean = false;
     private static _hydrating: boolean = false;
 
-    public static computed: ModelComputedAttributeDefinitions;
-
     public static get defaultContainerUrl(): string {
         return getMeta(this, 'defaultContainerUrl');
     }
@@ -196,11 +180,7 @@ export default class Model<
     }
 
     public static async updateSchema(other: ModelConstructor): Promise<void> {
-        if (!originalSchemas.has(this)) {
-            originalSchemas.set(this, getSchema(this));
-        }
-
-        setSchema(this, updateModelSchema(this, getSchema(other)));
+        replaceSchema(this, updateModelSchema(this, getSchema(other)));
 
         await emitModelClassEvent(this, 'schema-updated', { schema: other });
     }

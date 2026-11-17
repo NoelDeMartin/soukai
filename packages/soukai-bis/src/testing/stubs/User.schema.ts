@@ -1,4 +1,4 @@
-import { belongsToMany, defineSchema, hasMany, hasOne } from 'soukai-bis';
+import { belongsToMany, defineSchema, hasMany, hasOne, loaded } from 'soukai-bis';
 import { array, email, number, string, url } from 'zod';
 
 export default defineSchema({
@@ -16,5 +16,8 @@ export default defineSchema({
         posts: hasMany('Post', 'authorUrl'),
         friends: belongsToMany('User', 'friendUrls'),
         lastPost: hasOne('Post', 'authorUrl'),
+    },
+    computed: {
+        postTitles: (user) => loaded(user, 'posts').map((post) => post.title),
     },
 });

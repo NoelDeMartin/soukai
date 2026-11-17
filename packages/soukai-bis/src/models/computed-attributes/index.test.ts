@@ -1,9 +1,15 @@
+import { getSchema } from 'soukai-bis/models/internals/model';
+import { bootModels } from 'soukai-bis/models/registry';
+import { hasMany } from 'soukai-bis/models/relations/fluent';
+import { defineSchema } from 'soukai-bis/models/schema';
 import Post from 'soukai-bis/testing/stubs/Post';
+import type Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
+import { string } from 'zod';
 
 import ComputedAttribute from './ComputedAttribute';
-import { clearCache } from './helpers';
+import { clearCache, loaded } from './helpers';
 
 describe('Computed Attributes', () => {
     beforeEach(() => ComputedAttribute.enableLoadingRelations());
@@ -85,5 +91,59 @@ describe('Computed Attributes', () => {
         // Assert
         expect(values).toEqual(Array(4).fill(['Hello World']));
         expect(performUpdate).toHaveBeenCalledTimes(2);
+    });
+
+    it('infers types from schema definitions', () => {
+        expectTypeOf<User['postTitles']>().toEqualTypeOf<ComputedAttribute<string[]>>();
+        expectTypeOf<Show['pendingEpisodeDates']>().toEqualTypeOf<ComputedAttribute<Date[]>>();
+    });
+
+    it('inherits definitions from base schemas', () => {
+        // Arrange
+        const ExtendedUser = defineSchema(User, {
+            computed: {
+                postsCount: (user) => loaded(user, 'posts').length,
+            },
+        });
+
+        // Assert
+        expectTypeOf<InstanceType<typeof ExtendedUser>['postTitles']>().toEqualTypeOf<ComputedAttribute<string[]>>();
+        expectTypeOf<InstanceType<typeof ExtendedUser>['postsCount']>().toEqualTypeOf<ComputedAttribute<number>>();
+        expect(Object.keys(getSchema(ExtendedUser).computed)).toEqual(['postTitles', 'postsCount']);
+    });
+
+    it('restores falsy values from the cache', async () => {
+        // Arrange
+        const compute = vi.fn((posts: unknown[]) => posts.length);
+        const CounterSchema = defineSchema({
+            rdfContext: 'http://xmlns.com/foaf/0.1/',
+            rdfClass: 'Person',
+            fields: {
+                name: string(),
+            },
+            relations: {
+                posts: hasMany('Post', 'authorUrl'),
+            },
+            computed: {
+                postsCount: (counter) => compute(loaded(counter, 'posts')),
+            },
+        });
+
+        class Counter extends CounterSchema {}
+
+        bootModels({ Counter });
+
+        const counter = await Counter.create({ name: 'Alice' });
+
+        await counter.postsCount.updateValue();
+
+        const computeCalls = compute.mock.calls.length;
+
+        // Act
+        const value = await counter.postsCount.updateValue();
+
+        // Assert
+        expect(value).toBe(0);
+        expect(compute).toHaveBeenCalledTimes(computeCalls);
     });
 });

@@ -2,14 +2,12 @@ import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import { tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
-import { InvalidationStrategies } from 'soukai-bis/models/computed-attributes';
 import {
     getSchema,
     migratedModels,
     modelsTrackingLocalChanges,
-    originalSchemas,
     remoteModels,
-    setSchema,
+    restoreOriginalSchema,
 } from 'soukai-bis/models/internals/model';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
@@ -58,36 +56,11 @@ export function boot(model: ModelConstructor, name?: string): void {
         );
     }
 
-    if (model.computed) {
-        getSchema(model).computed = Object.fromEntries(
-            Object.entries(model.computed).map(([computedAttribute, definition]) => {
-                if (typeof definition === 'function') {
-                    return [
-                        computedAttribute,
-                        {
-                            invalidationStrategy: InvalidationStrategies.DOCUMENT,
-                            compute: definition,
-                        },
-                    ];
-                }
-
-                return [computedAttribute, definition];
-            }),
-        );
-    }
-
     initMeta(model, name);
 }
 
 export function reset(model: ModelConstructor): void {
-    const originalSchema = originalSchemas.get(model);
-
-    if (originalSchema) {
-        setSchema(model, originalSchema);
-
-        originalSchemas.delete(model);
-    }
-
+    restoreOriginalSchema(model);
     store.delete(model);
     remoteModels.delete(model);
     modelsTrackingLocalChanges.delete(model);

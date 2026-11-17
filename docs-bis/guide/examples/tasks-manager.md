@@ -392,14 +392,9 @@ export default defineSchema({
 ```
 
 ```ts [TasksList.ts]
-import type { ContainsRelation } from 'soukai-bis';
-
-import type Task from './Task';
 import Model from './TasksList.schema';
 
-export default class TasksList extends Model {
-    declare public readonly relatedTasks: ContainsRelation<this, Task, typeof Task>;
-}
+export default class TasksList extends Model {}
 ```
 
 ```ts [TasksList.schema.ts]

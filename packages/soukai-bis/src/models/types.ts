@@ -5,7 +5,6 @@ import type { SCHEMA } from 'soukai-bis/models/internals/model';
 import type ACLAuthorization from './acl/ACLAuthorization';
 import type ACPAccessControl from './acp/ACPAccessControl';
 import type ACPAccessControlResource from './acp/ACPAccessControlResource';
-import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
 import type Tombstone from './crdts/Tombstone';
@@ -13,7 +12,6 @@ import type Container from './ldp/Container';
 import type Model from './Model';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
-import type { SchemaComputedAttributeDefinition } from './relations/schema';
 
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
@@ -44,12 +42,6 @@ export type ModelWithTombstones<T extends Model> = T &
         tombstone: Tombstone;
         relatedTombstone: HasOneRelation<T, Tombstone, typeof Tombstone>;
     };
-
-export type ModelComputedAttributeDefinitions = Record<
-    string,
-    // oxlint-disable-next-line typescript/no-explicit-any
-    ComputedAttributeCompute<any, unknown> | SchemaComputedAttributeDefinition
->;
 
 export type ModelsCache = Map<string, WeakMap<typeof Model, Model>>;
 

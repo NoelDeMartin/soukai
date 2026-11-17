@@ -1,22 +1,31 @@
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import type { ComputedAttributeCompute, InvalidationStrategy } from 'soukai-bis/models/computed-attributes';
 import type Model from 'soukai-bis/models/Model';
 import type { ModelsRegistry } from 'soukai-bis/models/registry';
-import type { ModelInstanceType } from 'soukai-bis/models/types';
+import type { ModelConstructor, ModelInstanceType } from 'soukai-bis/models/types';
 
+import type { RelationKind, RelationsRegistry } from './fluent';
 import type { AnyMultiModelRelation, RelationConstructor } from './types';
+
+declare const RELATION_KIND_MARKER: unique symbol;
 
 export type RelatedModelName = keyof ModelsRegistry;
 export type OnDeleteAction = 'cascade';
 
 export type SchemaRelations = Record<string, SchemaRelationDefinition>;
-export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations> = {
+export type SchemaModelRelations<T extends SchemaRelations = SchemaRelations, TParent extends Model = Model> = {
     [K in keyof T]?: InstanceType<T[K]['relationClass']> extends AnyMultiModelRelation
         ? GetRelatedModel<T[K]>[]
         : GetRelatedModel<T[K]>;
 } & {
-    [K in keyof T as `related${Capitalize<string & K>}`]: InstanceType<T[K]['relationClass']>;
+    readonly [K in keyof T as `related${Capitalize<string & K>}`]: GetRelationInstance<T[K], TParent>;
 };
+
+export type GetRelationInstance<
+    T extends SchemaRelationDefinition,
+    TParent extends Model = Model,
+> = null extends T[typeof RELATION_KIND_MARKER]
+    ? InstanceType<T['relationClass']>
+    : RelationsRegistry<TParent, GetRelatedModel<T>, GetRelatedClass<T>>[NonNullable<T[typeof RELATION_KIND_MARKER]>];
 
 export type GetLoadedRelationModels<T> = T extends SchemaRelationDefinition
     ? InstanceType<T['relationClass']> extends AnyMultiModelRelation
@@ -28,10 +37,18 @@ export type GetRelatedModel<T extends SchemaRelationDefinition> = ModelInstanceT
     ModelsRegistry[T['relatedModelName']]
 >;
 
+export type GetRelatedClass<T extends SchemaRelationDefinition> =
+    ModelsRegistry[T['relatedModelName']] extends ModelConstructor<GetRelatedModel<T>>
+        ? ModelsRegistry[T['relatedModelName']]
+        : ModelConstructor<GetRelatedModel<T>>;
+
 export class SchemaRelationDefinition<
     TRelatedName extends RelatedModelName = RelatedModelName,
     TRelationClass extends RelationConstructor = RelationConstructor,
+    TKind extends RelationKind | null = RelationKind | null,
 > {
+    declare public readonly [RELATION_KIND_MARKER]?: TKind;
+
     constructor(
         public relatedModelName: TRelatedName,
         public relationClass: TRelationClass,
@@ -67,7 +84,8 @@ export class SchemaRelationDefinition<
 export class SchemaContainerRelationDefinition<
     TRelatedName extends RelatedModelName = RelatedModelName,
     TRelationClass extends RelationConstructor = RelationConstructor,
-> extends SchemaRelationDefinition<TRelatedName, TRelationClass> {
+    TKind extends RelationKind | null = RelationKind | null,
+> extends SchemaRelationDefinition<TRelatedName, TRelationClass, TKind> {
     public onDelete(action: OnDeleteAction | null): this {
         if (action !== null) {
             throw new SoukaiError(
@@ -82,16 +100,11 @@ export class SchemaContainerRelationDefinition<
 export class SchemaHasRelationDefinition<
     TRelatedName extends RelatedModelName = RelatedModelName,
     TRelationClass extends RelationConstructor = RelationConstructor,
-> extends SchemaRelationDefinition<TRelatedName, TRelationClass> {
+    TKind extends RelationKind | null = RelationKind | null,
+> extends SchemaRelationDefinition<TRelatedName, TRelationClass, TKind> {
     public from(containerUrlProperty: string): this {
         this.options.from = containerUrlProperty;
 
         return this;
     }
 }
-
-export type SchemaComputedAttributeDefinition = {
-    invalidationStrategy: InvalidationStrategy;
-    // oxlint-disable-next-line typescript/no-explicit-any
-    compute: ComputedAttributeCompute<any, unknown>;
-};
