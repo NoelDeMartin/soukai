@@ -429,10 +429,6 @@ The model will still have a single `name` attribute:
 
 Declaring properties disables the default behavior of using the field name to infer RDF properties, so if you want to keep using the field name you have to include it in the list: `.rdfProperties(['name', 'vcard:fn'])`.
 
-### Converting to and from RDF
-
-You can also inspect the RDF of a model using the `toTurtle()` and `toJsonLD()` methods, and create models from RDF using `createFromRDF()` or `createFromJsonLD()`.
-
 ### Timestamps in RDF
 
 In order to keep track of when resources have been created or modified, timestamps are declared in a separate `Metadata` model. This is an example of the RDF that will be generated with the Person class we've been working on:

@@ -110,6 +110,104 @@ describe('Model', () => {
         });
     });
 
+    it('converts models to rdf', async () => {
+        // Arrange
+        const user = await User.create({ name: 'Alice' });
+
+        // Act
+        const quads = await user.toRDF();
+        const parsedUser = await User.createFromRDF(quads, { url: user.url });
+
+        // Assert
+        expectTypeOf(quads).toEqualTypeOf<Quad[]>();
+        expect(quads.every((quad) => quad.graph.termType === 'DefaultGraph')).toBe(true);
+        expect(quads.some((quad) => quad.subject.value === user.url)).toBe(true);
+        expect(quads.some((quad) => quad.subject.value === `${user.url}-metadata`)).toBe(true);
+        expect(parsedUser?.name).toEqual('Alice');
+        expect(parsedUser?.createdAt).toEqual(user.createdAt);
+    });
+
+    it('creates models from turtle', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const turtle = `
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+            <#it>
+                a foaf:Person ;
+                foaf:name "Alice" .
+        `;
+
+        // Act
+        const user = await User.createFromTurtle(turtle, { url: `${documentUrl}#it` });
+        const missing = await User.createFromTurtle(turtle, { url: `${documentUrl}#other` });
+
+        // Assert
+        expect(user).toBeInstanceOf(User);
+        expect(user?.url).toEqual(`${documentUrl}#it`);
+        expect(user?.name).toEqual('Alice');
+        expect(missing).toBeNull();
+
+        expectTypeOf(user).toEqualTypeOf<ModelWithUrl<User> | null>();
+    });
+
+    it('creates many models from turtle', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const turtle = `
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+            <#alice> a foaf:Person ; foaf:name "Alice" .
+            <#bob> a foaf:Person ; foaf:name "Bob" .
+            <#movie> a <https://schema.org/Movie> .
+        `;
+
+        // Act
+        const users = await User.createManyFromTurtle(turtle, { baseIRI: documentUrl });
+
+        // Assert
+        expect(users.map(({ url, name }) => [url, name])).toEqual([
+            [`${documentUrl}#alice`, 'Alice'],
+            [`${documentUrl}#bob`, 'Bob'],
+        ]);
+
+        expectTypeOf(users).toEqualTypeOf<ModelWithUrl<User>[]>();
+    });
+
+    it('creates many models from json-ld', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl();
+        const json = {
+            '@graph': [
+                {
+                    '@id': `${documentUrl}#alice`,
+                    '@type': 'http://xmlns.com/foaf/0.1/Person',
+                    'http://xmlns.com/foaf/0.1/name': 'Alice',
+                },
+                {
+                    '@id': `${documentUrl}#bob`,
+                    '@type': 'http://xmlns.com/foaf/0.1/Person',
+                    'http://xmlns.com/foaf/0.1/name': 'Bob',
+                },
+                {
+                    '@id': `${documentUrl}#movie`,
+                    '@type': 'https://schema.org/Movie',
+                },
+            ],
+        };
+
+        // Act
+        const users = await User.createManyFromJsonLD(json);
+
+        // Assert
+        expect(users.map(({ url, name }) => [url, name])).toEqual([
+            [`${documentUrl}#alice`, 'Alice'],
+            [`${documentUrl}#bob`, 'Bob'],
+        ]);
+
+        expectTypeOf(users).toEqualTypeOf<ModelWithUrl<User>[]>();
+    });
+
     it('infers loaded relation types', async () => {
         // Arrange
         const user = await User.create({ name: 'Alice' });

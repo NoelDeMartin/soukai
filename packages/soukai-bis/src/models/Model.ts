@@ -1,4 +1,10 @@
-import { SolidDocumentPermissions, jsonldToQuads, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
+import {
+    SolidDocumentPermissions,
+    jsonldToQuads,
+    quadsToJsonLD,
+    quadsToTurtle,
+    turtleToQuads,
+} from '@noeldemartin/solid-utils';
 import type { JsonLD, SolidDocument, SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import {
     MagicObject,
@@ -405,12 +411,23 @@ export default class Model<
     public static async createFromJsonLD<T extends Model>(
         this: ModelConstructor<T>,
         json: JsonLD,
-        options: { url?: string } = {},
+        options: CreateFromRDFOptions & { url?: string } = {},
     ): Promise<ModelWithUrl<T> | null> {
         const url = options.url ?? json['@id'] ?? fail<string>('JsonLD is missing @id');
         const quads = await jsonldToQuads(json);
 
-        return this.createFromRDF(quads, { url });
+        return this.createFromRDF(quads, { ...options, url });
+    }
+
+    public static async createFromTurtle<T extends Model>(
+        this: ModelConstructor<T>,
+        turtle: string,
+        options: CreateFromRDFOptions & { url: string; baseIRI?: string },
+    ): Promise<ModelWithUrl<T> | null> {
+        const { baseIRI, ...rdfOptions } = options;
+        const quads = await turtleToQuads(turtle, { baseIRI: baseIRI ?? urlRoute(options.url) });
+
+        return this.createFromRDF(quads, rdfOptions);
     }
 
     public static async createFromDocument<T extends Model>(
@@ -455,6 +472,28 @@ export default class Model<
         );
 
         return models.filter(isTruthy);
+    }
+
+    public static async createManyFromTurtle<T extends Model>(
+        this: ModelConstructor<T>,
+        turtle: string,
+        options: CreateFromRDFOptions & { baseIRI?: string } = {},
+    ): Promise<ModelWithUrl<T>[]> {
+        const { baseIRI, ...rdfOptions } = options;
+        const quads = await turtleToQuads(turtle, { baseIRI });
+
+        return this.createManyFromRDF(quads, rdfOptions);
+    }
+
+    public static async createManyFromJsonLD<T extends Model>(
+        this: ModelConstructor<T>,
+        json: JsonLD,
+        options: CreateFromRDFOptions & { baseIRI?: string } = {},
+    ): Promise<ModelWithUrl<T>[]> {
+        const { baseIRI, ...rdfOptions } = options;
+        const quads = await jsonldToQuads(json, baseIRI);
+
+        return this.createManyFromRDF(quads, rdfOptions);
     }
 
     public static async createManyFromDocument<T extends Model>(
@@ -1198,16 +1237,18 @@ export default class Model<
         return serializeModel(this);
     }
 
-    public async toJsonLD(): Promise<JsonLD> {
+    public async toRDF(): Promise<Quad[]> {
         await loadDocumentRelations(this);
 
-        return quadsToJsonLD(serializeToRDF(this.getDocumentModels()));
+        return serializeToRDF(this.getDocumentModels());
+    }
+
+    public async toJsonLD(): Promise<JsonLD> {
+        return quadsToJsonLD(await this.toRDF());
     }
 
     public async toTurtle(): Promise<string> {
-        await loadDocumentRelations(this);
-
-        return quadsToTurtle(serializeToRDF(this.getDocumentModels()));
+        return quadsToTurtle(await this.toRDF());
     }
 
     protected __get(property: string): unknown {

@@ -1,5 +1,4 @@
 import { RDFNamedNode, expandIRI } from '@noeldemartin/solid-utils';
-import type { JsonLD, SolidDocument } from '@noeldemartin/solid-utils';
 import { arrayFilter, arrayUnique } from '@noeldemartin/utils';
 import type { Override } from '@noeldemartin/utils';
 import type { NamedNode, Quad } from '@rdfjs/types';
@@ -20,7 +19,7 @@ import { allOf } from './matching/fluent';
 import type { RDFClassesDefinition } from './matching/fluent';
 import RDFClassesMatcher from './matching/RDFClassesMatcher';
 import Model from './Model';
-import type { CreateFromRDFOptions, ModelConstructorOptions } from './Model';
+import type { ModelConstructorOptions } from './Model';
 import HasOneRelation from './relations/HasOneRelation';
 import OperationsRelation from './relations/OperationsRelation';
 import { SchemaRelationDefinition } from './relations/schema';
@@ -213,21 +212,6 @@ export type SchemaModelClass<
             containerUrl: string,
             attributes?: SchemaModelInput<TFields, TBaseClass>,
         ): Promise<ModelWithUrl<ModelInstanceType<This>>>;
-        createFromJsonLD<This>(
-            this: This,
-            json: JsonLD,
-            options?: { url?: string },
-        ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
-        createFromRDF<This>(
-            this: This,
-            quads: Quad[],
-            options: CreateFromRDFOptions & { url: string; sourceDocumentUrl?: string },
-        ): Promise<ModelWithUrl<ModelInstanceType<This>> | null>;
-        createManyFromDocument<This>(
-            this: This,
-            document: SolidDocument,
-            options?: CreateFromRDFOptions,
-        ): Promise<ModelWithUrl<ModelInstanceType<This>>[]>;
     }
 >;
 

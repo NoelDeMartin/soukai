@@ -85,29 +85,7 @@ The `updateValue` method accepts the following options:
 - `useCache`: Read and fall back to cached values (defaults to `true`).
 - `loadRelations`: Load the missing relations (defaults to `true`). If this is disabled and some relations are missing, the value can't be computed, so the cached value will be returned instead (or `undefined`, if `useCache` is also disabled).
 
-Concurrent updates with the same options are coalesced, so calling the method multiple times at once won't compute the value more than necessary.
-
-### Disabling refreshes
-
-When you're doing a lot of changes at once, refreshing values after each operation can be wasteful. In those cases, you can disable refreshes and relation loading temporarily, and update the values once you're done:
-
-```ts
-import { ComputedAttribute } from 'soukai-bis';
-
-ComputedAttribute.disableRefreshes();
-ComputedAttribute.disableLoadingRelations();
-
-try {
-    for (const title of ['One', 'Two', 'Three']) {
-        await user.relatedPosts.create({ title, content: '...' });
-    }
-} finally {
-    ComputedAttribute.enableRefreshes();
-    ComputedAttribute.enableLoadingRelations();
-}
-
-await user.postTitles.updateValue({ refresh: true });
-```
+Concurrent updates with the same options are coalesced, so calling the method multiple times at once won't compute the value more than necessary. And if you're doing a lot of changes at once, you can also [disable refreshes temporarily](./bag-of-tricks.md#disabling-computed-attribute-refreshes).
 
 ### Invalidation strategies
 

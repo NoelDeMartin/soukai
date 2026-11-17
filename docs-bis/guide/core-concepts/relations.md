@@ -147,42 +147,10 @@ The `Relation` instance comes with some helper methods to manage related models:
 - `create`: Creates a new related model, setting foreign keys automatically.
 - `attach`: Associates a model (or a new model created from the given attributes) without saving it.
 - `save`: Associates a model and saves it.
-- `detach`: Removes the association between models. You can also pass the `{ delete: true }` option to [mark the detached models for deletion](./engines.md#marking-models-for-deletion).
+- `detach`: Removes the association between models. You can also pass the `{ delete: true }` option to [mark the detached models for deletion](../advanced/bag-of-tricks.md#marking-models-for-deletion).
 - `delete`: Deletes related models.
 
-### Typing relation instances
-
-Both related model properties and relation instances are typed automatically from the schema. For example, `user.posts` will be typed as `Post[] | undefined`, and `user.relatedPosts.create()` will return a `Post`.
-
-However, the parent of relation instances will be typed using the model defined in the schema, rather than your model class. So if you need to access methods or getters defined in your class through `relation.parent`, you can declare the relation instances manually:
-
-::: code-group
-
-```ts [User.ts]
-import type { HasManyRelation } from 'soukai-bis';
-
-import type Post from './Post';
-import Model from './User.schema';
-
-export default class User extends Model {
-    declare public readonly relatedPosts: HasManyRelation<this, Post, typeof Post>;
-}
-```
-
-```ts [Post.ts]
-import type { BelongsToOneRelation } from 'soukai-bis';
-
-import Model from './Post.schema';
-import type User from './User';
-
-export default class Post extends Model {
-    declare public readonly relatedAuthor: BelongsToOneRelation<this, User, typeof User>;
-}
-```
-
-:::
-
-Each relation helper has its own relation class (`HasManyRelation` for `hasMany`, `BelongsToOneRelation` for `belongsToOne`, etc.), and they all take the same type arguments: the parent model, the related model, and the related model class.
+Relation instances are also typed automatically from the schema, so `user.relatedPosts.create()` will return a `Post`. However, their parent will be typed using the schema model rather than your model class. If you need to access methods defined in your class through `relation.parent`, check out how to [type relation parents](../advanced/bag-of-tricks.md#typing-relation-parents).
 
 ### Loading from other containers
 

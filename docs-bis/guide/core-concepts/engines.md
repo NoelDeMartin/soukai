@@ -76,7 +76,7 @@ await user.update({ name: 'Jane' });
 ```
 
 > [!WARNING] ⚠️ Beware of concurrent updates
-> Saving a model that changed in the storage after your last synchronization may not work as expected, because the internal state may differ. Specially if you're not [enabling local-first](../advanced/local-first.md).
+> Saving a model that changed in the storage after your last synchronization may not work as expected, because the internal state may differ. Specially if you're not [enabling local-first](../advanced/local-first.md). If you suspect that this may happen, you can [refresh the model](#refreshing-models) before updating it.
 >
 > Also, depending on the engine you're using, calling the `save` method multiple times on the same model may fail due to race conditions. Make sure to debounce the calls so that you don't have multiple operations going on concurrently.
 
@@ -108,6 +108,16 @@ console.log('Users in container (and nested 2 levels)', users);
 
 If any of the documents fails to be parsed, the method will throw an error. But you can use the `onDocumentError` option to handle these errors and continue reading the other documents.
 
+### Refreshing models
+
+Model instances are not updated when their data changes in the storage, for example if it's modified in a different browser tab or another device. If you want to get the latest version of a model, you can use the `fresh` method:
+
+```ts
+const freshUser = await user.fresh();
+```
+
+This will read the model from the engine again and return a new instance, leaving the original untouched. If the model doesn't exist anymore, it will throw an error.
+
 ## Deleting
 
 Finally, when you need to delete data, you can use the `delete` method:
@@ -118,18 +128,7 @@ await user.delete();
 
 If the model is the only resource in its document, the document will be deleted. Otherwise, only the resources related with the model will be removed from the document.
 
-### Marking models for deletion
-
-Instead of deleting a model right away, you can also mark it for deletion using the `markForDeletion` method. The model will be deleted the next time it's saved:
-
-```ts
-user.markForDeletion();
-
-// The model will be deleted from the engine at this point.
-await user.save();
-```
-
-You can check whether a model has been marked for deletion with `isMarkedForDeletion`, and undo it with `unmarkForDeletion`.
+You can also [mark models for deletion](../advanced/bag-of-tricks.md#marking-models-for-deletion), so that they are deleted the next time they're saved.
 
 ## Remote engine
 

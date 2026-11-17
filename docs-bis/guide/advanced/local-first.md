@@ -48,15 +48,7 @@ The code above will generate the following operations:
 - Set `name` to "Alice"
 - Set `name` to "Alice Cooper"
 
-### Merging operations
-
-Operations are stored as RDF resources in the same document as the model, so they can be merged by any device that has access to the document. Once operations from different devices have been merged into a document, you can call the `syncOperations` method to update the model attributes with the result of applying all the operations:
-
-```ts
-await alice.syncOperations();
-```
-
-In most cases, you won't need to do this manually because it's done automatically when [synchronizing](#synchronization) models.
+Operations are stored in the same document as the model, so any device with access to the document can merge them. When a document is [synchronized](#synchronization), the model attributes are updated with the result of applying all the operations (you can also do this manually calling `syncOperations()`).
 
 ## Deletions
 
