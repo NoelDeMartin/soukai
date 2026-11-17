@@ -4,18 +4,14 @@ If you followed the [installation instructions](../getting-started/installation.
 
 In any case, here it is again:
 
-```ts
-import { InMemoryEngine, bootCoreModels, bootModels, defineSchema, setEngine } from 'soukai-bis';
-import { string } from 'zod';
+::: code-group
+
+```ts [main.ts]
+import { InMemoryEngine, bootCoreModels, bootModels, setEngine } from 'soukai-bis';
+
+import User from './User';
 
 // Configure your data models and storage.
-class User extends defineSchema({
-    fields: {
-        name: string(),
-        surname: string(),
-    },
-}) {}
-
 bootCoreModels();
 bootModels({ User });
 setEngine(new InMemoryEngine());
@@ -31,3 +27,23 @@ console.log(
     users.map((user) => user.getAttributes()),
 );
 ```
+
+```ts [User.ts]
+import Model from './User.schema';
+
+export default class User extends Model {}
+```
+
+```ts [User.schema.ts]
+import { defineSchema } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    fields: {
+        name: string(),
+        surname: string(),
+    },
+});
+```
+
+:::

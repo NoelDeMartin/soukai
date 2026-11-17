@@ -62,7 +62,7 @@ export default defineConfig({
                         { text: 'Hello World (using Solid)', link: 'hello-world-using-solid' },
                         { text: 'Blog', link: 'blog' },
                         { text: 'Tasks Manager (using Solid)', link: 'tasks-manager' },
-                        { text: 'Apps', link: 'apps' },
+                        { text: 'Real-World Apps', link: 'real-world-apps' },
                     ],
                 },
             ],

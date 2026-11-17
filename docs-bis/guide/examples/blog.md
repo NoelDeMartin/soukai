@@ -34,7 +34,7 @@ console.log(
     posts.map((post) => post.getAttributes()),
 );
 console.log('author', author?.getAttributes());
-console.log('database', engine.documents);
+console.log('documents', Object.keys(engine.documents));
 ```
 
 ```ts [User.ts]
