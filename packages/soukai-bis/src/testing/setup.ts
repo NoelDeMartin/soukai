@@ -16,6 +16,7 @@ import { resetModelListeners } from 'soukai-bis/models/events';
 import { forgetAuthorizationProtocols } from 'soukai-bis/models/internals/permissions';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Episode from 'soukai-bis/testing/stubs/Episode';
+import Group from 'soukai-bis/testing/stubs/Group';
 import InverseEpisode from 'soukai-bis/testing/stubs/InverseEpisode';
 import InverseSeason from 'soukai-bis/testing/stubs/InverseSeason';
 import ManagerGrant from 'soukai-bis/testing/stubs/ManagerGrant';
@@ -52,6 +53,7 @@ beforeEach(() => {
         {
             Animal,
             Episode,
+            Group,
             InverseEpisode,
             InverseSeason,
             ManagerGrant,

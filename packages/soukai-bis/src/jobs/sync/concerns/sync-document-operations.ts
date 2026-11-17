@@ -1,11 +1,13 @@
 import { RDFNamedNode, RDFQuad, SolidDocument } from '@noeldemartin/solid-utils';
-import { isInstanceOf, objectFromEntries, required } from '@noeldemartin/utils';
+import { arrayFilter, objectFromEntries, required } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import {
+    CRDT_ADD_PROPERTY_OPERATION_OBJECT,
     CRDT_DELETED_AT_PREDICATE,
     CRDT_METADATA_OBJECT,
+    CRDT_REMOVE_PROPERTY_OPERATION_OBJECT,
     CRDT_RESOURCE_PREDICATE,
     CRDT_RESTORE_OPERATION_OBJECT,
     CRDT_SET_PROPERTY_OPERATION_OBJECT,
@@ -17,17 +19,21 @@ import {
     RDF_TYPE_PREDICATE,
     createRDFLiteral,
 } from 'soukai-bis/lib/internals/rdf';
-import { normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
 import {
     getTombstoneUrl,
+    isArrayPropertyOperation,
     isLifecycleOperation,
+    isPropertyOperation,
+    isSupersededResetOperation,
+    sameProperty,
     sortedOperations,
     supersedesOperation,
+    withEffectiveValues,
 } from 'soukai-bis/models/crdts/helpers';
 import Metadata from 'soukai-bis/models/crdts/Metadata';
 import type Operation from 'soukai-bis/models/crdts/Operation';
-import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
+import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
@@ -98,6 +104,31 @@ function getMetadataUpdates({
     );
 }
 
+function getPropertyUpdateOperations(
+    operation: PropertyOperation,
+    existingOperations: PropertyOperation[],
+    allOperations: PropertyOperation[],
+): Operation[] {
+    if (isArrayPropertyOperation(operation)) {
+        return arrayFilter([withEffectiveValues(operation, allOperations)]);
+    }
+
+    if (isSupersededResetOperation(operation, existingOperations)) {
+        return [];
+    }
+
+    const arrayOperationsToReapply = sortedOperations(
+        existingOperations
+            .filter(isArrayPropertyOperation)
+            .filter((other) => sameProperty(operation, other) && supersedesOperation(other, operation)),
+    );
+
+    return [
+        operation,
+        ...arrayFilter(arrayOperationsToReapply.map((other) => withEffectiveValues(other, allOperations))),
+    ];
+}
+
 function getDocumentUpdateOperations({
     existingOperations,
     newOperations,
@@ -108,21 +139,18 @@ function getDocumentUpdateOperations({
     metadataUrls: Record<string, string>;
 }): EngineOperation[] {
     const operations: Operation[] = [];
-    const existingPropertyOperations = existingOperations.filter((operation) => operation instanceof PropertyOperation);
+    const existingPropertyOperations = existingOperations.filter(isPropertyOperation);
     const existingLifecycleOperations = existingOperations.filter(isLifecycleOperation);
+    const allPropertyOperations = [...existingPropertyOperations, ...newOperations.filter(isPropertyOperation)];
 
     for (const newOperation of newOperations) {
         operations.push(...newOperation.createDocumentOperations());
 
-        if (
-            isInstanceOf(newOperation, PropertyOperation) &&
-            existingPropertyOperations.some(
-                (existingOperation) =>
-                    existingOperation.resourceUrl === newOperation.resourceUrl &&
-                    normalizeRDFIRI(existingOperation.property) === normalizeRDFIRI(newOperation.property) &&
-                    existingOperation.date > newOperation.date,
-            )
-        ) {
+        if (isPropertyOperation(newOperation)) {
+            operations.push(
+                ...getPropertyUpdateOperations(newOperation, existingPropertyOperations, allPropertyOperations),
+            );
+
             continue;
         }
 
@@ -283,6 +311,8 @@ function getDeletedResourcesDocumentOperations({
     const deletedOperationUrls = [
         ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_SET_PROPERTY_OPERATION_OBJECT),
         ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_UNSET_PROPERTY_OPERATION_OBJECT),
+        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_ADD_PROPERTY_OPERATION_OBJECT),
+        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_REMOVE_PROPERTY_OPERATION_OBJECT),
         ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_SOFT_DELETE_OPERATION_OBJECT),
         ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_RESTORE_OPERATION_OBJECT),
     ]

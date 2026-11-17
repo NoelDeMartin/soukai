@@ -17,13 +17,19 @@ import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts
 import { readRDFAttributes } from 'soukai-bis/models/concerns/rdf';
 import { updateModelSchema } from 'soukai-bis/models/concerns/schemas';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
-import { isLifecycleOperation, isPropertyOperation, sortedOperations } from 'soukai-bis/models/crdts/helpers';
+import {
+    foldPropertyOperations,
+    isLifecycleOperation,
+    isPropertyOperation,
+    sortedOperations,
+    valuesEqual,
+} from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import { getFieldRDFProperties, getSchema, migratedModels, setSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads, serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
-import { bootModels, requireBootedModel } from 'soukai-bis/models/registry';
+import { bootModels, isBootedModelInstance, requireBootedModel } from 'soukai-bis/models/registry';
 import type { Schema } from 'soukai-bis/models/schema';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { isUrlField } from 'soukai-bis/zod/utils';
@@ -202,10 +208,10 @@ function getOperationUpdates(
     url: string,
     targetSchema: Schema,
     operations: PropertyOperation[],
-): { updates: EngineOperation[]; operations: Map<string, PropertyOperation> } {
+): { updates: EngineOperation[]; operations: Map<string, PropertyOperation[]> } {
     const schema = getSchema(model.static());
     const updates: EngineOperation[] = [];
-    const latestOperations = new Map<string, PropertyOperation>();
+    const propertyOperations = new Map<string, PropertyOperation[]>();
     const urlNode = new RDFNamedNode(url);
 
     for (const operation of sortedOperations(operations)) {
@@ -230,16 +236,19 @@ function getOperationUpdates(
             updates.push(setProperty(operationUrl, CRDT_PROPERTY, [new RDFNamedNode(property)], operation.date));
         }
 
-        latestOperations.set(property, operation);
+        const operationsGroup =
+            propertyOperations.get(property) ?? tap([], (group) => propertyOperations.set(property, group));
+
+        operationsGroup.push(operation);
     }
 
-    return { updates, operations: latestOperations };
+    return { updates, operations: propertyOperations };
 }
 
 function getNewOperations(
     instance: ModelWithUrl,
     targetValues: Map<string, Quad_Object[]>,
-    latestOperations: Map<string, PropertyOperation>,
+    propertyOperations: Map<string, PropertyOperation[]>,
     date: Date,
 ): EngineOperation[] {
     const updates: EngineOperation[] = [];
@@ -247,9 +256,10 @@ function getNewOperations(
     for (const field of Object.keys(getSchema(instance.static()).fields.def.shape)) {
         for (const property of getFieldRDFProperties(instance.static(), field)) {
             const values = targetValues.get(property.value) ?? [];
-            const latestOperation = latestOperations.get(property.value);
+            const operations = propertyOperations.get(property.value) ?? [];
+            const latestOperation = operations.at(-1);
 
-            if (historyHoldsValues(latestOperation, values)) {
+            if (historyHoldsValues(operations, values)) {
                 continue;
             }
 
@@ -310,13 +320,6 @@ function groupByPredicate(quads: Quad[]): Map<string, Quad_Object[]> {
     return groups;
 }
 
-function valuesEqual(values: Quad_Object[], otherValues: Quad_Object[]): boolean {
-    return (
-        values.length === otherValues.length &&
-        values.every((value) => otherValues.some((otherValue) => otherValue.equals(value)))
-    );
-}
-
 function replaceOperation(existingOperation: PropertyOperation, operation: PropertyOperation): EngineOperation[] {
     const operationUrl = existingOperation.requireUrl();
     const typeChanged = existingOperation.static() !== operation.static();
@@ -330,7 +333,7 @@ function replaceOperation(existingOperation: PropertyOperation, operation: Prope
         }
     }
 
-    if (typeChanged && operation instanceof requireBootedModel('UnsetPropertyOperation')) {
+    if (typeChanged && isBootedModelInstance(operation, 'UnsetPropertyOperation')) {
         updates.push(unsetProperty(operationUrl, CRDT_VALUE, operation.date));
     }
 
@@ -361,11 +364,8 @@ function createPropertyOperation(
     return operation.setPredicate(property);
 }
 
-function historyHoldsValues(latestOperation: PropertyOperation | undefined, values: Quad_Object[]): boolean {
-    const latestValues =
-        latestOperation instanceof requireBootedModel('SetPropertyOperation') ? latestOperation.values : null;
-
-    return values.length === 0 ? !latestValues : !!latestValues && valuesEqual(latestValues, values);
+function historyHoldsValues(operations: PropertyOperation[], values: Quad_Object[]): boolean {
+    return valuesEqual(foldPropertyOperations(operations), values);
 }
 
 function wouldTie(latestOperation: PropertyOperation | undefined, date: Date): latestOperation is PropertyOperation {

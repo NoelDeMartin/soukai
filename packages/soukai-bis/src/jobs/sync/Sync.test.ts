@@ -292,6 +292,94 @@ describe('Sync', () => {
         expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(fixture('add-third-name.sparql'));
     });
 
+    it('syncs array operations from different devices', async () => {
+        // Arrange
+        const storageUrl = config.userProfile.storageUrls[0];
+        const containerUrl = fakeContainerUrl({ baseUrl: storageUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const personTurtle = (friends: string[], operations: string) => `
+            @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <#it>
+                a foaf:Person ;
+                foaf:name "Alice" ;
+                foaf:knows ${friends.map((friend) => `<#${friend}>`).join(', ')} .
+
+            <#operation-1>
+                a crdt:SetPropertyOperation ;
+                crdt:resource <#it> ;
+                crdt:property foaf:knows ;
+                crdt:value <#bob> ;
+                crdt:date "2021-01-01T00:00:00.000Z"^^xsd:dateTime .
+
+            ${operations}
+        `;
+        const remoteDocument = personTurtle(
+            ['bob', 'charlie'],
+            `
+                <#operation-2>
+                    a crdt:AddPropertyOperation ;
+                    crdt:resource <#it> ;
+                    crdt:property foaf:knows ;
+                    crdt:value <#charlie> ;
+                    crdt:date "2021-01-02T00:00:00.000Z"^^xsd:dateTime .
+            `,
+        );
+        const localOperation = `
+            <#operation-3>
+                a crdt:AddPropertyOperation ;
+                crdt:resource <#it> ;
+                crdt:property foaf:knows ;
+                crdt:value <#dave> ;
+                crdt:date "2021-01-03T00:00:00.000Z"^^xsd:dateTime .
+        `;
+
+        typeIndex.relatedRegistrations.related = [
+            new TypeRegistration({
+                instanceContainer: containerUrl,
+                forClass: [expandIRI('foaf:Person')],
+            }),
+        ];
+
+        FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, remoteDocument);
+        FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+        await createUnsyncedDocument(
+            documentUrl,
+            turtleToQuadsSync(personTurtle(['bob', 'dave'], localOperation), { baseIRI: documentUrl }),
+        );
+
+        // Act
+        await Sync.run({
+            ...config,
+            applicationModels: [{ model: User, registration: true }],
+        });
+
+        // Assert
+        const user = await User.findOrFail(`${documentUrl}#it`);
+
+        expect(user.friendUrls?.slice().sort()).toEqual([
+            `${documentUrl}#bob`,
+            `${documentUrl}#charlie`,
+            `${documentUrl}#dave`,
+        ]);
+        expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
+            INSERT DATA {
+                @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <#it> foaf:knows <#dave> .
+
+                ${localOperation}
+            }
+        `);
+    });
+
     it('handles missing remote documents', async () => {
         // Arrange
         const storageUrl = config.userProfile.storageUrls[0];

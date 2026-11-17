@@ -47,17 +47,22 @@ export default class PropertyOperation extends Model {
         return [...super.getHashContent(), this.property];
     }
 
-    protected filterQuads(quads: Quad[]): Quad[] {
-        const variants = getRDFIRIVariants(this.predicate.value);
+    protected matchesQuad(quad: Quad): boolean {
+        return (
+            this.subject.equals(quad.subject) && getRDFIRIVariants(this.predicate.value).includes(quad.predicate.value)
+        );
+    }
 
-        return quads.filter((q) => !this.subject.equals(q.subject) || !variants.includes(q.predicate.value));
+    protected getPredicateVariants(): Quad_Predicate[] {
+        return this.predicate.termType === 'NamedNode' ? getRDFNamedNodeVariants(this.predicate) : [this.predicate];
+    }
+
+    protected filterQuads(quads: Quad[]): Quad[] {
+        return quads.filter((quad) => !this.matchesQuad(quad));
     }
 
     protected deleteFromSparql(sparql: SparqlUpdate): void {
-        const predicates =
-            this.predicate.termType === 'NamedNode' ? getRDFNamedNodeVariants(this.predicate) : [this.predicate];
-
-        for (const predicate of predicates) {
+        for (const predicate of this.getPredicateVariants()) {
             sparql.delete(this.subject, predicate);
         }
     }

@@ -5,6 +5,8 @@ export function getCoreOperationModels(): ModelConstructor[] {
     return [
         requireBootedModel('SetPropertyOperation'),
         requireBootedModel('UnsetPropertyOperation'),
+        requireBootedModel('AddPropertyOperation'),
+        requireBootedModel('RemovePropertyOperation'),
         requireBootedModel('SoftDeleteOperation'),
         requireBootedModel('RestoreOperation'),
     ];

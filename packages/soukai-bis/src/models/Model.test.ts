@@ -2214,10 +2214,6 @@ describe('Model', () => {
     });
 
     describe('hooks', () => {
-        const ACTION_STATUS = 'https://schema.org/actionStatus';
-        const COMPLETED = 'https://schema.org/CompletedActionStatus';
-        const POTENTIAL = 'https://schema.org/PotentialActionStatus';
-
         const TodoSchema = defineSchema({
             rdfContext: 'https://schema.org/',
             rdfClass: 'Action',
@@ -2233,7 +2229,9 @@ describe('Model', () => {
                     attributes.name ??= attributes.description;
                 },
                 beforeSave() {
-                    this.status = this.completedAt ? COMPLETED : POTENTIAL;
+                    this.status = this.completedAt
+                        ? expandIRI('schema:CompletedActionStatus')
+                        : expandIRI('schema:PotentialActionStatus');
                 },
             },
         });
@@ -2337,7 +2335,7 @@ describe('Model', () => {
                 expect(serialized.nodes[0]?.staleRDFProperties).toEqual(['https://schema.org/name']);
                 expect(statements.some((quad) => quad.predicate.value === 'https://schema.org/name')).toBe(false);
                 expect(operationProperties).toEqual([
-                    ACTION_STATUS,
+                    expandIRI('schema:actionStatus'),
                     'https://schema.org/description',
                     'https://schema.org/endTime',
                 ]);
@@ -2423,7 +2421,7 @@ describe('Model', () => {
                 const todo = await Todo.create({ name: 'Learn Solid' });
 
                 // Assert
-                expect(todo.status).toEqual(POTENTIAL);
+                expect(todo.status).toEqual(expandIRI('schema:PotentialActionStatus'));
 
                 // Act
                 await todo.update({ completedAt: new Date() });
@@ -2431,7 +2429,7 @@ describe('Model', () => {
                 // Assert
                 const freshTodo = await Todo.findOrFail(todo.url);
 
-                expect(freshTodo.status).toEqual(COMPLETED);
+                expect(freshTodo.status).toEqual(expandIRI('schema:CompletedActionStatus'));
             });
 
             it('records changes in the same history batch', async () => {
@@ -2448,7 +2446,7 @@ describe('Model', () => {
                 const freshTodo = await Todo.findOrFail(todo.url);
                 const operations = await loadOperations(freshTodo.url);
                 const statusOperations = operations
-                    .filter((operation) => operation.property === ACTION_STATUS)
+                    .filter((operation) => operation.property === expandIRI('schema:actionStatus'))
                     .sort((a, b) => a.date.getTime() - b.date.getTime());
                 const completedAtOperation = required(
                     operations.find((operation) => operation.property === 'https://schema.org/endTime'),
@@ -2472,7 +2470,9 @@ describe('Model', () => {
                 const freshTodo = await Todo.findOrFail(todo.url);
                 const operations = await loadOperations(freshTodo.url);
 
-                expect(operations.filter((operation) => operation.property === ACTION_STATUS)).toHaveLength(1);
+                expect(
+                    operations.filter((operation) => operation.property === expandIRI('schema:actionStatus')),
+                ).toHaveLength(1);
             });
 
             it('runs for dirty models in the same document', async () => {
@@ -2594,11 +2594,10 @@ describe('Model', () => {
     });
 
     describe('multiple vocabularies', () => {
-        const SCHEMA = 'https://schema.org/';
         const ICAL = 'http://www.w3.org/2002/12/cal/ical#';
 
         const TodoSchema = defineSchema({
-            rdfContext: SCHEMA,
+            rdfContext: 'https://schema.org/',
             rdfContexts: { ical: ICAL },
             rdfClasses: anyOf(['Action', 'ical:Vtodo']),
             history: true,
@@ -2629,7 +2628,7 @@ describe('Model', () => {
             it('matches resources with any of the classes', async () => {
                 // Arrange
                 const quads = await turtleToQuads(`
-                    @prefix schema: <${SCHEMA}> .
+                    @prefix schema: <https://schema.org/> .
                     @prefix ical: <${ICAL}> .
 
                     <solid://tasks#one> a schema:Action ; schema:name "One" .
@@ -2650,7 +2649,7 @@ describe('Model', () => {
             it('matches resources with all of the classes', async () => {
                 // Arrange
                 const quads = await turtleToQuads(`
-                    @prefix schema: <${SCHEMA}> .
+                    @prefix schema: <https://schema.org/> .
                     @prefix ical: <${ICAL}> .
 
                     <solid://tasks#one> a schema:Action ; schema:name "One" .
@@ -2667,7 +2666,7 @@ describe('Model', () => {
 
                     // Assert
                     expect(tasks.map((task) => task.name)).toEqual(['Two']);
-                    expect(Todo.matchesRDFClasses([`${SCHEMA}Action`])).toBe(false);
+                    expect(Todo.matchesRDFClasses([expandIRI('schema:Action')])).toBe(false);
                 }
             });
 
@@ -2682,8 +2681,8 @@ describe('Model', () => {
                     .map((statement) => statement.object.value)
                     .sort();
 
-                expect(Todo.getRDFClasses()).toEqual([`${SCHEMA}Action`, `${ICAL}Vtodo`]);
-                expect(types).toEqual([`${ICAL}Vtodo`, `${SCHEMA}Action`]);
+                expect(Todo.getRDFClasses()).toEqual([expandIRI('schema:Action'), `${ICAL}Vtodo`]);
+                expect(types).toEqual([`${ICAL}Vtodo`, expandIRI('schema:Action')]);
             });
 
             it('inherits the rule from parent schemas', () => {
@@ -2708,7 +2707,7 @@ describe('Model', () => {
             it('reads values from the first property with values', async () => {
                 // Arrange
                 const quads = await turtleToQuads(`
-                    @prefix schema: <${SCHEMA}> .
+                    @prefix schema: <https://schema.org/> .
                     @prefix ical: <${ICAL}> .
 
                     <solid://tasks#one> a ical:Vtodo ; ical:summary "One" .
@@ -2743,13 +2742,13 @@ describe('Model', () => {
                 const countOperations = (property: string) =>
                     operations.filter((operation) => operation.property === property).length;
 
-                expect(predicateValues(quads, `${SCHEMA}name`)).toEqual(['Learn Solid (again)']);
+                expect(predicateValues(quads, expandIRI('schema:name'))).toEqual(['Learn Solid (again)']);
                 expect(predicateValues(quads, `${ICAL}summary`)).toEqual(['Learn Solid (again)']);
-                expect(predicateValues(quads, `${SCHEMA}endTime`)).toHaveLength(1);
+                expect(predicateValues(quads, expandIRI('schema:endTime'))).toHaveLength(1);
                 expect(predicateValues(quads, `${ICAL}completed`)).toHaveLength(1);
-                expect(countOperations(`${SCHEMA}name`)).toEqual(2);
+                expect(countOperations(expandIRI('schema:name'))).toEqual(2);
                 expect(countOperations(`${ICAL}summary`)).toEqual(2);
-                expect(countOperations(`${SCHEMA}endTime`)).toEqual(1);
+                expect(countOperations(expandIRI('schema:endTime'))).toEqual(1);
                 expect(countOperations(`${ICAL}completed`)).toEqual(1);
             });
 
@@ -2777,7 +2776,7 @@ describe('Model', () => {
                 const firstQuads = (await engine.readDocument(documentUrl)).getQuads();
                 const firstOperations = await loadOperations(url);
 
-                expect(predicateValues(firstQuads, `${SCHEMA}name`)).toEqual([]);
+                expect(predicateValues(firstQuads, expandIRI('schema:name'))).toEqual([]);
                 expect(
                     predicateValues(
                         firstQuads.filter((quad) => quad.subject.value === url),
@@ -2797,9 +2796,11 @@ describe('Model', () => {
                 const secondQuads = (await engine.readDocument(documentUrl)).getQuads();
                 const secondOperations = await loadOperations(url);
 
-                expect(predicateValues(secondQuads, `${SCHEMA}name`)).toEqual(['Learn Solid (again)']);
+                expect(predicateValues(secondQuads, expandIRI('schema:name'))).toEqual(['Learn Solid (again)']);
                 expect(predicateValues(secondQuads, `${ICAL}summary`)).toEqual(['Learn Solid (again)']);
-                expect(secondOperations.filter((operation) => operation.property === `${SCHEMA}name`)).toHaveLength(1);
+                expect(
+                    secondOperations.filter((operation) => operation.property === expandIRI('schema:name')),
+                ).toHaveLength(1);
                 expect(secondOperations.filter((operation) => operation.property === `${ICAL}summary`)).toHaveLength(2);
             });
 
@@ -2808,7 +2809,7 @@ describe('Model', () => {
                 const documentUrl = 'solid://tasks/learn-solid';
                 const url = `${documentUrl}#it`;
                 const quads = await turtleToQuads(`
-                    @prefix schema: <${SCHEMA}> .
+                    @prefix schema: <https://schema.org/> .
                     @prefix ical: <${ICAL}> .
 
                     <${url}> a schema:Action, ical:Vtodo ; schema:name "Learn Solid" ; ical:summary "Old name" .
@@ -2828,14 +2829,14 @@ describe('Model', () => {
                 expect(predicateValues(updatedQuads, `${ICAL}summary`)).toEqual(['Old name']);
                 expect(operations.map((operation) => operation.property).sort()).toEqual([
                     `${ICAL}priority`,
-                    `${SCHEMA}name`,
+                    expandIRI('schema:name'),
                 ]);
             });
 
             it('only keeps stale RDF properties when there are any', async () => {
                 // Arrange
                 const quads = await turtleToQuads(`
-                    @prefix schema: <${SCHEMA}> .
+                    @prefix schema: <https://schema.org/> .
                     @prefix ical: <${ICAL}> .
 
                     <solid://todos#one> a ical:Vtodo ; ical:summary "One" .
@@ -2849,7 +2850,7 @@ describe('Model', () => {
                 const three = new Todo({ name: 'Three' });
 
                 // Assert
-                expect(staleRDFProperties(one)).toEqual(new Set([`${SCHEMA}name`]));
+                expect(staleRDFProperties(one)).toEqual(new Set([expandIRI('schema:name')]));
                 expect(staleRDFProperties(two)).toBeNull();
                 expect(staleRDFProperties(three)).toBeNull();
 
@@ -2871,7 +2872,7 @@ describe('Model', () => {
                 bootModels({ TaggedTodo });
 
                 const quads = await turtleToQuads(`
-                    @prefix schema: <${SCHEMA}> .
+                    @prefix schema: <https://schema.org/> .
                     @prefix ical: <${ICAL}> .
 
                     <solid://todos#one>
@@ -2912,7 +2913,7 @@ describe('Model', () => {
                 // Assert
                 const operations = await loadOperations(url);
 
-                expect(operations.map((operation) => operation.property)).not.toContain(`${SCHEMA}name`);
+                expect(operations.map((operation) => operation.property)).not.toContain(expandIRI('schema:name'));
             });
 
             it('inherits and swaps RDF properties', async () => {

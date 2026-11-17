@@ -1,5 +1,6 @@
 import type Animal from './Animal';
 import type Episode from './Episode';
+import type Group from './Group';
 import type InverseEpisode from './InverseEpisode';
 import type InverseSeason from './InverseSeason';
 import type ManagerGrant from './ManagerGrant';
@@ -24,6 +25,7 @@ declare module 'soukai-bis' {
     interface ModelsRegistry {
         Animal: typeof Animal;
         Episode: typeof Episode;
+        Group: typeof Group;
         InverseEpisode: typeof InverseEpisode;
         InverseSeason: typeof InverseSeason;
         ManagerGrant: typeof ManagerGrant;

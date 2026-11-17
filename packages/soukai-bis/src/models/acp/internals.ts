@@ -5,24 +5,22 @@
 import { RDFNamedNode, RDFQuad, expandIRI } from '@noeldemartin/solid-utils';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
 import type { Quad, Quad_Object, Quad_Subject } from '@rdfjs/types';
-
-const ACP = 'http://www.w3.org/ns/solid/acp#';
 const RDF_TYPE = expandIRI('rdf:type');
 const BLANK_NODE_IRIS_PATH = '/.well-known/genid/';
 
 const IMPLIED_TYPES_BY_SUBJECT_PREDICATE: Record<string, string> = {
-    [`${ACP}resource`]: `${ACP}AccessControlResource`,
-    [`${ACP}accessControl`]: `${ACP}AccessControlResource`,
-    [`${ACP}memberAccessControl`]: `${ACP}AccessControlResource`,
+    [expandIRI('acp:resource')]: expandIRI('acp:AccessControlResource'),
+    [expandIRI('acp:accessControl')]: expandIRI('acp:AccessControlResource'),
+    [expandIRI('acp:memberAccessControl')]: expandIRI('acp:AccessControlResource'),
 };
 
 const IMPLIED_TYPES_BY_OBJECT_PREDICATE: Record<string, string> = {
-    [`${ACP}accessControl`]: `${ACP}AccessControl`,
-    [`${ACP}memberAccessControl`]: `${ACP}AccessControl`,
-    [`${ACP}apply`]: `${ACP}Policy`,
-    [`${ACP}allOf`]: `${ACP}Matcher`,
-    [`${ACP}anyOf`]: `${ACP}Matcher`,
-    [`${ACP}noneOf`]: `${ACP}Matcher`,
+    [expandIRI('acp:accessControl')]: expandIRI('acp:AccessControl'),
+    [expandIRI('acp:memberAccessControl')]: expandIRI('acp:AccessControl'),
+    [expandIRI('acp:apply')]: expandIRI('acp:Policy'),
+    [expandIRI('acp:allOf')]: expandIRI('acp:Matcher'),
+    [expandIRI('acp:anyOf')]: expandIRI('acp:Matcher'),
+    [expandIRI('acp:noneOf')]: expandIRI('acp:Matcher'),
 };
 
 function blankNodeIRI(acrUrl: string, blankNodeId: string): string {

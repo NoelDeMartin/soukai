@@ -67,6 +67,13 @@ export function requireBootedModel(name: string): ModelConstructor {
     );
 }
 
+export function isBootedModelInstance<T extends keyof ModelsRegistry>(
+    value: unknown,
+    name: T,
+): value is InstanceType<ModelsRegistry[T]> {
+    return value instanceof requireBootedModel(name);
+}
+
 export function getBootedModels(): Map<string, ModelConstructor> {
     return new Map(bootedModels);
 }

@@ -1,6 +1,7 @@
 import { RDFNamedNode } from '@noeldemartin/solid-utils';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
-import { arrayFilter, arrayUnique, invade, objectWithoutEmpty } from '@noeldemartin/utils';
+import { arrayFilter, arrayFrom, arrayUnique, invade, objectWithoutEmpty, required, tap } from '@noeldemartin/utils';
+import type { Quad_Object } from '@rdfjs/types';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import { requireEngine } from 'soukai-bis/engines/state';
@@ -10,13 +11,16 @@ import {
     CRDT_TOMBSTONE_OBJECT,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
-import { getRDFIRIVariants, normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
+import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import {
+    createPropertyResetOperation,
+    foldPropertyOperations,
+    getPropertyOperationKey,
     isLifecycleOperation,
     isPropertyOperation,
-    isSoftDeleteOperation,
     sortedOperations,
+    valuesEqual,
 } from 'soukai-bis/models/crdts/helpers';
 import type LifecycleOperation from 'soukai-bis/models/crdts/LifecycleOperation';
 import type Operation from 'soukai-bis/models/crdts/Operation';
@@ -25,9 +29,10 @@ import { findMetadataSubject } from 'soukai-bis/models/crdts/soft-deletes';
 import type Tombstone from 'soukai-bis/models/crdts/Tombstone';
 import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
-import { requireBootedModel } from 'soukai-bis/models/registry';
+import { isBootedModelInstance, requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
-import { isUrlField } from 'soukai-bis/zod/utils';
+import { castToRDF, isArrayField, isUrlField } from 'soukai-bis/zod/utils';
+import type { ZodType } from 'zod';
 
 function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
@@ -107,6 +112,77 @@ function rewriteRDFPrefixAliases(
     }
 }
 
+function usesArrayPropertyOperations(model: Model, field: string, fieldDefinition: ZodType): boolean {
+    if (!model.exists() || !model.tracksChanges() || !isArrayField(fieldDefinition)) {
+        return false;
+    }
+
+    return !hasPropertiesStoredUnderRDFPrefixAliases(model, field);
+}
+
+function hasPropertiesStoredUnderRDFPrefixAliases(model: Model, field: string): boolean {
+    const rdfPrefixAliases = invade(model, ['_rdfPrefixAliases'])._rdfPrefixAliases;
+
+    return getFieldRDFProperties(model.static(), field).some((property) =>
+        rdfPrefixAliases?.properties.has(property.value),
+    );
+}
+
+function createArrayPropertyOperations(
+    model: ModelWithUrl,
+    field: string,
+    fieldDefinition: ZodType,
+    date: Date,
+): PropertyOperation[] {
+    const AddPropertyOperation = requireBootedModel('AddPropertyOperation');
+    const RemovePropertyOperation = requireBootedModel('RemovePropertyOperation');
+    const castItems = (value: unknown) => {
+        const items: { item: unknown; term: Quad_Object }[] = [];
+
+        for (const item of arrayFrom(value, { ignoreEmptyValues: true })) {
+            const term = castToRDF([item], fieldDefinition)[0];
+
+            if (!term || items.some((otherItem) => otherItem.term.equals(term))) {
+                continue;
+            }
+
+            items.push({ item, term });
+        }
+
+        return items;
+    };
+    const originalItems = castItems(model.getOriginalAttribute(field));
+    const items = castItems(model.getAttribute(field));
+    const includesTerm = (otherItems: typeof items, term: Quad_Object) =>
+        otherItems.some((otherItem) => otherItem.term.equals(term));
+    const added = items.filter(({ term }) => !includesTerm(originalItems, term));
+    const removed = originalItems.filter(({ term }) => !includesTerm(items, term));
+    const isNamedNode = isUrlField(fieldDefinition);
+    const operations: PropertyOperation[] = [];
+
+    for (const property of getFieldRDFProperties(model.static(), field)) {
+        const attributes = { resourceUrl: model.url, property: property.value, date };
+
+        added.length > 0 &&
+            operations.push(
+                new AddPropertyOperation({ ...attributes, value: added.map(({ item }) => item) })
+                    .setNamedNode(isNamedNode)
+                    .setValues(added.map(({ term }) => term))
+                    .setPredicate(property),
+            );
+
+        removed.length > 0 &&
+            operations.push(
+                new RemovePropertyOperation({ ...attributes, value: removed.map(({ item }) => item) })
+                    .setNamedNode(isNamedNode)
+                    .setValues(removed.map(({ term }) => term))
+                    .setPredicate(property),
+            );
+    }
+
+    return operations;
+}
+
 export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<string, string[]>): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
@@ -140,6 +216,19 @@ export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<
             const fieldDefinition = schema.fields.def.shape[attribute];
 
             if (!fieldDefinition) {
+                continue;
+            }
+
+            if (usesArrayPropertyOperations(model, attribute, fieldDefinition)) {
+                modelOperations.push(
+                    ...createArrayPropertyOperations(
+                        model as ModelWithUrl,
+                        attribute,
+                        fieldDefinition,
+                        model.updatedAt ?? now,
+                    ),
+                );
+
                 continue;
             }
 
@@ -313,14 +402,12 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
         return { updated: [] };
     }
 
-    const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
-    const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
     const promisedOperations = await Promise.all(
         getCoreOperationModels().map((operationModel) => operationModel.createManyFromDocument(document)),
     );
 
     const operations = sortedOperations(promisedOperations.flat() as Operation[]);
-    const finalOperations: Record<string, Record<string, PropertyOperation>> = {};
+    const propertyOperations = new Map<string, PropertyOperation[]>();
     const finalLifecycleOperations: Record<string, LifecycleOperation> = {};
 
     for (const operation of operations) {
@@ -334,9 +421,10 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
             continue;
         }
 
-        const resourceOperations = (finalOperations[operation.resourceUrl] ??= {});
+        const key = getPropertyOperationKey(operation);
+        const keyOperations = propertyOperations.get(key) ?? tap([], (ops) => propertyOperations.set(key, ops));
 
-        resourceOperations[normalizeRDFIRI(operation.property)] = operation;
+        keyOperations.push(operation);
     }
 
     const newOperations: Operation[] = [];
@@ -345,7 +433,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
     for (const [resourceUrl, operation] of Object.entries(finalLifecycleOperations)) {
         const metadataSubject = findMetadataSubject(quads, resourceUrl);
         const deletedAt = metadataSubject && document.statement(metadataSubject, CRDT_DELETED_AT_PREDICATE);
-        const isSoftDeleted = isSoftDeleteOperation(operation);
+        const isSoftDeleted = isBootedModelInstance(operation, 'SoftDeleteOperation');
 
         if (
             isSoftDeleted === !!deletedAt &&
@@ -357,31 +445,18 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
         newOperations.push(operation.setMetadataSubject(metadataSubject));
     }
 
-    for (const [resourceUrl, resourceOperations] of Object.entries(finalOperations)) {
-        for (const operation of Object.values(resourceOperations)) {
-            const quads = getRDFIRIVariants(operation.property).flatMap((variant) =>
-                document.statements(resourceUrl, variant),
-            );
+    for (const keyOperations of propertyOperations.values()) {
+        const lastOperation = required(keyOperations.at(-1));
+        const values = foldPropertyOperations(keyOperations);
+        const documentValues = getRDFIRIVariants(lastOperation.property)
+            .flatMap((variant) => document.statements(lastOperation.resourceUrl, variant))
+            .map((quad) => quad.object);
 
-            if (operation instanceof SetPropertyOperation) {
-                if (
-                    quads.length !== operation.values.length ||
-                    quads.some((quad) => !operation.values.some((value) => value.equals(quad.object)))
-                ) {
-                    newOperations.push(operation);
-                }
-
-                continue;
-            }
-
-            if (operation instanceof UnsetPropertyOperation) {
-                if (quads.length > 0) {
-                    newOperations.push(operation);
-                }
-
-                continue;
-            }
+        if (valuesEqual(values, documentValues)) {
+            continue;
         }
+
+        newOperations.push(createPropertyResetOperation(lastOperation, values));
     }
 
     if (newOperations.length === 0) {

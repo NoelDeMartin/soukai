@@ -15,6 +15,10 @@ import type { ZodType } from 'zod';
 import { ZodArray, ZodBoolean, ZodDate, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
 import type { SomeType } from 'zod/v4/core';
 
+export function isArrayField(fieldDefinition: SomeType): boolean {
+    return getFinalType(fieldDefinition) instanceof ZodArray;
+}
+
 export function isUrlField(fieldDefinition: ZodType): boolean {
     const fieldType = getFinalType(fieldDefinition);
 

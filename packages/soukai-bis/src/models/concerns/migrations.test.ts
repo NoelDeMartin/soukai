@@ -1,4 +1,4 @@
-import { quadsToTurtle, turtleToQuads } from '@noeldemartin/solid-utils';
+import { expandIRI, quadsToTurtle, turtleToQuads } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { required } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
@@ -15,11 +15,7 @@ import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
-
-const SCHEMA = 'https://schema.org/';
 const ICAL = 'http://www.w3.org/2002/12/cal/ical#';
-const PURL = 'http://purl.org/dc/terms/';
-const XSD = 'http://www.w3.org/2001/XMLSchema#';
 
 class HistoryTask extends defineSchema(Task, {
     history: true,
@@ -32,7 +28,7 @@ class HistoryTask extends defineSchema(Task, {
 
 const HistoryTaskICalSchema = defineSchema(TaskICalSchema, {
     history: true,
-    rdfContexts: { schema: SCHEMA },
+    rdfContexts: { schema: 'https://schema.org/' },
     fields: {
         description: z.string().rdfProperties(['schema:description', 'description']).optional(),
         status: z.string().rdfProperty('status'),
@@ -125,7 +121,7 @@ describe('Schema migrations', () => {
             [`${ICAL}summary`]: ['Learn Solid'],
             [`${ICAL}description`]: ['Read the spec'],
             [`${ICAL}status`]: ['NEEDS-ACTION'],
-            [`${SCHEMA}description`]: ['Read the spec'],
+            [expandIRI('schema:description')]: ['Read the spec'],
         });
 
         expect(operationsSummary).toEqual([
@@ -139,7 +135,7 @@ describe('Schema migrations', () => {
             { resourceUrl: `${documentUrl}#task`, property: `${ICAL}summary`, date: createdAt, value: ['Learn Solid'] },
             {
                 resourceUrl: `${documentUrl}#task`,
-                property: `${SCHEMA}description`,
+                property: expandIRI('schema:description'),
                 date: updatedAt,
                 value: ['Read the spec'],
             },
@@ -193,12 +189,12 @@ describe('Schema migrations', () => {
             )?.url;
 
         expect(propertyOperations(`${ICAL}summary`)).toEqual([
-            { url: existingUrl(`${SCHEMA}name`, 'Learn Solid'), value: ['Learn Solid'] },
-            { url: existingUrl(`${SCHEMA}name`, 'Learn Solid Pods'), value: ['Learn Solid Pods'] },
+            { url: existingUrl(expandIRI('schema:name'), 'Learn Solid'), value: ['Learn Solid'] },
+            { url: existingUrl(expandIRI('schema:name'), 'Learn Solid Pods'), value: ['Learn Solid Pods'] },
         ]);
         expect(propertyOperations(`${ICAL}comment`)).toEqual([
-            { url: existingUrl(`${SCHEMA}alternateName`, 'Learn Solid'), value: ['Learn Solid'] },
-            { url: existingUrl(`${SCHEMA}alternateName`, 'Learn Solid Pods'), value: ['Learn Solid Pods'] },
+            { url: existingUrl(expandIRI('schema:alternateName'), 'Learn Solid'), value: ['Learn Solid'] },
+            { url: existingUrl(expandIRI('schema:alternateName'), 'Learn Solid Pods'), value: ['Learn Solid Pods'] },
         ]);
     });
 
@@ -238,6 +234,45 @@ describe('Schema migrations', () => {
         expect(nameOperations.map((operation) => operation.value)).toEqual([['Learn solid'], ['Learn Solid']]);
         expect(nameOperations[1]?.date).toEqual(updatedAt);
         expect(existingOperations.map((operation) => operation.url)).toContain(nameOperations[1]?.url);
+    });
+
+    it('folds array operations to check history values', async () => {
+        // Arrange
+        useFakeClock();
+
+        class KeywordsTask extends defineSchema(Task, {
+            history: true,
+            rdfDefaultResourceHash: '',
+            fields: { keywords: z.array(z.string()).optional() },
+        }) {}
+
+        bootModels({ KeywordsTask });
+
+        const task = await KeywordsTask.create({ name: 'Learn Solid', keywords: ['solid'] });
+
+        vi.advanceTimersByTime(1000);
+
+        await task.update({ keywords: ['solid', 'rdf'] });
+
+        vi.advanceTimersByTime(1000);
+
+        const freshTask = await KeywordsTask.findOrFail(task.url);
+
+        // Act
+        const migrated = await freshTask.migrateSchema(
+            defineSchema(KeywordsTask, { fields: { description: z.string().optional() } }),
+        );
+
+        // Assert
+        const keywordsOperations = (required(migrated.operations) as PropertyOperation[]).filter(
+            (operation) => operation.property === expandIRI('schema:keywords'),
+        );
+
+        expect(migrated.keywords).toEqual(['solid', 'rdf']);
+        expect(keywordsOperations.map((operation) => operation.static().modelName).sort()).toEqual([
+            'AddPropertyOperation',
+            'SetPropertyOperation',
+        ]);
     });
 
     it('produces the same document when migrating copies separately', async () => {
@@ -301,9 +336,9 @@ describe('Schema migrations', () => {
         // Arrange
         const documentUrl = 'solid://tasks/learn-solid';
         const quads = await turtleToQuads(`
-            @prefix schema: <${SCHEMA}> .
-            @prefix purl: <${PURL}> .
-            @prefix xsd: <${XSD}> .
+            @prefix schema: <https://schema.org/> .
+            @prefix purl: <http://purl.org/dc/terms/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
             <${documentUrl}#it>
                 a schema:Action ;
@@ -346,7 +381,7 @@ describe('Schema migrations', () => {
         await engine.createDocument(
             documentUrl,
             await turtleToQuads(`
-                @prefix schema: <${SCHEMA}> .
+                @prefix schema: <https://schema.org/> .
 
                 <${documentUrl}#it>
                     a schema:Action, schema:CreativeWork ;
@@ -365,9 +400,9 @@ describe('Schema migrations', () => {
 
         expect(subjectStatements(quads, `${documentUrl}#it`)).toEqual({});
         expect(subjectStatements(quads, `${documentUrl}#task`)).toEqual({
-            'http://www.w3.org/1999/02/22-rdf-syntax-ns#type': [`${ICAL}Vtodo`, `${SCHEMA}CreativeWork`],
+            'http://www.w3.org/1999/02/22-rdf-syntax-ns#type': [`${ICAL}Vtodo`, expandIRI('schema:CreativeWork')],
             [`${ICAL}summary`]: ['Learn Solid'],
-            [`${SCHEMA}keywords`]: ['learning', 'solid'],
+            [expandIRI('schema:keywords')]: ['learning', 'solid'],
         });
     });
 
@@ -382,7 +417,7 @@ describe('Schema migrations', () => {
         await engine.createDocument(
             documentUrl,
             await turtleToQuads(`
-                @prefix schema: <${SCHEMA}> .
+                @prefix schema: <https://schema.org/> .
                 @prefix ical: <${ICAL}> .
 
                 <${documentUrl}#it>
@@ -406,7 +441,7 @@ describe('Schema migrations', () => {
             'http://www.w3.org/1999/02/22-rdf-syntax-ns#type': [`${ICAL}Vtodo`],
             [`${ICAL}summary`]: ['Learn Solid'],
             [`${ICAL}priority`]: ['1'],
-            [`${SCHEMA}keywords`]: ['solid'],
+            [expandIRI('schema:keywords')]: ['solid'],
         });
     });
 
@@ -434,10 +469,12 @@ describe('Schema migrations', () => {
         // Assert
         const quads = await documentQuads(documentUrl);
         const keywordsOperations = (required(migrated.operations) as PropertyOperation[]).filter(
-            (operation) => operation.property === `${SCHEMA}keywords`,
+            (operation) => operation.property === expandIRI('schema:keywords'),
         );
 
-        expect(subjectStatements(quads, `${documentUrl}#task`)).toMatchObject({ [`${SCHEMA}keywords`]: ['solid'] });
+        expect(subjectStatements(quads, `${documentUrl}#task`)).toMatchObject({
+            [expandIRI('schema:keywords')]: ['solid'],
+        });
         expect(keywordsOperations).toHaveLength(1);
         expect(keywordsOperations[0]?.resourceUrl).toEqual(`${documentUrl}#task`);
     });
@@ -446,7 +483,7 @@ describe('Schema migrations', () => {
         // Arrange
         const documentUrl = 'https://alice.example/tasks/learn-solid';
         const turtle = `
-            @prefix schema: <${SCHEMA}> .
+            @prefix schema: <https://schema.org/> .
 
             <#it> a schema:Action ; schema:name "Learn Solid" ; schema:object <../projects/solid#it> .
         `;

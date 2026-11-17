@@ -15,6 +15,7 @@ import { remote } from 'soukai-bis/models/remote';
 import { defineSchema } from 'soukai-bis/models/schema';
 import { hydrateModel } from 'soukai-bis/models/serialization';
 import Movie from 'soukai-bis/testing/stubs/Movie';
+import PlaylistSchema from 'soukai-bis/testing/stubs/Playlist.schema';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
@@ -421,6 +422,42 @@ describe('RDF prefix aliases', () => {
                     .map((operation) => operation.property)
                     .sort(),
             ).toEqual([`${HTTPS_SCHEMA}name`, `${HTTPS_SCHEMA}name`, `${HTTPS_SCHEMA}object`]);
+        });
+
+        it('rewrites aliased array properties instead of adding or removing items', async () => {
+            class TrackedPlaylist extends defineSchema(PlaylistSchema, { history: true, timestamps: false }) {}
+
+            bootModels({ TrackedPlaylist }, { reset: true });
+
+            const docUrl = 'https://alice.example.org/playlists/aliased';
+            const resourceUrl = `${docUrl}#it`;
+
+            await engine.createDocument(
+                docUrl,
+                await turtleToQuads(`
+                    @prefix schema: <${HTTP_SCHEMA}> .
+
+                    <${resourceUrl}>
+                        a <${HTTPS_SCHEMA}MusicPlaylist> ;
+                        schema:name "Favorites" ;
+                        schema:track <https://example.org/songs/1> .
+                `),
+            );
+
+            const playlist = await TrackedPlaylist.findOrFail(resourceUrl);
+
+            await playlist.update({ songUrls: ['https://example.org/songs/1', 'https://example.org/songs/2'] });
+
+            const document = await engine.readDocument(docUrl);
+            const resourceQuads = document.getQuads().filter((quad) => quad.subject.value === resourceUrl);
+
+            expect(playlist.usesRDFPrefixAliases()).toBe(false);
+            expect(quadsToTurtle(resourceQuads)).toEqualTurtle(`
+                <${resourceUrl}>
+                    a <${HTTPS_SCHEMA}MusicPlaylist> ;
+                    <${HTTPS_SCHEMA}name> "Favorites" ;
+                    <${HTTPS_SCHEMA}track> <https://example.org/songs/1>, <https://example.org/songs/2> .
+            `);
         });
     });
 

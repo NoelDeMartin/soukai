@@ -1,11 +1,10 @@
 import { RDFNamedNode, isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
-import { arrayChunk, isInstanceOf } from '@noeldemartin/utils';
+import { arrayChunk, arrayFilter, isInstanceOf, required, tap } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import {
-    CRDT_DELETED_AT,
     LDP_BASIC_CONTAINER,
     LDP_BASIC_CONTAINER_OBJECT,
     LDP_CONTAINER,
@@ -13,11 +12,19 @@ import {
     LDP_CONTAINS,
     LDP_CONTAINS_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
-import { isLifecycleOperation, supersedesOperation } from 'soukai-bis/models/crdts/helpers';
+import {
+    createPropertyResetOperation,
+    foldPropertyOperations,
+    getPropertyOperationKey,
+    isArrayPropertyOperation,
+    isLifecycleOperation,
+    isPropertyResetOperation,
+    sortedOperations,
+    supersedesOperation,
+    withEffectiveValues,
+} from 'soukai-bis/models/crdts/helpers';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
-import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 
 import type EngineOperation from './operations/EngineOperation';
 
@@ -161,39 +168,87 @@ export default abstract class Engine<TReadOptions extends object = object, TWrit
     }
 
     protected filterSupersededOperations(operations: EngineOperation[]): EngineOperation[] {
-        const getOverridableKey = (operation: EngineOperation): string | null => {
-            if (isInstanceOf(operation, SetPropertyOperation) || isInstanceOf(operation, UnsetPropertyOperation)) {
-                return `${operation.resourceUrl}-${operation.property}`;
-            }
+        const lifecycleOperations = operations.filter(isLifecycleOperation);
+        const propertyOperations = operations.filter((operation) => isInstanceOf(operation, PropertyOperation));
 
-            if (isLifecycleOperation(operation)) {
-                return `${operation.resourceUrl}-${CRDT_DELETED_AT}`;
-            }
-
-            return null;
-        };
-        const overridableOperations = operations.filter((operation) => getOverridableKey(operation) !== null);
-
-        if (overridableOperations.length <= 1) {
+        if (lifecycleOperations.length + propertyOperations.length <= 1) {
             return operations;
         }
 
-        const lastOperations = new Map<string, Operation>();
+        const replacements = new Map<EngineOperation, EngineOperation | null>();
+        const lastLifecycleOperations = new Map<string, Operation>();
+        const propertyOperationGroups = new Map<string, PropertyOperation[]>();
 
-        for (const operation of overridableOperations as Operation[]) {
-            const key = getOverridableKey(operation) as string;
-            const existing = lastOperations.get(key);
+        for (const operation of lifecycleOperations) {
+            const existing = lastLifecycleOperations.get(operation.resourceUrl);
 
             if (!existing || supersedesOperation(operation, existing)) {
-                lastOperations.set(key, operation);
+                lastLifecycleOperations.set(operation.resourceUrl, operation);
             }
         }
 
-        return operations.filter((operation) => {
-            const key = getOverridableKey(operation);
+        for (const operation of lifecycleOperations) {
+            lastLifecycleOperations.get(operation.resourceUrl) === operation || replacements.set(operation, null);
+        }
 
-            return key === null || lastOperations.get(key) === operation;
-        });
+        for (const operation of propertyOperations) {
+            const key = getPropertyOperationKey(operation);
+            const group = propertyOperationGroups.get(key) ?? tap([], (ops) => propertyOperationGroups.set(key, ops));
+
+            group.push(operation);
+        }
+
+        for (const group of propertyOperationGroups.values()) {
+            this.filterSupersededPropertyOperations(group, replacements);
+        }
+
+        return arrayFilter(
+            operations.map((operation) => (replacements.has(operation) ? replacements.get(operation) : operation)),
+        );
+    }
+
+    protected filterSupersededPropertyOperations(
+        operations: PropertyOperation[],
+        replacements: Map<EngineOperation, EngineOperation | null>,
+    ): void {
+        if (operations.length <= 1) {
+            return;
+        }
+
+        const lastReset = sortedOperations(operations.filter(isPropertyResetOperation)).at(-1);
+        const arrayOperations = operations.filter(isArrayPropertyOperation);
+        const effectiveArrayOperations = arrayFilter(
+            arrayOperations.map((operation) =>
+                tap(withEffectiveValues(operation, operations), (effectiveOperation) =>
+                    replacements.set(operation, effectiveOperation),
+                ),
+            ),
+        );
+
+        for (const operation of operations) {
+            isPropertyResetOperation(operation) && operation !== lastReset && replacements.set(operation, null);
+        }
+
+        if (!lastReset || effectiveArrayOperations.length === 0) {
+            return;
+        }
+
+        this.replaceWithSingleResetOperation(lastReset, effectiveArrayOperations, replacements);
+    }
+
+    protected replaceWithSingleResetOperation(
+        resetOperation: PropertyOperation,
+        laterArrayOperations: PropertyOperation[],
+        replacements: Map<EngineOperation, EngineOperation | null>,
+    ): void {
+        const lastOperation = required(sortedOperations(laterArrayOperations).at(-1));
+        const values = foldPropertyOperations([resetOperation, ...laterArrayOperations]);
+
+        replacements.set(resetOperation, createPropertyResetOperation(resetOperation, values, lastOperation.date));
+
+        for (const arrayOperation of laterArrayOperations) {
+            replacements.set(arrayOperation, null);
+        }
     }
 
     protected removeContainerProperties(graph: JsonLD | JsonLDGraph, options: { keepTypes?: boolean } = {}): void {

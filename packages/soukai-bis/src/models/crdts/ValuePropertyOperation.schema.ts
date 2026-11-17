@@ -1,0 +1,16 @@
+import { defineSchema } from 'soukai-bis/models/schema';
+import { rdfProperty } from 'soukai-bis/zod/soukai';
+import { any, array } from 'zod';
+
+import PropertyOperation from './PropertyOperation';
+import { PROPERTY_OPERATION_FIELDS } from './PropertyOperation.schema';
+
+export const VALUE_PROPERTY_OPERATION_FIELDS = {
+    ...PROPERTY_OPERATION_FIELDS,
+    value: rdfProperty(array(any()), 'value'),
+} as const;
+
+export default defineSchema(PropertyOperation, {
+    rdfClass: 'ValuePropertyOperation',
+    fields: VALUE_PROPERTY_OPERATION_FIELDS,
+});
