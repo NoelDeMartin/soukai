@@ -13,6 +13,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { parseACR } from 'soukai-bis/models/acp/internals';
 import { getAuthorizationProtocol, rememberAuthorizationProtocol } from 'soukai-bis/models/internals/permissions';
 import type Model from 'soukai-bis/models/Model';
+import { requireBootedModel } from 'soukai-bis/models/registry';
 import type { AuthorizationProtocol, FetchPermissionsOptions, ModelPermissions } from 'soukai-bis/models/types';
 
 import { readACPAccessControlResources } from './acp';
@@ -102,19 +103,39 @@ export async function fetchPermissions(model: Model, options: FetchPermissionsOp
     const publicPermissions = documentHead.headers.has('WAC-Allow')
         ? new SolidDocument(documentUrl, [], documentHead.headers).getPublicPermissions()
         : null;
+    const knownWAC = getAuthorizationProtocol(documentUrl) === 'wac' && !!publicPermissions;
+    let authorizationDocument: AuthorizationDocument;
 
-    if (getAuthorizationProtocol(documentUrl) === 'wac' && publicPermissions) {
-        return { protocol: 'wac', publicPermissions };
+    try {
+        authorizationDocument = await fetchAuthorizationDocument(documentUrl, documentHead, fetch);
+    } catch (error) {
+        if (knownWAC) {
+            return { protocol: 'wac', publicPermissions, authorizations: null };
+        }
+
+        if (error instanceof Unauthorized && publicPermissions) {
+            return { protocol: 'unknown', publicPermissions };
+        }
+
+        throw error;
     }
 
     try {
-        const authorizationDocument = await fetchAuthorizationDocument(documentUrl, documentHead, fetch);
-        const protocol = await detectAuthorizationProtocol(documentUrl, authorizationDocument, fetch);
+        const protocol =
+            knownWAC && !authorizationDocument.document
+                ? 'wac'
+                : await detectAuthorizationProtocol(documentUrl, authorizationDocument, fetch);
 
         rememberAuthorizationProtocol(documentUrl, protocol);
 
         if (protocol === 'wac') {
-            return { protocol, publicPermissions };
+            const authorizations = authorizationDocument.document
+                ? await requireBootedModel('ACLAuthorization').createManyFromRDF(
+                      authorizationDocument.document.getQuads(),
+                  )
+                : [];
+
+            return { protocol, publicPermissions, authorizations };
         }
 
         const acr = parseACR(authorizationDocument.url, authorizationDocument.document);

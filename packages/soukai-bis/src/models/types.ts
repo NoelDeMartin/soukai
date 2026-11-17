@@ -2,6 +2,7 @@ import type { SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import type { Constructor, Pretty } from '@noeldemartin/utils';
 import type { SCHEMA } from 'soukai-bis/models/internals/model';
 
+import type ACLAuthorization from './acl/ACLAuthorization';
 import type ACPAccessControl from './acp/ACPAccessControl';
 import type ACPAccessControlResource from './acp/ACPAccessControlResource';
 import type { ComputedAttributeCompute } from './computed-attributes/ComputedAttribute';
@@ -58,10 +59,16 @@ export interface FetchPermissionsOptions {
     accessControlClass?: ModelConstructor<ACPAccessControl>;
 }
 
+export type WACAuthorizationInput = Pick<
+    GetModelInput<typeof ACLAuthorization>,
+    'agents' | 'agentClasses' | 'agentGroups' | 'origins' | 'modes'
+>;
+
 export type ModelPermissions =
     | {
           protocol: 'wac';
           publicPermissions: SolidDocumentPermission[] | null;
+          authorizations: ModelWithUrl<ACLAuthorization>[] | null;
       }
     | {
           protocol: 'acp';

@@ -38,6 +38,7 @@ import { PURL_CREATED, PURL_MODIFIED } from 'soukai-bis/lib/internals/rdf';
 import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { ZodError } from 'zod';
 
+import type ACLAuthorization from './acl/ACLAuthorization';
 import type ACPAccessControlResource from './acp/ACPAccessControlResource';
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
@@ -85,7 +86,7 @@ import {
     originalSchemas,
     setSchema,
 } from './internals/model';
-import { updatePublicPermissions } from './internals/permissions';
+import { createWACAuthorization, updatePublicPermissions } from './internals/permissions';
 import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
 import type TypeIndex from './interop/TypeIndex';
@@ -109,6 +110,7 @@ import type {
     LegacyTimestamps,
     ModelPermissions,
     ModelRDFPrefixAliases,
+    WACAuthorizationInput,
 } from './types';
 import type {
     ModelComputedAttributeDefinitions,
@@ -864,6 +866,14 @@ export default class Model<
         return publicPermissions;
     }
 
+    public requireWACAuthorizations(): ModelWithUrl<ACLAuthorization>[] {
+        const permissions = this.requireWACPermissions();
+
+        this.assertWACAuthorizationsLoaded(permissions);
+
+        return permissions.authorizations.filter((authorization) => authorization.exists());
+    }
+
     public requireACPAccessControlResources(): ModelWithUrl<ACPAccessControlResource>[] {
         return this.requireACPPermissions().accessControlResources;
     }
@@ -1200,8 +1210,21 @@ export default class Model<
         this.assertAuthoritativeDocument();
 
         await updatePublicPermissions(this.requireDocumentUrl(), permissions);
+        await this.fetchPermissions();
+    }
 
-        this._permissions = { protocol: 'wac', publicPermissions: permissions };
+    public async createWACAuthorization(input: WACAuthorizationInput): Promise<ModelWithUrl<ACLAuthorization>> {
+        this.assertAuthoritativeDocument();
+        this.assertWACAuthorizationsLoaded(this.requireWACPermissions());
+
+        const url = await createWACAuthorization(this.requireDocumentUrl(), input);
+
+        await this.fetchPermissions();
+
+        return (
+            this.requireWACAuthorizations().find((authorization) => authorization.url === url) ??
+            fail(SoukaiError, `Failed creating WAC authorization for ${this.requireDocumentUrl()}`)
+        );
     }
 
     public serialize(): SerializedModel {
@@ -1810,6 +1833,31 @@ export default class Model<
         }
 
         return protocol;
+    }
+
+    private requireWACPermissions(): Extract<ModelPermissions, { protocol: 'wac' }> {
+        const permissions = this.requirePermissions();
+
+        if (permissions.protocol !== 'wac') {
+            throw new SoukaiError(`${this.static('modelName')} model isn't using WAC.`);
+        }
+
+        return permissions;
+    }
+
+    private assertWACAuthorizationsLoaded(
+        permissions: Extract<ModelPermissions, { protocol: 'wac' }>,
+    ): asserts permissions is Extract<ModelPermissions, { protocol: 'wac' }> & {
+        authorizations: ModelWithUrl<ACLAuthorization>[];
+    } {
+        if (permissions.authorizations) {
+            return;
+        }
+
+        throw new SoukaiError(
+            `WAC authorizations for ${this.static('modelName')} model are not available, ` +
+                "the access control document couldn't be read.",
+        );
     }
 
     private requireACPPermissions(): Extract<ModelPermissions, { protocol: 'acp' }> {

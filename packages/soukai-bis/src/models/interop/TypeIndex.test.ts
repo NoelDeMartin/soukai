@@ -263,7 +263,13 @@ describe('TypeIndex', () => {
                     return FakeResponse.success('<> a <http://www.w3.org/ns/solid/terms#TypeIndex> .');
                 }
 
-                return FakeResponse.success(undefined, { Link: aclLink });
+                return FakeResponse.success(undefined, {
+                    Link: aclLink,
+                    'WAC-Allow':
+                        FakeServer.getRequests('PATCH', `${typeIndexUrl}.acl`).length > 0
+                            ? 'public="read"'
+                            : 'public=""',
+                });
             });
         }
 

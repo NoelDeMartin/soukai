@@ -1,4 +1,9 @@
-import { UnsupportedAuthorizationProtocol, expandIRI, fetchSolidDocumentACL } from '@noeldemartin/solid-utils';
+import {
+    SolidDocumentPermissions,
+    UnsupportedAuthorizationProtocol,
+    expandIRI,
+    fetchSolidDocumentACL,
+} from '@noeldemartin/solid-utils';
 import type { SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import { arrayUnique, urlParse, uuid } from '@noeldemartin/utils';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
@@ -7,11 +12,17 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type ACLAuthorization from 'soukai-bis/models/acl/ACLAuthorization';
 import { serializeToRDF } from 'soukai-bis/models/internals/rdf';
 import { requireBootedModel } from 'soukai-bis/models/registry';
-import type { AuthorizationProtocol, ModelWithUrl } from 'soukai-bis/models/types';
+import type { AuthorizationProtocol, ModelWithUrl, WACAuthorizationInput } from 'soukai-bis/models/types';
 
 const authorizationProtocols = new Map<string, AuthorizationProtocol>();
 const PUBLIC_AGENT_CLASS = expandIRI('foaf:Agent');
 const CONTROL_MODE = expandIRI('acl:Control');
+const PERMISSION_MODES: Record<SolidDocumentPermission, string> = {
+    [SolidDocumentPermissions.Read]: expandIRI('acl:Read'),
+    [SolidDocumentPermissions.Write]: expandIRI('acl:Write'),
+    [SolidDocumentPermissions.Append]: expandIRI('acl:Append'),
+    [SolidDocumentPermissions.Control]: CONTROL_MODE,
+};
 
 function getOrigin(url: string): string {
     return new URL(url).origin;
@@ -39,6 +50,18 @@ function isPublicOnly(authorization: ACLAuthorization, documentUrl: string): boo
         authorization.accessToClasses.length === 0 &&
         authorization.default.every((url) => url === documentUrl)
     );
+}
+
+function assertControlAccessIsKept(authorizations: ACLAuthorization[], documentUrl: string): void {
+    if (authorizations.some((authorization) => authorization.modes.includes(CONTROL_MODE))) {
+        return;
+    }
+
+    throw new SoukaiError(`Can't create ACL for ${documentUrl}, none of the authorizations grants control access`);
+}
+
+function modeFromPermission(permission: SolidDocumentPermission): string {
+    return PERMISSION_MODES[permission];
 }
 
 function mintAuthorizationUrl(
@@ -122,32 +145,20 @@ async function updateDocumentACL(
     await authorization.save();
 }
 
-async function createDocumentACL(
-    engine: SolidEngine,
+function copyInheritedAuthorizations(
     AuthorizationClass: typeof ACLAuthorization,
     inheritedAuthorizations: ModelWithUrl<ACLAuthorization>[],
     acl: { url: string; documentUrl: string },
-    modes: string[],
-): Promise<void> {
-    const applicableAuthorizations = inheritedAuthorizations.filter(
-        (authorization) => authorization.default.length > 0,
-    );
-    const inheritedPublicModes = arrayUnique(
-        applicableAuthorizations
-            .filter((authorization) => isPublic(authorization))
-            .flatMap((authorization) => authorization.modes),
-    );
-
-    if (sameModes(inheritedPublicModes, modes)) {
-        return;
-    }
-
-    const takenUrls = new Set<string>();
-    const authorizations = applicableAuthorizations
+    takenUrls: Set<string>,
+    options: { excludePublic?: boolean } = {},
+): ACLAuthorization[] {
+    return inheritedAuthorizations
+        .filter((authorization) => authorization.default.length > 0)
         .map((inheritedAuthorization) => {
-            const agentClasses = isPublic(inheritedAuthorization)
-                ? inheritedAuthorization.agentClasses.filter((agentClass) => agentClass !== PUBLIC_AGENT_CLASS)
-                : inheritedAuthorization.agentClasses;
+            const agentClasses =
+                options.excludePublic && isPublic(inheritedAuthorization)
+                    ? inheritedAuthorization.agentClasses.filter((agentClass) => agentClass !== PUBLIC_AGENT_CLASS)
+                    : inheritedAuthorization.agentClasses;
 
             if (
                 agentClasses.length === 0 &&
@@ -177,12 +188,29 @@ async function createDocumentACL(
             return authorization;
         })
         .filter((authorization) => authorization !== null);
+}
 
-    if (!authorizations.some((authorization) => authorization.modes.includes(CONTROL_MODE))) {
-        throw new SoukaiError(
-            `Can't create ACL for ${acl.documentUrl}, none of the inherited authorizations grants control access`,
-        );
+async function createPublicDocumentACL(
+    engine: SolidEngine,
+    AuthorizationClass: typeof ACLAuthorization,
+    inheritedAuthorizations: ModelWithUrl<ACLAuthorization>[],
+    acl: { url: string; documentUrl: string },
+    modes: string[],
+): Promise<void> {
+    const inheritedPublicModes = arrayUnique(
+        inheritedAuthorizations
+            .filter((authorization) => authorization.default.length > 0 && isPublic(authorization))
+            .flatMap((authorization) => authorization.modes),
+    );
+
+    if (sameModes(inheritedPublicModes, modes)) {
+        return;
     }
+
+    const takenUrls = new Set<string>();
+    const authorizations = copyInheritedAuthorizations(AuthorizationClass, inheritedAuthorizations, acl, takenUrls, {
+        excludePublic: true,
+    });
 
     if (modes.length > 0) {
         const publicAuthorization = new AuthorizationClass({
@@ -196,6 +224,8 @@ async function createDocumentACL(
         authorizations.push(publicAuthorization);
     }
 
+    assertControlAccessIsKept(authorizations, acl.documentUrl);
+
     await engine.createDocument(acl.url, serializeToRDF(authorizations));
 }
 
@@ -204,7 +234,7 @@ async function updateWACPublicPermissions(documentUrl: string, permissions: Soli
     const engine = requireRemoteEngine();
     const acl = await fetchSolidDocumentACL(documentUrl, { fetch: engine.requireFetch() });
     const authorizations = await AuthorizationClass.createManyFromRDF(acl.document.getQuads());
-    const modes = arrayUnique(permissions.map((permission) => AuthorizationClass.modeFromPermission(permission)));
+    const modes = arrayUnique(permissions.map((permission) => modeFromPermission(permission)));
 
     if (acl.url === acl.effectiveUrl) {
         await updateDocumentACL(AuthorizationClass, authorizations, { url: acl.url, documentUrl }, modes);
@@ -212,7 +242,43 @@ async function updateWACPublicPermissions(documentUrl: string, permissions: Soli
         return;
     }
 
-    await createDocumentACL(engine, AuthorizationClass, authorizations, { url: acl.url, documentUrl }, modes);
+    await createPublicDocumentACL(engine, AuthorizationClass, authorizations, { url: acl.url, documentUrl }, modes);
+}
+
+async function createWACDocumentAuthorization(documentUrl: string, input: WACAuthorizationInput): Promise<string> {
+    const AuthorizationClass = requireBootedModel('ACLAuthorization');
+    const engine = requireRemoteEngine();
+    const acl = await fetchSolidDocumentACL(documentUrl, { fetch: engine.requireFetch() });
+    const existingAuthorizations = await AuthorizationClass.createManyFromRDF(acl.document.getQuads());
+    const authorization = new AuthorizationClass({
+        ...input,
+        accessTo: [documentUrl],
+        default: getChildrenDefault(documentUrl),
+    });
+
+    if (acl.url === acl.effectiveUrl) {
+        const takenUrls = new Set(existingAuthorizations.map(({ url }) => url));
+
+        mintAuthorizationUrl(authorization, { url: acl.url, exists: true }, takenUrls, uuid());
+
+        await authorization.save();
+
+        return authorization.requireUrl();
+    }
+
+    const takenUrls = new Set<string>();
+    const inheritedAuthorizations = copyInheritedAuthorizations(
+        AuthorizationClass,
+        existingAuthorizations,
+        { url: acl.url, documentUrl },
+        takenUrls,
+    );
+
+    mintAuthorizationUrl(authorization, { url: acl.url, exists: false }, takenUrls, uuid());
+
+    await engine.createDocument(acl.url, serializeToRDF([...inheritedAuthorizations, authorization]));
+
+    return authorization.requireUrl();
 }
 
 export function getAuthorizationProtocol(url: string): AuthorizationProtocol | undefined {
@@ -254,4 +320,16 @@ export async function updatePublicPermissions(
     permissions: SolidDocumentPermission[],
 ): Promise<void> {
     await trackAuthorizationProtocol(documentUrl, 'wac', () => updateWACPublicPermissions(documentUrl, permissions));
+}
+
+export async function createWACAuthorization(documentUrl: string, input: WACAuthorizationInput): Promise<string> {
+    const hasAgents = [input.agents, input.agentClasses, input.agentGroups].some((values) => !!values?.length);
+
+    if (!hasAgents || !input.modes?.length) {
+        throw new SoukaiError(
+            `Can't create WAC authorization for ${documentUrl}, it must include at least one agent and one mode`,
+        );
+    }
+
+    return trackAuthorizationProtocol(documentUrl, 'wac', () => createWACDocumentAuthorization(documentUrl, input));
 }

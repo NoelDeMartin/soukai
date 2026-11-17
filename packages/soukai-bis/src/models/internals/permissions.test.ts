@@ -1,4 +1,10 @@
-import { SolidDocumentPermissions, UnsupportedAuthorizationProtocol } from '@noeldemartin/solid-utils';
+import {
+    SolidDocumentPermissions,
+    UnsupportedAuthorizationProtocol,
+    quadsToTurtle,
+    sparqlToQuadsSync,
+    turtleToQuadsSync,
+} from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { setEngine } from 'soukai-bis/engines';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
@@ -19,20 +25,41 @@ describe('Permissions', () => {
         @prefix foaf: <http://xmlns.com/foaf/0.1/>.
     `;
 
-    function respondWithInheritedACL(turtle: string): void {
-        FakeServer.respond(documentUrl, FakeResponse.success(undefined, { Link: '<spirited-away.acl>; rel="acl"' }));
-        FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acl>; rel="acl"' }));
-        FakeServer.respond(`${containerUrl}.acl`, `${prefixes}\n${turtle}`);
-        FakeServer.respondWith(aclUrl, (request) =>
-            request.method === 'GET' ? FakeResponse.notFound() : FakeResponse.success(),
+    function respondWithUpdatableACL(url: string, turtle: string | null): void {
+        let quads = turtle === null ? null : turtleToQuadsSync(`${prefixes}\n${turtle}`, { baseIRI: url });
+
+        FakeServer.respondWith(url, (request) => {
+            if (request.method === 'GET') {
+                return quads ? FakeResponse.success(quadsToTurtle(quads)) : FakeResponse.notFound();
+            }
+
+            const { insert = [], delete: remove = [] } = sparqlToQuadsSync(request.body, { baseIRI: url });
+
+            quads = [...(quads ?? []).filter((quad) => !remove.some((other) => other.equals(quad))), ...insert];
+
+            return FakeResponse.success();
+        });
+    }
+
+    function respondWithDocument(url: string, aclLink: string, publicPermissions?: () => string): void {
+        FakeServer.respondWith(url, () =>
+            FakeResponse.success(undefined, {
+                Link: `<${aclLink}>; rel="acl"`,
+                ...(publicPermissions ? { 'WAC-Allow': `public="${publicPermissions()}"` } : {}),
+            }),
         );
     }
 
+    function respondWithInheritedACL(turtle: string): void {
+        respondWithDocument(documentUrl, 'spirited-away.acl');
+        respondWithDocument(containerUrl, '.acl');
+        respondWithUpdatableACL(`${containerUrl}.acl`, turtle);
+        respondWithUpdatableACL(aclUrl, null);
+    }
+
     function respondWithDocumentACL(turtle: string): void {
-        FakeServer.respond(documentUrl, FakeResponse.success(undefined, { Link: '<spirited-away.acl>; rel="acl"' }));
-        FakeServer.respondWith(aclUrl, (request) =>
-            request.method === 'GET' ? FakeResponse.success(`${prefixes}\n${turtle}`) : FakeResponse.success(),
-        );
+        respondWithDocument(documentUrl, 'spirited-away.acl');
+        respondWithUpdatableACL(aclUrl, turtle);
     }
 
     beforeEach(() => {
@@ -69,7 +96,11 @@ describe('Permissions', () => {
         await movie.updatePublicPermissions([SolidDocumentPermissions.Read]);
 
         // Assert
-        expect(movie.isPublic()).toBe(true);
+        expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([
+            `${aclUrl}#owner`,
+            `${aclUrl}#friends`,
+            `${aclUrl}#public`,
+        ]);
         expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(1);
         expect(FakeServer.getRequest('PATCH', aclUrl)?.body).toEqualSparql(`
             INSERT DATA {
@@ -219,6 +250,7 @@ describe('Permissions', () => {
 
         // Assert
         expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(0);
+        expect(movie.requireWACAuthorizations()).toEqual([]);
     });
 
     it('adds public authorizations to document ACLs', async () => {
@@ -295,7 +327,7 @@ describe('Permissions', () => {
         await movie.updatePublicPermissions([]);
 
         // Assert
-        expect(movie.isPrivate()).toBe(true);
+        expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([`${aclUrl}#owner`]);
         expect(FakeServer.getRequests('DELETE', aclUrl)).toHaveLength(0);
         expect(FakeServer.getRequest('PATCH', aclUrl)?.body).toEqualSparql(`
             DELETE DATA {
@@ -429,6 +461,242 @@ describe('Permissions', () => {
         `);
     });
 
+    it('creates WAC authorizations in document ACLs', async () => {
+        // Arrange
+        respondWithDocumentACL(`
+            <#owner>
+                a acl:Authorization;
+                acl:agent <https://alice.example/profile/card#me>;
+                acl:accessTo <./spirited-away>;
+                acl:mode acl:Read, acl:Write, acl:Control.
+        `);
+
+        await movie.fetchPermissions();
+
+        // Act
+        const authorization = await movie.createWACAuthorization({
+            agents: ['https://bob.example/profile/card#me'],
+            modes: ['http://www.w3.org/ns/auth/acl#Read'],
+        });
+
+        // Assert
+        expect(authorization.exists()).toBe(true);
+        expect(authorization.url.startsWith(`${aclUrl}#`)).toBe(true);
+        expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([`${aclUrl}#owner`, authorization.url]);
+        expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(1);
+        expect(FakeServer.getRequest('PATCH', aclUrl)?.body).toEqualSparql(`
+            INSERT DATA {
+                ${prefixes}
+
+                <#[[.*]]>
+                    a acl:Authorization;
+                    acl:agent <https://bob.example/profile/card#me>;
+                    acl:accessTo <${documentUrl}>;
+                    acl:mode acl:Read.
+            }
+        `);
+    });
+
+    it('creates WAC authorizations with inherited authorizations', async () => {
+        // Arrange
+        respondWithInheritedACL(`
+            <#owner>
+                a acl:Authorization;
+                acl:agent <https://alice.example/profile/card#me>;
+                acl:default <./>;
+                acl:mode acl:Read, acl:Write, acl:Control.
+
+            <#public>
+                a acl:Authorization;
+                acl:agentClass foaf:Agent;
+                acl:default <./>;
+                acl:mode acl:Read.
+        `);
+
+        await movie.fetchPermissions();
+
+        // Act
+        const authorization = await movie.createWACAuthorization({
+            agents: ['https://bob.example/profile/card#me'],
+            modes: ['http://www.w3.org/ns/auth/acl#Write'],
+        });
+
+        // Assert
+        expect(authorization.exists()).toBe(true);
+        expect(authorization.agents).toEqual(['https://bob.example/profile/card#me']);
+        expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([
+            `${aclUrl}#owner`,
+            `${aclUrl}#public`,
+            authorization.url,
+        ]);
+        expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(1);
+        expect(FakeServer.getRequest('PATCH', aclUrl)?.body).toEqualSparql(`
+            INSERT DATA {
+                ${prefixes}
+
+                <#owner>
+                    a acl:Authorization;
+                    acl:agent <https://alice.example/profile/card#me>;
+                    acl:accessTo <${documentUrl}>;
+                    acl:mode acl:Read, acl:Write, acl:Control.
+
+                <#public>
+                    a acl:Authorization;
+                    acl:agentClass foaf:Agent;
+                    acl:accessTo <${documentUrl}>;
+                    acl:mode acl:Read.
+
+                <#[[.*]]>
+                    a acl:Authorization;
+                    acl:agent <https://bob.example/profile/card#me>;
+                    acl:accessTo <${documentUrl}>;
+                    acl:mode acl:Write.
+            }
+        `);
+    });
+
+    it('creates default WAC authorizations for containers', async () => {
+        // Arrange
+        const container = new Container({ url: containerUrl }, { exists: true });
+
+        respondWithDocument(containerUrl, '.acl');
+        respondWithUpdatableACL(
+            `${containerUrl}.acl`,
+            `
+                <#owner>
+                    a acl:Authorization;
+                    acl:agent <https://alice.example/profile/card#me>;
+                    acl:accessTo <./>;
+                    acl:default <./>;
+                    acl:mode acl:Read, acl:Write, acl:Control.
+            `,
+        );
+
+        await container.fetchPermissions();
+
+        // Act
+        const authorization = await container.createWACAuthorization({
+            agents: ['https://bob.example/profile/card#me'],
+            modes: ['http://www.w3.org/ns/auth/acl#Read'],
+        });
+
+        // Assert
+        expect(authorization.accessTo).toEqual([containerUrl]);
+        expect(authorization.default).toEqual([containerUrl]);
+        expect(FakeServer.getRequest('PATCH', `${containerUrl}.acl`)?.body).toEqualSparql(`
+            INSERT DATA {
+                ${prefixes}
+
+                <#[[.*]]>
+                    a acl:Authorization;
+                    acl:agent <https://bob.example/profile/card#me>;
+                    acl:accessTo <${containerUrl}>;
+                    acl:default <${containerUrl}>;
+                    acl:mode acl:Read.
+            }
+        `);
+    });
+
+    it('refreshes permissions after creating WAC authorizations', async () => {
+        // Arrange
+        respondWithDocument(documentUrl, 'spirited-away.acl', () =>
+            FakeServer.getRequests('PATCH', aclUrl).length > 0 ? 'read' : '',
+        );
+        respondWithUpdatableACL(
+            aclUrl,
+            `
+                <#owner>
+                    a acl:Authorization;
+                    acl:agent <https://alice.example/profile/card#me>;
+                    acl:accessTo <./spirited-away>;
+                    acl:mode acl:Read, acl:Write, acl:Control.
+            `,
+        );
+
+        await movie.fetchPermissions();
+
+        // Act
+        const authorization = await movie.createWACAuthorization({
+            agentClasses: ['http://xmlns.com/foaf/0.1/Agent'],
+            modes: ['http://www.w3.org/ns/auth/acl#Read'],
+        });
+
+        // Assert
+        expect(movie.isPublic()).toBe(true);
+        expect(movie.requireWACAuthorizations()).toContain(authorization);
+    });
+
+    it('refreshes permissions after updating public permissions', async () => {
+        // Arrange
+        respondWithDocument(documentUrl, 'spirited-away.acl', () =>
+            FakeServer.getRequests('PATCH', aclUrl).length > 0 ? 'read' : '',
+        );
+        respondWithUpdatableACL(
+            aclUrl,
+            `
+                <#owner>
+                    a acl:Authorization;
+                    acl:agent <https://alice.example/profile/card#me>;
+                    acl:accessTo <./spirited-away>;
+                    acl:mode acl:Read, acl:Write, acl:Control.
+            `,
+        );
+
+        // Act
+        await movie.updatePublicPermissions([SolidDocumentPermissions.Read]);
+
+        // Assert
+        expect(movie.isPublic()).toBe(true);
+        expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([`${aclUrl}#owner`, `${aclUrl}#public`]);
+    });
+
+    it('fails creating WAC authorizations without agents or modes', async () => {
+        // Arrange
+        respondWithDocumentACL(`
+            <#owner>
+                a acl:Authorization;
+                acl:agent <https://alice.example/profile/card#me>;
+                acl:accessTo <./spirited-away>;
+                acl:mode acl:Read, acl:Write, acl:Control.
+        `);
+
+        await movie.fetchPermissions();
+
+        // Act
+        const promisedWithoutAgents = movie.createWACAuthorization({ modes: ['http://www.w3.org/ns/auth/acl#Read'] });
+        const promisedWithoutModes = movie.createWACAuthorization({ agents: ['https://bob.example/profile/card#me'] });
+
+        // Assert
+        await expect(promisedWithoutAgents).rejects.toThrow(SoukaiError);
+        await expect(promisedWithoutModes).rejects.toThrow(SoukaiError);
+        expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(0);
+    });
+
+    it('ignores deleted WAC authorizations', async () => {
+        // Arrange
+        respondWithDocumentACL(`
+            <#owner>
+                a acl:Authorization;
+                acl:agent <https://alice.example/profile/card#me>;
+                acl:accessTo <./spirited-away>;
+                acl:mode acl:Read, acl:Write, acl:Control.
+
+            <#bob>
+                a acl:Authorization;
+                acl:agent <https://bob.example/profile/card#me>;
+                acl:accessTo <./spirited-away>;
+                acl:mode acl:Read.
+        `);
+
+        await movie.fetchPermissions();
+
+        // Act
+        await movie.requireWACAuthorizations()[1]?.delete();
+
+        // Assert
+        expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([`${aclUrl}#owner`]);
+    });
+
     it('fails with ACP resources', async () => {
         // Arrange
         FakeServer.respond(documentUrl, FakeResponse.success(undefined, { Link: '<spirited-away.acr>; rel="acl"' }));
@@ -444,6 +712,30 @@ describe('Permissions', () => {
 
         // Assert
         await expect(promisedUpdate).rejects.toBeInstanceOf(UnsupportedAuthorizationProtocol);
+    });
+
+    it('fails creating WAC authorizations with ACP resources', async () => {
+        // Arrange
+        FakeServer.respond(documentUrl, FakeResponse.success(undefined, { Link: '<spirited-away.acr>; rel="acl"' }));
+        FakeServer.respond(
+            `${documentUrl}.acr`,
+            FakeResponse.success('<#it> <http://www.w3.org/ns/solid/acp#resource> <spirited-away> .', {
+                Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"',
+            }),
+        );
+
+        await movie.fetchPermissions();
+
+        // Act
+        const promisedAuthorization = movie.createWACAuthorization({
+            agents: ['https://bob.example/profile/card#me'],
+            modes: ['http://www.w3.org/ns/auth/acl#Read'],
+        });
+
+        // Assert
+        expect(movie.usesACP()).toBe(true);
+        await expect(promisedAuthorization).rejects.toThrow(SoukaiError);
+        expect(FakeServer.getRequests('PATCH')).toHaveLength(0);
     });
 
     it('updates permissions of models using non-Solid engines', async () => {

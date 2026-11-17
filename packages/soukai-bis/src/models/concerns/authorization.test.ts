@@ -39,6 +39,7 @@ describe('Authorization', () => {
         respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read write", public="read"' });
         respondWithLinks(otherDocumentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
         FakeServer.respond(`${documentUrl}.acl`, '<#owner> a <http://www.w3.org/ns/auth/acl#Authorization> .');
+        FakeServer.respond(`${otherDocumentUrl}.acl`, FakeResponse.notFound());
 
         // Act
         const permissions = await movie.fetchPermissions();
@@ -46,14 +47,20 @@ describe('Authorization', () => {
         const otherPermissions = await otherMovie.fetchPermissions();
 
         // Assert
-        expect(permissions).toEqual({ protocol: 'wac', publicPermissions: [SolidDocumentPermissions.Read] });
+        expect(permissions.protocol).toEqual('wac');
+        expect(permissions.publicPermissions).toEqual([SolidDocumentPermissions.Read]);
         expect(movie.usesWAC()).toBe(true);
         expect(movie.isPublic()).toBe(true);
-        expect(otherPermissions).toEqual({ protocol: 'wac', publicPermissions: [] });
+        expect(otherPermissions).toEqual({
+            protocol: 'wac',
+            publicPermissions: [],
+            authorizations: [],
+        });
         expect(otherMovie.isPrivate()).toBe(true);
         expect(detectionRequestsCount).toEqual(2);
-        expect(FakeServer.getRequests()).toHaveLength(3);
+        expect(FakeServer.getRequests()).toHaveLength(4);
         expect(FakeServer.getRequests('HEAD', otherDocumentUrl)).toHaveLength(1);
+        expect(FakeServer.getRequests(`${rootUrl}shows/`)).toHaveLength(0);
     });
 
     it('detects WAC from container ACLs', async () => {
@@ -69,8 +76,49 @@ describe('Authorization', () => {
         const permissions = await movie.fetchPermissions();
 
         // Assert
-        expect(permissions).toEqual({ protocol: 'wac', publicPermissions: [] });
+        expect(permissions).toEqual({
+            protocol: 'wac',
+            publicPermissions: [],
+            authorizations: [],
+        });
         expect(FakeServer.getRequests(rootUrl)).toHaveLength(0);
+    });
+
+    it('fetches WAC authorizations', async () => {
+        // Arrange
+        const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
+
+        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
+        FakeServer.respond(
+            `${documentUrl}.acl`,
+            `
+                @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+
+                <#owner>
+                    a acl:Authorization ;
+                    acl:agent <https://alice.example/profile/card#me> ;
+                    acl:accessTo <spirited-away> ;
+                    acl:mode acl:Read, acl:Write, acl:Control .
+
+                <#bob>
+                    a acl:Authorization ;
+                    acl:agent <https://bob.example/profile/card#me> ;
+                    acl:accessTo <spirited-away> ;
+                    acl:mode acl:Read .
+            `,
+        );
+
+        // Act
+        await movie.fetchPermissions();
+
+        // Assert
+        const authorizations = movie.requireWACAuthorizations();
+
+        expect(authorizations.map(({ url }) => url)).toEqual([`${documentUrl}.acl#owner`, `${documentUrl}.acl#bob`]);
+        expect(authorizations[1]?.agents).toEqual(['https://bob.example/profile/card#me']);
+        expect(authorizations[1]?.modes).toEqual(['http://www.w3.org/ns/auth/acl#Read']);
+        expect(authorizations[1]?.exists()).toBe(true);
+        expect(() => movie.requireACPAccessControlResources()).toThrow(SoukaiError);
     });
 
     it('fetches ACP grants', async () => {
@@ -96,6 +144,7 @@ describe('Authorization', () => {
         expect(movie.requireACPAccessControlResources()[0]?.accessControls?.map(({ url }) => url)).toEqual([
             `${documentUrl}.acr#bob`,
         ]);
+        expect(() => movie.requireWACAuthorizations()).toThrow(SoukaiError);
         expect(FakeServer.getRequests()).toHaveLength(2);
     });
 
@@ -212,6 +261,51 @@ describe('Authorization', () => {
         expect(() => movie.usesACP()).toThrow(SoukaiError);
         expect(otherPermissions).toEqual({ protocol: 'unknown', publicPermissions: [] });
         expect(otherMovie.isPrivate()).toBe(true);
+    });
+
+    it('reads public permissions of known WAC origins without access to ACLs', async () => {
+        // Arrange
+        const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
+
+        rememberAuthorizationProtocol(rootUrl, 'wac');
+        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read", public="read"' });
+        FakeServer.respond(`${documentUrl}.acl`, new Response(null, { status: 403 }));
+
+        // Act
+        const permissions = await movie.fetchPermissions();
+
+        // Assert
+        expect(permissions).toEqual({
+            protocol: 'wac',
+            publicPermissions: [SolidDocumentPermissions.Read],
+            authorizations: null,
+        });
+        expect(movie.usesWAC()).toBe(true);
+        expect(movie.isPublic()).toBe(true);
+        expect(() => movie.requireWACAuthorizations()).toThrow(SoukaiError);
+        await expect(
+            movie.createWACAuthorization({
+                agents: ['https://bob.example/profile/card#me'],
+                modes: ['http://www.w3.org/ns/auth/acl#Read'],
+            }),
+        ).rejects.toThrow(SoukaiError);
+    });
+
+    it('reads public permissions of known WAC origins with ACL errors', async () => {
+        // Arrange
+        const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
+
+        rememberAuthorizationProtocol(rootUrl, 'wac');
+        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
+        FakeServer.respond(`${documentUrl}.acl`, new Response(null, { status: 500 }));
+
+        // Act
+        await movie.fetchPermissions();
+
+        // Assert
+        expect(movie.usesWAC()).toBe(true);
+        expect(movie.isPrivate()).toBe(true);
+        expect(() => movie.requireWACAuthorizations()).toThrow(SoukaiError);
     });
 
     it('fails detecting protocols with forbidden containers', async () => {
