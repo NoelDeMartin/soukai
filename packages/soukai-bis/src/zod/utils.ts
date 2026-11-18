@@ -1,5 +1,5 @@
 import { RDFLiteral, RDFNamedNode } from '@noeldemartin/solid-utils';
-import { isDevelopment, isTesting, parseDate, required } from '@noeldemartin/utils';
+import { arrayFrom, isDevelopment, isTesting, parseDate, required } from '@noeldemartin/utils';
 import type { Quad_Object } from '@rdfjs/types';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import {
@@ -9,11 +9,17 @@ import {
     XSD_DATE_TIME_TYPE,
     XSD_DECIMAL,
     XSD_INTEGER,
+    createRDFLiteral,
     numberDatatype,
 } from 'soukai-bis/lib/internals/rdf';
+import { deepMeta, unwrapType } from 'soukai-bis/zod/soukai';
 import type { ZodType } from 'zod';
-import { ZodArray, ZodBoolean, ZodDate, ZodDefault, ZodNumber, ZodOptional, ZodURL } from 'zod';
+import { ZodArray, ZodBoolean, ZodDate, ZodNumber, ZodURL } from 'zod';
 import type { SomeType } from 'zod/v4/core';
+
+function isRDFTerm(value: unknown): value is Quad_Object {
+    return value instanceof RDFNamedNode || value instanceof RDFLiteral;
+}
 
 export function isArrayField(fieldDefinition: SomeType): boolean {
     return getFinalType(fieldDefinition) instanceof ZodArray;
@@ -28,7 +34,29 @@ export function isUrlField(fieldDefinition: ZodType): boolean {
     );
 }
 
+export function castTermToJavaScript(term: Quad_Object): unknown {
+    if (term.termType === 'Literal') {
+        switch (term.datatype?.value) {
+            case XSD_DATE_TIME:
+                return new Date(term.value);
+            case XSD_INTEGER:
+            case XSD_DECIMAL:
+                return Number(term.value);
+            case XSD_BOOLEAN:
+                return term.value === 'true' || term.value === '1';
+        }
+    }
+
+    return term.value;
+}
+
 export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], definition: SomeType): unknown {
+    const deserialize = deepMeta(definition as ZodType, 'rdfCast')?.deserialize;
+
+    if (deserialize) {
+        return deserialize(objects.map(castTermToJavaScript), objects);
+    }
+
     const finalType = getFinalType(definition);
 
     if (finalType instanceof ZodArray) {
@@ -58,22 +86,24 @@ export function castToJavaScript(objects: [Quad_Object, ...Quad_Object[]], defin
         return object.value === 'true' || object.value === '1';
     }
 
-    if (object.termType === 'Literal') {
-        switch (object.datatype?.value) {
-            case XSD_DATE_TIME:
-                return new Date(object.value);
-            case XSD_INTEGER:
-            case XSD_DECIMAL:
-                return Number(object.value);
-            case XSD_BOOLEAN:
-                return object.value === 'true';
-        }
-    }
-
-    return object.value;
+    return castTermToJavaScript(object);
 }
 
 export function castToRDF(value: unknown, definition: SomeType): Quad_Object[] {
+    const serialize = deepMeta(definition as ZodType, 'rdfCast')?.serialize;
+
+    if (serialize) {
+        if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) {
+            return [];
+        }
+
+        return arrayFrom(serialize(value))
+            .filter((serializedValue) => serializedValue !== null && serializedValue !== undefined)
+            .map((serializedValue) =>
+                isRDFTerm(serializedValue) ? serializedValue : createRDFLiteral(serializedValue),
+            );
+    }
+
     const finalType = getFinalType(definition);
 
     if (finalType instanceof ZodArray) {
@@ -108,13 +138,7 @@ export function castToRDF(value: unknown, definition: SomeType): Quad_Object[] {
 }
 
 export function getFinalType(type: SomeType): SomeType {
-    if (type instanceof ZodOptional) {
-        return getFinalType(type.def.innerType);
-    }
+    const innerType = unwrapType(type);
 
-    if (type instanceof ZodDefault) {
-        return getFinalType(type.def.innerType);
-    }
-
-    return type;
+    return innerType ? getFinalType(innerType) : type;
 }

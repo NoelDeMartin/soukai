@@ -10,13 +10,12 @@ import { fakeDocumentUrl } from '@noeldemartin/testing';
 import type { Quad } from '@rdfjs/types';
 import { CRDT_VALUE } from 'soukai-bis/lib/internals/rdf';
 import { setRDFPrefixAliases } from 'soukai-bis/lib/rdf-prefix-aliases';
+import { HTTP_SCHEMA } from 'soukai-bis/testing/constants';
 import { describe, expect, it } from 'vite-plus/test';
 
 import type PropertyOperation from './PropertyOperation';
 import RemovePropertyOperation from './RemovePropertyOperation';
 import SetPropertyOperation from './SetPropertyOperation';
-
-const HTTP_SCHEMA = 'http://schema.org/';
 
 describe('RemovePropertyOperation', () => {
     async function documentQuads(documentUrl: string) {

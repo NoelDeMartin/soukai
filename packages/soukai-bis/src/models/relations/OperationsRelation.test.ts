@@ -1,9 +1,7 @@
 import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
-import { bootModels } from 'soukai-bis/models/registry';
-import { defineSchema } from 'soukai-bis/models/schema';
-import User from 'soukai-bis/testing/stubs/User';
+import UserWithHistory from 'soukai-bis/testing/stubs/UserWithHistory';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('OperationsRelation', () => {
@@ -11,10 +9,6 @@ describe('OperationsRelation', () => {
 
     it('loads document operations', async () => {
         // Arrange
-        class UserWithHistory extends defineSchema(User, { history: true }) {}
-
-        bootModels({ UserWithHistory });
-
         const documentUrl = fakeDocumentUrl();
 
         FakeServer.respond(

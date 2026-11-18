@@ -1,11 +1,13 @@
 import type Animal from './Animal';
 import type Episode from './Episode';
+import type EpisodeWithTombstone from './EpisodeWithTombstone';
 import type Group from './Group';
 import type InverseEpisode from './InverseEpisode';
 import type InverseSeason from './InverseSeason';
 import type ManagerGrant from './ManagerGrant';
 import type Movie from './Movie';
 import type MoviesCollection from './MoviesCollection';
+import type MovieWithHistory from './MovieWithHistory';
 import type Playlist from './Playlist';
 import type Post from './Post';
 import type PostsCollection from './PostsCollection';
@@ -14,22 +16,30 @@ import type Rating from './Rating';
 import type Review from './Review';
 import type ReviewedMovie from './ReviewedMovie';
 import type Season from './Season';
+import type SeasonWithTombstone from './SeasonWithTombstone';
 import type Show from './Show';
+import type ShowWithTombstone from './ShowWithTombstone';
 import type Song from './Song';
 import type Task from './Task';
+import type TaskWithCasts from './TaskWithCasts';
+import type TaskWithHistory from './TaskWithHistory';
+import type Todo from './Todo';
 import type Track from './Track';
 import type User from './User';
+import type UserWithHistory from './UserWithHistory';
 import type WatchAction from './WatchAction';
 
 declare module 'soukai-bis' {
     interface ModelsRegistry {
         Animal: typeof Animal;
         Episode: typeof Episode;
+        EpisodeWithTombstone: typeof EpisodeWithTombstone;
         Group: typeof Group;
         InverseEpisode: typeof InverseEpisode;
         InverseSeason: typeof InverseSeason;
         ManagerGrant: typeof ManagerGrant;
         Movie: typeof Movie;
+        MovieWithHistory: typeof MovieWithHistory;
         MoviesCollection: typeof MoviesCollection;
         Playlist: typeof Playlist;
         Post: typeof Post;
@@ -39,11 +49,17 @@ declare module 'soukai-bis' {
         Review: typeof Review;
         ReviewedMovie: typeof ReviewedMovie;
         Season: typeof Season;
+        SeasonWithTombstone: typeof SeasonWithTombstone;
         Show: typeof Show;
+        ShowWithTombstone: typeof ShowWithTombstone;
         Song: typeof Song;
         Task: typeof Task;
+        TaskWithCasts: typeof TaskWithCasts;
+        TaskWithHistory: typeof TaskWithHistory;
+        Todo: typeof Todo;
         Track: typeof Track;
         User: typeof User;
+        UserWithHistory: typeof UserWithHistory;
         WatchAction: typeof WatchAction;
     }
 }

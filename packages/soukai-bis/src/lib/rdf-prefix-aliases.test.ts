@@ -14,16 +14,14 @@ import { bootModels, replaceRDFPrefixes } from 'soukai-bis/models/registry';
 import { remote } from 'soukai-bis/models/remote';
 import { defineSchema } from 'soukai-bis/models/schema';
 import { hydrateModel } from 'soukai-bis/models/serialization';
+import { HTTP_SCHEMA, ICAL, SCHEMA as HTTPS_SCHEMA } from 'soukai-bis/testing/constants';
 import Movie from 'soukai-bis/testing/stubs/Movie';
+import MovieWithHistory from 'soukai-bis/testing/stubs/MovieWithHistory';
 import PlaylistSchema from 'soukai-bis/testing/stubs/Playlist.schema';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import { string } from 'zod';
-
-const HTTPS_SCHEMA = 'https://schema.org/';
-const HTTP_SCHEMA = 'http://schema.org/';
-const ICAL = 'http://www.w3.org/2002/12/cal/ical#';
 
 describe('RDF prefix aliases', () => {
     let engine: InMemoryEngine;
@@ -114,10 +112,6 @@ describe('RDF prefix aliases', () => {
         });
 
         it('syncs aliased resources between remote and local engines', async () => {
-            class SyncedMovie extends defineSchema(Movie, { history: true }) {}
-
-            bootModels({ SyncedMovie }, { reset: true });
-
             const containerUrl = 'https://alice.example.org/movies/';
             const docUrl = `${containerUrl}movie-1`;
             const resourceUrl = `${docUrl}#it`;
@@ -166,12 +160,12 @@ describe('RDF prefix aliases', () => {
                     privateTypeIndexUrls: [typeIndexUrl],
                     writableProfileUrl: 'https://alice.example.org/profile/card',
                 } satisfies CompleteSolidUserProfile,
-                applicationModels: [{ model: SyncedMovie, registration: { path: 'movies' } }],
+                applicationModels: [{ model: MovieWithHistory, registration: { path: 'movies' } }],
                 privateTypeIndexes: [await TypeIndex.findOrFail(typeIndexUrl)],
                 publicTypeIndexes: [],
             });
 
-            const localMovie = await SyncedMovie.findOrFail(resourceUrl);
+            const localMovie = await MovieWithHistory.findOrFail(resourceUrl);
 
             expect(localMovie.title).toBe('Remote aliased movie');
             expect(localMovie.usesRDFPrefixAliases()).toBe(true);
@@ -338,10 +332,6 @@ describe('RDF prefix aliases', () => {
 
     describe('history', () => {
         it('replays http and https operations as the same property', async () => {
-            class SyncedMovie extends defineSchema(Movie, { history: true }) {}
-
-            bootModels({ SyncedMovie }, { reset: true });
-
             const docUrl = 'https://alice.example.org/movies/history';
             const resourceUrl = `${docUrl}#it`;
 
@@ -371,7 +361,7 @@ describe('RDF prefix aliases', () => {
                 `),
             );
 
-            const movie = await SyncedMovie.findOrFail(resourceUrl);
+            const movie = await MovieWithHistory.findOrFail(resourceUrl);
 
             await movie.syncOperations();
 
@@ -379,9 +369,9 @@ describe('RDF prefix aliases', () => {
         });
 
         it('rewrites aliased properties when creating inception operations', async () => {
-            class TrackedTask extends defineSchema(Task, { history: true, timestamps: false }) {}
+            class TaskWithHistory extends defineSchema(Task, { history: true, timestamps: false }) {}
 
-            bootModels({ TrackedTask }, { reset: true });
+            bootModels({ TaskWithHistory }, { reset: true });
 
             const docUrl = 'https://alice.example.org/tasks/inception';
             const resourceUrl = `${docUrl}#it`;
@@ -399,7 +389,7 @@ describe('RDF prefix aliases', () => {
                 `),
             );
 
-            const task = await TrackedTask.findOrFail(resourceUrl);
+            const task = await TaskWithHistory.findOrFail(resourceUrl);
 
             expect(task.usesRDFPrefixAliases()).toBe(true);
 
@@ -425,9 +415,9 @@ describe('RDF prefix aliases', () => {
         });
 
         it('rewrites aliased array properties instead of adding or removing items', async () => {
-            class TrackedPlaylist extends defineSchema(PlaylistSchema, { history: true, timestamps: false }) {}
+            class PlaylistWithHistory extends defineSchema(PlaylistSchema, { history: true, timestamps: false }) {}
 
-            bootModels({ TrackedPlaylist }, { reset: true });
+            bootModels({ PlaylistWithHistory }, { reset: true });
 
             const docUrl = 'https://alice.example.org/playlists/aliased';
             const resourceUrl = `${docUrl}#it`;
@@ -444,7 +434,7 @@ describe('RDF prefix aliases', () => {
                 `),
             );
 
-            const playlist = await TrackedPlaylist.findOrFail(resourceUrl);
+            const playlist = await PlaylistWithHistory.findOrFail(resourceUrl);
 
             await playlist.update({ songUrls: ['https://example.org/songs/1', 'https://example.org/songs/2'] });
 

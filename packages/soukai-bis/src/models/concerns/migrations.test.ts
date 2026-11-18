@@ -10,14 +10,16 @@ import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { bootModels } from 'soukai-bis/models/registry';
 import { remote } from 'soukai-bis/models/remote';
 import { defineSchema } from 'soukai-bis/models/schema';
+import { ICAL, SCHEMA } from 'soukai-bis/testing/constants';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
+import TaskWithCasts from 'soukai-bis/testing/stubs/TaskWithCasts';
+import { STATUS_COMPLETED } from 'soukai-bis/testing/stubs/TaskWithCasts.schema';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
-const ICAL = 'http://www.w3.org/2002/12/cal/ical#';
 
-class HistoryTask extends defineSchema(Task, {
+class TaskWithHistory extends defineSchema(Task, {
     history: true,
     rdfDefaultResourceHash: '',
     fields: {
@@ -26,7 +28,7 @@ class HistoryTask extends defineSchema(Task, {
     },
 }) {}
 
-const HistoryTaskICalSchema = defineSchema(TaskICalSchema, {
+const TaskWithHistoryICalSchema = defineSchema(TaskICalSchema, {
     history: true,
     rdfContexts: { schema: 'https://schema.org/' },
     fields: {
@@ -63,7 +65,7 @@ describe('Schema migrations', () => {
 
     beforeEach(() => {
         setEngine((engine = new InMemoryEngine()));
-        bootModels({ HistoryTask }, { reset: true });
+        bootModels({ TaskWithHistory }, { reset: true });
     });
 
     async function documentQuads(documentUrl: string): Promise<Quad[]> {
@@ -75,7 +77,7 @@ describe('Schema migrations', () => {
         useFakeClock();
 
         const createdAt = new Date();
-        const task = await HistoryTask.create({ name: 'Learn Solid', priority: 1 });
+        const task = await TaskWithHistory.create({ name: 'Learn Solid', priority: 1 });
 
         vi.advanceTimersByTime(1000);
 
@@ -86,10 +88,10 @@ describe('Schema migrations', () => {
         vi.advanceTimersByTime(1000);
 
         const documentUrl = task.requireDocumentUrl();
-        const freshTask = await HistoryTask.findOrFail(task.url);
+        const freshTask = await TaskWithHistory.findOrFail(task.url);
 
         // Act
-        const migrated = await freshTask.migrateSchema(HistoryTaskICalSchema);
+        const migrated = await freshTask.migrateSchema(TaskWithHistoryICalSchema);
 
         // Assert
         const quads = await documentQuads(documentUrl);
@@ -103,7 +105,7 @@ describe('Schema migrations', () => {
             }))
             .sort((a, b) => a.property.localeCompare(b.property));
 
-        expect(migrated).toBeInstanceOf(HistoryTask);
+        expect(migrated).toBeInstanceOf(TaskWithHistory);
         expect(migrated.url).toEqual(`${documentUrl}#task`);
         expect(migrated.name).toEqual('Learn Solid');
         expect(migrated.description).toEqual('Read the spec');
@@ -154,11 +156,11 @@ describe('Schema migrations', () => {
         // Arrange
         useFakeClock();
 
-        class AliasedTask extends defineSchema(HistoryTask, {
+        class AliasedTask extends defineSchema(TaskWithHistory, {
             fields: { name: z.string().rdfProperties(['name', 'alternateName']) },
         }) {}
 
-        const AliasedTaskICalSchema = defineSchema(HistoryTaskICalSchema, {
+        const AliasedTaskICalSchema = defineSchema(TaskWithHistoryICalSchema, {
             fields: { name: z.string().rdfProperties(['summary', 'comment']) },
         });
 
@@ -202,7 +204,7 @@ describe('Schema migrations', () => {
         // Arrange
         useFakeClock();
 
-        const CapitalizedSchema = defineSchema(HistoryTaskICalSchema, {
+        const CapitalizedSchema = defineSchema(TaskWithHistoryICalSchema, {
             hooks: {
                 beforeInitialize(attributes) {
                     attributes.status ??= 'NEEDS-ACTION';
@@ -210,7 +212,7 @@ describe('Schema migrations', () => {
                 },
             },
         });
-        const task = await HistoryTask.create({ name: 'Learn solid' });
+        const task = await TaskWithHistory.create({ name: 'Learn solid' });
 
         vi.advanceTimersByTime(1000);
 
@@ -218,7 +220,7 @@ describe('Schema migrations', () => {
 
         await task.update({ name: 'learn solid' });
 
-        const freshTask = await HistoryTask.findOrFail(task.url);
+        const freshTask = await TaskWithHistory.findOrFail(task.url);
         const existingOperations = (await freshTask.loadRelation('operations')) as PropertyOperation[];
 
         // Act
@@ -279,7 +281,7 @@ describe('Schema migrations', () => {
         // Arrange
         useFakeClock();
 
-        const task = await HistoryTask.create({ name: 'Learn Solid', priority: 1 });
+        const task = await TaskWithHistory.create({ name: 'Learn Solid', priority: 1 });
 
         vi.advanceTimersByTime(1000);
         await task.update({ description: 'Read the spec' });
@@ -290,12 +292,12 @@ describe('Schema migrations', () => {
         await otherEngine.createDocument(documentUrl, await documentQuads(documentUrl));
 
         // Act
-        await (await HistoryTask.findOrFail(task.url)).migrateSchema(HistoryTaskICalSchema);
+        await (await TaskWithHistory.findOrFail(task.url)).migrateSchema(TaskWithHistoryICalSchema);
 
         vi.advanceTimersByTime(1000);
         setEngine(otherEngine);
 
-        await (await HistoryTask.findOrFail(task.url)).migrateSchema(HistoryTaskICalSchema);
+        await (await TaskWithHistory.findOrFail(task.url)).migrateSchema(TaskWithHistoryICalSchema);
 
         // Assert
         const otherQuads = (await otherEngine.readDocument(documentUrl)).getQuads();
@@ -449,7 +451,7 @@ describe('Schema migrations', () => {
         // Arrange
         useFakeClock();
 
-        class TaskWithKeywords extends defineSchema(HistoryTask, {
+        class TaskWithKeywords extends defineSchema(TaskWithHistory, {
             fields: { keywords: z.array(z.string()).default([]) },
         }) {}
 
@@ -461,10 +463,10 @@ describe('Schema migrations', () => {
         await taskWithKeywords.update({ keywords: ['solid'] });
 
         const documentUrl = taskWithKeywords.requireDocumentUrl();
-        const task = await HistoryTask.findOrFail(taskWithKeywords.url);
+        const task = await TaskWithHistory.findOrFail(taskWithKeywords.url);
 
         // Act
-        const migrated = await task.migrateSchema(HistoryTaskICalSchema);
+        const migrated = await task.migrateSchema(TaskWithHistoryICalSchema);
 
         // Assert
         const quads = await documentQuads(documentUrl);
@@ -543,5 +545,41 @@ describe('Schema migrations', () => {
         // Assert
         expect(firstMigrated.static()).toBe(secondMigrated.static());
         expect(thirdMigrated.static()).not.toBe(firstMigrated.static());
+    });
+
+    it('preserves custom casts when migrating schemas', async () => {
+        // Arrange
+        useFakeClock();
+
+        const TargetSchema = defineSchema(TaskWithCasts, { rdfDefaultResourceHash: 'task' });
+        const task = await TaskWithCasts.create({
+            name: 'Learn Solid',
+            completed: true,
+            priority: 'high',
+            tags: ['solid', 'rdf'],
+        });
+
+        vi.advanceTimersByTime(1000);
+
+        const documentUrl = task.requireDocumentUrl();
+        const freshTask = await TaskWithCasts.findOrFail(task.url);
+
+        // Act
+        const migrated = await freshTask.migrateSchema(TargetSchema);
+
+        // Assert
+        const quads = await documentQuads(documentUrl);
+
+        expect(migrated.url).toEqual(`${documentUrl}#task`);
+        expect(migrated.completed).toBe(true);
+        expect(migrated.priority).toBe('high');
+        expect(migrated.tags).toEqual(['rdf', 'solid']);
+        expect(subjectStatements(quads, `${documentUrl}#task`)).toEqual({
+            'http://www.w3.org/1999/02/22-rdf-syntax-ns#type': [`${SCHEMA}Action`],
+            [`${SCHEMA}name`]: ['Learn Solid'],
+            [`${SCHEMA}actionStatus`]: [STATUS_COMPLETED],
+            [`${ICAL}priority`]: ['1'],
+            [`${SCHEMA}keywords`]: ['rdf,solid'],
+        });
     });
 });

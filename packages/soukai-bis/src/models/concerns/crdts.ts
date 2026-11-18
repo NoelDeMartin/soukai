@@ -31,7 +31,7 @@ import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/mo
 import type Model from 'soukai-bis/models/Model';
 import { isBootedModelInstance, requireBootedModel } from 'soukai-bis/models/registry';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
-import { castToRDF, isArrayField, isUrlField } from 'soukai-bis/zod/utils';
+import { castTermToJavaScript, castToRDF, isArrayField, isUrlField } from 'soukai-bis/zod/utils';
 import type { ZodType } from 'zod';
 
 function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
@@ -54,6 +54,14 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
             continue;
         }
 
+        const values = castToRDF(value, fieldDefinition);
+
+        if (values.length === 0) {
+            continue;
+        }
+
+        const isNamedNode = isUrlField(fieldDefinition);
+
         for (const property of getFieldRDFProperties(model.static(), field)) {
             if (staleRDFProperties?.has(property.value)) {
                 continue;
@@ -62,17 +70,11 @@ function createInceptionOperations(model: Model, createdAt: Date): Operation[] {
             const operation = new SetPropertyOperation({
                 resourceUrl: model.requireUrl(),
                 property: property.value,
-                value: Array.isArray(value) ? value : [value],
+                value: values.map(castTermToJavaScript),
                 date: model.createdAt ?? createdAt,
             });
 
-            operation.setPredicate(property);
-
-            if (isUrlField(fieldDefinition)) {
-                operation.setNamedNode(true);
-            }
-
-            operations.push(operation);
+            operations.push(operation.setPredicate(property).setNamedNode(isNamedNode).setValues(values));
         }
     }
 
@@ -136,27 +138,24 @@ function createArrayPropertyOperations(
 ): PropertyOperation[] {
     const AddPropertyOperation = requireBootedModel('AddPropertyOperation');
     const RemovePropertyOperation = requireBootedModel('RemovePropertyOperation');
-    const castItems = (value: unknown) => {
-        const items: { item: unknown; term: Quad_Object }[] = [];
+    const castTerms = (value: unknown) => {
+        const terms: Quad_Object[] = [];
 
-        for (const item of arrayFrom(value, { ignoreEmptyValues: true })) {
-            const term = castToRDF([item], fieldDefinition)[0];
-
-            if (!term || items.some((otherItem) => otherItem.term.equals(term))) {
+        for (const term of castToRDF(arrayFrom(value, { ignoreEmptyValues: true }), fieldDefinition)) {
+            if (includesTerm(terms, term)) {
                 continue;
             }
 
-            items.push({ item, term });
+            terms.push(term);
         }
 
-        return items;
+        return terms;
     };
-    const originalItems = castItems(model.getOriginalAttribute(field));
-    const items = castItems(model.getAttribute(field));
-    const includesTerm = (otherItems: typeof items, term: Quad_Object) =>
-        otherItems.some((otherItem) => otherItem.term.equals(term));
-    const added = items.filter(({ term }) => !includesTerm(originalItems, term));
-    const removed = originalItems.filter(({ term }) => !includesTerm(items, term));
+    const includesTerm = (terms: Quad_Object[], term: Quad_Object) => terms.some((otherTerm) => otherTerm.equals(term));
+    const originalTerms = castTerms(model.getOriginalAttribute(field));
+    const terms = castTerms(model.getAttribute(field));
+    const added = terms.filter((term) => !includesTerm(originalTerms, term));
+    const removed = originalTerms.filter((term) => !includesTerm(terms, term));
     const isNamedNode = isUrlField(fieldDefinition);
     const operations: PropertyOperation[] = [];
 
@@ -165,17 +164,17 @@ function createArrayPropertyOperations(
 
         added.length > 0 &&
             operations.push(
-                new AddPropertyOperation({ ...attributes, value: added.map(({ item }) => item) })
+                new AddPropertyOperation({ ...attributes, value: added.map(castTermToJavaScript) })
                     .setNamedNode(isNamedNode)
-                    .setValues(added.map(({ term }) => term))
+                    .setValues(added)
                     .setPredicate(property),
             );
 
         removed.length > 0 &&
             operations.push(
-                new RemovePropertyOperation({ ...attributes, value: removed.map(({ item }) => item) })
+                new RemovePropertyOperation({ ...attributes, value: removed.map(castTermToJavaScript) })
                     .setNamedNode(isNamedNode)
-                    .setValues(removed.map(({ term }) => term))
+                    .setValues(removed)
                     .setPredicate(property),
             );
     }
@@ -232,8 +231,14 @@ export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<
                 continue;
             }
 
+            const isNamedNode = isUrlField(fieldDefinition);
+            const values =
+                value === undefined || value === null || (Array.isArray(value) && value.length === 0)
+                    ? []
+                    : castToRDF(value, fieldDefinition);
+
             for (const property of getFieldRDFProperties(model.static(), attribute)) {
-                if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
+                if (values.length === 0) {
                     exists &&
                         modelOperations.push(
                             new UnsetPropertyOperation({
@@ -249,17 +254,11 @@ export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<
                 const operation = new SetPropertyOperation({
                     resourceUrl: model.url,
                     property: property.value,
-                    value: Array.isArray(value) ? value : [value],
+                    value: values.map(castTermToJavaScript),
                     date: model.updatedAt ?? now,
                 });
 
-                operation.setPredicate(property);
-
-                if (isUrlField(fieldDefinition)) {
-                    operation.setNamedNode(true);
-                }
-
-                modelOperations.push(operation);
+                modelOperations.push(operation.setPredicate(property).setNamedNode(isNamedNode).setValues(values));
             }
         }
     }

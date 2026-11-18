@@ -56,10 +56,6 @@ await User.create({
 
 Every model also has a built-in `url` field, which serves as its primary key. You can read more about it in the [Urls](#urls) section.
 
-::: warning TODO
-Previous versions of Soukai supported some additional options in field definitions that haven't been implemented yet: `get`/`set`/`serialize`/`deserialize` hooks.
-:::
-
 ### Magic attributes
 
 Once fields are defined, you can access them like model properties as such:
@@ -156,10 +152,6 @@ console.log(user.name === user.nickname);
 
 > [!WARNING] ⚠️ Defining a getter does not create new attributes
 > Keep in mind that doing this will only allow for such getters to be used, but the model will continue having the same attributes. This means that methods such as `getAttribute` or `getAttributes` will not take into account these virtual attributes. They will also be ignored in any interaction with engines.
-
-::: warning TODO
-Previous versions of Soukai supported declaring virtual attributes using methods such as `getNicknameAttribute()` and `setNicknameAttribute(value)`, which could also override reading real attributes. This hasn't been implemented yet.
-:::
 
 ## Urls
 
@@ -429,6 +421,8 @@ The model will still have a single `name` attribute:
 
 Declaring properties disables the default behavior of using the field name to infer RDF properties, so if you want to keep using the field name you have to include it in the list: `.rdfProperties(['name', 'vcard:fn'])`.
 
+Values are converted to RDF depending on the field type, for example dates are stored as `xsd:dateTime` literals and urls as named nodes. If you need to store them differently, you can write [custom casts](../advanced/interoperability.md#custom-casts).
+
 ### Timestamps in RDF
 
 In order to keep track of when resources have been created or modified, timestamps are declared in a separate `Metadata` model. This is an example of the RDF that will be generated with the Person class we've been working on:
@@ -556,7 +550,7 @@ export default class Task extends Model {
 
 ## Zod extensions
 
-Some of the features you've seen in this page, such as `.useAsSlug()` and `.rdfProperty()`, are implemented as Zod extensions.
+Some of the features you've seen in this page, such as `.useAsSlug()`, `.rdfProperty()`, and `.rdfCast()`, are implemented as Zod extensions.
 
 In order to use them, make sure to import `soukai-bis/patch-zod` once in your application before declaring any models (for example, in your entry point):
 

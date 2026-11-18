@@ -1,5 +1,5 @@
 import { RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
-import { arrayFrom, objectOnly, objectWithout, required, tap } from '@noeldemartin/utils';
+import { objectOnly, objectWithout, required, tap } from '@noeldemartin/utils';
 import type { NamedNode, Quad, Quad_Object } from '@rdfjs/types';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
@@ -32,7 +32,7 @@ import type Model from 'soukai-bis/models/Model';
 import { bootModels, isBootedModelInstance, requireBootedModel } from 'soukai-bis/models/registry';
 import type { Schema } from 'soukai-bis/models/schema';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
-import { isUrlField } from 'soukai-bis/zod/utils';
+import { castTermToJavaScript, isUrlField } from 'soukai-bis/zod/utils';
 
 function assertMigratable(model: Model): asserts model is ModelWithUrl {
     const modelName = model.static().modelName;
@@ -357,9 +357,11 @@ function createPropertyOperation(
             : new (requireBootedModel('SetPropertyOperation'))({
                   resourceUrl: instance.url,
                   property: property.value,
-                  value: arrayFrom(instance.getAttribute(field)),
+                  value: values.map(castTermToJavaScript),
                   date,
-              }).setNamedNode(isUrlField(required(getSchema(instance.static()).fields.def.shape[field])));
+              })
+                  .setNamedNode(isUrlField(required(getSchema(instance.static()).fields.def.shape[field])))
+                  .setValues(values);
 
     return operation.setPredicate(property);
 }

@@ -1,12 +1,13 @@
-import type { SoukaiZodMeta, ContainerSlugOptions } from 'soukai-bis/zod/soukai';
+import type { SoukaiZodMeta, ContainerSlugOptions, RDFCastOptions } from 'soukai-bis/zod/soukai';
 import {
+    rdfCast as _rdfCast,
     rdfProperties as _rdfProperties,
     deepMeta as _deepMeta,
     rdfProperty as _rdfProperty,
     useAsContainerSlug as _useAsContainerSlug,
     useAsSlug as _useAsSlug,
 } from 'soukai-bis/zod/soukai';
-import type { ZodType } from 'zod';
+import type { ZodType, output } from 'zod';
 
 export function deepMeta<T extends ZodType, TKey extends keyof SoukaiZodMeta>(
     this: T,
@@ -31,4 +32,13 @@ export function useAsSlug<T extends ZodType>(this: T): T {
 
 export function useAsContainerSlug<T extends ZodType>(this: T, options?: ContainerSlugOptions): T {
     return _useAsContainerSlug(this, options);
+}
+
+export function rdfCast<T extends ZodType>(this: T): RDFCastOptions | undefined;
+export function rdfCast<T extends ZodType>(this: T, options: RDFCastOptions<NonNullable<output<T>>>): T;
+export function rdfCast<T extends ZodType>(
+    this: T,
+    options?: RDFCastOptions<NonNullable<output<T>>>,
+): T | RDFCastOptions | undefined {
+    return options ? _rdfCast(this, options) : _rdfCast(this);
 }

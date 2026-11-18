@@ -232,6 +232,68 @@ Existing resources are not upgraded until they are edited. For example, if a tas
 Matching resources with any of the classes means that you'll read data written by other applications, which may not have all the fields you need. If a matched resource fails validation, an `InvalidAttributesError` will be thrown. Make sure that required fields have a property in every vocabulary you're reading, or fill them in with a [`beforeInitialize` hook](#hooks).
 :::
 
+### Custom casts
+
+Vocabularies don't only differ in the names of classes and properties, they can also represent the same values differently. For example, iCalendar stores priorities as integers between 1 and 9; and schema.org Actions declare their status with a url, rather than a boolean or a date.
+
+By default, values are converted to RDF depending on the field type (dates are stored as `xsd:dateTime` literals, urls as named nodes, etc.). But you can customize it with `rdfCast()`, so that models work with values that make sense for your application:
+
+```ts
+import { RDFNamedNode } from '@noeldemartin/solid-utils';
+import { defineSchema } from 'soukai-bis';
+import { boolean, enum as enumType, string } from 'zod';
+
+const PRIORITIES = { high: 1, medium: 5, low: 9 };
+const STATUS_COMPLETED = 'https://schema.org/CompletedActionStatus';
+const STATUS_POTENTIAL = 'https://schema.org/PotentialActionStatus';
+
+export default defineSchema({
+    rdfContexts: {
+        default: 'https://schema.org/',
+        ical: 'http://www.w3.org/2002/12/cal/ical#',
+    },
+    rdfClass: 'Action',
+    fields: {
+        name: string(),
+        completed: boolean()
+            .optional()
+            .rdfProperty('actionStatus')
+            .rdfCast({
+                serialize: (completed) => new RDFNamedNode(completed ? STATUS_COMPLETED : STATUS_POTENTIAL),
+                deserialize: ([status]) => status === STATUS_COMPLETED,
+            }),
+        priority: enumType(['high', 'medium', 'low'])
+            .optional()
+            .rdfProperty('ical:priority')
+            .rdfCast({
+                serialize: (priority) => PRIORITIES[priority],
+                deserialize: ([value]) => {
+                    const priority = Number(value);
+
+                    // In iCalendar, 0 means that the priority is undefined.
+                    return priority === 0 ? undefined : priority < 5 ? 'high' : priority === 5 ? 'medium' : 'low';
+                },
+            }),
+    },
+});
+```
+
+The `serialize` function receives the attribute value, and returns the value (or values) that will be stored in RDF. If any of them is an `RDFNamedNode` or `RDFLiteral` instance, it'll be stored as is; otherwise, it'll be stored as a literal with a datatype inferred from its JavaScript type. Empty values (`null`, `undefined`, and empty arrays) are not serialized, given that they're not stored in RDF. When the field is an array, `serialize` receives the entire array instead of individual items. This allows you to do things such as removing values, or storing all the items in a single value:
+
+```ts
+tags: array(string())
+    .default([])
+    .rdfProperty('keywords')
+    .rdfCast({
+        serialize: (tags) => [...new Set(tags)].join(','),
+        deserialize: (keywords) => (keywords as string[]).flatMap((keyword) => keyword.split(',')),
+    }),
+```
+
+The `deserialize` function does the opposite, it receives an array of values read from RDF and returns the attribute value. This will always be an array, even for non-array fields, because RDF doesn't make this distinction (all properties can have multiple values). Values are converted using their datatype rather than the field type (so the iCalendar priority above is received as a number, and the status as the url string). If you need more control, you'll also receive the RDF terms in the second argument. Keep in mind that the result will still be validated using the field definition, so you can return `undefined` for values you don't recognize in optional fields.
+
+Custom casts are applied everywhere values are converted to and from RDF; including data written by other applications, [history](./local-first.md#history-tracking) operations, and [migrations](#migrations). If you only need to validate or normalize values, without changing how they're stored, you can use Zod's native methods such as `.catch()` or `z.preprocess()` instead.
+
 ### Migrations
 
 Reading data in different vocabularies is usually enough, but sometimes you'll want to rewrite existing data to a new schema. For example, to replace a legacy vocabulary, or to change the resource hash of your models.

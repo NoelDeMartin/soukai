@@ -45,6 +45,11 @@ export default class ComputedAttribute<TValue = unknown> {
         this.refreshesDisabledCount = Math.max(this.refreshesDisabledCount - 1, 0);
     }
 
+    public static reset(): void {
+        this.relationsDisabledCount = 0;
+        this.refreshesDisabledCount = 0;
+    }
+
     private static get relationsDisabled(): boolean {
         return this.relationsDisabledCount > 0;
     }

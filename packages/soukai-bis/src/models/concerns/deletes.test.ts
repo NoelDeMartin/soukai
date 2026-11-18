@@ -5,13 +5,16 @@ import { belongsToMany, belongsToOne, hasOne } from 'soukai-bis/models/relations
 import { defineSchema } from 'soukai-bis/models/schema';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Episode from 'soukai-bis/testing/stubs/Episode';
+import type EpisodeWithTombstone from 'soukai-bis/testing/stubs/EpisodeWithTombstone';
 import InverseEpisode from 'soukai-bis/testing/stubs/InverseEpisode';
 import InverseSeason from 'soukai-bis/testing/stubs/InverseSeason';
 import Rating from 'soukai-bis/testing/stubs/Rating';
 import Review from 'soukai-bis/testing/stubs/Review';
 import ReviewedMovie from 'soukai-bis/testing/stubs/ReviewedMovie';
 import Season from 'soukai-bis/testing/stubs/Season';
+import type SeasonWithTombstone from 'soukai-bis/testing/stubs/SeasonWithTombstone';
 import Show from 'soukai-bis/testing/stubs/Show';
+import ShowWithTombstone from 'soukai-bis/testing/stubs/ShowWithTombstone';
 import User from 'soukai-bis/testing/stubs/User';
 import { tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -50,17 +53,11 @@ describe('Deletes', () => {
 
     it('cascades deletes into other documents', async () => {
         // Arrange
-        class TombstoneShow extends defineSchema(Show, { tombstone: true }) {}
-        class TombstoneSeason extends defineSchema(Season, { tombstone: true }) {}
-        class TombstoneEpisode extends defineSchema(Episode, { tombstone: true }) {}
-
-        bootModels({ Show: TombstoneShow, Season: TombstoneSeason, Episode: TombstoneEpisode });
-
-        const show = await TombstoneShow.create({ name: 'Breaking Bad' });
+        const show = await ShowWithTombstone.create({ name: 'Breaking Bad' });
         const season = await show.relatedSeasons.create({});
         const firstEpisode = await season.relatedEpisodes.create({ name: 'Pilot' });
         const secondEpisode = await season.relatedEpisodes.create({ name: "Cat's in the Bag..." });
-        const freshShow = await TombstoneShow.findOrFail(show.url);
+        const freshShow = await ShowWithTombstone.findOrFail(show.url);
         const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
         const deleteDocumentSpy = vi.spyOn(engine, 'deleteDocument');
 
@@ -68,8 +65,8 @@ describe('Deletes', () => {
         await freshShow.delete();
 
         // Assert
-        const deletedSeason = freshShow.seasons?.[0] as ModelWithUrl<TombstoneSeason>;
-        const deletedEpisodes = deletedSeason.episodes as ModelWithUrl<TombstoneEpisode>[];
+        const deletedSeason = freshShow.seasons?.[0] as ModelWithUrl<SeasonWithTombstone>;
+        const deletedEpisodes = deletedSeason.episodes as ModelWithUrl<EpisodeWithTombstone>[];
         const deletedEpisode = (url: string) => deletedEpisodes.find((episode) => episode.url === url);
         const updatedDocumentUrls = updateDocumentSpy.mock.calls.map(([url]) => url);
 
@@ -93,9 +90,9 @@ describe('Deletes', () => {
 
     it('cascades deletes into soft deleted models in the same document', async () => {
         // Arrange
-        class HistoryRating extends defineSchema(Rating, { history: true }) {}
+        class RatingWithHistory extends defineSchema(Rating, { history: true }) {}
 
-        bootModels({ Rating: HistoryRating });
+        bootModels({ Rating: RatingWithHistory });
 
         const review = new Review({ itemReviewedUrl: 'https://example.com/movie' });
         const rating = review.relatedRating.attach({ ratingValue: 5 });
@@ -120,9 +117,9 @@ describe('Deletes', () => {
 
     it('cascades deletes into soft deleted models in other documents', async () => {
         // Arrange
-        class HistoryEpisode extends defineSchema(Episode, { history: true }) {}
+        class EpisodeWithHistory extends defineSchema(Episode, { history: true }) {}
 
-        bootModels({ Episode: HistoryEpisode });
+        bootModels({ Episode: EpisodeWithHistory });
 
         const show = await Show.create({ name: 'Breaking Bad' });
         const season = await show.relatedSeasons.create({});
@@ -138,7 +135,7 @@ describe('Deletes', () => {
         // Assert
         const episodeDocument = await engine.readDocument(episode.requireDocumentUrl());
 
-        expect(await HistoryEpisode.find(episode.requireUrl(), { includeSoftDeleted: true })).toBeNull();
+        expect(await EpisodeWithHistory.find(episode.requireUrl(), { includeSoftDeleted: true })).toBeNull();
         expect(episodeDocument.contains(episode.requireUrl())).toBe(false);
         expect(episodeDocument.statements(undefined, 'rdf:type', 'crdt:Tombstone')).toHaveLength(1);
     });

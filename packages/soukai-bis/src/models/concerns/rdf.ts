@@ -10,7 +10,7 @@ import type { Relation } from 'soukai-bis/models/relations';
 import { isMultiModelRelation } from 'soukai-bis/models/relations/helpers';
 import type { ModelConstructor, ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 import { buildModelsCache } from 'soukai-bis/models/utils';
-import { castToJavaScript, getFinalType } from 'soukai-bis/zod/utils';
+import { castToJavaScript } from 'soukai-bis/zod/utils';
 
 function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
     const subjectQuadsIndex = weakMemo('subject-quads-index', quads, () => {
@@ -130,7 +130,6 @@ export function readRDFAttributes(
     const store = buildSubjectStore(url, quads);
 
     for (const [field, type] of Object.entries(fields.shape)) {
-        const fieldType = getFinalType(type);
         const values = getFieldRDFProperties(modelClass, field).map((property) => {
             const variants = getRDFNamedNodeVariants(property);
             let objects: [Quad_Object, ...Quad_Object[]] | undefined;
@@ -156,7 +155,7 @@ export function readRDFAttributes(
 
             return {
                 property: property.value,
-                value: objects ? castToJavaScript(objects, fieldType) : undefined,
+                value: objects ? castToJavaScript(objects, type) : undefined,
             };
         });
         const value = values.find((propertyValue) => propertyValue.value !== undefined)?.value;

@@ -10,8 +10,11 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
 import NonAuthoritativeDocument from 'soukai-bis/errors/NonAuthoritativeDocument';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { XSD_DATE_TIME } from 'soukai-bis/lib/internals/rdf';
+import { CRDT_VALUE, XSD_DATE_TIME, serializeTerm } from 'soukai-bis/lib/internals/rdf';
+import { syncDocumentOperations } from 'soukai-bis/models/concerns/crdts';
+import { isPropertyOperation } from 'soukai-bis/models/crdts/helpers';
 import { trackLocalChanges } from 'soukai-bis/models/local-changes';
+import { ICAL, SCHEMA } from 'soukai-bis/testing/constants';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Playlist from 'soukai-bis/testing/stubs/Playlist';
@@ -24,7 +27,12 @@ import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
+import TaskWithCasts from 'soukai-bis/testing/stubs/TaskWithCasts';
+import { STATUS_COMPLETED, STATUS_POTENTIAL } from 'soukai-bis/testing/stubs/TaskWithCasts.schema';
+import Todo from 'soukai-bis/testing/stubs/Todo';
+import TodoSchema from 'soukai-bis/testing/stubs/Todo.schema';
 import User from 'soukai-bis/testing/stubs/User';
+import UserWithHistory from 'soukai-bis/testing/stubs/UserWithHistory';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
@@ -34,6 +42,7 @@ import z from 'zod';
 
 import type PropertyOperation from './crdts/PropertyOperation';
 import SetPropertyOperation from './crdts/SetPropertyOperation';
+import type ValuePropertyOperation from './crdts/ValuePropertyOperation';
 import { allOf, anyOf } from './matching/fluent';
 import type Model from './Model';
 import type { ModelConstructorOptions } from './Model';
@@ -1298,13 +1307,9 @@ describe('Model', () => {
     });
 
     it('leaves tombstones behind when deleting instances', async () => {
-        class UserWithTombstone extends defineSchema(User, { history: true }) {}
-
-        bootModels({ UserWithTombstone });
-
-        const user = (await UserWithTombstone.create({
+        const user = (await UserWithHistory.create({
             name: 'John Doe',
-        })) as ModelWithUrl<UserWithTombstone>;
+        })) as ModelWithUrl<UserWithHistory>;
 
         await user.delete();
 
@@ -1332,10 +1337,6 @@ describe('Model', () => {
     });
 
     it('removes metadata and operations when deleting instances', async () => {
-        class UserWithHistory extends defineSchema(User, { history: true }) {}
-
-        bootModels({ UserWithHistory });
-
         const user = (await UserWithHistory.create({
             name: 'John Doe',
         })) as ModelWithUrl<UserWithHistory>;
@@ -1374,10 +1375,6 @@ describe('Model', () => {
     });
 
     it('syncs CRDT operations', async () => {
-        class UserWithHistory extends defineSchema(User, { history: true }) {}
-
-        bootModels({ UserWithHistory });
-
         const documentUrl = 'local://users/alice';
         const quads = await turtleToQuads(`
             @prefix foaf: <http://xmlns.com/foaf/0.1/> .
@@ -2692,22 +2689,6 @@ describe('Model', () => {
     });
 
     describe('multiple vocabularies', () => {
-        const ICAL = 'http://www.w3.org/2002/12/cal/ical#';
-
-        const TodoSchema = defineSchema({
-            rdfContext: 'https://schema.org/',
-            rdfContexts: { ical: ICAL },
-            rdfClasses: anyOf(['Action', 'ical:Vtodo']),
-            history: true,
-            fields: {
-                name: z.string().rdfProperties(['name', 'ical:summary']),
-                completedAt: z.date().rdfProperties(['endTime', 'ical:completed']).optional(),
-                priority: z.string().rdfProperty('ical:priority').optional(),
-            },
-        });
-
-        class Todo extends TodoSchema {}
-
         async function loadOperations(url: string): Promise<PropertyOperation[]> {
             const task = await Todo.findOrFail(url);
 
@@ -2717,10 +2698,6 @@ describe('Model', () => {
         function predicateValues(quads: Quad[], predicate: string): string[] {
             return quads.filter((quad) => quad.predicate.value === predicate).map((quad) => quad.object.value);
         }
-
-        beforeEach(() => {
-            bootModels({ Todo }, { reset: true });
-        });
 
         describe('RDF classes', () => {
             it('matches resources with any of the classes', async () => {
@@ -3071,6 +3048,176 @@ describe('Model', () => {
                 expect(z.string().rdfProperty('name').rdfProperties()).toEqual(['name']);
                 expect(z.string().rdfProperties()).toBeUndefined();
             });
+        });
+    });
+
+    describe('RDF casts', () => {
+        function objects(quads: Quad[] | Quad | null): string[] {
+            return [quads ?? []].flat().map((quad) => serializeTerm(quad.object));
+        }
+
+        it('serializes and deserializes values', async () => {
+            // Arrange
+            const task = await TaskWithCasts.create({
+                name: 'Write docs',
+                completed: true,
+                priority: 'medium',
+                tags: ['b', 'a', 'b'],
+            });
+
+            // Act
+            const freshTask = await TaskWithCasts.findOrFail(task.url);
+
+            // Assert
+            const document = await engine.readDocument(task.requireDocumentUrl());
+
+            expect(objects(document.statements(task.url, `${SCHEMA}actionStatus`))).toEqual([`<${STATUS_COMPLETED}>`]);
+            expect(objects(document.statements(task.url, `${ICAL}priority`))).toEqual([
+                `"5"^^<${expandIRI('xsd:integer')}>`,
+            ]);
+            expect(objects(document.statements(task.url, `${SCHEMA}keywords`))).toEqual([
+                `"a,b"^^<${expandIRI('xsd:string')}>`,
+            ]);
+
+            expect(freshTask.completed).toBe(true);
+            expect(freshTask.priority).toBe('medium');
+            expect(freshTask.tags).toEqual(['a', 'b']);
+            expect(freshTask.isDirty()).toBe(false);
+        });
+
+        it('reads data written by other applications', async () => {
+            // Arrange
+            const documentUrl = fakeDocumentUrl();
+            const url = `${documentUrl}#it`;
+
+            await engine.createDocument(documentUrl, {
+                '@id': url,
+                '@type': `${SCHEMA}Action`,
+                [`${SCHEMA}name`]: 'Write docs',
+                [`${SCHEMA}actionStatus`]: { '@id': STATUS_POTENTIAL },
+                [`${ICAL}priority`]: 3,
+            });
+
+            // Act
+            const task = await TaskWithCasts.findOrFail(url);
+
+            // Assert
+            expect(task.completed).toBe(false);
+            expect(task.priority).toBe('high');
+            expect(task.tags).toEqual([]);
+        });
+
+        it('records serialized values in history', async () => {
+            // Arrange
+            const task = await TaskWithCasts.create({
+                name: 'Write docs',
+                completed: false,
+                priority: 'low',
+                tags: ['a'],
+            });
+
+            // Act
+            const updateDocumentSpy = vi.spyOn(engine, 'updateDocument');
+
+            vi.advanceTimersByTime(1);
+            await task.update({ completed: true, priority: 'high', tags: ['a', 'c'] });
+
+            // Assert
+            const document = await engine.readDocument(task.requireDocumentUrl());
+            const freshTask = await TaskWithCasts.findOrFail(task.url);
+            const inceptionValues = objects(document.statements(undefined, CRDT_VALUE));
+            const updateOperations = (updateDocumentSpy.mock.calls[0]?.[1] ?? [])
+                .filter((operation) => isPropertyOperation(operation) && operation.resourceUrl === task.url)
+                .map((operation) => [
+                    (operation as PropertyOperation).static().modelName,
+                    (operation as PropertyOperation).property,
+                    (operation as ValuePropertyOperation).values.map(serializeTerm),
+                ]);
+
+            expect(inceptionValues).toEqual(
+                expect.arrayContaining([
+                    `<${STATUS_POTENTIAL}>`,
+                    `"9"^^<${expandIRI('xsd:integer')}>`,
+                    `"a"^^<${expandIRI('xsd:string')}>`,
+                ]),
+            );
+            expect(updateOperations).toEqual(
+                expect.arrayContaining([
+                    ['SetPropertyOperation', `${SCHEMA}actionStatus`, [`<${STATUS_COMPLETED}>`]],
+                    ['SetPropertyOperation', `${ICAL}priority`, [`"1"^^<${expandIRI('xsd:integer')}>`]],
+                    ['AddPropertyOperation', `${SCHEMA}keywords`, [`"a,c"^^<${expandIRI('xsd:string')}>`]],
+                    ['RemovePropertyOperation', `${SCHEMA}keywords`, [`"a"^^<${expandIRI('xsd:string')}>`]],
+                ]),
+            );
+            expect(updateOperations).toHaveLength(4);
+            expect(objects(document.statements(task.url, `${SCHEMA}keywords`))).toEqual([
+                `"a,c"^^<${expandIRI('xsd:string')}>`,
+            ]);
+            expect(await syncDocumentOperations(task.requireDocumentUrl())).toEqual({ updated: [] });
+            expect(freshTask.completed).toBe(true);
+            expect(freshTask.priority).toBe('high');
+            expect(freshTask.tags).toEqual(['a', 'c']);
+        });
+
+        it('keeps rdf types for wrapped fields', async () => {
+            // Arrange
+            const Event = defineSchema({
+                rdfContext: SCHEMA,
+                rdfClass: 'Event',
+                timestamps: false,
+                fields: {
+                    startDate: z.date().optional().catch(undefined),
+                    attendees: z.preprocess((value) => value, z.number()).optional(),
+                },
+            });
+
+            bootModels({ Event });
+
+            // Act
+            const event = await Event.create({ startDate: new Date('2025-01-01T00:00:00Z'), attendees: 42 });
+
+            // Assert
+            const document = await engine.readDocument(event.requireDocumentUrl());
+
+            expect(objects(document.statements(event.url, `${SCHEMA}startDate`))).toEqual([
+                `"2025-01-01T00:00:00.000Z"^^<${expandIRI('xsd:dateTime')}>`,
+            ]);
+            expect(objects(document.statements(event.url, `${SCHEMA}attendees`))).toEqual([
+                `"42"^^<${expandIRI('xsd:integer')}>`,
+            ]);
+        });
+
+        it('unsets properties when a custom serializer returns nothing', async () => {
+            // Arrange
+            const Item = defineSchema({
+                rdfContext: SCHEMA,
+                rdfClass: 'Thing',
+                history: true,
+                fields: {
+                    label: z
+                        .string()
+                        .default('')
+                        .rdfCast({
+                            serialize: (value) => value || undefined,
+                            deserialize: ([value]) => value ?? '',
+                        }),
+                },
+            });
+
+            bootModels({ Item });
+
+            const item = await Item.create({ label: 'Initial' });
+
+            // Act
+            vi.advanceTimersByTime(1);
+            await item.update({ label: '' });
+
+            // Assert
+            const document = await engine.readDocument(item.requireDocumentUrl());
+            const freshItem = await Item.findOrFail(item.url);
+
+            expect(document.statements(item.url, `${SCHEMA}label`)).toEqual([]);
+            expect(freshItem.label).toBe('');
         });
     });
 });

@@ -1,14 +1,11 @@
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { bootModels } from 'soukai-bis/models/registry';
-import { defineSchema } from 'soukai-bis/models/schema';
-import Episode from 'soukai-bis/testing/stubs/Episode';
+import EpisodeWithTombstone from 'soukai-bis/testing/stubs/EpisodeWithTombstone';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
-import Season from 'soukai-bis/testing/stubs/Season';
-import Show from 'soukai-bis/testing/stubs/Show';
+import ShowWithTombstone from 'soukai-bis/testing/stubs/ShowWithTombstone';
 import User from 'soukai-bis/testing/stubs/User';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
@@ -360,12 +357,6 @@ describe('Relations', () => {
 
     it('onDelete cascade', async () => {
         // Arrange
-        class TombstoneShow extends defineSchema(Show, { tombstone: true }) {}
-        class TombstoneSeason extends defineSchema(Season, { tombstone: true }) {}
-        class TombstoneEpisode extends defineSchema(Episode, { tombstone: true }) {}
-
-        bootModels({ Show: TombstoneShow, Season: TombstoneSeason, Episode: TombstoneEpisode });
-
         const showDocumentUrl = fakeDocumentUrl();
         const showUrl = fakeResourceUrl({ documentUrl: showDocumentUrl });
         const firstSeasonUrl = `${showDocumentUrl}#season-1`;
@@ -378,7 +369,7 @@ describe('Relations', () => {
         ];
         const episodeDocumentUrls = episodes.map((episode) => episode.documentUrl);
 
-        TombstoneEpisode.defaultContainerUrl = episodesContainerUrl;
+        EpisodeWithTombstone.defaultContainerUrl = episodesContainerUrl;
 
         FakeServer.respond(
             showDocumentUrl,
@@ -428,7 +419,7 @@ describe('Relations', () => {
             ),
         );
 
-        const show = await TombstoneShow.findOrFail(showUrl);
+        const show = await ShowWithTombstone.findOrFail(showUrl);
 
         // Act
         await show.delete();

@@ -7,12 +7,12 @@ import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Project from 'soukai-bis/testing/stubs/Project';
 import Task from 'soukai-bis/testing/stubs/Task';
+import TaskWithHistory from 'soukai-bis/testing/stubs/TaskWithHistory';
 import { describe, expect, it } from 'vite-plus/test';
 
 import Model from './Model';
 import { bootModels, requireBootedModel } from './registry';
 import { remote } from './remote';
-import { defineSchema } from './schema';
 
 describe('Remote models', () => {
     it('creates remote models', () => {
@@ -62,10 +62,6 @@ describe('Remote models', () => {
 
     it('loads same-document relations from the remote engine', async () => {
         // Arrange
-        class HistoryTask extends defineSchema(Task, { history: true }) {}
-
-        bootModels({ HistoryTask });
-
         const documentUrl = 'https://alice.example/tasks/learn-solid';
 
         FakeServer.respondWith(documentUrl, () =>
@@ -91,7 +87,7 @@ describe('Remote models', () => {
             `),
         );
 
-        const task = await remote(HistoryTask).findOrFail(`${documentUrl}#it`);
+        const task = await remote(TaskWithHistory).findOrFail(`${documentUrl}#it`);
 
         // Act
         const operations = await task.loadRelation('operations');

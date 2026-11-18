@@ -1,14 +1,53 @@
-import { ZodDefault, ZodOptional } from 'zod';
-import type { ZodType } from 'zod';
+import type { Quad_Object } from '@rdfjs/types';
+import {
+    ZodCatch,
+    ZodDefault,
+    ZodNonOptional,
+    ZodNullable,
+    ZodOptional,
+    ZodPipe,
+    ZodPrefault,
+    ZodReadonly,
+    ZodTransform,
+} from 'zod';
+import type { ZodType, output } from 'zod';
+import type { SomeType } from 'zod/v4/core';
 
 export interface SoukaiZodMeta {
     rdfSlug?: boolean;
     rdfContainerSlug?: ContainerSlugOptions;
     rdfProperties?: string[];
+    rdfCast?: RDFCastOptions;
+}
+
+// oxlint-disable-next-line typescript/no-explicit-any
+export interface RDFCastOptions<T = any> {
+    serialize?: (value: T) => unknown;
+    deserialize?: (values: unknown[], terms: Quad_Object[]) => unknown;
 }
 
 export interface ContainerSlugOptions {
     documentSlug?: string;
+}
+
+export function unwrapType(type: SomeType): SomeType | null {
+    if (
+        type instanceof ZodOptional ||
+        type instanceof ZodDefault ||
+        type instanceof ZodNullable ||
+        type instanceof ZodCatch ||
+        type instanceof ZodReadonly ||
+        type instanceof ZodPrefault ||
+        type instanceof ZodNonOptional
+    ) {
+        return type.def.innerType;
+    }
+
+    if (type instanceof ZodPipe) {
+        return type.def.out instanceof ZodTransform ? type.def.in : type.def.out;
+    }
+
+    return null;
 }
 
 export function deepMeta<T extends keyof SoukaiZodMeta>(type: ZodType, key: T): SoukaiZodMeta[T] | undefined {
@@ -18,15 +57,22 @@ export function deepMeta<T extends keyof SoukaiZodMeta>(type: ZodType, key: T): 
         return meta[key];
     }
 
-    if (type instanceof ZodDefault) {
-        return deepMeta(type.def.innerType as ZodType, key);
+    const innerType = unwrapType(type);
+
+    return innerType ? deepMeta(innerType as ZodType, key) : undefined;
+}
+
+export function rdfCast<T extends ZodType>(type: T): RDFCastOptions | undefined;
+export function rdfCast<T extends ZodType>(type: T, options: RDFCastOptions<NonNullable<output<T>>>): T;
+export function rdfCast<T extends ZodType>(
+    type: T,
+    options?: RDFCastOptions<NonNullable<output<T>>>,
+): T | RDFCastOptions | undefined {
+    if (!options) {
+        return deepMeta(type, 'rdfCast');
     }
 
-    if (type instanceof ZodOptional) {
-        return deepMeta(type.def.innerType as ZodType, key);
-    }
-
-    return undefined;
+    return type.meta({ rdfCast: options });
 }
 
 export function rdfProperty<T extends ZodType>(type: T, value: string): T {
