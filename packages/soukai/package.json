@@ -38,8 +38,7 @@
         "@noeldemartin/scripts": "catalog:",
         "fake-indexeddb": "catalog:",
         "publint": "catalog:",
-        "vite-plus": "catalog:",
-        "vitest": "catalog:"
+        "vite-plus": "catalog:"
     },
     "peerDependencies": {
         "vitest": ">=5.0.0"

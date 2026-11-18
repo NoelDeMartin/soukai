@@ -15,17 +15,18 @@ catalog:
     fake-indexeddb: ^6.0.1
     publint: ^0.3.24
     # Must match the exact version bundled by vite-plus.
-    vitest: 5.0.1
-    vite: npm:@voidzero-dev/vite-plus-core@^1.0.0
-    vite-plus: ^1.0.0
+    vitest: 5.1.0
+    vite: npm:@voidzero-dev/vite-plus-core@8.3.8000
+    vite-plus: 1.7.0
 overrides:
-    vite: 'catalog:'
+    vite@*: 'catalog:'
     # VitePress 1 (root docs) doesn't support Rolldown, so it keeps its own Vite 5.
     'vitepress@1>vite': ^5.4.14
+    vitest@*: 'catalog:'
 peerDependencyRules:
     allowAny:
-        - vite
+        - vitest
     allowedVersions:
-        vite: '*'
+        vitest: '*'
 minimumReleaseAgeExclude:
     - '@noeldemartin/*'
