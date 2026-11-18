@@ -2135,6 +2135,62 @@ describe('Model', () => {
             });
         });
 
+        it('restores local deletions when creating models at the same url', async () => {
+            // Arrange
+            const action = await WatchAction.create({
+                startTime: new Date(),
+                objectUrl: 'https://example.com/movie#it',
+            });
+            const documentUrl = action.requireDocumentUrl();
+
+            await markAsSynced(action);
+            await action.delete();
+
+            vi.advanceTimersByTime(1000);
+
+            // Act
+            const restored = await WatchAction.create({ url: action.url, startTime: new Date() });
+
+            // Assert
+            const localChanges = await engine.getDocumentLocalChanges(documentUrl);
+            const operations = restored.operations ?? [];
+
+            expect(localChanges).toEqual({
+                resources: {
+                    [action.url]: { state: 'updated', operations: operations.map((operation) => operation.url) },
+                },
+            });
+            expect(operations.map((operation) => operation.static().modelName).sort()).toEqual([
+                'SetPropertyOperation',
+                'SetPropertyOperation',
+                'UnsetPropertyOperation',
+            ]);
+            expect(operations.every((operation) => operation.date.getTime() === Date.now())).toBe(true);
+            expect(await engine.readDocumentIfExists(documentUrl)).not.toBeNull();
+            expect((await WatchAction.find(action.url))?.objectUrl).toBeUndefined();
+        });
+
+        it('rejects restoring local deletions of models without history', async () => {
+            // Arrange
+            const movie = await Movie.create({
+                url: 'https://example.com/movies/spirited-away#it',
+                title: 'Spirited Away',
+            });
+            const documentUrl = movie.requireDocumentUrl();
+
+            await markAsSynced(movie);
+            await movie.delete();
+
+            // Act
+            const creating = Movie.create({ url: movie.url, title: 'Princess Mononoke' });
+
+            // Assert
+            await expect(creating).rejects.toThrow(SoukaiError);
+            expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
+                resources: { [movie.url]: { state: 'deleted' } },
+            });
+        });
+
         it('rejects updates on synced models without history', async () => {
             // Arrange
             const movie = await Movie.create({ title: 'Spirited Away' });

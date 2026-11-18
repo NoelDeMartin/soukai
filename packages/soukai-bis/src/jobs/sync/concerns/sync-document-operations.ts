@@ -404,23 +404,11 @@ export async function getSyncDocumentOperations({
     return documentOperations;
 }
 
-export function addLocalDeletionTombstones(
-    localDocument: SolidDocument,
-    remoteDocument: SolidDocument,
-    deletedResourceUrls: Set<string>,
-): SolidDocument {
-    if (deletedResourceUrls.size === 0) {
-        return localDocument;
-    }
-
+export function documentWithTombstones(document: SolidDocument, resourceUrls: Iterable<string>): SolidDocument {
     const deletedAt = createRDFLiteral(new Date());
-    const quads = [...localDocument.getQuads()];
+    const quads = [...document.getQuads()];
 
-    for (const resourceUrl of deletedResourceUrls) {
-        if (!remoteDocument.contains(resourceUrl)) {
-            continue;
-        }
-
+    for (const resourceUrl of resourceUrls) {
         const tombstone = new RDFNamedNode(getTombstoneUrl(resourceUrl));
 
         quads.push(
@@ -430,7 +418,37 @@ export function addLocalDeletionTombstones(
         );
     }
 
-    return new SolidDocument(localDocument.url, quads, localDocument.headers);
+    return new SolidDocument(document.url, quads, document.headers);
+}
+
+export function getTombstoneUrls(document: SolidDocument, resourceUrls: Set<string>): string[] {
+    return document
+        .statements(undefined, RDF_TYPE_PREDICATE, CRDT_TOMBSTONE_OBJECT)
+        .map((quad) => quad.subject.value)
+        .filter((tombstoneUrl) =>
+            document
+                .statements(tombstoneUrl, CRDT_RESOURCE_PREDICATE)
+                .some((quad) => resourceUrls.has(quad.object.value)),
+        );
+}
+
+export function getTombstonedResourceUrls(document: SolidDocument): Set<string> {
+    return new Set(
+        document
+            .statements(undefined, RDF_TYPE_PREDICATE, CRDT_TOMBSTONE_OBJECT)
+            .flatMap((quad) => document.statements(quad.subject.value, CRDT_RESOURCE_PREDICATE))
+            .map((quad) => quad.object.value),
+    );
+}
+
+export function documentWithoutSubjects(document: SolidDocument, subjectUrls: string[]): SolidDocument {
+    if (subjectUrls.length === 0) {
+        return document;
+    }
+
+    const quads = document.getQuads().filter((quad) => !subjectUrls.includes(quad.subject.value));
+
+    return new SolidDocument(document.url, quads, document.headers);
 }
 
 export function applyOperationsToDocument(document: SolidDocument, operations: EngineOperation[]): SolidDocument {

@@ -61,8 +61,10 @@ import {
 import { cascadeDeletes, cascadeDeletesInDocument, deleteModels, markForDeletion } from './concerns/deletes';
 import {
     assertMutableModels,
+    assertRestorableModels,
     createdModelsLocalChanges,
     isCreatedLocally,
+    isDeletedLocally,
     recordsLocalChanges,
     updatedModelsLocalChanges,
 } from './concerns/local-changes';
@@ -1504,11 +1506,21 @@ export default class Model<
 
             await loadDocumentRelations(this, { models: updatedModels, relations: ['operations'] });
 
+            const createdModels = updatedModels.filter((model) => !model.exists());
             const documentLocalChanges =
-                localEngine && deletedModels.length > 0 ? await localEngine.getDocumentLocalChanges(documentUrl) : null;
+                localEngine &&
+                (deletedModels.length > 0 || createdModels.some((model) => recordsLocalChanges(model, localEngine)))
+                    ? await localEngine.getDocumentLocalChanges(documentUrl)
+                    : null;
             const locallyDeletedModels = deletedModels.filter(
                 (model) => recordsLocalChanges(model, localEngine) && !isCreatedLocally(model, documentLocalChanges),
             );
+            const restoredModels = createdModels.filter(
+                (model) => recordsLocalChanges(model, localEngine) && isDeletedLocally(model, documentLocalChanges),
+            );
+
+            assertRestorableModels(restoredModels);
+
             const removedModels = deletedModels.filter((model) => !locallyDeletedModels.includes(model));
             const document = deletedModels.length > 0 ? await engine.readDocument(documentUrl) : null;
 
@@ -1530,10 +1542,16 @@ export default class Model<
             const deleteOperations = document
                 ? getDeleteModelsOperations(deletedModels, document, (model) => recordsLocalChanges(model, localEngine))
                 : [];
-            const updateOperations = getDirtyDocumentsUpdates(updatedModels, localOperations);
+            const updateOperations = getDirtyDocumentsUpdates({ updatedModels, restoredModels, localOperations });
             const localChanges =
                 localEngine &&
-                updatedModelsLocalChanges({ updatedModels, localOperations, removedModels, locallyDeletedModels });
+                updatedModelsLocalChanges({
+                    updatedModels,
+                    removedModels,
+                    restoredModels,
+                    locallyDeletedModels,
+                    localOperations,
+                });
 
             await engine.updateDocument(
                 documentUrl,

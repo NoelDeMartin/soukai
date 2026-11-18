@@ -4,6 +4,7 @@ import type { JsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
@@ -253,6 +254,29 @@ describe('InMemoryEngine', () => {
         await engine.deleteDocument(documentUrl);
 
         expect(engine.documents[documentUrl]).toBeUndefined();
+    });
+
+    it('deletes documents only when they are empty', async () => {
+        // Arrange
+        const emptyDocumentUrl = fakeDocumentUrl();
+        const documentUrl = fakeDocumentUrl();
+
+        await engine.createDocument(emptyDocumentUrl, []);
+        await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it`, '@type': expandIRI('foaf:Person') });
+
+        // Act
+        await engine.deleteDocument(emptyDocumentUrl, { ifMatch: { status: 'empty' } });
+        const deletingDocument = engine.deleteDocument(documentUrl, { ifMatch: { status: 'empty' } });
+
+        // Assert
+        await expect(deletingDocument).rejects.toThrow(PreconditionFailed);
+        expect(engine.documents[emptyDocumentUrl]).toBeUndefined();
+        expect(engine.documents[documentUrl]).toBeDefined();
+    });
+
+    it('fails deleting missing documents', async () => {
+        // Act & Assert
+        await expect(engine.deleteDocument(fakeDocumentUrl())).rejects.toThrow(DocumentNotFound);
     });
 
     it('creates documents with metadata', async () => {

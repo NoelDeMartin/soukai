@@ -76,6 +76,21 @@ export function subtractLocalChanges(
     return remaining;
 }
 
+export function clearPushedLocalChanges(
+    changes: DocumentLocalChanges | null | undefined,
+    pushed: DocumentLocalChanges,
+): DocumentLocalChanges {
+    const remaining = subtractLocalChanges(changes, pushed);
+
+    for (const [url, pushedChanges] of Object.entries(pushed.resources)) {
+        if (pushedChanges.state === 'created' && !changes?.resources[url]) {
+            remaining.resources[url] = resourceLocalChanges('deleted');
+        }
+    }
+
+    return remaining;
+}
+
 export function withCreatedAsUpdated(changes: DocumentLocalChanges): DocumentLocalChanges {
     return {
         resources: Object.fromEntries(
@@ -115,5 +130,11 @@ export function migrateLocalChanges(
                 ),
             ]),
         ),
+    };
+}
+
+export function withoutResourceLocalChanges(changes: DocumentLocalChanges, urls: Set<string>): DocumentLocalChanges {
+    return {
+        resources: Object.fromEntries(Object.entries(changes.resources).filter(([url]) => !urls.has(url))),
     };
 }

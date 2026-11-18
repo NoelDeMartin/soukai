@@ -9,16 +9,20 @@ import {
     objectFromEntries,
     parseDate,
     round,
+    silenced,
     urlRoute,
 } from '@noeldemartin/utils';
 import {
+    clearPushedLocalChanges,
     getLocallyDeletedResourceUrls,
     mergeLocalChanges,
-    subtractLocalChanges,
     withCreatedAsUpdated,
+    withoutResourceLocalChanges,
 } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
 import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
+import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
+import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { getEngine, getRemoteEngine } from 'soukai-bis/engines/state';
 import { isLocalEngine } from 'soukai-bis/engines/utils';
@@ -26,6 +30,7 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import JobFailedError from 'soukai-bis/errors/JobFailedError';
+import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Job from 'soukai-bis/jobs/Job';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
@@ -43,10 +48,15 @@ import type Resource from 'soukai-bis/models/ldp/Resource';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
 
+import { getRestoredLinksOperations, groupDocumentDeletions } from './concerns/sync-conflicts';
+import type { DeletionConflict, DeletionConflictResolution } from './concerns/sync-conflicts';
 import {
     applyOperationsToDocument,
+    documentWithoutSubjects,
+    documentWithTombstones,
     getSyncDocumentOperations,
-    addLocalDeletionTombstones,
+    getTombstonedResourceUrls,
+    getTombstoneUrls,
     withoutTombstones,
 } from './concerns/sync-document-operations';
 import {
@@ -61,6 +71,7 @@ import type {
     ModelsRegistrationFailedEvent,
 } from './concerns/sync-registrations';
 
+export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/sync-conflicts';
 export type {
     ModelRegistrationMode,
     ModelsRegisteredEvent,
@@ -82,6 +93,13 @@ const RDF_MEDIA_TYPES = new Set([
     'application/trig',
 ]);
 
+interface DeletionsResolution {
+    localDeletions: Set<string>;
+    discardedLocalResources: Set<string>;
+    restoredRemoteResources: Set<string>;
+    restoredLocalResources: Set<string>;
+}
+
 export interface SyncConfig {
     userProfile: CompleteSolidUserProfile;
     publicTypeIndexes?: TypeIndex[];
@@ -96,6 +114,7 @@ export interface SyncConfig {
     lastModifiedTolerance?: number;
     createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
+    resolveDeletionConflict?: (conflict: DeletionConflict) => Promise<DeletionConflictResolution>;
 }
 
 export interface SyncJobStatus extends JobStatus {
@@ -139,44 +158,27 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
     public readonly failedExternalSources = new Map<ExternalSource, unknown>();
-    private semaphore: Semaphore;
-    private localEngine: LocalEngine;
-    private remoteEngine: SolidEngine;
+    private syncSemaphore: Semaphore;
+    private conflictsSemaphore: Semaphore;
+    private syncedModels: ModelConstructor[];
+    private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     private ownDocumentsWithErrors = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
     private registeredInstances = new Map<string, Set<ModelConstructor>>();
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private documentsLocalChanges = new Map<string, DocumentLocalChanges>();
     private pushedLocalChanges = new Map<string, DocumentLocalChanges>();
-    private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     private typeIndexes: Partial<Record<TypeIndexRegistration, Promise<TypeIndex>>> = {};
-    private syncedModels: ModelConstructor[];
     private unsyncedContainers = new Set<string>();
+
+    declare private localEngine: LocalEngine;
+    declare private remoteEngine: SolidEngine;
 
     public constructor(private config: SyncConfig) {
         super();
 
-        const localEngine = getEngine();
-        const remoteEngine = getRemoteEngine();
-
-        if (!localEngine) {
-            throw new SoukaiError("Can't run Sync without a default engine, call setEngine() first");
-        }
-
-        if (!isLocalEngine(localEngine)) {
-            throw new SoukaiError(
-                `Can't run Sync with a default engine that isn't local (${localEngine.static().engineName})`,
-            );
-        }
-
-        if (!remoteEngine) {
-            throw new SoukaiError("Can't run Sync without a remote engine, call setRemoteEngine() first");
-        }
-
-        this.localEngine = localEngine;
-        this.remoteEngine = remoteEngine;
-
-        this.semaphore = new Semaphore(config.concurrency ?? DEFAULT_CONCURRENCY);
+        this.syncSemaphore = new Semaphore(config.concurrency ?? DEFAULT_CONCURRENCY);
+        this.conflictsSemaphore = new Semaphore(1);
         this.modelRegistrations = new Map(
             this.config.applicationModels
                 .map((model) => {
@@ -204,6 +206,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     protected async run(): Promise<SyncJobResult> {
+        this.prepareEngines();
+
         try {
             await this.prepareDocumentsLastModifiedAt();
             await this.prepareDocumentsLocalChanges();
@@ -217,6 +221,28 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return this.getResult();
     }
 
+    private prepareEngines(): void {
+        const localEngine = getEngine();
+        const remoteEngine = getRemoteEngine();
+
+        if (!localEngine) {
+            throw new SoukaiError("Can't run Sync without a default engine, call setEngine() first");
+        }
+
+        if (!isLocalEngine(localEngine)) {
+            throw new SoukaiError(
+                `Can't run Sync with a default engine that isn't local (${localEngine.static().engineName})`,
+            );
+        }
+
+        if (!remoteEngine) {
+            throw new SoukaiError("Can't run Sync without a remote engine, call setRemoteEngine() first");
+        }
+
+        this.localEngine = localEngine;
+        this.remoteEngine = remoteEngine;
+    }
+
     private async prepareDocumentsLocalChanges(): Promise<void> {
         this.documentsLocalChanges = new Map(Object.entries(await this.localEngine.getDocumentsLocalChanges()));
     }
@@ -224,14 +250,50 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private clearLocalChanges(
         documentUrl: string,
         pushedChanges: DocumentLocalChanges | null,
+        resolvedUrls: Set<string> = new Set(),
     ): LocalChangesUpdate | undefined {
         if (!pushedChanges) {
             return undefined;
         }
 
-        this.pushedLocalChanges.set(documentUrl, pushedChanges);
+        this.pushedLocalChanges.set(documentUrl, withoutResourceLocalChanges(pushedChanges, resolvedUrls));
 
-        return (changes) => subtractLocalChanges(changes, pushedChanges);
+        return (changes) => clearPushedLocalChanges(changes, pushedChanges);
+    }
+
+    private async updateSyncedDocument(
+        documentUrl: string,
+        operations: EngineOperation[],
+        options: {
+            lastModifiedAt: Date | null;
+            pushedChanges: DocumentLocalChanges | null;
+            resolvedUrls?: Set<string>;
+        },
+    ): Promise<void> {
+        const { lastModifiedAt, pushedChanges, resolvedUrls } = options;
+
+        try {
+            await this.localEngine.updateDocument(documentUrl, operations, {
+                lastModifiedAt,
+                localChanges: this.clearLocalChanges(documentUrl, pushedChanges, resolvedUrls),
+            });
+
+            this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
+        } catch (error) {
+            if (!isInstanceOf(error, DocumentNotFound) || !pushedChanges) {
+                throw error;
+            }
+
+            const droppedRemoteUpdates = operations.length > 0;
+            const recreatedLastModifiedAt = droppedRemoteUpdates ? null : lastModifiedAt;
+
+            await this.localEngine.createDocument(documentUrl, [], {
+                lastModifiedAt: recreatedLastModifiedAt,
+                localChanges: () => clearPushedLocalChanges(null, pushedChanges),
+            });
+
+            this.documentsLastModifiedAt.set(documentUrl, recreatedLastModifiedAt);
+        }
     }
 
     private getExternalSources(): ExternalSource[] {
@@ -390,7 +452,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     return;
                 }
 
-                while (queue.length > 0 && this.semaphore.isAvailable()) {
+                while (queue.length > 0 && this.syncSemaphore.isAvailable()) {
                     const pullTask = queue.shift() as PullTask;
 
                     ongoing++;
@@ -434,7 +496,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         },
     ): Promise<void> {
         try {
-            const childPullTasks = await this.semaphore.run(() => {
+            const childPullTasks = await this.syncSemaphore.run(() => {
                 return this.syncDocument(pullTask.url, pullTask.status, pullTask.remoteUpdatedAt);
             });
 
@@ -812,7 +874,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     const end = new Date();
 
                     if (!pushResult) {
-                        await this.localEngine.deleteDocument(documentUrl);
+                        await silenced(this.localEngine.deleteDocument(documentUrl, { ifMatch: { status: 'empty' } }), {
+                            ignore: [PreconditionFailed, DocumentNotFound],
+                        });
 
                         return;
                     }
@@ -822,12 +886,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                             ? this.getContainerLastModifiedAt(pushResult.remoteDocument)
                             : this.getDocumentLastModifiedAt(start, end, pushResult.remoteDocument);
 
-                        await this.localEngine.updateDocument(documentUrl, [], {
+                        await this.updateSyncedDocument(documentUrl, [], {
                             lastModifiedAt,
-                            localChanges: this.clearLocalChanges(documentUrl, localChanges),
+                            pushedChanges: localChanges,
                         });
-
-                        this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
                     }
 
                     const documentResources = new Map<string, Set<string>>();
@@ -971,30 +1033,62 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     ): Promise<void> {
         this.assertNotCancelled(this.getResult());
 
-        const localView = addLocalDeletionTombstones(
+        const resolution = await this.resolveDeletions(localDocument, remoteDocument, localChanges);
+        const restoredTombstoneUrls = getTombstoneUrls(remoteDocument, resolution.restoredRemoteResources);
+        const remoteTombstonedUrls = getTombstonedResourceUrls(remoteDocument);
+        const localMergeDocument = documentWithTombstones(
             localDocument,
-            remoteDocument,
-            getLocallyDeletedResourceUrls(localChanges),
+            Array.from(resolution.localDeletions).filter(
+                (url) => remoteDocument.contains(url) && !remoteTombstonedUrls.has(url),
+            ),
+        );
+        const remoteMergeDocument = documentWithTombstones(
+            documentWithoutSubjects(remoteDocument, restoredTombstoneUrls),
+            Array.from(resolution.discardedLocalResources).filter((url) => !remoteTombstonedUrls.has(url)),
         );
         const resourceUrls = arrayUnique(
-            [remoteDocument, localView].flatMap((document) => this.getSyncedResourceUrls(document)),
+            [remoteMergeDocument, localMergeDocument].flatMap((document) => this.getSyncedResourceUrls(document)),
         );
-        const localOperations = await this.getDocumentOperations(localView, resourceUrls);
-        const remoteOperations = await this.getDocumentOperations(remoteDocument, resourceUrls);
-        const remoteUpdates = await getSyncDocumentOperations({
-            resourceUrls,
-            document: remoteDocument,
-            otherDocument: localView,
-            existingOperations: Array.from(remoteOperations.values()),
-            newOperations: Array.from(localOperations.values()).filter(
-                (operation) => !remoteOperations.has(operation.url),
-            ),
-        });
+        const localOperations = await this.getDocumentOperations(localMergeDocument, resourceUrls);
+        const remoteOperations = await this.getDocumentOperations(remoteMergeDocument, resourceUrls);
+        const restoredLinksOperations = [
+            ...getRestoredLinksOperations({
+                linkingDocument: localDocument,
+                unlinkingDocument: remoteDocument,
+                restoredUrls: resolution.restoredRemoteResources,
+                resourceUrls,
+                models: this.syncedModels,
+            }),
+            ...getRestoredLinksOperations({
+                linkingDocument: remoteDocument,
+                unlinkingDocument: localDocument,
+                restoredUrls: resolution.restoredLocalResources,
+                resourceUrls,
+                models: this.syncedModels,
+            }),
+        ];
+        const remoteUpdates = [
+            ...restoredTombstoneUrls.map((tombstoneUrl) => new DeleteResourceOperation(tombstoneUrl)),
+            ...(await getSyncDocumentOperations({
+                resourceUrls,
+                document: remoteMergeDocument,
+                otherDocument: localMergeDocument,
+                existingOperations: Array.from(remoteOperations.values()),
+                newOperations: [
+                    ...Array.from(localOperations.values()).filter(
+                        (operation) =>
+                            !remoteOperations.has(operation.url) &&
+                            !resolution.discardedLocalResources.has(operation.resourceUrl),
+                    ),
+                    ...restoredLinksOperations,
+                ],
+            })),
+        ];
 
         const start = new Date();
         const response = await this.remoteEngine.updateDocument(remoteDocument.url, remoteUpdates);
         const end = new Date();
-        const updatedRemoteDocument = applyOperationsToDocument(remoteDocument, remoteUpdates);
+        const updatedRemoteDocument = applyOperationsToDocument(remoteMergeDocument, remoteUpdates);
         const updatedRemoteOperations = await this.getDocumentOperations(updatedRemoteDocument, resourceUrls);
 
         const lastModifiedAt = localDocument.url.endsWith('/')
@@ -1012,12 +1106,93 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             copyTombstones: false,
         });
 
-        await this.localEngine.updateDocument(localDocument.url, localUpdates, {
+        await this.updateSyncedDocument(localDocument.url, localUpdates, {
             lastModifiedAt,
-            localChanges: this.clearLocalChanges(localDocument.url, localChanges),
+            pushedChanges: localChanges,
+            resolvedUrls: new Set([...resolution.discardedLocalResources, ...resolution.restoredLocalResources]),
         });
+    }
 
-        this.documentsLastModifiedAt.set(localDocument.url, lastModifiedAt);
+    private async resolveDeletions(
+        localDocument: SolidDocument,
+        remoteDocument: SolidDocument,
+        localChanges: DocumentLocalChanges | null,
+    ): Promise<DeletionsResolution> {
+        const resolution: DeletionsResolution = {
+            localDeletions: new Set(),
+            discardedLocalResources: new Set(),
+            restoredRemoteResources: new Set(),
+            restoredLocalResources: new Set(),
+        };
+        const remoteDeletions = await groupDocumentDeletions(
+            localDocument,
+            Array.from(getTombstonedResourceUrls(remoteDocument)).filter((url) => localDocument.contains(url)),
+            this.syncedModels,
+        );
+        const localDeletions = await groupDocumentDeletions(
+            remoteDocument,
+            Array.from(getLocallyDeletedResourceUrls(localChanges)).filter((url) => remoteDocument.contains(url)),
+            this.syncedModels,
+        );
+
+        for (const [resourceUrl, urls] of remoteDeletions) {
+            const hasLocalChanges = Array.from(urls).some((url) => !!localChanges?.resources[url]);
+            const answer = hasLocalChanges
+                ? await this.getDeletionConflictResolution({
+                      type: 'deleted-remotely',
+                      resourceUrl,
+                      localDocument,
+                      remoteDocument,
+                  })
+                : 'delete';
+            const resolvedUrls =
+                answer === 'delete' ? resolution.discardedLocalResources : resolution.restoredRemoteResources;
+
+            urls.forEach((url) => resolvedUrls.add(url));
+        }
+
+        for (const [resourceUrl, urls] of localDeletions) {
+            const answer = this.hasUnseenRemoteChanges(localDocument.url, remoteDocument)
+                ? await this.getDeletionConflictResolution({
+                      type: 'deleted-locally',
+                      resourceUrl,
+                      localDocument,
+                      remoteDocument,
+                  })
+                : 'delete';
+            const resolvedUrls = answer === 'delete' ? resolution.localDeletions : resolution.restoredLocalResources;
+
+            urls.forEach((url) => resolvedUrls.add(url));
+        }
+
+        return resolution;
+    }
+
+    private async getDeletionConflictResolution(conflict: DeletionConflict): Promise<DeletionConflictResolution> {
+        const resolveDeletionConflict = this.config.resolveDeletionConflict;
+
+        if (!resolveDeletionConflict) {
+            return 'delete';
+        }
+
+        const answer = await this.conflictsSemaphore.run(() => resolveDeletionConflict(conflict));
+
+        this.assertNotCancelled(this.getResult());
+
+        return answer;
+    }
+
+    private hasUnseenRemoteChanges(documentUrl: string, remoteDocument: SolidDocument): boolean {
+        const lastModifiedAt = this.documentsLastModifiedAt.get(documentUrl);
+        const remoteLastModifiedAt = remoteDocument.getLastModified();
+
+        if (!lastModifiedAt || !remoteLastModifiedAt) {
+            return true;
+        }
+
+        const lastModifiedTolerance = this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
+
+        return remoteLastModifiedAt.getTime() - lastModifiedAt.getTime() > lastModifiedTolerance;
     }
 
     private getDocumentLastModifiedAt(

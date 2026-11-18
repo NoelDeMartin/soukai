@@ -30,13 +30,21 @@ export interface LocalEngineWriteOptions {
     localChanges?: LocalChangesUpdate;
 }
 
+export interface LocalEngineDeleteOptions {
+    ifMatch?: { status: LocalDocumentStatus };
+}
+
 export interface PurgeMetadataOptions {
     documentUrls?: string[];
 }
 
 export type LocalDocumentStatus = 'empty';
 
-export default abstract class LocalEngine extends Engine<LocalEngineReadOptions, LocalEngineWriteOptions> {
+export default abstract class LocalEngine extends Engine<
+    LocalEngineReadOptions,
+    LocalEngineWriteOptions,
+    LocalEngineDeleteOptions
+> {
     public static [CLASS_MARKER] = 'LocalEngine';
 
     public abstract getContainerUrls(): Promise<string[]>;

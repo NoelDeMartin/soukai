@@ -4,6 +4,7 @@ import { fail, urlParentDirectory } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import { LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
@@ -12,6 +13,7 @@ import type {
     DocumentLocalChanges,
     LocalChangesUpdate,
     LocalDocumentStatus,
+    LocalEngineDeleteOptions,
     LocalEngineReadOptions,
     LocalEngineWriteOptions,
     PurgeMetadataOptions,
@@ -116,7 +118,17 @@ export default class InMemoryEngine extends LocalEngine {
         return { headers: new Headers() };
     }
 
-    public async deleteDocument(url: string): Promise<SolidResponse> {
+    public async deleteDocument(url: string, options: LocalEngineDeleteOptions = {}): Promise<SolidResponse> {
+        const document = this.documents[url];
+
+        if (!document) {
+            throw new DocumentNotFound(url);
+        }
+
+        if (options.ifMatch && document.status !== options.ifMatch.status) {
+            throw new PreconditionFailed('deleting', url);
+        }
+
         delete this.documents[url];
         delete this.localChanges[url];
 

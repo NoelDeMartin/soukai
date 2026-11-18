@@ -5,6 +5,7 @@ import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { deleteDB } from 'idb';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import { serializeIDBQuads } from 'soukai-bis/lib/internals/idb-quads';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
@@ -881,6 +882,41 @@ describe('IndexedDBEngine', () => {
         expect(rawDocument.getQuads()).toHaveLength(0);
         expect(container.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(false);
         expect(rawContainer.contains(containerUrl, 'ldp:contains', documentUrl)).toBe(true);
+    });
+
+    it('deletes documents only when they are empty', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const emptyDocumentUrl = fakeDocumentUrl({ containerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        await engine.createDocument(emptyDocumentUrl, [], {
+            localChanges: () => ({ resources: { [`${emptyDocumentUrl}#it`]: { state: 'deleted' } } }),
+        });
+        await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it`, '@type': expandIRI('foaf:Person') });
+
+        // Act
+        await engine.deleteDocument(emptyDocumentUrl, { ifMatch: { status: 'empty' } });
+        const deletingDocument = engine.deleteDocument(documentUrl, { ifMatch: { status: 'empty' } });
+
+        // Assert
+        await expect(deletingDocument).rejects.toThrow(PreconditionFailed);
+        expect(await engine.readDocumentIfExists(emptyDocumentUrl, { includeEmptyDocuments: true })).toBeNull();
+        expect(await engine.getDocumentLocalChanges(emptyDocumentUrl)).toBeNull();
+        expect(await engine.readDocumentIfExists(documentUrl)).not.toBeNull();
+    });
+
+    it('fails deleting missing documents', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+        const missingDocumentUrl = fakeDocumentUrl({ containerUrl });
+
+        await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it`, '@type': expandIRI('foaf:Person') });
+
+        // Act & Assert
+        await expect(engine.deleteDocument(missingDocumentUrl)).rejects.toThrow(DocumentNotFound);
+        await expect(engine.deleteDocument(fakeDocumentUrl())).rejects.toThrow(DocumentNotFound);
     });
 
     it('removes local changes with documents and containers', async () => {

@@ -1,5 +1,5 @@
 import type Engine from 'soukai-bis/engines/Engine';
-import { mergeLocalChanges } from 'soukai-bis/engines/local-changes';
+import { mergeLocalChanges, withoutResourceLocalChanges } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
 import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
 import { isLocalEngine } from 'soukai-bis/engines/utils';
@@ -14,6 +14,23 @@ export function recordsLocalChanges(model: Model, engine: LocalEngine | null): b
 
 export function isCreatedLocally(model: ModelWithUrl, changes: DocumentLocalChanges | null): boolean {
     return changes?.resources[model.url]?.state === 'created';
+}
+
+export function isDeletedLocally(model: Model, changes: DocumentLocalChanges | null): boolean {
+    return !!model.url && changes?.resources[model.url]?.state === 'deleted';
+}
+
+export function assertRestorableModels(models: Model[]): void {
+    for (const model of models) {
+        if (model.tracksChanges()) {
+            continue;
+        }
+
+        throw new SoukaiError(
+            `Can't create ${model.static('modelName')} model (${model.url}), it was deleted locally and synced ` +
+                'models without history are immutable (they can only be created and deleted).',
+        );
+    }
 }
 
 export function assertMutableModels(models: Model[], engine: Engine | undefined): void {
@@ -54,20 +71,33 @@ export function createdModelsLocalChanges(models: Model[]): LocalChangesUpdate |
 
 export function updatedModelsLocalChanges({
     updatedModels,
-    localOperations,
     removedModels,
+    restoredModels,
     locallyDeletedModels,
+    localOperations,
 }: {
     updatedModels: Model[];
-    localOperations: Map<string, string[]>;
     removedModels: ModelWithUrl[];
+    restoredModels: Model[];
     locallyDeletedModels: ModelWithUrl[];
+    localOperations: Map<string, string[]>;
 }): LocalChangesUpdate | undefined {
     const additions: DocumentLocalChanges = { resources: {} };
     const removedUrls = removedModels.filter((model) => tracksLocalChanges(model.static())).map((model) => model.url);
+    const restoredUrls = restoredModels.map((model) => model.requireUrl());
 
     for (const model of updatedModels) {
         if (!tracksLocalChanges(model.static()) || !model.url) {
+            continue;
+        }
+
+        if (restoredModels.includes(model)) {
+            const operations = localOperations.get(model.url) ?? [];
+
+            if (operations.length > 0) {
+                additions.resources[model.url] = { state: 'updated', operations };
+            }
+
             continue;
         }
 
@@ -96,12 +126,15 @@ export function updatedModelsLocalChanges({
         additions.resources[model.url] = { state: 'deleted' };
     }
 
-    if (Object.keys(additions.resources).length === 0 && removedUrls.length === 0) {
+    if (Object.keys(additions.resources).length === 0 && removedUrls.length === 0 && restoredUrls.length === 0) {
         return undefined;
     }
 
     return (changes) => {
-        const merged = mergeLocalChanges(changes, additions);
+        const merged = mergeLocalChanges(
+            changes && withoutResourceLocalChanges(changes, new Set(restoredUrls)),
+            additions,
+        );
 
         for (const url of removedUrls) {
             delete merged.resources[url];

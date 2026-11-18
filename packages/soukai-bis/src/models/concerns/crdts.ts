@@ -182,21 +182,33 @@ function createArrayPropertyOperations(
     return operations;
 }
 
-export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<string, string[]>): Operation[] {
+export function getDirtyDocumentsUpdates({
+    updatedModels,
+    restoredModels = [],
+    localOperations,
+}: {
+    updatedModels: Model[];
+    restoredModels?: Model[];
+    localOperations?: Map<string, string[]>;
+}): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
     const now = new Date();
     const operations: Record<string, Operation[]> = {};
 
-    for (const model of models) {
+    for (const model of updatedModels) {
         if (!model.url) {
             continue;
         }
 
         const exists = model.exists();
+        const restored = restoredModels.includes(model);
         const schema = getSchema(model.static());
         const attributes = model.getAttributes();
         const modelOperations = (operations[model.url] ??= []);
+        const updatedAttributes = restored
+            ? arrayUnique([...model.getDirtyAttributes(), ...Object.keys(schema.fields.def.shape)])
+            : model.getDirtyAttributes();
 
         exists ||
             modelOperations.push(
@@ -210,7 +222,7 @@ export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<
                     .setPredicate(RDF_TYPE_PREDICATE),
             );
 
-        for (const attribute of model.getDirtyAttributes()) {
+        for (const attribute of updatedAttributes) {
             const value = attributes[attribute];
             const fieldDefinition = schema.fields.def.shape[attribute];
 
@@ -239,7 +251,7 @@ export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<
 
             for (const property of getFieldRDFProperties(model.static(), attribute)) {
                 if (values.length === 0) {
-                    exists &&
+                    (exists || restored) &&
                         modelOperations.push(
                             new UnsetPropertyOperation({
                                 resourceUrl: model.url,
@@ -263,15 +275,17 @@ export function getDirtyDocumentsUpdates(models: Model[], localOperations?: Map<
         }
     }
 
-    for (const model of models) {
-        if (!model.url || !model.tracksChanges() || !model.exists()) {
+    for (const model of updatedModels) {
+        const restored = restoredModels.includes(model);
+
+        if (!model.url || !model.tracksChanges() || (!model.exists() && !restored)) {
             continue;
         }
 
         const updateOperations = new Array<Operation>().concat(operations[model.url] ?? []);
         const crdtOperations = [...updateOperations];
 
-        if (!model.operations || model.operations.length === 0) {
+        if (!restored && (!model.operations || model.operations.length === 0)) {
             const inceptionOperations = createInceptionOperations(model, now);
 
             crdtOperations.push(...inceptionOperations);

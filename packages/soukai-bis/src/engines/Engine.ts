@@ -31,7 +31,11 @@ import type EngineOperation from './operations/EngineOperation';
 export type ReadDocumentsOptions<TReadOptions extends object = object> = TReadOptions &
     ({ urls: string[] } | { containerUrl: string; deep?: boolean; depth?: number });
 
-export default abstract class Engine<TReadOptions extends object = object, TWriteOptions extends object = never> {
+export default abstract class Engine<
+    TReadOptions extends object = object,
+    TWriteOptions extends object = never,
+    TDeleteOptions extends object = never,
+> {
     public static readonly engineName: string = 'Engine';
 
     public static(): typeof Engine {
@@ -63,7 +67,7 @@ export default abstract class Engine<TReadOptions extends object = object, TWrit
         options?: TWriteOptions,
     ): Promise<SolidResponse | null>;
 
-    public abstract deleteDocument(url: string): Promise<SolidResponse>;
+    public abstract deleteDocument(url: string, options?: TDeleteOptions): Promise<SolidResponse>;
 
     public async readDocumentIfExists(url: string, options?: TReadOptions): Promise<SolidDocument | null> {
         try {

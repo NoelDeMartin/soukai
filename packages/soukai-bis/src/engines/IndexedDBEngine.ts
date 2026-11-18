@@ -14,6 +14,7 @@ import {
 import type { Quad } from '@rdfjs/types';
 import type { IDBPIndex, IDBPObjectStore, IDBPTransaction } from 'idb';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import ContainersIndex from 'soukai-bis/lib/internals/ContainersIndex';
 import { parseIDBQuads, serializeIDBQuads } from 'soukai-bis/lib/internals/idb-quads';
@@ -30,6 +31,7 @@ import LocalEngine from './LocalEngine';
 import type {
     DocumentLocalChanges,
     LocalChangesUpdate,
+    LocalEngineDeleteOptions,
     LocalEngineReadOptions,
     LocalEngineWriteOptions,
     PurgeMetadataOptions,
@@ -184,17 +186,38 @@ export default class IndexedDBEngine extends LocalEngine {
         await transaction.done;
     }
 
-    public async deleteDocument(url: string): Promise<SolidResponse> {
+    public async deleteDocument(url: string, options: LocalEngineDeleteOptions = {}): Promise<SolidResponse> {
         const containerUrl = requireSafeContainerUrl(url);
 
         if (!(await this.containerExists(containerUrl))) {
-            return { headers: new Headers() };
+            throw new DocumentNotFound(url);
         }
 
-        await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-            await transaction.objectStore('documents').delete(url);
+        const result = await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
+            const documentsStore = transaction.objectStore('documents');
+            const document = await documentsStore.get(url);
+
+            if (!document) {
+                return 'not-found';
+            }
+
+            if (options.ifMatch && document.status !== options.ifMatch.status) {
+                return 'precondition-failed';
+            }
+
+            await documentsStore.delete(url);
             await transaction.objectStore('localChanges').delete(url);
+
+            return 'deleted';
         });
+
+        if (result === 'not-found') {
+            throw new DocumentNotFound(url);
+        }
+
+        if (result === 'precondition-failed') {
+            throw new PreconditionFailed('deleting', url);
+        }
 
         return { headers: new Headers() };
     }
