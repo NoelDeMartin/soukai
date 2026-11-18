@@ -56,6 +56,7 @@ import {
     getDeleteModelsOperations,
     getDeletedModelsCrdtModels,
     getDirtyDocumentsUpdates,
+    getResourceOperationUrls,
     syncDocumentOperations,
 } from './concerns/crdts';
 import { cascadeDeletes, cascadeDeletesInDocument, deleteModels, markForDeletion } from './concerns/deletes';
@@ -1538,19 +1539,24 @@ export default class Model<
                 return;
             }
 
-            const localOperations = new Map<string, string[]>();
+            const newOperations = new Map<string, string[]>();
             const deleteOperations = document
                 ? getDeleteModelsOperations(deletedModels, document, (model) => recordsLocalChanges(model, localEngine))
                 : [];
-            const updateOperations = getDirtyDocumentsUpdates({ updatedModels, restoredModels, localOperations });
+            const updateOperations = getDirtyDocumentsUpdates({ updatedModels, restoredModels, newOperations });
             const localChanges =
                 localEngine &&
                 updatedModelsLocalChanges({
                     updatedModels,
                     removedModels,
                     restoredModels,
-                    locallyDeletedModels,
-                    localOperations,
+                    newOperations,
+                    deletedOperations: new Map(
+                        locallyDeletedModels.map((model) => [
+                            model.url,
+                            getResourceOperationUrls(required(document), model.url),
+                        ]),
+                    ),
                 });
 
             await engine.updateDocument(

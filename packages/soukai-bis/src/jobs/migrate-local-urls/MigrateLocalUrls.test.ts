@@ -224,10 +224,11 @@ describe('MigrateLocalUrls', () => {
         // Assert
         const migratedUrl = action.url.replace(WatchAction.defaultContainerUrl, remoteContainerUrl);
         const localChanges = await engine.getDocumentLocalChanges(urlRoute(migratedUrl));
-        const operationUrls = localChanges?.resources[migratedUrl]?.operations ?? [];
+        const resourceChanges = localChanges?.resources[migratedUrl];
+        const operationUrls = resourceChanges?.state === 'created' ? (resourceChanges.newOperations ?? []) : [];
 
         expect(Object.keys(await engine.getDocumentsLocalChanges())).toEqual([urlRoute(migratedUrl)]);
-        expect(localChanges?.resources[migratedUrl]?.state).toEqual('created');
+        expect(resourceChanges?.state).toEqual('created');
         expect(operationUrls).toHaveLength(1);
         expect(operationUrls[0]?.startsWith(migratedUrl)).toBe(true);
     });

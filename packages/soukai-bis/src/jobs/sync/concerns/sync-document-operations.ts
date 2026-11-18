@@ -4,22 +4,16 @@ import type { Quad } from '@rdfjs/types';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import {
-    CRDT_ADD_PROPERTY_OPERATION_OBJECT,
     CRDT_DELETED_AT_PREDICATE,
     CRDT_METADATA_OBJECT,
-    CRDT_REMOVE_PROPERTY_OPERATION_OBJECT,
     CRDT_RESOURCE_PREDICATE,
-    CRDT_RESTORE_OPERATION_OBJECT,
-    CRDT_SET_PROPERTY_OPERATION_OBJECT,
-    CRDT_SOFT_DELETE_OPERATION_OBJECT,
-    CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
     CRDT_UPDATED_AT,
     CRDT_UPDATED_AT_PREDICATE,
     CRDT_TOMBSTONE_OBJECT,
     RDF_TYPE_PREDICATE,
     createRDFLiteral,
 } from 'soukai-bis/lib/internals/rdf';
-import { createModelInceptionOperations } from 'soukai-bis/models/concerns/crdts';
+import { createModelInceptionOperations, getResourceOperationUrls } from 'soukai-bis/models/concerns/crdts';
 import {
     getTombstoneUrl,
     isArrayPropertyOperation,
@@ -308,20 +302,7 @@ function getDeletedResourcesDocumentOperations({
     const deletedMetadatas = documentMetadatas.filter(
         (metadata) => metadata.resourceUrl && deletedResourceUrls.includes(metadata.resourceUrl),
     );
-    const deletedOperationUrls = [
-        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_SET_PROPERTY_OPERATION_OBJECT),
-        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_UNSET_PROPERTY_OPERATION_OBJECT),
-        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_ADD_PROPERTY_OPERATION_OBJECT),
-        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_REMOVE_PROPERTY_OPERATION_OBJECT),
-        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_SOFT_DELETE_OPERATION_OBJECT),
-        ...document.statements(undefined, RDF_TYPE_PREDICATE, CRDT_RESTORE_OPERATION_OBJECT),
-    ]
-        .filter((quad) =>
-            deletedResourceUrls.some((resourceUrl) =>
-                document.contains(quad.subject, CRDT_RESOURCE_PREDICATE, resourceUrl),
-            ),
-        )
-        .map((quad) => quad.subject.value);
+    const deletedOperationUrls = deletedResourceUrls.flatMap((url) => getResourceOperationUrls(document, url));
 
     for (const tombstone of createdTombstones) {
         documentOperations.push(...createModelInceptionOperations(tombstone, tombstone.deletedAt));

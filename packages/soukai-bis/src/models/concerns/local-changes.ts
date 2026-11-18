@@ -1,5 +1,5 @@
 import type Engine from 'soukai-bis/engines/Engine';
-import { mergeLocalChanges, withoutResourceLocalChanges } from 'soukai-bis/engines/local-changes';
+import { mergeLocalChanges, resourceLocalChanges, withoutResourceLocalChanges } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
 import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
 import { isLocalEngine } from 'soukai-bis/engines/utils';
@@ -73,14 +73,14 @@ export function updatedModelsLocalChanges({
     updatedModels,
     removedModels,
     restoredModels,
-    locallyDeletedModels,
-    localOperations,
+    newOperations,
+    deletedOperations,
 }: {
     updatedModels: Model[];
     removedModels: ModelWithUrl[];
     restoredModels: Model[];
-    locallyDeletedModels: ModelWithUrl[];
-    localOperations: Map<string, string[]>;
+    newOperations: Map<string, string[]>;
+    deletedOperations: Map<string, string[]>;
 }): LocalChangesUpdate | undefined {
     const additions: DocumentLocalChanges = { resources: {} };
     const removedUrls = removedModels.filter((model) => tracksLocalChanges(model.static())).map((model) => model.url);
@@ -92,10 +92,10 @@ export function updatedModelsLocalChanges({
         }
 
         if (restoredModels.includes(model)) {
-            const operations = localOperations.get(model.url) ?? [];
+            const operations = newOperations.get(model.url) ?? [];
 
             if (operations.length > 0) {
-                additions.resources[model.url] = { state: 'updated', operations };
+                additions.resources[model.url] = { state: 'updated', newOperations: operations };
             }
 
             continue;
@@ -108,10 +108,10 @@ export function updatedModelsLocalChanges({
         }
 
         if (model.tracksChanges()) {
-            const operations = localOperations.get(model.url) ?? [];
+            const operations = newOperations.get(model.url) ?? [];
 
             if (operations.length > 0) {
-                additions.resources[model.url] = { state: 'updated', operations };
+                additions.resources[model.url] = { state: 'updated', newOperations: operations };
             }
 
             continue;
@@ -122,8 +122,8 @@ export function updatedModelsLocalChanges({
         }
     }
 
-    for (const model of locallyDeletedModels) {
-        additions.resources[model.url] = { state: 'deleted' };
+    for (const [url, operations] of deletedOperations) {
+        additions.resources[url] = resourceLocalChanges('deleted', [], operations);
     }
 
     if (Object.keys(additions.resources).length === 0 && removedUrls.length === 0 && restoredUrls.length === 0) {

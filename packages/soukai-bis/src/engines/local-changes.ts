@@ -1,11 +1,17 @@
+import type { SolidDocument } from '@noeldemartin/solid-utils';
 import { arrayUnique } from '@noeldemartin/utils';
+import { getResourceOperationUrls } from 'soukai-bis/models/concerns/crdts';
 
 import type { DocumentLocalChanges, ResourceLocalChanges, ResourceLocalState } from './LocalEngine';
 
 const STATE_PRIORITIES: Record<ResourceLocalState, number> = { updated: 1, created: 2, deleted: 3 };
 
-function resourceLocalChanges(state: ResourceLocalState, operations: string[] = []): ResourceLocalChanges {
-    return state !== 'deleted' && operations.length > 0 ? { state, operations } : { state };
+function getNewOperations(changes: ResourceLocalChanges | undefined): string[] {
+    return changes && changes.state !== 'deleted' ? (changes.newOperations ?? []) : [];
+}
+
+function getDeletedOperations(changes: ResourceLocalChanges | undefined): string[] {
+    return changes?.state === 'deleted' ? (changes.deletedOperations ?? []) : [];
 }
 
 function cloneLocalChanges(changes: DocumentLocalChanges | null | undefined): DocumentLocalChanges {
@@ -13,10 +19,26 @@ function cloneLocalChanges(changes: DocumentLocalChanges | null | undefined): Do
         resources: Object.fromEntries(
             Object.entries(changes?.resources ?? {}).map(([url, resourceChanges]) => [
                 url,
-                resourceLocalChanges(resourceChanges.state, resourceChanges.operations),
+                resourceLocalChanges(
+                    resourceChanges.state,
+                    getNewOperations(resourceChanges),
+                    getDeletedOperations(resourceChanges),
+                ),
             ]),
         ),
     };
+}
+
+export function resourceLocalChanges(
+    state: ResourceLocalState,
+    newOperations: string[] = [],
+    deletedOperations: string[] = [],
+): ResourceLocalChanges {
+    if (state === 'deleted') {
+        return deletedOperations.length > 0 ? { state, deletedOperations } : { state };
+    }
+
+    return newOperations.length > 0 ? { state, newOperations } : { state };
 }
 
 export function mergeLocalChanges(
@@ -34,7 +56,8 @@ export function mergeLocalChanges(
 
         merged.resources[url] = resourceLocalChanges(
             state,
-            arrayUnique([...(resourceChanges?.operations ?? []), ...(otherChanges.operations ?? [])]),
+            arrayUnique([...getNewOperations(resourceChanges), ...getNewOperations(otherChanges)]),
+            arrayUnique([...getDeletedOperations(resourceChanges), ...getDeletedOperations(otherChanges)]),
         );
     }
 
@@ -54,23 +77,28 @@ export function subtractLocalChanges(
             continue;
         }
 
-        const operations = (resourceChanges.operations ?? []).filter(
-            (operationUrl) => !subtractedChanges.operations?.includes(operationUrl),
+        const subtractedOperations = getNewOperations(subtractedChanges);
+        const newOperations = getNewOperations(resourceChanges).filter(
+            (operationUrl) => !subtractedOperations.includes(operationUrl),
         );
 
         if (subtractedChanges.state !== resourceChanges.state) {
-            remaining.resources[url] = resourceLocalChanges(resourceChanges.state, operations);
+            remaining.resources[url] = resourceLocalChanges(
+                resourceChanges.state,
+                newOperations,
+                getDeletedOperations(resourceChanges),
+            );
 
             continue;
         }
 
-        if (operations.length === 0) {
+        if (newOperations.length === 0) {
             delete remaining.resources[url];
 
             continue;
         }
 
-        remaining.resources[url] = resourceLocalChanges('updated', operations);
+        remaining.resources[url] = resourceLocalChanges('updated', newOperations);
     }
 
     return remaining;
@@ -79,12 +107,17 @@ export function subtractLocalChanges(
 export function clearPushedLocalChanges(
     changes: DocumentLocalChanges | null | undefined,
     pushed: DocumentLocalChanges,
+    pushedDocument: SolidDocument,
 ): DocumentLocalChanges {
     const remaining = subtractLocalChanges(changes, pushed);
 
     for (const [url, pushedChanges] of Object.entries(pushed.resources)) {
         if (pushedChanges.state === 'created' && !changes?.resources[url]) {
-            remaining.resources[url] = resourceLocalChanges('deleted');
+            remaining.resources[url] = resourceLocalChanges(
+                'deleted',
+                [],
+                getResourceOperationUrls(pushedDocument, url),
+            );
         }
     }
 
@@ -97,7 +130,7 @@ export function withCreatedAsUpdated(changes: DocumentLocalChanges): DocumentLoc
             Object.entries(changes.resources).map(([url, resourceChanges]) => [
                 url,
                 resourceChanges.state === 'created'
-                    ? resourceLocalChanges('updated', resourceChanges.operations)
+                    ? resourceLocalChanges('updated', getNewOperations(resourceChanges))
                     : resourceChanges,
             ]),
         ),
@@ -120,13 +153,16 @@ export function migrateLocalChanges(
     changes: DocumentLocalChanges,
     migrateUrl: (url: string) => string | null,
 ): DocumentLocalChanges {
+    const migrateUrls = (urls: string[]) => urls.map((url) => migrateUrl(url) ?? url);
+
     return {
         resources: Object.fromEntries(
             Object.entries(changes.resources).map(([url, resourceChanges]) => [
                 migrateUrl(url) ?? url,
                 resourceLocalChanges(
                     resourceChanges.state,
-                    resourceChanges.operations?.map((operationUrl) => migrateUrl(operationUrl) ?? operationUrl),
+                    migrateUrls(getNewOperations(resourceChanges)),
+                    migrateUrls(getDeletedOperations(resourceChanges)),
                 ),
             ]),
         ),

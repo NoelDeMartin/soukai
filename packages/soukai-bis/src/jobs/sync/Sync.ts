@@ -8,13 +8,13 @@ import {
     isTruthy,
     objectFromEntries,
     parseDate,
+    required,
     round,
     silenced,
     urlRoute,
 } from '@noeldemartin/utils';
 import {
     clearPushedLocalChanges,
-    getLocallyDeletedResourceUrls,
     mergeLocalChanges,
     withCreatedAsUpdated,
     withoutResourceLocalChanges,
@@ -38,6 +38,7 @@ import { getExternalSourceUrl, isInExternalSource, type ExternalSource } from 's
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
+import { getResourceOperationUrls } from 'soukai-bis/models/concerns/crdts';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
@@ -48,8 +49,19 @@ import type Resource from 'soukai-bis/models/ldp/Resource';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { getContainerName } from 'soukai-bis/models/utils';
 
-import { getRestoredLinksOperations, groupDocumentDeletions } from './concerns/sync-conflicts';
-import type { DeletionConflict, DeletionConflictResolution } from './concerns/sync-conflicts';
+import {
+    getDocumentResolution,
+    getLocalDeletions,
+    getRemoteDeletions,
+    getRestoredLinksOperations,
+    groupDeletions,
+} from './concerns/sync-conflicts';
+import type {
+    DeletionConflict,
+    DeletionConflictResolution,
+    DeletionsResolution,
+    SyncingDocument,
+} from './concerns/sync-conflicts';
 import {
     applyOperationsToDocument,
     documentWithoutSubjects,
@@ -92,13 +104,6 @@ const RDF_MEDIA_TYPES = new Set([
     'application/rdf+xml',
     'application/trig',
 ]);
-
-interface DeletionsResolution {
-    localDeletions: Set<string>;
-    discardedLocalResources: Set<string>;
-    restoredRemoteResources: Set<string>;
-    restoredLocalResources: Set<string>;
-}
 
 export interface SyncConfig {
     userProfile: CompleteSolidUserProfile;
@@ -168,6 +173,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private documentsLastModifiedAt = new Map<string, Date | null>();
     private documentsLocalChanges = new Map<string, DocumentLocalChanges>();
     private pushedLocalChanges = new Map<string, DocumentLocalChanges>();
+    private remoteDocumentsWithDeletions: SolidDocument[] = [];
     private typeIndexes: Partial<Record<TypeIndexRegistration, Promise<TypeIndex>>> = {};
     private unsyncedContainers = new Set<string>();
 
@@ -248,7 +254,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     private clearLocalChanges(
-        documentUrl: string,
+        pushedDocument: SolidDocument,
         pushedChanges: DocumentLocalChanges | null,
         resolvedUrls: Set<string> = new Set(),
     ): LocalChangesUpdate | undefined {
@@ -256,13 +262,13 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             return undefined;
         }
 
-        this.pushedLocalChanges.set(documentUrl, withoutResourceLocalChanges(pushedChanges, resolvedUrls));
+        this.pushedLocalChanges.set(pushedDocument.url, withoutResourceLocalChanges(pushedChanges, resolvedUrls));
 
-        return (changes) => clearPushedLocalChanges(changes, pushedChanges);
+        return (changes) => clearPushedLocalChanges(changes, pushedChanges, pushedDocument);
     }
 
     private async updateSyncedDocument(
-        documentUrl: string,
+        pushedDocument: SolidDocument,
         operations: EngineOperation[],
         options: {
             lastModifiedAt: Date | null;
@@ -271,11 +277,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         },
     ): Promise<void> {
         const { lastModifiedAt, pushedChanges, resolvedUrls } = options;
+        const documentUrl = pushedDocument.url;
 
         try {
             await this.localEngine.updateDocument(documentUrl, operations, {
                 lastModifiedAt,
-                localChanges: this.clearLocalChanges(documentUrl, pushedChanges, resolvedUrls),
+                localChanges: this.clearLocalChanges(pushedDocument, pushedChanges, resolvedUrls),
             });
 
             this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
@@ -289,7 +296,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             await this.localEngine.createDocument(documentUrl, [], {
                 lastModifiedAt: recreatedLastModifiedAt,
-                localChanges: () => clearPushedLocalChanges(null, pushedChanges),
+                localChanges: () => clearPushedLocalChanges(null, pushedChanges, pushedDocument),
             });
 
             this.documentsLastModifiedAt.set(documentUrl, recreatedLastModifiedAt);
@@ -434,6 +441,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         pullStatus.children = urls.map(() => ({ completed: false }));
 
         await this.pullDocuments(urls, pullStatus);
+        await this.syncDocumentsWithDeletions();
         await this.updateProgress((status) => (status.children[0].completed = true));
     }
 
@@ -640,6 +648,14 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 return childrenPullTasks;
             }
 
+            const syncingDocument = { localDocument, remoteDocument, localChanges };
+
+            if (getRemoteDeletions(syncingDocument).length > 0 || getLocalDeletions(syncingDocument).length > 0) {
+                this.remoteDocumentsWithDeletions.push(remoteDocument);
+
+                return childrenPullTasks;
+            }
+
             await this.syncDocumentContents(localDocument, remoteDocument, localChanges);
 
             return childrenPullTasks;
@@ -657,6 +673,52 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     () => (status.completed ||= !status.children || status.children.length === 0),
                 );
             }
+        }
+    }
+
+    private async syncDocumentsWithDeletions(): Promise<void> {
+        const remoteDocuments = this.remoteDocumentsWithDeletions;
+
+        this.remoteDocumentsWithDeletions = [];
+
+        if (remoteDocuments.length === 0) {
+            return;
+        }
+
+        const documents = await Promise.all(
+            remoteDocuments.map(async (remoteDocument) => {
+                const [localChanges, localDocument] = await Promise.all([
+                    this.localEngine.getDocumentLocalChanges(remoteDocument.url),
+                    this.localEngine.readDocumentIfExists(remoteDocument.url, { includeEmptyDocuments: true }),
+                ]);
+
+                return localDocument && { localDocument, remoteDocument, localChanges };
+            }),
+        );
+        const syncingDocuments = documents.filter(isTruthy);
+        const resolution = await this.resolveDeletions(syncingDocuments);
+
+        await Promise.all(
+            syncingDocuments.map((document) =>
+                this.syncSemaphore.run(() => this.syncDocumentWithDeletions(document, resolution)),
+            ),
+        );
+    }
+
+    private async syncDocumentWithDeletions(document: SyncingDocument, resolution: DeletionsResolution): Promise<void> {
+        try {
+            await this.syncDocumentContents(
+                document.localDocument,
+                document.remoteDocument,
+                document.localChanges,
+                getDocumentResolution(resolution, document),
+            );
+        } catch (error) {
+            if (isInstanceOf(error, DocumentNotFound)) {
+                return;
+            }
+
+            this.handleDocumentError(document.remoteDocument.url, error);
         }
     }
 
@@ -836,9 +898,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     localChanges: (changes) => mergeLocalChanges(changes, withCreatedAsUpdated(pushedChanges)),
                 });
             } catch (error) {
-                if (!isInstanceOf(error, DocumentNotFound)) {
-                    throw error;
+                if (isInstanceOf(error, DocumentNotFound)) {
+                    continue;
                 }
+
+                throw error;
             }
         }
     }
@@ -886,7 +950,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                             ? this.getContainerLastModifiedAt(pushResult.remoteDocument)
                             : this.getDocumentLastModifiedAt(start, end, pushResult.remoteDocument);
 
-                        await this.updateSyncedDocument(documentUrl, [], {
+                        await this.updateSyncedDocument(localDocument, [], {
                             lastModifiedAt,
                             pushedChanges: localChanges,
                         });
@@ -1030,10 +1094,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         localDocument: SolidDocument,
         remoteDocument: SolidDocument,
         localChanges: DocumentLocalChanges | null,
+        deletionsResolution?: DeletionsResolution,
     ): Promise<void> {
         this.assertNotCancelled(this.getResult());
 
-        const resolution = await this.resolveDeletions(localDocument, remoteDocument, localChanges);
+        const resolution =
+            deletionsResolution ?? (await this.resolveDeletions([{ localDocument, remoteDocument, localChanges }]));
         const restoredTombstoneUrls = getTombstoneUrls(remoteDocument, resolution.restoredRemoteResources);
         const remoteTombstonedUrls = getTombstonedResourceUrls(remoteDocument);
         const localMergeDocument = documentWithTombstones(
@@ -1106,37 +1172,38 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             copyTombstones: false,
         });
 
-        await this.updateSyncedDocument(localDocument.url, localUpdates, {
+        await this.updateSyncedDocument(localDocument, localUpdates, {
             lastModifiedAt,
             pushedChanges: localChanges,
             resolvedUrls: new Set([...resolution.discardedLocalResources, ...resolution.restoredLocalResources]),
         });
     }
 
-    private async resolveDeletions(
-        localDocument: SolidDocument,
-        remoteDocument: SolidDocument,
-        localChanges: DocumentLocalChanges | null,
-    ): Promise<DeletionsResolution> {
+    private async resolveDeletions(documents: SyncingDocument[]): Promise<DeletionsResolution> {
         const resolution: DeletionsResolution = {
             localDeletions: new Set(),
             discardedLocalResources: new Set(),
             restoredRemoteResources: new Set(),
             restoredLocalResources: new Set(),
         };
-        const remoteDeletions = await groupDocumentDeletions(
-            localDocument,
-            Array.from(getTombstonedResourceUrls(remoteDocument)).filter((url) => localDocument.contains(url)),
+        const remoteDeletions = await groupDeletions(
+            documents.map((document) => document.localDocument),
+            documents.flatMap(getRemoteDeletions),
             this.syncedModels,
         );
-        const localDeletions = await groupDocumentDeletions(
-            remoteDocument,
-            Array.from(getLocallyDeletedResourceUrls(localChanges)).filter((url) => remoteDocument.contains(url)),
+        const localDeletions = await groupDeletions(
+            documents.map((document) => document.remoteDocument),
+            documents.flatMap(getLocalDeletions),
             this.syncedModels,
         );
+        const findDocument = (url: string, side: 'localDocument' | 'remoteDocument') =>
+            required(documents.find((document) => document[side].contains(url)));
 
         for (const [resourceUrl, urls] of remoteDeletions) {
-            const hasLocalChanges = Array.from(urls).some((url) => !!localChanges?.resources[url]);
+            const hasLocalChanges = Array.from(urls).some((url) =>
+                documents.some((document) => !!document.localChanges?.resources[url]),
+            );
+            const { localDocument, remoteDocument } = findDocument(resourceUrl, 'localDocument');
             const answer = hasLocalChanges
                 ? await this.getDeletionConflictResolution({
                       type: 'deleted-remotely',
@@ -1152,7 +1219,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
 
         for (const [resourceUrl, urls] of localDeletions) {
-            const answer = this.hasUnseenRemoteChanges(localDocument.url, remoteDocument)
+            const { localDocument, remoteDocument } = findDocument(resourceUrl, 'remoteDocument');
+            const hasUnseenRemoteChanges = Array.from(urls).some((url) =>
+                this.hasUnseenRemoteChanges(url, findDocument(url, 'remoteDocument')),
+            );
+            const answer = hasUnseenRemoteChanges
                 ? await this.getDeletionConflictResolution({
                       type: 'deleted-locally',
                       resourceUrl,
@@ -1182,17 +1253,16 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return answer;
     }
 
-    private hasUnseenRemoteChanges(documentUrl: string, remoteDocument: SolidDocument): boolean {
-        const lastModifiedAt = this.documentsLastModifiedAt.get(documentUrl);
-        const remoteLastModifiedAt = remoteDocument.getLastModified();
+    private hasUnseenRemoteChanges(url: string, { remoteDocument, localChanges }: SyncingDocument): boolean {
+        const resourceChanges = localChanges?.resources[url];
 
-        if (!lastModifiedAt || !remoteLastModifiedAt) {
+        if (resourceChanges?.state !== 'deleted') {
             return true;
         }
 
-        const lastModifiedTolerance = this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
-
-        return remoteLastModifiedAt.getTime() - lastModifiedAt.getTime() > lastModifiedTolerance;
+        return getResourceOperationUrls(remoteDocument, url).some(
+            (operationUrl) => !resourceChanges.deletedOperations?.includes(operationUrl),
+        );
     }
 
     private getDocumentLastModifiedAt(

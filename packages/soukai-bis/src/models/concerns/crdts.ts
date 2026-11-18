@@ -6,9 +6,15 @@ import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourc
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import { requireEngine } from 'soukai-bis/engines/state';
 import {
+    CRDT_ADD_PROPERTY_OPERATION_OBJECT,
     CRDT_DELETED_AT_PREDICATE,
+    CRDT_REMOVE_PROPERTY_OPERATION_OBJECT,
     CRDT_RESOURCE_PREDICATE,
+    CRDT_RESTORE_OPERATION_OBJECT,
+    CRDT_SET_PROPERTY_OPERATION_OBJECT,
+    CRDT_SOFT_DELETE_OPERATION_OBJECT,
     CRDT_TOMBSTONE_OBJECT,
+    CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
 import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
@@ -185,11 +191,11 @@ function createArrayPropertyOperations(
 export function getDirtyDocumentsUpdates({
     updatedModels,
     restoredModels = [],
-    localOperations,
+    newOperations,
 }: {
     updatedModels: Model[];
     restoredModels?: Model[];
-    localOperations?: Map<string, string[]>;
+    newOperations?: Map<string, string[]>;
 }): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
@@ -318,7 +324,7 @@ export function getDirtyDocumentsUpdates({
             operations[url] = operation.createDocumentOperations();
         }
 
-        localOperations?.set(
+        newOperations?.set(
             model.url,
             updateOperations.map((operation) => operation.requireUrl()),
         );
@@ -381,6 +387,23 @@ export function deletingModelsEmptiesDocument(
     const leavesTombstones = models.some((model) => model.leavesTombstones() && !recordsLocalChanges(model));
 
     return !leavesOtherResources && !leavesTombstones;
+}
+
+export function getResourceOperationUrls(document: SolidDocument, resourceUrl: string): string[] {
+    const operationTypes = [
+        CRDT_SET_PROPERTY_OPERATION_OBJECT,
+        CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
+        CRDT_ADD_PROPERTY_OPERATION_OBJECT,
+        CRDT_REMOVE_PROPERTY_OPERATION_OBJECT,
+        CRDT_SOFT_DELETE_OPERATION_OBJECT,
+        CRDT_RESTORE_OPERATION_OBJECT,
+    ];
+
+    return document
+        .statements(undefined, CRDT_RESOURCE_PREDICATE, resourceUrl)
+        .map((quad) => quad.subject)
+        .filter((subject) => operationTypes.some((type) => document.contains(subject, RDF_TYPE_PREDICATE, type)))
+        .map((subject) => subject.value);
 }
 
 export function getDeleteModelsOperations(

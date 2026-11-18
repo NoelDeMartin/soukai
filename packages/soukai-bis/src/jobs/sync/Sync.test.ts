@@ -4,6 +4,7 @@ import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@no
 import { arrayFilter, arraySorted, arrayUnique, requireUrlDirectoryName, urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import type { ResourceLocalChanges } from 'soukai-bis/engines/LocalEngine';
+import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -1531,7 +1532,7 @@ describe('Sync', () => {
 
             expect(updateOperation).toBeDefined();
             expect(await localEngine.getDocumentLocalChanges(actionDocumentUrl)).toEqual({
-                resources: { [action.url]: { state: 'updated', operations: [updateOperation?.url] } },
+                resources: { [action.url]: { state: 'updated', newOperations: [updateOperation?.url] } },
             });
         });
 
@@ -1586,7 +1587,7 @@ describe('Sync', () => {
                 lastModifiedAt,
                 localChanges: () => ({
                     resources: {
-                        [`${documentUrl}#it`]: { state: 'updated', operations: [`${documentUrl}#operation-2`] },
+                        [`${documentUrl}#it`]: { state: 'updated', newOperations: [`${documentUrl}#operation-2`] },
                     },
                 }),
             });
@@ -1806,6 +1807,44 @@ describe('Sync', () => {
             });
         });
 
+        it('records deleted operations of models deleted while their creation is pushed', async () => {
+            // Arrange
+            trackLocalChanges(Movie);
+            trackLocalChanges(WatchAction);
+
+            const movie = await Movie.createAt(containerUrl, { title: 'Spirited Away' });
+            const action = await movie.relatedAction.create({ startTime: new Date('2021-01-01T00:00:00.000Z') });
+            const movieDocumentUrl = movie.requireDocumentUrl();
+
+            await action.update({ startTime: new Date('2021-06-01T00:00:00.000Z') });
+
+            const operationUrls = (action.operations ?? []).map((operation) => operation.url);
+
+            FakeServer.respondOnce(containerUrl, containerTurtle([]));
+            FakeServer.respondOnce(movieDocumentUrl, FakeResponse.notFound());
+            FakeServer.respondOnceWith(movieDocumentUrl, async () => {
+                await action.delete();
+
+                return FakeResponse.created();
+            });
+
+            // Act
+            await syncMovies();
+
+            // Assert
+            const localChanges = await localEngine.getDocumentLocalChanges(movieDocumentUrl);
+
+            expect(operationUrls.length).toBeGreaterThan(1);
+            expect(localChanges?.resources[action.requireUrl()]).toEqual({
+                state: 'deleted',
+                deletedOperations: expect.arrayContaining(operationUrls),
+            });
+            expect(localChanges?.resources[action.requireUrl()]).toHaveProperty(
+                'deletedOperations.length',
+                operationUrls.length,
+            );
+        });
+
         it('records deletions of documents deleted while their creation is pushed', async () => {
             // Arrange
             trackLocalChanges(WatchAction);
@@ -1883,6 +1922,18 @@ describe('Sync', () => {
             const actionUrl = () => `${documentUrl}#action`;
             const remoteDocument = (contents: string, lastModifiedAt: string) =>
                 FakeResponse.success(contents, { 'Last-Modified': new Date(lastModifiedAt).toUTCString() });
+            const operationTurtle = (resourceUrl: string, name: string, date: string) => `
+                @prefix schema: <https://schema.org/> .
+                @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                <${resourceUrl}-operation-${name}>
+                    a crdt:SetPropertyOperation ;
+                    crdt:resource <${resourceUrl}> ;
+                    crdt:property schema:name ;
+                    crdt:value "${name}" ;
+                    crdt:date "${date}"^^xsd:dateTime .
+            `;
 
             async function syncCascadingMovies(
                 resolveDeletionConflict?: SyncConfig['resolveDeletionConflict'],
@@ -1987,7 +2038,7 @@ describe('Sync', () => {
                 expect(localDocument.getQuads()).toHaveLength(0);
             });
 
-            it('deletes remote changes on resources deleted locally', async () => {
+            it('asks about resources deleted locally when dependants were added remotely', async () => {
                 // Arrange
                 const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
                 const remoteContents = fixture('movie-watched.ttl', { documentUrl });
@@ -2018,9 +2069,63 @@ describe('Sync', () => {
                 expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
             });
 
-            it('asks about resources deleted locally when other resources changed remotely', async () => {
+            it('asks about resources deleted locally with unseen remote operations', async () => {
                 // Arrange
                 const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
+                const remoteContents = [
+                    fixture('movie.ttl', { documentUrl }),
+                    operationTurtle(movieUrl(), 'Original', '2021-01-01T00:00:00.000Z'),
+                    operationTurtle(movieUrl(), 'Updated', '2021-06-01T00:00:00.000Z'),
+                ].join('\n');
+
+                FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+                FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
+                FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
+                FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+                await createLocalDocument('', {
+                    [movieUrl()]: { state: 'deleted', deletedOperations: [`${movieUrl()}-operation-Original`] },
+                });
+
+                // Act
+                await syncCascadingMovies(resolveDeletionConflict);
+
+                // Assert
+                expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
+                expect(resolveDeletionConflict).toHaveBeenCalledWith(
+                    expect.objectContaining({ type: 'deleted-locally', resourceUrl: movieUrl() }),
+                );
+            });
+
+            it('deletes resources deleted locally without unseen remote operations', async () => {
+                // Arrange
+                const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+                const remoteContents = [
+                    fixture('movie.ttl', { documentUrl }),
+                    operationTurtle(movieUrl(), 'Original', '2021-01-01T00:00:00.000Z'),
+                ].join('\n');
+
+                FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+                FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
+                FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
+                FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+                await createLocalDocument('', {
+                    [movieUrl()]: { state: 'deleted', deletedOperations: [`${movieUrl()}-operation-Original`] },
+                });
+
+                // Act
+                await syncCascadingMovies(resolveDeletionConflict);
+
+                // Assert
+                expect(resolveDeletionConflict).not.toHaveBeenCalled();
+                expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
+                expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+            });
+
+            it('deletes resources deleted locally when other resources changed remotely', async () => {
+                // Arrange
+                const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
                 const commentTurtle = (text: string) => `
                     <${documentUrl}#comment> a <https://schema.org/Comment> ; <https://schema.org/text> "${text}" .
                 `;
@@ -2037,19 +2142,19 @@ describe('Sync', () => {
                 await syncCascadingMovies(resolveDeletionConflict);
 
                 // Assert
-                expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-                expect(resolveDeletionConflict).toHaveBeenCalledWith(
-                    expect.objectContaining({ type: 'deleted-locally', resourceUrl: movieUrl() }),
-                );
+                expect(resolveDeletionConflict).not.toHaveBeenCalled();
+                expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
             });
 
             it('restores resources deleted locally', async () => {
                 // Arrange
+                const remoteContents = [
+                    fixture('movie-watched.ttl', { documentUrl }),
+                    operationTurtle(movieUrl(), 'Updated', '2021-06-01T00:00:00.000Z'),
+                ].join('\n');
+
                 FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
-                FakeServer.respondOnce(
-                    documentUrl,
-                    remoteDocument(fixture('movie-watched.ttl', { documentUrl }), '2021-06-01'),
-                );
+                FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
 
                 await createLocalDocument('', {
                     [movieUrl()]: { state: 'deleted' },
@@ -2090,6 +2195,154 @@ describe('Sync', () => {
                 expect(resolveDeletionConflict).not.toHaveBeenCalled();
                 expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
                 expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+            });
+
+            describe('across documents', () => {
+                class Franchise extends defineSchema({
+                    rdfContext: 'https://schema.org/',
+                    rdfClass: 'MovieSeries',
+                    fields: {
+                        name: string(),
+                        movieUrls: array(url()).rdfProperty('hasPart').default([]),
+                    },
+                    relations: {
+                        movies: belongsToMany('Movie', 'movieUrls').onDelete('cascade'),
+                    },
+                }) {}
+
+                bootModels({ Franchise });
+
+                const franchiseDocumentUrl = () => `${containerUrl}ghibli`;
+                const franchiseUrl = () => `${franchiseDocumentUrl()}#it`;
+                const franchiseTurtle = () => `
+                    <${franchiseUrl()}>
+                        a <https://schema.org/MovieSeries> ;
+                        <https://schema.org/name> "Ghibli" ;
+                        <https://schema.org/hasPart> <${movieUrl()}> .
+                `;
+
+                async function syncFranchises(
+                    resolveDeletionConflict: SyncConfig['resolveDeletionConflict'],
+                ): Promise<void> {
+                    await Sync.run({
+                        ...config,
+                        applicationModels: [
+                            { model: CascadingMovie, registration: true },
+                            { model: Franchise, registration: false },
+                            { model: WatchAction, registration: false },
+                        ],
+                        resolveDeletionConflict,
+                    });
+                }
+
+                async function createLocalFranchiseDocument(
+                    contents: string,
+                    resources: Record<string, ResourceLocalChanges>,
+                ): Promise<void> {
+                    await localEngine.createDocument(franchiseDocumentUrl(), turtleToQuadsSync(contents), {
+                        lastModifiedAt: new Date('2021-01-01T00:00:00.000Z'),
+                        localChanges: () => ({ resources }),
+                    });
+                }
+
+                it('restores deletions across documents', async () => {
+                    // Arrange
+                    const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+                    const franchiseTombstone = tombstoneTurtle(franchiseUrl(), '2021-06-01T00:00:00.000Z');
+                    const movieTombstone = tombstoneTurtle(movieUrl(), '2021-06-01T00:00:00.000Z');
+
+                    FakeServer.respondOnce(containerUrl, containerTurtle([franchiseDocumentUrl(), documentUrl]));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), remoteDocument(franchiseTombstone, '2021-06-01'));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), remoteDocument(franchiseTombstone, '2021-06-01'));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), FakeResponse.success());
+                    FakeServer.respondOnce(documentUrl, remoteDocument(movieTombstone, '2021-06-01'));
+                    FakeServer.respondOnce(documentUrl, remoteDocument(movieTombstone, '2021-06-01'));
+                    FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+                    await createLocalFranchiseDocument(franchiseTurtle(), {});
+                    await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
+                        [actionUrl()]: { state: 'created' },
+                    });
+
+                    // Act
+                    await syncFranchises(resolveDeletionConflict);
+
+                    // Assert
+                    const patches = FakeServer.fetchSpy.mock.calls.filter(([, init]) => init?.method === 'PATCH');
+                    const franchiseDocument = await localEngine.readDocument(franchiseDocumentUrl());
+                    const movieDocument = await localEngine.readDocument(documentUrl);
+
+                    expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
+                    expect(resolveDeletionConflict).toHaveBeenCalledWith(
+                        expect.objectContaining({ type: 'deleted-remotely', resourceUrl: franchiseUrl() }),
+                    );
+                    expect(patches).toHaveLength(2);
+                    expect(patches.every(([, init]) => String(init?.body).includes('-tombstone>'))).toBe(true);
+                    expect(franchiseDocument.contains(franchiseUrl())).toBe(true);
+                    expect(movieDocument.contains(movieUrl())).toBe(true);
+                    expect(movieDocument.contains(actionUrl())).toBe(true);
+                });
+
+                it('deletes across documents', async () => {
+                    // Arrange
+                    const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
+                    const franchiseTombstone = tombstoneTurtle(franchiseUrl(), '2021-06-01T00:00:00.000Z');
+                    const movieTombstone = tombstoneTurtle(movieUrl(), '2021-06-01T00:00:00.000Z');
+
+                    FakeServer.respondOnce(containerUrl, containerTurtle([franchiseDocumentUrl(), documentUrl]));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), remoteDocument(franchiseTombstone, '2021-06-01'));
+                    FakeServer.respondOnce(documentUrl, remoteDocument(movieTombstone, '2021-06-01'));
+
+                    await createLocalFranchiseDocument(franchiseTurtle(), {});
+                    await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
+                        [actionUrl()]: { state: 'created' },
+                    });
+
+                    // Act
+                    await syncFranchises(resolveDeletionConflict);
+
+                    // Assert
+                    const franchiseDocument = await localEngine.readDocument(franchiseDocumentUrl(), {
+                        includeEmptyDocuments: true,
+                    });
+                    const movieDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+                    expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
+                    expect(resolveDeletionConflict).toHaveBeenCalledWith(
+                        expect.objectContaining({ type: 'deleted-remotely', resourceUrl: franchiseUrl() }),
+                    );
+                    expect(franchiseDocument.getQuads()).toHaveLength(0);
+                    expect(movieDocument.getQuads()).toHaveLength(0);
+                    expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+                });
+
+                it('asks about local deletions across documents', async () => {
+                    // Arrange
+                    const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
+                    const remoteMovie = fixture('movie-watched.ttl', { documentUrl });
+
+                    FakeServer.respondOnce(containerUrl, containerTurtle([franchiseDocumentUrl(), documentUrl]));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), remoteDocument(franchiseTurtle(), '2021-01-01'));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), remoteDocument(franchiseTurtle(), '2021-01-01'));
+                    FakeServer.respondOnce(franchiseDocumentUrl(), FakeResponse.success());
+                    FakeServer.respondOnce(documentUrl, remoteDocument(remoteMovie, '2021-06-01'));
+                    FakeServer.respondOnce(documentUrl, remoteDocument(remoteMovie, '2021-06-01'));
+                    FakeServer.respondOnce(documentUrl, FakeResponse.success());
+
+                    await createLocalFranchiseDocument('', { [franchiseUrl()]: { state: 'deleted' } });
+                    await createLocalDocument('', { [movieUrl()]: { state: 'deleted' } });
+
+                    // Act
+                    await syncFranchises(resolveDeletionConflict);
+
+                    // Assert
+                    expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
+                    expect(resolveDeletionConflict).toHaveBeenCalledWith(
+                        expect.objectContaining({ type: 'deleted-locally', resourceUrl: franchiseUrl() }),
+                    );
+                    expect(await localEngine.getDocumentLocalChanges(franchiseDocumentUrl())).toBeNull();
+                    expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
+                });
             });
 
             describe('restored children', () => {
@@ -2172,7 +2425,11 @@ describe('Sync', () => {
 
                 it('links children restored locally', async () => {
                     // Arrange
-                    const remoteContents = [movieTurtle({ rated: true }), ratingTurtle()].join('\n');
+                    const remoteContents = [
+                        movieTurtle({ rated: true }),
+                        ratingTurtle(),
+                        operationTurtle(ratingUrl(), 'Updated', '2021-06-01T00:00:00.000Z'),
+                    ].join('\n');
 
                     FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
                     FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
@@ -2260,6 +2517,87 @@ describe('Sync', () => {
                     expect(insertions).toContain('<#it> <https://schema.org/aggregateRating> <#rating>');
                     expect(localDocument.contains(movieUrl(), 'schema:aggregateRating', ratingUrl())).toBe(true);
                     expect(localDocument.contains(movieUrl(), 'schema:aggregateRating', otherRatingUrl)).toBe(true);
+                });
+            });
+
+            it('reads documents with deletions again after pulling', async () => {
+                // Arrange
+                const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+                const otherDocumentUrl = `${containerUrl}other`;
+
+                FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl, otherDocumentUrl]));
+                FakeServer.respondOnce(
+                    documentUrl,
+                    remoteDocument(tombstoneTurtle(movieUrl(), '2021-06-01T00:00:00.000Z'), '2021-06-01'),
+                );
+                FakeServer.respondOnceWith(otherDocumentUrl, async () => {
+                    await localEngine.updateDocument(
+                        documentUrl,
+                        [
+                            new DeleteResourceOperation(actionUrl()),
+                            new DeleteResourceOperation(`${actionUrl()}-metadata`),
+                        ],
+                        { localChanges: () => null },
+                    );
+
+                    return FakeResponse.notFound();
+                });
+
+                await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
+                    [actionUrl()]: { state: 'created' },
+                });
+
+                // Act
+                await Sync.run({
+                    ...config,
+                    concurrency: 1,
+                    applicationModels: [
+                        { model: CascadingMovie, registration: true },
+                        { model: WatchAction, registration: false },
+                    ],
+                    resolveDeletionConflict,
+                });
+
+                // Assert
+                const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
+
+                expect(resolveDeletionConflict).not.toHaveBeenCalled();
+                expect(localDocument.getQuads()).toHaveLength(0);
+            });
+
+            it('fails when resolving deletion conflicts fails', async () => {
+                // Arrange
+                const job = new Sync({
+                    ...config,
+                    applicationModels: [
+                        { model: CascadingMovie, registration: true },
+                        { model: WatchAction, registration: false },
+                    ],
+                    resolveDeletionConflict: async () => {
+                        throw new Error('Failed resolving conflict');
+                    },
+                });
+
+                FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
+                FakeServer.respondOnce(
+                    documentUrl,
+                    remoteDocument(tombstoneTurtle(movieUrl(), '2021-06-01T00:00:00.000Z'), '2021-06-01'),
+                );
+
+                await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
+                    [actionUrl()]: { state: 'created' },
+                });
+
+                // Act
+                const completed = expect(job.completed).rejects.toThrow('Failed resolving conflict');
+
+                await expect(job.process()).rejects.toThrow('Failed resolving conflict');
+                await completed;
+
+                // Assert
+                expect((await localEngine.readDocument(documentUrl)).contains(movieUrl())).toBe(true);
+                expect(await localEngine.getDocumentLocalChanges(documentUrl)).toEqual({
+                    resources: { [actionUrl()]: { state: 'created' } },
                 });
             });
 

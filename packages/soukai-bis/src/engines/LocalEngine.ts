@@ -10,10 +10,9 @@ import type EngineOperation from './operations/EngineOperation';
 
 export type ResourceLocalState = 'created' | 'updated' | 'deleted';
 
-export interface ResourceLocalChanges {
-    state: ResourceLocalState;
-    operations?: string[];
-}
+export type ResourceLocalChanges =
+    | { state: 'created' | 'updated'; newOperations?: string[] }
+    | { state: 'deleted'; deletedOperations?: string[] };
 
 export interface DocumentLocalChanges {
     resources: Record<string, ResourceLocalChanges>;

@@ -2024,7 +2024,7 @@ describe('Model', () => {
 
             expect(action.operations?.length).toBeGreaterThan(1);
             expect(await engine.getDocumentLocalChanges(action.requireDocumentUrl())).toEqual({
-                resources: { [action.url]: { state: 'updated', operations: [updateOperation?.url] } },
+                resources: { [action.url]: { state: 'updated', newOperations: [updateOperation?.url] } },
             });
         });
 
@@ -2062,6 +2062,34 @@ describe('Model', () => {
             expect(await engine.readDocumentIfExists(documentUrl)).toBeNull();
             expect(await WatchAction.find(action.url)).toBeNull();
             expect(await WatchAction.all()).toHaveLength(0);
+        });
+
+        it('records deleted operations in local deletions', async () => {
+            // Arrange
+            const action = await WatchAction.create({ startTime: new Date() });
+
+            vi.advanceTimersByTime(1000);
+
+            await action.update({ startTime: new Date() });
+            await markAsSynced(action);
+
+            const operationUrls = (action.operations ?? []).map((operation) => operation.url);
+
+            // Act
+            await action.delete();
+
+            // Assert
+            const localChanges = await engine.getDocumentLocalChanges(action.requireDocumentUrl());
+
+            expect(operationUrls.length).toBeGreaterThan(1);
+            expect(localChanges?.resources[action.url]).toEqual({
+                state: 'deleted',
+                deletedOperations: expect.arrayContaining(operationUrls),
+            });
+            expect(localChanges?.resources[action.url]).toHaveProperty(
+                'deletedOperations.length',
+                operationUrls.length,
+            );
         });
 
         it('removes resources created locally', async () => {
@@ -2157,7 +2185,7 @@ describe('Model', () => {
 
             expect(localChanges).toEqual({
                 resources: {
-                    [action.url]: { state: 'updated', operations: operations.map((operation) => operation.url) },
+                    [action.url]: { state: 'updated', newOperations: operations.map((operation) => operation.url) },
                 },
             });
             expect(operations.map((operation) => operation.static().modelName).sort()).toEqual([

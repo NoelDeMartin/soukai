@@ -1,16 +1,21 @@
+import { SolidStore } from '@noeldemartin/solid-utils';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
+import { weakMemo } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
+import { getLocallyDeletedResourceUrls } from 'soukai-bis/engines/local-changes';
+import type { DocumentLocalChanges } from 'soukai-bis/engines/LocalEngine';
 import { RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
-import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import { requireBootedModel } from 'soukai-bis/models/registry';
 import { isMultiModelRelation } from 'soukai-bis/models/relations/helpers';
 import { MODELS_IN_SAME_DOCUMENT } from 'soukai-bis/models/relations/internals';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 import { isArrayField } from 'soukai-bis/zod/utils';
+
+import { getTombstonedResourceUrls } from './sync-document-operations';
 
 function isArrayProperty(document: SolidDocument, link: Quad, models: ModelConstructor[]): boolean {
     const types = new Set(document.statements(link.subject, RDF_TYPE_PREDICATE).map((quad) => quad.object.value));
@@ -29,7 +34,11 @@ function isArrayProperty(document: SolidDocument, link: Quad, models: ModelConst
         );
 }
 
-async function getCascadingUrls(model: Model, document: SolidDocument, modelsCache: ModelsCache): Promise<string[]> {
+function getStoreQuads(store: SolidStore): Quad[] {
+    return weakMemo('store-quads', store, () => store.getQuads());
+}
+
+async function getCascadingUrls(model: Model, store: SolidStore, modelsCache: ModelsCache): Promise<string[]> {
     const urls: string[] = [];
 
     for (const name of Object.keys(getSchema(model.static()).relations)) {
@@ -39,7 +48,7 @@ async function getCascadingUrls(model: Model, document: SolidDocument, modelsCac
             continue;
         }
 
-        await relation.loadFromDocumentRDF(getDocumentQuads(document), { modelsCache, includeSoftDeleted: true });
+        await relation.loadFromDocumentRDF(getStoreQuads(store), { modelsCache, includeSoftDeleted: true });
 
         const relatedModels = [
             ...relation.getLoadedModels(),
@@ -47,7 +56,7 @@ async function getCascadingUrls(model: Model, document: SolidDocument, modelsCac
         ];
 
         for (const relatedModel of relatedModels) {
-            if (relatedModel.url && document.contains(relatedModel.url)) {
+            if (relatedModel.url && store.contains(relatedModel.url)) {
                 urls.push(relatedModel.url);
             }
         }
@@ -56,25 +65,24 @@ async function getCascadingUrls(model: Model, document: SolidDocument, modelsCac
     return urls;
 }
 
-async function getDocumentDependants(
-    document: SolidDocument,
-    resourceUrl: string,
-    models: ModelConstructor[],
-): Promise<Set<string>> {
-    const quads = getDocumentQuads(document);
+async function getDependants(store: SolidStore, resourceUrl: string, models: ModelConstructor[]): Promise<Set<string>> {
     const modelsCache: ModelsCache = new Map();
     const dependants = new Set<string>();
     const pendingUrls = [resourceUrl];
 
     for (let url = pendingUrls.pop(); url; url = pendingUrls.pop()) {
         for (const modelClass of models) {
-            const model = await modelClass.createFromRDF(quads, { url, modelsCache, includeSoftDeleted: true });
+            const model = await modelClass.createFromRDF(getStoreQuads(store), {
+                url,
+                modelsCache,
+                includeSoftDeleted: true,
+            });
 
             if (!model) {
                 continue;
             }
 
-            for (const dependantUrl of await getCascadingUrls(model, document, modelsCache)) {
+            for (const dependantUrl of await getCascadingUrls(model, store, modelsCache)) {
                 if (dependantUrl === resourceUrl || dependants.has(dependantUrl)) {
                     continue;
                 }
@@ -99,15 +107,51 @@ export interface DeletionConflict {
     remoteDocument: SolidDocument;
 }
 
-export async function groupDocumentDeletions(
-    document: SolidDocument,
+export interface DeletionsResolution {
+    localDeletions: Set<string>;
+    discardedLocalResources: Set<string>;
+    restoredRemoteResources: Set<string>;
+    restoredLocalResources: Set<string>;
+}
+
+export interface SyncingDocument {
+    localDocument: SolidDocument;
+    remoteDocument: SolidDocument;
+    localChanges: DocumentLocalChanges | null;
+}
+
+export function getRemoteDeletions({ localDocument, remoteDocument }: SyncingDocument): string[] {
+    return Array.from(getTombstonedResourceUrls(remoteDocument)).filter((url) => localDocument.contains(url));
+}
+
+export function getLocalDeletions({ remoteDocument, localChanges }: SyncingDocument): string[] {
+    return Array.from(getLocallyDeletedResourceUrls(localChanges)).filter((url) => remoteDocument.contains(url));
+}
+
+export function getDocumentResolution(resolution: DeletionsResolution, document: SyncingDocument): DeletionsResolution {
+    const contains = (url: string) => document.localDocument.contains(url) || document.remoteDocument.contains(url);
+    const filter = (urls: Set<string>) => new Set(Array.from(urls).filter(contains));
+
+    return {
+        localDeletions: filter(resolution.localDeletions),
+        discardedLocalResources: filter(resolution.discardedLocalResources),
+        restoredRemoteResources: filter(resolution.restoredRemoteResources),
+        restoredLocalResources: filter(resolution.restoredLocalResources),
+    };
+}
+
+export async function groupDeletions(
+    documents: SolidDocument[],
     deletedUrls: string[],
     models: ModelConstructor[],
 ): Promise<Map<string, Set<string>>> {
+    if (deletedUrls.length === 0) {
+        return new Map();
+    }
+
+    const store = new SolidStore(documents.flatMap((document) => document.getQuads()));
     const dependants = new Map(
-        await Promise.all(
-            deletedUrls.map(async (url) => [url, await getDocumentDependants(document, url, models)] as const),
-        ),
+        await Promise.all(deletedUrls.map(async (url) => [url, await getDependants(store, url, models)] as const)),
     );
     const isDependant = (url: string) =>
         Array.from(dependants).some(([otherUrl, otherDependants]) => otherUrl !== url && otherDependants.has(url));
