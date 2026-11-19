@@ -1,6 +1,6 @@
 import { RDFNamedNode, RDFQuad, SolidDocument, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidResponse } from '@noeldemartin/solid-utils';
-import { fail, urlParentDirectory } from '@noeldemartin/utils';
+import { deepEquals, fail, urlParentDirectory } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
@@ -52,13 +52,15 @@ export default class InMemoryEngine extends LocalEngine {
             status: this.getDocumentStatus(url, quads),
         };
 
-        this.writeLocalChanges(url, options?.localChanges);
+        const localChangesUpdated = this.writeLocalChanges(url, options?.localChanges);
 
         let containerUrl: string | null = url;
 
         while ((containerUrl = safeContainerUrl(containerUrl)) !== null) {
             this.documents[containerUrl] ??= { graph: await quadsToJsonLD(this.containerQuads(containerUrl)) };
         }
+
+        localChangesUpdated && (await this.emitLocalChangesUpdated());
 
         return new SolidDocument(url, quads);
     }
@@ -97,7 +99,7 @@ export default class InMemoryEngine extends LocalEngine {
                     lastModifiedAt: options?.lastModifiedAt,
                 };
 
-                this.writeLocalChanges(url, options?.localChanges);
+                this.writeLocalChanges(url, options?.localChanges) && (await this.emitLocalChangesUpdated());
 
                 return { headers: new Headers() };
             }
@@ -113,7 +115,7 @@ export default class InMemoryEngine extends LocalEngine {
             status: this.getDocumentStatus(url, quads),
         };
 
-        this.writeLocalChanges(url, options?.localChanges);
+        this.writeLocalChanges(url, options?.localChanges) && (await this.emitLocalChangesUpdated());
 
         return { headers: new Headers() };
     }
@@ -129,8 +131,12 @@ export default class InMemoryEngine extends LocalEngine {
             throw new PreconditionFailed('deleting', url);
         }
 
+        const hadLocalChanges = url in this.localChanges;
+
         delete this.documents[url];
         delete this.localChanges[url];
+
+        hadLocalChanges && (await this.emitLocalChangesUpdated());
 
         return { headers: new Headers() };
     }
@@ -201,18 +207,21 @@ export default class InMemoryEngine extends LocalEngine {
         }
     }
 
-    private writeLocalChanges(documentUrl: string, update?: LocalChangesUpdate): void {
+    private writeLocalChanges(documentUrl: string, update?: LocalChangesUpdate): boolean {
         if (!update) {
-            return;
+            return false;
         }
 
-        const changes = this.applyLocalChangesUpdate(this.localChanges[documentUrl] ?? null, update);
+        const previousChanges = this.localChanges[documentUrl] ?? null;
+        const changes = this.applyLocalChangesUpdate(previousChanges, update);
 
         if (changes) {
             this.localChanges[documentUrl] = changes;
         } else {
             delete this.localChanges[documentUrl];
         }
+
+        return !deepEquals(previousChanges, changes);
     }
 
     private async populateContainer(document: SolidDocument, options: LocalEngineReadOptions): Promise<void> {

@@ -25,6 +25,7 @@ import Movie from 'soukai-bis/testing/stubs/Movie';
 import MoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
 import MovieWithHistory from 'soukai-bis/testing/stubs/MovieWithHistory';
 import Playlist from 'soukai-bis/testing/stubs/Playlist';
+import PlaylistWithHistory from 'soukai-bis/testing/stubs/PlaylistWithHistory';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import Project from 'soukai-bis/testing/stubs/Project';
@@ -73,6 +74,7 @@ beforeEach(() => {
             MovieWithHistory,
             MoviesCollection,
             Playlist,
+            PlaylistWithHistory,
             Post,
             PostsCollection,
             Project,

@@ -93,7 +93,7 @@ export default class ContainsRelation<
         return tap(model, async () => {
             const containerUrl = this.parent.url;
 
-            await model.save(containerUrl);
+            await model.save({ containerUrl });
 
             this.setForeignAttributes(model);
 

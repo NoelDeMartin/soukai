@@ -1,24 +1,39 @@
 import { RDFNamedNode, RDFQuad, SolidDocument } from '@noeldemartin/solid-utils';
-import type { Nullable } from '@noeldemartin/utils';
+import { ListenersManager } from '@noeldemartin/utils';
+import type { Listeners, Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
-import { LDP_BASIC_CONTAINER_OBJECT, LDP_CONTAINER_OBJECT, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
+import {
+    CRDT_DATE_PREDICATE,
+    LDP_BASIC_CONTAINER_OBJECT,
+    LDP_CONTAINER_OBJECT,
+    RDF_TYPE_PREDICATE,
+} from 'soukai-bis/lib/internals/rdf';
 
 import Engine from './Engine';
 import { CLASS_MARKER } from './internals';
+import { getResourceLocalChangesDate } from './local-changes';
 import type EngineOperation from './operations/EngineOperation';
 
-export type ResourceLocalState = 'created' | 'updated' | 'deleted';
+export type LocalDocumentStatus = 'empty';
+export type LocalChangesUpdate = (changes: DocumentLocalChanges | null) => DocumentLocalChanges | null;
 
-export type ResourceLocalChanges =
-    | { state: 'created' | 'updated'; newOperations?: string[] }
-    | { state: 'deleted'; deletedOperations?: string[] };
+export interface ResourceLocalChanges {
+    createdAt?: Date;
+    updatedAt?: Date;
+    deletedAt?: Date;
+    newOperations?: string[];
+    deletedOperations?: string[];
+}
 
 export interface DocumentLocalChanges {
     resources: Record<string, ResourceLocalChanges>;
 }
 
-export type LocalChangesUpdate = (changes: DocumentLocalChanges | null) => DocumentLocalChanges | null;
+export interface LocalChangeset {
+    date: Date;
+    modifiedDocumentResources: Record<string, string[]>;
+}
 
 export interface LocalEngineReadOptions {
     includeEmptyDocuments?: boolean;
@@ -37,7 +52,9 @@ export interface PurgeMetadataOptions {
     documentUrls?: string[];
 }
 
-export type LocalDocumentStatus = 'empty';
+export interface LocalEngineListener {
+    onLocalChangesUpdated?(engine: LocalEngine): unknown;
+}
 
 export default abstract class LocalEngine extends Engine<
     LocalEngineReadOptions,
@@ -45,6 +62,13 @@ export default abstract class LocalEngine extends Engine<
     LocalEngineDeleteOptions
 > {
     public static [CLASS_MARKER] = 'LocalEngine';
+
+    private localEngineListeners = new ListenersManager<LocalEngineListener>();
+    private operationDatesCache = new Map<string, Date>();
+
+    public get listeners(): Listeners<LocalEngineListener> {
+        return this.localEngineListeners;
+    }
 
     public abstract getContainerUrls(): Promise<string[]>;
 
@@ -57,6 +81,42 @@ export default abstract class LocalEngine extends Engine<
     public abstract getDocumentLocalChanges(documentUrl: string): Promise<DocumentLocalChanges | null>;
 
     public abstract getDocumentsLocalChanges(): Promise<Record<string, DocumentLocalChanges>>;
+
+    public async getLocalChangesets(): Promise<LocalChangeset[]> {
+        const changesets = new Map<number, LocalChangeset>();
+        const documentsChanges = await this.getDocumentsLocalChanges();
+        const addToChangeset = (date: Date, documentUrl: string, resourceUrl: string) => {
+            const changeset = changesets.get(date.getTime()) ?? { date, modifiedDocumentResources: {} };
+            const resourceUrls = (changeset.modifiedDocumentResources[documentUrl] ??= []);
+
+            resourceUrls.includes(resourceUrl) || resourceUrls.push(resourceUrl);
+            changesets.set(date.getTime(), changeset);
+        };
+
+        await this.refreshOperationDatesCache(documentsChanges);
+
+        for (const [documentUrl, changes] of Object.entries(documentsChanges)) {
+            for (const [resourceUrl, resourceChanges] of Object.entries(changes.resources)) {
+                const date = getResourceLocalChangesDate(resourceChanges);
+
+                date && addToChangeset(date, documentUrl, resourceUrl);
+
+                for (const operationUrl of resourceChanges.newOperations ?? []) {
+                    const operationDate = this.operationDatesCache.get(operationUrl);
+
+                    operationDate && addToChangeset(operationDate, documentUrl, resourceUrl);
+                }
+            }
+        }
+
+        return Array.from(changesets.values()).sort(
+            (changeset, other) => changeset.date.getTime() - other.date.getTime(),
+        );
+    }
+
+    protected async emitLocalChangesUpdated(): Promise<void> {
+        await this.localEngineListeners.emit('onLocalChangesUpdated', this);
+    }
 
     protected applyLocalChangesUpdate(
         changes: DocumentLocalChanges | null,
@@ -124,5 +184,37 @@ export default abstract class LocalEngine extends Engine<
         return Array.isArray(containerUrls)
             ? (url: string) => containerUrls.includes(url)
             : (url: string) => containerUrls.test(url);
+    }
+
+    private async refreshOperationDatesCache(documentsChanges: Record<string, DocumentLocalChanges>): Promise<void> {
+        const operationDates = new Map<string, Date>();
+
+        for (const [documentUrl, changes] of Object.entries(documentsChanges)) {
+            const operationUrls = Object.values(changes.resources).flatMap(
+                (resourceChanges) => resourceChanges.newOperations ?? [],
+            );
+            const hasUncachedOperations = operationUrls.some(
+                (operationUrl) => !this.operationDatesCache.has(operationUrl),
+            );
+            const document = hasUncachedOperations
+                ? await this.readDocumentIfExists(documentUrl, { includeEmptyDocuments: true })
+                : null;
+
+            for (const operationUrl of operationUrls) {
+                const date =
+                    this.operationDatesCache.get(operationUrl) ?? this.readOperationDate(document, operationUrl);
+
+                date && operationDates.set(operationUrl, date);
+            }
+        }
+
+        this.operationDatesCache = operationDates;
+    }
+
+    private readOperationDate(document: SolidDocument | null, operationUrl: string): Date | undefined {
+        const date = document?.statement(operationUrl, CRDT_DATE_PREDICATE)?.object.value;
+        const time = date ? new Date(date).getTime() : NaN;
+
+        return Number.isNaN(time) ? undefined : new Date(time);
     }
 }

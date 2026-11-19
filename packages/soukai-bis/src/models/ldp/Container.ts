@@ -2,7 +2,7 @@ import { urlResolveDirectory } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { resolveTypeIndex } from 'soukai-bis/models/interop/internals';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import type { MintUrlOptions, UrlFromSlugOptions } from 'soukai-bis/models/Model';
+import type { BeforeSaveOptions, MintUrlOptions, UrlFromSlugOptions } from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import Model from './Container.schema';
@@ -47,7 +47,7 @@ export default class Container extends Model {
         return urlResolveDirectory(this.newUrlDocumentUrl(options));
     }
 
-    protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
+    protected async beforeSave(options: BeforeSaveOptions = {}): Promise<void> {
         if (this.isMarkedForDeletion() && this.exists()) {
             await this.assertEmpty();
         }

@@ -192,14 +192,16 @@ export function getDirtyDocumentsUpdates({
     updatedModels,
     restoredModels = [],
     newOperations,
+    date,
 }: {
     updatedModels: Model[];
     restoredModels?: Model[];
     newOperations?: Map<string, string[]>;
+    date?: Date;
 }): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
-    const now = new Date();
+    const now = date ?? new Date();
     const operations: Record<string, Operation[]> = {};
 
     for (const model of updatedModels) {
@@ -409,6 +411,7 @@ export function getResourceOperationUrls(document: SolidDocument, resourceUrl: s
 export function getDeleteModelsOperations(
     models: ModelWithUrl[],
     document: SolidDocument,
+    date: Date = new Date(),
     recordsLocalChanges: (model: Model) => boolean = () => false,
 ): EngineOperation[] {
     const operations: EngineOperation[] = getDeletedResourceUrls(models, document).map(
@@ -420,7 +423,7 @@ export function getDeleteModelsOperations(
             continue;
         }
 
-        const tombstone = model.relatedTombstone.attach({ deletedAt: new Date() });
+        const tombstone = model.relatedTombstone.attach({ deletedAt: date });
 
         tombstone.mintUrl();
         tombstone.cleanDirty();

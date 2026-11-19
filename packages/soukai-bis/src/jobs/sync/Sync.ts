@@ -15,6 +15,7 @@ import {
 } from '@noeldemartin/utils';
 import {
     clearPushedLocalChanges,
+    isDeletedLocalChange,
     mergeLocalChanges,
     withCreatedAsUpdated,
     withoutResourceLocalChanges,
@@ -1256,7 +1257,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private hasUnseenRemoteChanges(url: string, { remoteDocument, localChanges }: SyncingDocument): boolean {
         const resourceChanges = localChanges?.resources[url];
 
-        if (resourceChanges?.state !== 'deleted') {
+        if (!resourceChanges || !isDeletedLocalChange(resourceChanges)) {
             return true;
         }
 

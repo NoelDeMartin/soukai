@@ -9,6 +9,7 @@ import type Movie from './Movie';
 import type MoviesCollection from './MoviesCollection';
 import type MovieWithHistory from './MovieWithHistory';
 import type Playlist from './Playlist';
+import type PlaylistWithHistory from './PlaylistWithHistory';
 import type Post from './Post';
 import type PostsCollection from './PostsCollection';
 import type Project from './Project';
@@ -42,6 +43,7 @@ declare module 'soukai-bis' {
         MovieWithHistory: typeof MovieWithHistory;
         MoviesCollection: typeof MoviesCollection;
         Playlist: typeof Playlist;
+        PlaylistWithHistory: typeof PlaylistWithHistory;
         Post: typeof Post;
         PostsCollection: typeof PostsCollection;
         Project: typeof Project;

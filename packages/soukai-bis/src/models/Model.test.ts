@@ -18,6 +18,7 @@ import { ICAL, SCHEMA } from 'soukai-bis/testing/constants';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Playlist from 'soukai-bis/testing/stubs/Playlist';
+import PlaylistWithHistory from 'soukai-bis/testing/stubs/PlaylistWithHistory';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import Project from 'soukai-bis/testing/stubs/Project';
@@ -25,6 +26,7 @@ import BaseRating from 'soukai-bis/testing/stubs/Rating';
 import Review from 'soukai-bis/testing/stubs/Review';
 import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
+import Song from 'soukai-bis/testing/stubs/Song';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import TaskWithCasts from 'soukai-bis/testing/stubs/TaskWithCasts';
@@ -477,7 +479,7 @@ describe('Model', () => {
         const containerUrl = 'local://inbox/';
 
         // Act
-        const user = await new User({ name: 'John Doe' }).save(containerUrl, { postToContainer: true });
+        const user = await new User({ name: 'John Doe' }).save({ containerUrl, postToContainer: true });
 
         // Assert
         expect(user.requireContainerUrl()).toEqual(containerUrl);
@@ -490,10 +492,10 @@ describe('Model', () => {
         const containerUrl = 'local://inbox/';
         const url = `${containerUrl}john#it`;
 
-        await new User({ url, name: 'John Doe' }).save(containerUrl, { postToContainer: true });
+        await new User({ url, name: 'John Doe' }).save({ containerUrl, postToContainer: true });
 
         // Act
-        const user = await new User({ url, name: 'Jane Doe' }).save(containerUrl, { postToContainer: true });
+        const user = await new User({ url, name: 'Jane Doe' }).save({ containerUrl, postToContainer: true });
 
         // Assert
         const freshUser = await User.find(user.url);
@@ -514,7 +516,9 @@ describe('Model', () => {
         user.setAttribute('name', 'Jane Doe');
 
         // Act & Assert
-        await expect(user.save(user.requireContainerUrl(), { postToContainer: true })).rejects.toThrow(SoukaiError);
+        await expect(user.save({ containerUrl: user.requireContainerUrl(), postToContainer: true })).rejects.toThrow(
+            SoukaiError,
+        );
     });
 
     it('fails posting instances to containers when their url is in a different container', async () => {
@@ -522,7 +526,9 @@ describe('Model', () => {
         const user = new User({ url: 'local://inbox/john#it', name: 'John Doe' });
 
         // Act & Assert
-        await expect(user.save('local://outbox/', { postToContainer: true })).rejects.toThrow(SoukaiError);
+        await expect(user.save({ containerUrl: 'local://outbox/', postToContainer: true })).rejects.toThrow(
+            SoukaiError,
+        );
         expect(user.exists()).toBe(false);
     });
 
@@ -2003,7 +2009,7 @@ describe('Model', () => {
 
             // Assert
             expect(await engine.getDocumentLocalChanges(action.requireDocumentUrl())).toEqual({
-                resources: { [action.url]: { state: 'created' } },
+                resources: { [action.url]: { createdAt: expect.any(Date) } },
             });
             expect(Object.keys(await engine.getDocumentsLocalChanges())).toEqual([action.requireDocumentUrl()]);
         });
@@ -2024,8 +2030,64 @@ describe('Model', () => {
 
             expect(action.operations?.length).toBeGreaterThan(1);
             expect(await engine.getDocumentLocalChanges(action.requireDocumentUrl())).toEqual({
-                resources: { [action.url]: { state: 'updated', newOperations: [updateOperation?.url] } },
+                resources: { [action.url]: { newOperations: [updateOperation?.url] } },
             });
+        });
+
+        it('records related changes in the same document once', async () => {
+            // Arrange
+            const movie = await Movie.create({ title: 'Spirited Away' });
+            const listener = vi.fn();
+            const removeListener = engine.listeners.add({ onLocalChangesUpdated: listener });
+
+            await markAsSynced(movie);
+            listener.mockClear();
+
+            try {
+                // Act
+                movie.relatedAction.attach({ startTime: new Date() });
+
+                await movie.save();
+
+                // Assert
+                expect(listener).toHaveBeenCalledOnce();
+                expect(Object.keys(await engine.getDocumentsLocalChanges())).toEqual([movie.requireDocumentUrl()]);
+                expect(await engine.getDocumentLocalChanges(movie.requireDocumentUrl())).toEqual({
+                    resources: { [movie.action?.requireUrl() ?? '']: { createdAt: expect.any(Date) } },
+                });
+            } finally {
+                removeListener();
+            }
+        });
+
+        it('records related changes in other documents with the same date', async () => {
+            // Arrange
+            trackLocalChanges(PlaylistWithHistory);
+            trackLocalChanges(Song);
+
+            const playlist = await PlaylistWithHistory.create({ name: 'Favorites' });
+
+            await markAsSynced(playlist);
+            await playlist.loadRelationIfUnloaded('songs');
+
+            vi.advanceTimersByTime(1000);
+            Song.on('created', () => vi.advanceTimersByTime(1000));
+
+            // Act
+            const song = await playlist.relatedSongs.create({ title: 'Hello' });
+
+            // Assert
+            const songChanges = await engine.getDocumentLocalChanges(song.requireDocumentUrl());
+            const playlistChanges = await engine.getDocumentLocalChanges(playlist.requireDocumentUrl());
+            const operationUrls = playlistChanges?.resources[playlist.url]?.newOperations ?? [];
+            const operations =
+                playlist.operations?.filter((operation) => operationUrls.includes(operation.requireUrl())) ?? [];
+
+            expect(songChanges).toEqual({ resources: { [song.requireUrl()]: { createdAt: expect.any(Date) } } });
+            expect(operations.length).toBeGreaterThan(0);
+            expect(operations.map((operation) => operation.date.getTime())).toEqual(
+                operations.map(() => songChanges?.resources[song.requireUrl()]?.createdAt?.getTime()),
+            );
         });
 
         it('ignores models that do not record local changes', async () => {
@@ -2056,7 +2118,7 @@ describe('Model', () => {
             expect(listener).toHaveBeenCalledTimes(1);
             expect(action.exists()).toBe(false);
             expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
-                resources: { [action.url]: { state: 'deleted' } },
+                resources: { [action.url]: { deletedAt: expect.any(Date) } },
             });
             expect(rawDocument.getQuads()).toHaveLength(0);
             expect(await engine.readDocumentIfExists(documentUrl)).toBeNull();
@@ -2083,7 +2145,7 @@ describe('Model', () => {
 
             expect(operationUrls.length).toBeGreaterThan(1);
             expect(localChanges?.resources[action.url]).toEqual({
-                state: 'deleted',
+                deletedAt: expect.any(Date),
                 deletedOperations: expect.arrayContaining(operationUrls),
             });
             expect(localChanges?.resources[action.url]).toHaveProperty(
@@ -2122,7 +2184,7 @@ describe('Model', () => {
             const rawDocument = await engine.readDocument(documentUrl, { includeEmptyDocuments: true });
 
             expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
-                resources: { [show.url]: { state: 'deleted' } },
+                resources: { [show.url]: { deletedAt: expect.any(Date) } },
             });
             expect(rawDocument.contains(show.url)).toBe(false);
             expect(rawDocument.contains(season.requireUrl())).toBe(false);
@@ -2146,7 +2208,7 @@ describe('Model', () => {
                 arrayUnique(showSubjects).map((subject) => new DeleteResourceOperation(subject)),
                 {
                     localChanges: (changes) => ({
-                        resources: { ...changes?.resources, [show.url]: { state: 'deleted' } },
+                        resources: { ...changes?.resources, [show.url]: { deletedAt: new Date() } },
                     }),
                 },
             );
@@ -2159,7 +2221,7 @@ describe('Model', () => {
 
             expect(rawDocument?.getQuads()).toHaveLength(0);
             expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
-                resources: { [show.url]: { state: 'deleted' } },
+                resources: { [show.url]: { deletedAt: expect.any(Date) } },
             });
         });
 
@@ -2185,7 +2247,7 @@ describe('Model', () => {
 
             expect(localChanges).toEqual({
                 resources: {
-                    [action.url]: { state: 'updated', newOperations: operations.map((operation) => operation.url) },
+                    [action.url]: { newOperations: operations.map((operation) => operation.url) },
                 },
             });
             expect(operations.map((operation) => operation.static().modelName).sort()).toEqual([
@@ -2215,7 +2277,7 @@ describe('Model', () => {
             // Assert
             await expect(creating).rejects.toThrow(SoukaiError);
             expect(await engine.getDocumentLocalChanges(documentUrl)).toEqual({
-                resources: { [movie.url]: { state: 'deleted' } },
+                resources: { [movie.url]: { deletedAt: expect.any(Date) } },
             });
         });
 

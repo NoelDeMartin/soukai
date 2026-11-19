@@ -4,6 +4,7 @@ import {
     PromisedValue,
     arrayChunk,
     arrayUnique,
+    deepEquals,
     fail,
     isTruthy,
     objectEntries,
@@ -56,17 +57,23 @@ export default class IndexedDBEngine extends LocalEngine {
         const quads = url.endsWith('/') ? this.filterContainerQuads(allQuads, { keepTypes: true }) : allQuads;
         const resources = serializeIDBQuads(quads);
 
-        await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-            await transaction.objectStore('documents').add({
-                url,
-                containerUrl,
-                resources,
-                lastModifiedAt: options?.lastModifiedAt,
-                status: this.getDocumentStatus(url, quads),
-            });
+        const localChangesUpdated = await this.withDocumentsTransaction(
+            containerUrl,
+            'readwrite',
+            async (transaction) => {
+                await transaction.objectStore('documents').add({
+                    url,
+                    containerUrl,
+                    resources,
+                    lastModifiedAt: options?.lastModifiedAt,
+                    status: this.getDocumentStatus(url, quads),
+                });
 
-            await this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
-        });
+                return this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
+            },
+        );
+
+        localChangesUpdated && (await this.emitLocalChangesUpdated());
 
         return new SolidDocument(url, quads);
     }
@@ -113,39 +120,43 @@ export default class IndexedDBEngine extends LocalEngine {
             throw new DocumentNotFound(url);
         }
 
-        await this.withDocumentsTransaction(containerUrl, 'readwrite', async (transaction) => {
-            const documentsStore = transaction.objectStore('documents');
-            const document = await documentsStore.get(url);
+        const localChangesUpdated = await this.withDocumentsTransaction(
+            containerUrl,
+            'readwrite',
+            async (transaction) => {
+                const documentsStore = transaction.objectStore('documents');
+                const document = await documentsStore.get(url);
 
-            if (!document) {
-                if (!isContainer) {
-                    throw new DocumentNotFound(url);
+                if (!document) {
+                    if (!isContainer) {
+                        throw new DocumentNotFound(url);
+                    }
+
+                    await documentsStore.add({
+                        url,
+                        containerUrl,
+                        resources: serializeIDBQuads(this.containerQuads(url)),
+                        lastModifiedAt: options?.lastModifiedAt,
+                    });
+
+                    return this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
                 }
 
-                await documentsStore.add({
+                const quads = this.applyOperations(parseIDBQuads(document.resources), updateOperations);
+
+                await documentsStore.put({
                     url,
                     containerUrl,
-                    resources: serializeIDBQuads(this.containerQuads(url)),
-                    lastModifiedAt: options?.lastModifiedAt,
+                    resources: serializeIDBQuads(quads),
+                    lastModifiedAt: this.getUpdatedLastModifiedAt(document.lastModifiedAt, options),
+                    status: this.getDocumentStatus(url, quads),
                 });
 
-                await this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
+                return this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
+            },
+        );
 
-                return;
-            }
-
-            const quads = this.applyOperations(parseIDBQuads(document.resources), updateOperations);
-
-            await documentsStore.put({
-                url,
-                containerUrl,
-                resources: serializeIDBQuads(quads),
-                lastModifiedAt: this.getUpdatedLastModifiedAt(document.lastModifiedAt, options),
-                status: this.getDocumentStatus(url, quads),
-            });
-
-            await this.writeLocalChanges(transaction, url, containerUrl, options?.localChanges);
-        });
+        localChangesUpdated && (await this.emitLocalChangesUpdated());
 
         return { headers: new Headers() };
     }
@@ -159,6 +170,7 @@ export default class IndexedDBEngine extends LocalEngine {
         const documentsStore = transaction.objectStore('documents');
         const localChangesStore = transaction.objectStore('localChanges');
         const containersMetadata = await containersStore.getAll();
+        let localChangesUpdated = false;
 
         for (const containerMetadata of containersMetadata) {
             if (containerMetadata.dropped || !containerMatches(containerMetadata.url)) {
@@ -180,10 +192,15 @@ export default class IndexedDBEngine extends LocalEngine {
                 await localChangesStore.delete(key);
             }
 
+            localChangesUpdated ||=
+                localChangesKeys.length > 0 || (await localChangesStore.count(containerMetadata.url)) > 0;
+
             await localChangesStore.delete(containerMetadata.url);
         }
 
         await transaction.done;
+
+        localChangesUpdated && (await this.emitLocalChangesUpdated());
     }
 
     public async deleteDocument(url: string, options: LocalEngineDeleteOptions = {}): Promise<SolidResponse> {
@@ -205,10 +222,13 @@ export default class IndexedDBEngine extends LocalEngine {
                 return 'precondition-failed';
             }
 
-            await documentsStore.delete(url);
-            await transaction.objectStore('localChanges').delete(url);
+            const localChangesStore = transaction.objectStore('localChanges');
+            const hadLocalChanges = (await localChangesStore.count(url)) > 0;
 
-            return 'deleted';
+            await documentsStore.delete(url);
+            await localChangesStore.delete(url);
+
+            return hadLocalChanges ? 'deleted-with-local-changes' : 'deleted';
         });
 
         if (result === 'not-found') {
@@ -217,6 +237,10 @@ export default class IndexedDBEngine extends LocalEngine {
 
         if (result === 'precondition-failed') {
             throw new PreconditionFailed('deleting', url);
+        }
+
+        if (result === 'deleted-with-local-changes') {
+            await this.emitLocalChangesUpdated();
         }
 
         return { headers: new Headers() };
@@ -360,7 +384,10 @@ export default class IndexedDBEngine extends LocalEngine {
     public async clear(): Promise<void> {
         await this.close();
         await SoukaiIndexedDB.clear();
+
         this.containersIndexCache = null;
+
+        await this.emitLocalChangesUpdated();
     }
 
     protected async readDocumentsByUrl(
@@ -654,9 +681,9 @@ export default class IndexedDBEngine extends LocalEngine {
         documentUrl: string,
         containerUrl: string,
         update?: LocalChangesUpdate,
-    ): Promise<void> {
+    ): Promise<boolean> {
         if (!update) {
-            return;
+            return false;
         }
 
         const store = transaction.objectStore('localChanges');
@@ -669,6 +696,8 @@ export default class IndexedDBEngine extends LocalEngine {
         } else if (previousChanges) {
             await store.delete(documentUrl);
         }
+
+        return !deepEquals(previousChanges, changes);
     }
 
     private async containerExists(url: string): Promise<boolean> {
@@ -677,12 +706,14 @@ export default class IndexedDBEngine extends LocalEngine {
         return index.has(url);
     }
 
-    private onIndexedDBCleared(): void {
+    private async onIndexedDBCleared(): Promise<void> {
         if (this.containersIndexCache && !this.containersIndexCache.isResolved()) {
             this.containersIndexCache.reject(new SoukaiError('IndexedDB was cleared while loading containers index'));
         }
 
         this.containersIndexCache = null;
+
+        await this.emitLocalChangesUpdated();
     }
 
     private async withDocumentsTransaction<TResult, TMode extends IDBTransactionMode>(

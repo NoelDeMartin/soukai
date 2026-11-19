@@ -75,7 +75,7 @@ describe('CRUD', () => {
         FakeServer.respondOnce(containerUrl, FakeResponse.created('', { Location: assignedDocumentUrl }));
 
         // Act
-        const user = await new User({ name }).save(containerUrl, { postToContainer: true });
+        const user = await new User({ name }).save({ containerUrl, postToContainer: true });
 
         // Assert
         const request = FakeServer.getRequest('POST', containerUrl);

@@ -158,16 +158,18 @@ export default abstract class Relation<
             this.assertLoaded('save');
         }
 
+        const now = new Date();
+
         this.attach(model);
 
         if (!this.usingSameDocument) {
-            await model.save(this.resolveRelatedContainerUrl() ?? undefined);
+            await model.save({ containerUrl: this.resolveRelatedContainerUrl(), date: now });
 
             this.setForeignAttributes(model);
         }
 
         if (this.parent.exists()) {
-            await this.parent.save();
+            await this.parent.save({ date: now });
         }
 
         return model;
@@ -244,6 +246,7 @@ export default abstract class Relation<
     }
 
     protected async deleteDetachedModels(models: Related[]): Promise<void> {
+        const now = new Date();
         const documentUrl = this.parent.getDocumentUrl();
         const deletingUrls = new Set<string>();
         const existingModels = models.filter((model) => model.exists());
@@ -260,11 +263,11 @@ export default abstract class Relation<
                     ...existingModels.filter((model) => !isInSameDocument(model)),
                     ...cascade.otherDocumentModels,
                 ]),
-                deletingUrls,
+                { deletingUrls, date: now },
             );
 
             if (this.parent.exists() && this.parent.isDirty()) {
-                await this.parent.save();
+                await this.parent.save({ date: now });
 
                 return;
             }

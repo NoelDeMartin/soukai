@@ -1,5 +1,10 @@
 import type Engine from 'soukai-bis/engines/Engine';
-import { mergeLocalChanges, resourceLocalChanges, withoutResourceLocalChanges } from 'soukai-bis/engines/local-changes';
+import {
+    isCreatedLocalChange,
+    isDeletedLocalChange,
+    mergeLocalChanges,
+    withoutResourceLocalChanges,
+} from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
 import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
 import { isLocalEngine } from 'soukai-bis/engines/utils';
@@ -13,11 +18,11 @@ export function recordsLocalChanges(model: Model, engine: LocalEngine | null): b
 }
 
 export function isCreatedLocally(model: ModelWithUrl, changes: DocumentLocalChanges | null): boolean {
-    return changes?.resources[model.url]?.state === 'created';
+    return isCreatedLocalChange(changes?.resources[model.url]);
 }
 
 export function isDeletedLocally(model: Model, changes: DocumentLocalChanges | null): boolean {
-    return !!model.url && changes?.resources[model.url]?.state === 'deleted';
+    return !!model.url && isDeletedLocalChange(changes?.resources[model.url]);
 }
 
 export function assertRestorableModels(models: Model[]): void {
@@ -54,7 +59,7 @@ export function assertMutableModels(models: Model[], engine: Engine | undefined)
     }
 }
 
-export function createdModelsLocalChanges(models: Model[]): LocalChangesUpdate | undefined {
+export function createdModelsLocalChanges(models: Model[], date: Date): LocalChangesUpdate | undefined {
     const createdUrls = models
         .filter((model) => tracksLocalChanges(model.static()) && !model.isMarkedForDeletion() && model.url)
         .map((model) => model.requireUrl());
@@ -65,17 +70,19 @@ export function createdModelsLocalChanges(models: Model[]): LocalChangesUpdate |
 
     return (changes) =>
         mergeLocalChanges(changes, {
-            resources: Object.fromEntries(createdUrls.map((url) => [url, { state: 'created' }])),
+            resources: Object.fromEntries(createdUrls.map((url) => [url, { createdAt: date }])),
         });
 }
 
 export function updatedModelsLocalChanges({
+    date,
     updatedModels,
     removedModels,
     restoredModels,
     newOperations,
     deletedOperations,
 }: {
+    date: Date;
     updatedModels: Model[];
     removedModels: ModelWithUrl[];
     restoredModels: Model[];
@@ -95,14 +102,14 @@ export function updatedModelsLocalChanges({
             const operations = newOperations.get(model.url) ?? [];
 
             if (operations.length > 0) {
-                additions.resources[model.url] = { state: 'updated', newOperations: operations };
+                additions.resources[model.url] = { newOperations: operations };
             }
 
             continue;
         }
 
         if (!model.exists()) {
-            additions.resources[model.url] = { state: 'created' };
+            additions.resources[model.url] = { createdAt: date };
 
             continue;
         }
@@ -111,19 +118,20 @@ export function updatedModelsLocalChanges({
             const operations = newOperations.get(model.url) ?? [];
 
             if (operations.length > 0) {
-                additions.resources[model.url] = { state: 'updated', newOperations: operations };
+                additions.resources[model.url] = { newOperations: operations };
             }
 
             continue;
         }
 
         if (model.url.endsWith('/')) {
-            additions.resources[model.url] = { state: 'updated' };
+            additions.resources[model.url] = { updatedAt: date };
         }
     }
 
     for (const [url, operations] of deletedOperations) {
-        additions.resources[url] = resourceLocalChanges('deleted', [], operations);
+        additions.resources[url] =
+            operations.length > 0 ? { deletedAt: date, deletedOperations: operations } : { deletedAt: date };
     }
 
     if (Object.keys(additions.resources).length === 0 && removedUrls.length === 0 && restoredUrls.length === 0) {

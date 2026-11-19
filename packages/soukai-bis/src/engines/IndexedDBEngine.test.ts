@@ -891,7 +891,7 @@ describe('IndexedDBEngine', () => {
         const documentUrl = fakeDocumentUrl({ containerUrl });
 
         await engine.createDocument(emptyDocumentUrl, [], {
-            localChanges: () => ({ resources: { [`${emptyDocumentUrl}#it`]: { state: 'deleted' } } }),
+            localChanges: () => ({ resources: { [`${emptyDocumentUrl}#it`]: { deletedAt: new Date() } } }),
         });
         await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it`, '@type': expandIRI('foaf:Person') });
 
@@ -925,7 +925,7 @@ describe('IndexedDBEngine', () => {
         const otherContainerUrl = fakeContainerUrl();
         const otherDocumentUrl = fakeDocumentUrl({ containerUrl: otherContainerUrl });
         const created = (url: string) => () => ({
-            resources: { [`${url}#it`]: { state: 'created' as const } },
+            resources: { [`${url}#it`]: { createdAt: new Date() } },
         });
 
         await engine.createDocument(
@@ -947,6 +947,45 @@ describe('IndexedDBEngine', () => {
         expect(await engine.getDocumentLocalChanges(documentUrl)).toBeNull();
         expect(await engine.getDocumentLocalChanges(otherDocumentUrl)).toBeNull();
         expect(await engine.getDocumentsLocalChanges()).toEqual({});
+    });
+
+    it('notifies local changes updates', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl({ containerUrl: fakeContainerUrl() });
+        const otherContainerUrl = fakeContainerUrl();
+        const otherDocumentUrl = fakeDocumentUrl({ containerUrl: otherContainerUrl });
+        const created = (url: string) => () => ({
+            resources: { [`${url}#it`]: { createdAt: new Date() } },
+        });
+        const notifications: string[][] = [];
+        const removeListener = engine.listeners.add({
+            onLocalChangesUpdated: async (localEngine) =>
+                notifications.push(Object.keys(await localEngine.getDocumentsLocalChanges())),
+        });
+
+        try {
+            // Act
+            await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it` });
+            await engine.createDocument(
+                otherDocumentUrl,
+                { '@id': `${otherDocumentUrl}#it` },
+                { localChanges: created(otherDocumentUrl) },
+            );
+            await engine.updateDocument(documentUrl, [], { localChanges: created(documentUrl) });
+            await engine.updateDocument(documentUrl, [], { localChanges: created(documentUrl) });
+            await engine.deleteDocument(documentUrl);
+            await engine.dropContainers([otherContainerUrl]);
+
+            // Assert
+            expect(notifications).toEqual([
+                [otherDocumentUrl],
+                [documentUrl, otherDocumentUrl].sort(),
+                [otherDocumentUrl],
+                [],
+            ]);
+        } finally {
+            removeListener();
+        }
     });
 
     async function resetDatabase(): Promise<void> {

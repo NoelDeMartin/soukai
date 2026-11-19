@@ -3,6 +3,7 @@ import type { Quad } from '@rdfjs/types';
 import { getSchema } from 'soukai-bis/models/internals/model';
 import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
+import type { DeleteModelsOptions } from 'soukai-bis/models/Model';
 import type Relation from 'soukai-bis/models/relations/Relation';
 import { createRelation } from 'soukai-bis/models/relations/utils';
 import { buildModelsCache } from 'soukai-bis/models/utils';
@@ -157,7 +158,8 @@ export async function cascadeDeletesInDocument(models: Model[]): Promise<Model[]
     return markedModels;
 }
 
-export async function deleteModels(models: Model[], deletingUrls: Set<string> = new Set()): Promise<void> {
+export async function deleteModels(models: Model[], options: DeleteModelsOptions = {}): Promise<void> {
+    const { deletingUrls = new Set<string>(), date = new Date() } = options;
     const documentsModels = new Map<string, Model[]>();
 
     for (const model of models) {
@@ -176,6 +178,6 @@ export async function deleteModels(models: Model[], deletingUrls: Set<string> = 
             continue;
         }
 
-        await invade(model, ['performDelete']).performDelete(otherModels, deletingUrls);
+        await invade(model, ['performDelete']).performDelete({ deletedWith: otherModels, deletingUrls, date });
     }
 }

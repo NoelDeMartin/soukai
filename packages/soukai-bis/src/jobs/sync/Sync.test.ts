@@ -73,7 +73,9 @@ describe('Sync', () => {
 
         await localEngine.updateDocument(url, [], {
             localChanges: () => ({
-                resources: Object.fromEntries(resourceUrls.map((resourceUrl) => [resourceUrl, { state: 'created' }])),
+                resources: Object.fromEntries(
+                    resourceUrls.map((resourceUrl) => [resourceUrl, { createdAt: new Date() }]),
+                ),
             }),
         });
     }
@@ -1369,7 +1371,9 @@ describe('Sync', () => {
 
             await localEngine.createDocument(documentUrl, turtleToQuadsSync(contents), {
                 lastModifiedAt: new Date('2021-01-01T00:00:00.000Z'),
-                localChanges: deletedUrl ? () => ({ resources: { [deletedUrl]: { state: 'deleted' } } }) : undefined,
+                localChanges: deletedUrl
+                    ? () => ({ resources: { [deletedUrl]: { deletedAt: new Date() } } })
+                    : undefined,
             });
         }
 
@@ -1532,7 +1536,7 @@ describe('Sync', () => {
 
             expect(updateOperation).toBeDefined();
             expect(await localEngine.getDocumentLocalChanges(actionDocumentUrl)).toEqual({
-                resources: { [action.url]: { state: 'updated', newOperations: [updateOperation?.url] } },
+                resources: { [action.url]: { newOperations: [updateOperation?.url] } },
             });
         });
 
@@ -1550,7 +1554,7 @@ describe('Sync', () => {
             // Assert
             const localChanges = await localEngine.getDocumentLocalChanges(documentUrl);
 
-            expect(localChanges?.resources[`${documentUrl}#it`]).toEqual({ state: 'created' });
+            expect(localChanges?.resources[`${documentUrl}#it`]).toEqual({ createdAt: expect.any(Date) });
         });
 
         it('pulls up to date documents with local changes', async () => {
@@ -1587,7 +1591,7 @@ describe('Sync', () => {
                 lastModifiedAt,
                 localChanges: () => ({
                     resources: {
-                        [`${documentUrl}#it`]: { state: 'updated', newOperations: [`${documentUrl}#operation-2`] },
+                        [`${documentUrl}#it`]: { newOperations: [`${documentUrl}#operation-2`] },
                     },
                 }),
             });
@@ -1709,7 +1713,7 @@ describe('Sync', () => {
 
             expect(localDocument.contains(`${documentUrl}#action`)).toBe(false);
             expect(await localEngine.getDocumentLocalChanges(documentUrl)).toEqual({
-                resources: { [`${documentUrl}#action`]: { state: 'deleted' } },
+                resources: { [`${documentUrl}#action`]: { deletedAt: expect.any(Date) } },
             });
         });
 
@@ -1803,7 +1807,7 @@ describe('Sync', () => {
             expect(localDocument.contains(movie.url)).toBe(true);
             expect(localDocument.contains(action.requireUrl())).toBe(false);
             expect(await localEngine.getDocumentLocalChanges(movieDocumentUrl)).toEqual({
-                resources: { [action.requireUrl()]: { state: 'deleted' } },
+                resources: { [action.requireUrl()]: { deletedAt: expect.any(Date) } },
             });
         });
 
@@ -1836,7 +1840,7 @@ describe('Sync', () => {
 
             expect(operationUrls.length).toBeGreaterThan(1);
             expect(localChanges?.resources[action.requireUrl()]).toEqual({
-                state: 'deleted',
+                deletedAt: expect.any(Date),
                 deletedOperations: expect.arrayContaining(operationUrls),
             });
             expect(localChanges?.resources[action.requireUrl()]).toHaveProperty(
@@ -1878,7 +1882,7 @@ describe('Sync', () => {
             expect(localDocument.getQuads()).toHaveLength(0);
             expect((await localEngine.getDocumentsLastModifiedAt())[actionDocumentUrl]).toBeInstanceOf(Date);
             expect(await localEngine.getDocumentLocalChanges(actionDocumentUrl)).toEqual({
-                resources: { [action.url]: { state: 'deleted' } },
+                resources: { [action.url]: { deletedAt: expect.any(Date) } },
             });
         });
 
@@ -1905,7 +1909,7 @@ describe('Sync', () => {
 
             expect(localDocument.contains(actionUrl)).toBe(true);
             expect((await localEngine.getDocumentLocalChanges(documentUrl))?.resources[actionUrl]).toEqual({
-                state: 'created',
+                createdAt: expect.any(Date),
             });
         });
 
@@ -1969,7 +1973,7 @@ describe('Sync', () => {
                 );
 
                 await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                    [actionUrl()]: { state: 'created' },
+                    [actionUrl()]: { createdAt: new Date() },
                 });
 
                 // Act
@@ -1997,7 +2001,7 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
                 await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                    [actionUrl()]: { state: 'created' },
+                    [actionUrl()]: { createdAt: new Date() },
                 });
 
                 // Act
@@ -2048,7 +2052,7 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
                 FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-                await createLocalDocument('', { [movieUrl()]: { state: 'deleted' } });
+                await createLocalDocument('', { [movieUrl()]: { deletedAt: new Date() } });
 
                 // Act
                 await syncCascadingMovies(resolveDeletionConflict);
@@ -2084,7 +2088,7 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
                 await createLocalDocument('', {
-                    [movieUrl()]: { state: 'deleted', deletedOperations: [`${movieUrl()}-operation-Original`] },
+                    [movieUrl()]: { deletedAt: new Date(), deletedOperations: [`${movieUrl()}-operation-Original`] },
                 });
 
                 // Act
@@ -2111,7 +2115,7 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
                 await createLocalDocument('', {
-                    [movieUrl()]: { state: 'deleted', deletedOperations: [`${movieUrl()}-operation-Original`] },
+                    [movieUrl()]: { deletedAt: new Date(), deletedOperations: [`${movieUrl()}-operation-Original`] },
                 });
 
                 // Act
@@ -2136,7 +2140,7 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
                 FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-                await createLocalDocument(commentTurtle('Original'), { [movieUrl()]: { state: 'deleted' } });
+                await createLocalDocument(commentTurtle('Original'), { [movieUrl()]: { deletedAt: new Date() } });
 
                 // Act
                 await syncCascadingMovies(resolveDeletionConflict);
@@ -2157,8 +2161,8 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
 
                 await createLocalDocument('', {
-                    [movieUrl()]: { state: 'deleted' },
-                    [actionUrl()]: { state: 'deleted' },
+                    [movieUrl()]: { deletedAt: new Date() },
+                    [actionUrl()]: { deletedAt: new Date() },
                 });
 
                 // Act
@@ -2184,8 +2188,8 @@ describe('Sync', () => {
                 FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
                 await createLocalDocument('', {
-                    [movieUrl()]: { state: 'deleted' },
-                    [actionUrl()]: { state: 'deleted' },
+                    [movieUrl()]: { deletedAt: new Date() },
+                    [actionUrl()]: { deletedAt: new Date() },
                 });
 
                 // Act
@@ -2261,7 +2265,7 @@ describe('Sync', () => {
 
                     await createLocalFranchiseDocument(franchiseTurtle(), {});
                     await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                        [actionUrl()]: { state: 'created' },
+                        [actionUrl()]: { createdAt: new Date() },
                     });
 
                     // Act
@@ -2295,7 +2299,7 @@ describe('Sync', () => {
 
                     await createLocalFranchiseDocument(franchiseTurtle(), {});
                     await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                        [actionUrl()]: { state: 'created' },
+                        [actionUrl()]: { createdAt: new Date() },
                     });
 
                     // Act
@@ -2329,8 +2333,8 @@ describe('Sync', () => {
                     FakeServer.respondOnce(documentUrl, remoteDocument(remoteMovie, '2021-06-01'));
                     FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-                    await createLocalFranchiseDocument('', { [franchiseUrl()]: { state: 'deleted' } });
-                    await createLocalDocument('', { [movieUrl()]: { state: 'deleted' } });
+                    await createLocalFranchiseDocument('', { [franchiseUrl()]: { deletedAt: new Date() } });
+                    await createLocalDocument('', { [movieUrl()]: { deletedAt: new Date() } });
 
                     // Act
                     await syncFranchises(resolveDeletionConflict);
@@ -2402,7 +2406,7 @@ describe('Sync', () => {
                     FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
                     await createLocalDocument([movieTurtle({ rated: true }), ratingTurtle()].join('\n'), {
-                        [ratingUrl()]: { state: 'updated' },
+                        [ratingUrl()]: { updatedAt: new Date() },
                     });
 
                     // Act
@@ -2436,7 +2440,9 @@ describe('Sync', () => {
                     FakeServer.respondOnce(documentUrl, remoteDocument(remoteContents, '2021-06-01'));
                     FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
-                    await createLocalDocument(movieTurtle({ rated: false }), { [ratingUrl()]: { state: 'deleted' } });
+                    await createLocalDocument(movieTurtle({ rated: false }), {
+                        [ratingUrl()]: { deletedAt: new Date() },
+                    });
 
                     // Act
                     await syncRatedMovies();
@@ -2493,7 +2499,7 @@ describe('Sync', () => {
                     FakeServer.respondOnce(documentUrl, FakeResponse.success());
 
                     await createLocalDocument([movieTurtle({ rated: true }), ratingTurtle()].join('\n'), {
-                        [ratingUrl()]: { state: 'updated' },
+                        [ratingUrl()]: { updatedAt: new Date() },
                     });
 
                     // Act
@@ -2544,7 +2550,7 @@ describe('Sync', () => {
                 });
 
                 await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                    [actionUrl()]: { state: 'created' },
+                    [actionUrl()]: { createdAt: new Date() },
                 });
 
                 // Act
@@ -2585,7 +2591,7 @@ describe('Sync', () => {
                 );
 
                 await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                    [actionUrl()]: { state: 'created' },
+                    [actionUrl()]: { createdAt: new Date() },
                 });
 
                 // Act
@@ -2597,7 +2603,7 @@ describe('Sync', () => {
                 // Assert
                 expect((await localEngine.readDocument(documentUrl)).contains(movieUrl())).toBe(true);
                 expect(await localEngine.getDocumentLocalChanges(documentUrl)).toEqual({
-                    resources: { [actionUrl()]: { state: 'created' } },
+                    resources: { [actionUrl()]: { createdAt: expect.any(Date) } },
                 });
             });
 
@@ -2624,7 +2630,7 @@ describe('Sync', () => {
                 );
 
                 await createLocalDocument(fixture('movie-watched.ttl', { documentUrl }), {
-                    [actionUrl()]: { state: 'created' },
+                    [actionUrl()]: { createdAt: new Date() },
                 });
 
                 // Act
@@ -2636,7 +2642,7 @@ describe('Sync', () => {
 
                 expect(localDocument.contains(movieUrl())).toBe(true);
                 expect(await localEngine.getDocumentLocalChanges(documentUrl)).toEqual({
-                    resources: { [actionUrl()]: { state: 'created' } },
+                    resources: { [actionUrl()]: { createdAt: expect.any(Date) } },
                 });
             });
         });
@@ -3302,7 +3308,9 @@ describe('Sync', () => {
             ]);
             const restoredLocalChanges = await localEngine.getDocumentsLocalChanges();
             const restoredStates = Object.values(restoredLocalChanges).flatMap((changes) =>
-                Object.values(changes.resources).map((resourceChanges) => resourceChanges.state),
+                Object.values(changes.resources).map((resourceChanges) =>
+                    resourceChanges.deletedAt ? 'deleted' : resourceChanges.createdAt ? 'created' : 'updated',
+                ),
             );
 
             expect(Object.keys(restoredLocalChanges)).toEqual(expect.arrayContaining([documentUrl, nestedDocumentUrl]));

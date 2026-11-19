@@ -413,7 +413,7 @@ describe('InMemoryEngine', () => {
         const otherContainerUrl = fakeContainerUrl();
         const otherDocumentUrl = fakeDocumentUrl({ containerUrl: otherContainerUrl });
         const created = (url: string) => () => ({
-            resources: { [`${url}#it`]: { state: 'created' as const } },
+            resources: { [`${url}#it`]: { createdAt: new Date() } },
         });
 
         await engine.createDocument(
@@ -435,5 +435,44 @@ describe('InMemoryEngine', () => {
         expect(await engine.getDocumentLocalChanges(documentUrl)).toBeNull();
         expect(await engine.getDocumentLocalChanges(otherDocumentUrl)).toBeNull();
         expect(await engine.getDocumentsLocalChanges()).toEqual({});
+    });
+
+    it('notifies local changes updates', async () => {
+        // Arrange
+        const documentUrl = fakeDocumentUrl({ containerUrl: fakeContainerUrl() });
+        const otherContainerUrl = fakeContainerUrl();
+        const otherDocumentUrl = fakeDocumentUrl({ containerUrl: otherContainerUrl });
+        const created = (url: string) => () => ({
+            resources: { [`${url}#it`]: { createdAt: new Date() } },
+        });
+        const notifications: string[][] = [];
+        const removeListener = engine.listeners.add({
+            onLocalChangesUpdated: async (localEngine) =>
+                notifications.push(Object.keys(await localEngine.getDocumentsLocalChanges())),
+        });
+
+        try {
+            // Act
+            await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it` });
+            await engine.createDocument(
+                otherDocumentUrl,
+                { '@id': `${otherDocumentUrl}#it` },
+                { localChanges: created(otherDocumentUrl) },
+            );
+            await engine.updateDocument(documentUrl, [], { localChanges: created(documentUrl) });
+            await engine.updateDocument(documentUrl, [], { localChanges: created(documentUrl) });
+            await engine.deleteDocument(documentUrl);
+            await engine.dropContainers([otherContainerUrl]);
+
+            // Assert
+            expect(notifications).toEqual([
+                [otherDocumentUrl],
+                [otherDocumentUrl, documentUrl],
+                [otherDocumentUrl],
+                [],
+            ]);
+        } finally {
+            removeListener();
+        }
     });
 });

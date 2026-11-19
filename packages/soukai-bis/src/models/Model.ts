@@ -127,8 +127,23 @@ export interface MintUrlOptions {
     slugSuffix?: Nullable<string>;
 }
 
+export interface BeforeSaveOptions extends MintUrlOptions {
+    date?: Nullable<Date>;
+}
+
+export interface DeleteModelsOptions {
+    deletingUrls?: Set<string>;
+    date?: Nullable<Date>;
+}
+
+export interface PerformDeleteOptions extends DeleteModelsOptions {
+    deletedWith?: Model[];
+}
+
 export interface SaveOptions {
+    containerUrl?: Nullable<string>;
     postToContainer?: Nullable<boolean>;
+    date?: Nullable<Date>;
 }
 
 export interface ModelConstructorOptions {
@@ -354,7 +369,7 @@ export default class Model<
     ): Promise<ModelWithUrl<T>> {
         const model = new this(...args);
 
-        return model.save(containerUrl, { postToContainer: true });
+        return model.save({ containerUrl, postToContainer: true });
     }
 
     public static async createAt<T extends Model>(
@@ -1117,14 +1132,16 @@ export default class Model<
             return this;
         }
 
-        await this.performDelete([], new Set());
+        await this.performDelete();
 
         return this;
     }
 
-    public async save(containerUrl?: string, options: SaveOptions = {}): Promise<ModelWithUrl<this>> {
+    public async save(options: SaveOptions = {}): Promise<ModelWithUrl<this>> {
+        const { containerUrl } = options;
+
         if (!this.__isCanonical()) {
-            await this.__instance().save(containerUrl, options);
+            await this.__instance().save(options);
 
             return this as ModelWithUrl<this>;
         }
@@ -1152,7 +1169,7 @@ export default class Model<
         const cascadedModels = await cascadeDeletesInDocument(this.getDocumentModelsPendingDeletion());
 
         try {
-            await this.saveDocumentModels(containerUrl, options);
+            await this.saveDocumentModels({ ...options, date: options.date ?? new Date() });
         } finally {
             cascadedModels.forEach((model) => model.unmarkForDeletion());
         }
@@ -1384,8 +1401,9 @@ export default class Model<
         }
     }
 
-    protected async performDelete(models: Model[], deletingUrls: Set<string>): Promise<void> {
-        const deletedModels = [this, ...models];
+    protected async performDelete(options: PerformDeleteOptions = {}): Promise<void> {
+        const { deletedWith = [], deletingUrls = new Set<string>(), date = new Date() } = options;
+        const deletedModels = [this, ...deletedWith];
         let markedModels: Model[] = [];
 
         this.assertAuthoritativeDocument();
@@ -1403,11 +1421,11 @@ export default class Model<
 
             markedModels = cascade.markedModels;
 
-            await deleteModels(cascade.otherDocumentModels, deletingUrls);
+            await deleteModels(cascade.otherDocumentModels, { deletingUrls, date });
 
-            this._deletedWith = [...models, ...markedModels];
+            this._deletedWith = [...deletedWith, ...markedModels];
 
-            await this.save();
+            await this.save({ date });
         } finally {
             this._deletedWith = [];
 
@@ -1427,7 +1445,7 @@ export default class Model<
         return this.getSavedDocumentModels().filter((model) => model._markedForDeletion && model.exists());
     }
 
-    protected async saveDocumentModels(containerUrl?: string, options: SaveOptions = {}): Promise<void> {
+    protected async saveDocumentModels(options: SaveOptions = {}): Promise<void> {
         const thisExisted = this.exists();
         const dirtyDocumentModels = this.getDirtyDocumentModels();
         const dirtyDocumentModelsExisted = dirtyDocumentModels.map((model) => model.exists());
@@ -1442,7 +1460,7 @@ export default class Model<
             await getSchema(model.static()).hooks.beforeSave?.call(model);
         }
 
-        await this.beforeSave({ containerUrl });
+        await this.beforeSave({ containerUrl: options.containerUrl, date: options.date });
         await this.performSave(options);
         await this.afterSave();
 
@@ -1468,10 +1486,11 @@ export default class Model<
         }
     }
 
-    protected async beforeSave(options: MintUrlOptions = {}): Promise<void> {
-        this.mintUrl(options);
+    protected async beforeSave(options: BeforeSaveOptions = {}): Promise<void> {
+        const { date, ...mintUrlOptions } = options;
 
-        const now = new Date();
+        this.mintUrl(mintUrlOptions);
+
         const documentUrl = this.requireDocumentUrl();
         const documentExists = this._documentExists;
         const documentModels = this.getDocumentModels();
@@ -1485,7 +1504,7 @@ export default class Model<
                 continue;
             }
 
-            documentModel.touch(now);
+            documentModel.touch(date);
 
             for (const relation of Object.values(documentModel._relations)) {
                 relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
@@ -1494,6 +1513,7 @@ export default class Model<
     }
 
     protected async performSave(options: SaveOptions = {}): Promise<void> {
+        const date = options.date ?? new Date();
         const engine: Engine<object, LocalEngineWriteOptions> = this.static().requireEngine();
         const localEngine = isLocalEngine(engine) ? engine : null;
 
@@ -1541,12 +1561,15 @@ export default class Model<
 
             const newOperations = new Map<string, string[]>();
             const deleteOperations = document
-                ? getDeleteModelsOperations(deletedModels, document, (model) => recordsLocalChanges(model, localEngine))
+                ? getDeleteModelsOperations(deletedModels, document, date, (model) =>
+                      recordsLocalChanges(model, localEngine),
+                  )
                 : [];
-            const updateOperations = getDirtyDocumentsUpdates({ updatedModels, restoredModels, newOperations });
+            const updateOperations = getDirtyDocumentsUpdates({ updatedModels, restoredModels, newOperations, date });
             const localChanges =
                 localEngine &&
                 updatedModelsLocalChanges({
+                    date,
                     updatedModels,
                     removedModels,
                     restoredModels,
@@ -1568,7 +1591,7 @@ export default class Model<
             const postDocument = async () => {
                 const documentUrl = this.requireDocumentUrl();
                 const documentModels = this.getDocumentModels().filter((model) => !model._markedForDeletion);
-                const localChanges = localEngine && createdModelsLocalChanges(documentModels);
+                const localChanges = localEngine && createdModelsLocalChanges(documentModels, date);
                 const document = await engine.createDocumentInContainer(
                     this.requireContainerUrl(),
                     documentUrl,
@@ -1595,7 +1618,7 @@ export default class Model<
         } else {
             const createDocument = async () => {
                 const documentModels = this.getDocumentModels().filter((model) => !model._markedForDeletion);
-                const localChanges = localEngine && createdModelsLocalChanges(documentModels);
+                const localChanges = localEngine && createdModelsLocalChanges(documentModels, date);
 
                 await engine.createDocument(
                     this.requireDocumentUrl(),
@@ -1631,7 +1654,7 @@ export default class Model<
 
                 this._documentExists = true;
 
-                await this.performSave();
+                await this.performSave({ date });
             }
         }
     }
@@ -1719,7 +1742,7 @@ export default class Model<
             .filter((computedAttribute) => computedAttribute.value === undefined);
     }
 
-    protected touch(now?: Date): void {
+    protected touch(now?: Nullable<Date>): void {
         if (!this.hasTimestamps()) {
             return;
         }

@@ -1,4 +1,5 @@
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type { SaveOptions } from 'soukai-bis/models/Model';
 
 import type ACPAccessControl from './ACPAccessControl';
 import Model from './ACPAccessControlResource.schema';
@@ -53,7 +54,7 @@ export default class ACPAccessControlResource extends Model {
         }
     }
 
-    protected override async performSave(): Promise<void> {
+    protected override async performSave(options: SaveOptions = {}): Promise<void> {
         for (const model of this.getDirtyDocumentModels()) {
             const attributes = model.getAttributes() as Record<string, unknown>;
             const changesBlankNodes =
@@ -67,6 +68,6 @@ export default class ACPAccessControlResource extends Model {
             }
         }
 
-        await super.performSave();
+        await super.performSave(options);
     }
 }
