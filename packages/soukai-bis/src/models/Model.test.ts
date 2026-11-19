@@ -36,7 +36,6 @@ import TodoSchema from 'soukai-bis/testing/stubs/Todo.schema';
 import User from 'soukai-bis/testing/stubs/User';
 import UserWithHistory from 'soukai-bis/testing/stubs/UserWithHistory';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { expectOperations } from 'soukai-bis/testing/utils/expectations';
 import { metadataJsonLD, tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
@@ -534,7 +533,6 @@ describe('Model', () => {
 
     it('updates instances with dirty attributes', async () => {
         // Arrange
-        useFakeClock();
 
         const user = (await User.create({ name: 'John Doe', age: 30 })) as ModelWithTimestamps<User> &
             ModelWithUrl<User>;
@@ -1765,7 +1763,6 @@ describe('Model', () => {
         }
 
         beforeEach(() => {
-            useFakeClock();
             bootModels({ Rating }, { reset: true });
         });
 
@@ -1995,8 +1992,6 @@ describe('Model', () => {
         }
 
         beforeEach(() => {
-            useFakeClock();
-
             trackLocalChanges(Movie);
             trackLocalChanges(Show);
             trackLocalChanges(Season);
@@ -2352,10 +2347,6 @@ describe('Model', () => {
             return new Proxy(target, {});
         }
 
-        beforeEach(() => {
-            useFakeClock();
-        });
-
         it('collects document models without duplicates', async () => {
             // Arrange
             const project = await findProjectWithTask();
@@ -2548,7 +2539,6 @@ describe('Model', () => {
 
             it('does not write filled in attributes until they are edited', async () => {
                 // Arrange
-                useFakeClock();
 
                 const documentUrl = 'solid://todos/learn-solid';
                 const url = `${documentUrl}#it`;
@@ -2675,7 +2665,6 @@ describe('Model', () => {
 
             it('records changes in the same history batch', async () => {
                 // Arrange
-                useFakeClock();
 
                 const todo = await Todo.create({ name: 'Learn Solid' });
 
@@ -2699,7 +2688,6 @@ describe('Model', () => {
 
             it('does not create redundant operations', async () => {
                 // Arrange
-                useFakeClock();
 
                 const todo = await Todo.create({ name: 'Learn Solid' });
 
@@ -2949,7 +2937,6 @@ describe('Model', () => {
 
             it('writes values to all the properties', async () => {
                 // Arrange
-                useFakeClock();
 
                 // Act
                 const task = await Todo.create({ name: 'Learn Solid', completedAt: new Date() });
@@ -2975,7 +2962,6 @@ describe('Model', () => {
 
             it('does not upgrade resources until fields are edited', async () => {
                 // Arrange
-                useFakeClock();
 
                 const documentUrl = 'solid://tasks/learn-solid';
                 const url = `${documentUrl}#it`;

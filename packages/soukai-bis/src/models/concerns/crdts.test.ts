@@ -9,7 +9,6 @@ import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Group from 'soukai-bis/testing/stubs/Group';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const BERSERK = 'https://berserk.fandom.com/wiki/';
@@ -29,7 +28,6 @@ describe('CRDTs', () => {
 
     beforeEach(() => {
         setEngine((engine = new InMemoryEngine()));
-        useFakeClock();
     });
 
     it('records add and remove operations', async () => {

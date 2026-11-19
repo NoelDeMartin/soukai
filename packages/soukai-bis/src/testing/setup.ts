@@ -45,11 +45,10 @@ import Track from 'soukai-bis/testing/stubs/Track';
 import User from 'soukai-bis/testing/stubs/User';
 import UserWithHistory from 'soukai-bis/testing/stubs/UserWithHistory';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { beforeEach, vi } from 'vite-plus/test';
 
 beforeEach(() => {
-    useFakeClock();
+    vi.useFakeTimers({ toFake: ['Date'] });
     setRDFPrefixAliases({});
     forgetAuthorizationProtocols();
     resetModelListeners();

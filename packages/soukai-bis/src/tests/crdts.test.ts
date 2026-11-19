@@ -5,7 +5,6 @@ import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
 import BaseMoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
 import User from 'soukai-bis/testing/stubs/UserWithHistory';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
@@ -19,7 +18,6 @@ describe('CRDTs', () => {
     beforeEach(() => {
         setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
         bootModels({ User, MoviesCollection }, { reset: true });
-        useFakeClock();
     });
 
     it('Updates metadata and creates operations', async () => {

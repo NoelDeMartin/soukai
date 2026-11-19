@@ -15,7 +15,6 @@ import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import TaskWithCasts from 'soukai-bis/testing/stubs/TaskWithCasts';
 import { STATUS_COMPLETED } from 'soukai-bis/testing/stubs/TaskWithCasts.schema';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
 
@@ -74,7 +73,6 @@ describe('Schema migrations', () => {
 
     it('migrates models with history', async () => {
         // Arrange
-        useFakeClock();
 
         const createdAt = new Date();
         const task = await TaskWithHistory.create({ name: 'Learn Solid', priority: 1 });
@@ -154,7 +152,6 @@ describe('Schema migrations', () => {
 
     it('keeps separate histories for fields with multiple properties', async () => {
         // Arrange
-        useFakeClock();
 
         class AliasedTask extends defineSchema(TaskWithHistory, {
             fields: { name: z.string().rdfProperties(['name', 'alternateName']) },
@@ -202,7 +199,6 @@ describe('Schema migrations', () => {
 
     it('replaces operations that would tie with new ones', async () => {
         // Arrange
-        useFakeClock();
 
         const CapitalizedSchema = defineSchema(TaskWithHistoryICalSchema, {
             hooks: {
@@ -240,7 +236,6 @@ describe('Schema migrations', () => {
 
     it('folds array operations to check history values', async () => {
         // Arrange
-        useFakeClock();
 
         class KeywordsTask extends defineSchema(Task, {
             history: true,
@@ -279,7 +274,6 @@ describe('Schema migrations', () => {
 
     it('produces the same document when migrating copies separately', async () => {
         // Arrange
-        useFakeClock();
 
         const task = await TaskWithHistory.create({ name: 'Learn Solid', priority: 1 });
 
@@ -449,7 +443,6 @@ describe('Schema migrations', () => {
 
     it('keeps operations for unknown properties', async () => {
         // Arrange
-        useFakeClock();
 
         class TaskWithKeywords extends defineSchema(TaskWithHistory, {
             fields: { keywords: z.array(z.string()).default([]) },
@@ -549,7 +542,6 @@ describe('Schema migrations', () => {
 
     it('preserves custom casts when migrating schemas', async () => {
         // Arrange
-        useFakeClock();
 
         const TargetSchema = defineSchema(TaskWithCasts, { rdfDefaultResourceHash: 'task' });
         const task = await TaskWithCasts.create({

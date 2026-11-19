@@ -21,7 +21,6 @@ import Movie from 'soukai-bis/testing/stubs/Movie';
 import Rating from 'soukai-bis/testing/stubs/Rating';
 import User from 'soukai-bis/testing/stubs/User';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -1380,7 +1379,6 @@ describe('Sync', () => {
         beforeEach(() => {
             const storageUrl = config.userProfile.storageUrls[0];
 
-            useFakeClock();
             vi.setSystemTime(new Date('2022-01-01T00:00:00.000Z'));
 
             containerUrl = fakeContainerUrl({ baseUrl: storageUrl });

@@ -8,7 +8,6 @@ import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/intern
 import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { useFakeClock } from 'soukai-bis/testing/utils/clock';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
@@ -199,7 +198,6 @@ describe('MigrateLocalUrls', () => {
 
     it('migrates local changes', async () => {
         // Arrange
-        useFakeClock();
 
         trackLocalChanges(WatchAction);
 
