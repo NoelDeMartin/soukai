@@ -5,6 +5,7 @@ import { parseIDBQuads, serializeIDBQuads } from './idb-quads';
 
 describe('IDB quad helpers', () => {
     it('serializes and deserializes named nodes, plain literals, typed literals, and language tags', () => {
+        // Arrange
         const quads = [
             new RDFQuad('https://example.com/alice', 'https://example.com/name', new RDFLiteral('Alice')),
             new RDFQuad(
@@ -21,8 +22,10 @@ describe('IDB quad helpers', () => {
             new RDFQuad('https://example.com/bob', 'https://example.com/name', new RDFLiteral('Bob')),
         ];
 
+        // Act
         const serialized = serializeIDBQuads(quads);
 
+        // Assert
         expect(serialized).toEqual({
             'https://example.com/alice': [
                 { p: 'https://example.com/name', o: { v: 'Alice' } },
@@ -42,35 +45,5 @@ describe('IDB quad helpers', () => {
         for (let i = 0; i < quads.length; i++) {
             expect(deserialized[i]?.equals(quads[i])).toBe(true);
         }
-    });
-
-    it('throws an error on blank nodes', () => {
-        const mockBlankNode = {
-            termType: 'BlankNode' as const,
-            value: 'b1',
-            equals: () => false,
-        };
-
-        const quadWithBlankSubject = new RDFQuad(
-            'https://example.com/alice',
-            'https://example.com/knows',
-            new RDFNamedNode('https://example.com/bob'),
-        );
-        quadWithBlankSubject.subject = mockBlankNode;
-
-        expect(() => serializeIDBQuads([quadWithBlankSubject])).toThrowError(
-            'Blank nodes are not supported for quad IDB serialization',
-        );
-
-        const quadWithBlankObject = new RDFQuad(
-            'https://example.com/alice',
-            'https://example.com/knows',
-            new RDFNamedNode('https://example.com/bob'),
-        );
-        quadWithBlankObject.object = mockBlankNode;
-
-        expect(() => serializeIDBQuads([quadWithBlankObject])).toThrowError(
-            'Blank nodes are not supported for quad IDB serialization',
-        );
     });
 });

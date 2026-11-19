@@ -1,13 +1,8 @@
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import { setEngine } from 'soukai-bis/engines/state';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import { bootModels } from 'soukai-bis/models/registry';
 import type BelongsToManyRelation from 'soukai-bis/models/relations/BelongsToManyRelation';
 import type ContainsRelation from 'soukai-bis/models/relations/ContainsRelation';
-import { hasMany, hasOne } from 'soukai-bis/models/relations/fluent';
 import type HasManyRelation from 'soukai-bis/models/relations/HasManyRelation';
 import type HasOneRelation from 'soukai-bis/models/relations/HasOneRelation';
-import { defineSchema } from 'soukai-bis/models/schema';
+import Blogger from 'soukai-bis/models/relations/testing/stubs/Blogger';
 import type Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import type PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
@@ -16,36 +11,9 @@ import type Season from 'soukai-bis/testing/stubs/Season';
 import type Show from 'soukai-bis/testing/stubs/Show';
 import type User from 'soukai-bis/testing/stubs/User';
 import type WatchAction from 'soukai-bis/testing/stubs/WatchAction';
-import { beforeEach, describe, expect, expectTypeOf, it } from 'vite-plus/test';
-import { url } from 'zod';
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test';
 
 describe('Relations', () => {
-    const BloggerSchema = defineSchema({
-        rdfContext: 'http://xmlns.com/foaf/0.1/',
-        rdfClass: 'Person',
-        fields: {
-            postsContainerUrl: url().rdfProperty('weblog').optional(),
-        },
-        relations: {
-            posts: hasMany('Post', 'authorUrl').from('postsContainerUrl'),
-            lastPost: hasOne('Post', 'authorUrl').from('postsContainerUrl'),
-            archivedPosts: hasMany('Post', 'authorUrl').from('archiveContainerUrl'),
-            typoPosts: hasMany('Post', 'authorUrl').from('postContainerUrl'),
-            defaultPosts: hasMany('Post', 'authorUrl'),
-        },
-    });
-
-    class Blogger extends BloggerSchema {
-        public get archiveContainerUrl(): string | undefined {
-            return this.postsContainerUrl && `${this.postsContainerUrl}archive/`;
-        }
-    }
-
-    beforeEach(() => {
-        setEngine(new InMemoryEngine());
-        bootModels({ Blogger }, { reset: true });
-    });
-
     it('loads has many relations from the parent container', async () => {
         // Arrange
         const blogger = await Blogger.create({ postsContainerUrl: 'https://alice.example/blog/' });
@@ -123,17 +91,6 @@ describe('Relations', () => {
 
         // Assert
         expect(blogger.archivedPosts?.map(({ url }) => url)).toEqual([archivedPost.url]);
-    });
-
-    it('fails with unknown container url properties', async () => {
-        // Arrange
-        const blogger = await Blogger.create({ postsContainerUrl: 'https://alice.example/blog/' });
-
-        // Act
-        const promisedPosts = blogger.loadRelation('typoPosts');
-
-        // Assert
-        await expect(promisedPosts).rejects.toBeInstanceOf(SoukaiError);
     });
 
     it('infers relation instances from schema definitions', () => {

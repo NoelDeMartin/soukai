@@ -1,17 +1,12 @@
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import { setEngine } from 'soukai-bis/engines/state';
 import type { ModelWithTimestamps, ModelWithUrl } from 'soukai-bis/models/types';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import ReviewedMovie from 'soukai-bis/testing/stubs/ReviewedMovie';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { engine } from 'soukai-bis/testing/utils/engines';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('BelongsToOneRelation', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => setEngine((engine = new InMemoryEngine())));
-
     it("doesn't clear foreign keys when detaching from models marked for deletion", async () => {
         // Arrange
         const movie = await ReviewedMovie.create({ title: 'Spiderman' });

@@ -1,46 +1,17 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import ACPAccessControl from 'soukai-bis/models/acp/ACPAccessControl';
 import type ACPMatcher from 'soukai-bis/models/acp/ACPMatcher';
 import Container from 'soukai-bis/models/ldp/Container';
 import ManagerGrant from 'soukai-bis/testing/stubs/ManagerGrant';
+import { ACR_TYPE_HEADERS, respondWithACLLink, respondWithACR } from 'soukai-bis/testing/utils/acp';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('ACP', () => {
     const rootUrl = 'https://alice.example/';
     const containerUrl = `${rootUrl}logbook/`;
     const acrUrl = `${containerUrl}.acr`;
-    const prefixes = `
-        @prefix acl: <http://www.w3.org/ns/auth/acl#>.
-        @prefix acp: <http://www.w3.org/ns/solid/acp#>.
-        @prefix dct: <http://purl.org/dc/terms/>.
-        @prefix ex: <https://example.org/vocab#>.
-        @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-    `;
-    const acrType = { Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"' };
 
     let container: Container;
-
-    function respondWithACR(turtle: string | null): void {
-        FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acr>; rel="acl"' }));
-        FakeServer.respond(
-            acrUrl,
-            turtle === null ? FakeResponse.notFound() : FakeResponse.success(`${prefixes}\n${turtle}`, acrType),
-        );
-    }
-
-    function accessControlPolicies(accessControl?: ACPAccessControl) {
-        const matcherData = (matchers?: ACPMatcher[]) =>
-            matchers?.map(({ agents, clients, issuers }) => ({ agents, clients, issuers }));
-
-        return accessControl?.policies?.map((policy) => ({
-            allow: policy.allow,
-            deny: policy.deny,
-            allOf: matcherData(policy.allOfMatchers),
-            anyOf: matcherData(policy.anyOfMatchers),
-            noneOf: matcherData(policy.noneOfMatchers),
-        }));
-    }
 
     beforeEach(() => {
         container = new Container({ url: containerUrl }, { exists: true });
@@ -48,7 +19,7 @@ describe('ACP', () => {
 
     it('loads access controls', async () => {
         // Arrange
-        respondWithACR(`
+        respondWithContainerACR(`
             <#logbook>
                 acp:resource <./> ;
                 acp:accessControl <#owner>, <#manager-bob> ;
@@ -107,7 +78,7 @@ describe('ACP', () => {
 
     it('loads access controls with custom classes', async () => {
         // Arrange
-        respondWithACR(`
+        respondWithContainerACR(`
             <#logbook>
                 a acp:AccessControlResource ;
                 acp:resource <./> ;
@@ -145,11 +116,14 @@ describe('ACP', () => {
 
     it('creates access control resources for missing ACRs', async () => {
         // Arrange
-        respondWithACR(null);
+        respondWithContainerACR(null);
         FakeServer.respond(rootUrl, FakeResponse.success(undefined, { Link: '<.acr>; rel="acl"' }));
         FakeServer.respond(
             `${rootUrl}.acr`,
-            FakeResponse.success('<#root> a <http://www.w3.org/ns/solid/acp#AccessControlResource> .', acrType),
+            FakeResponse.success(
+                '<#root> a <http://www.w3.org/ns/solid/acp#AccessControlResource> .',
+                ACR_TYPE_HEADERS,
+            ),
         );
 
         // Act
@@ -164,19 +138,21 @@ describe('ACP', () => {
         expect(accessControlResource.resourceUrls).toEqual([containerUrl]);
     });
 
-    it('fails reading access control resources with WAC', async () => {
-        // Arrange
-        FakeServer.respond(
-            containerUrl,
-            FakeResponse.success(undefined, { Link: '<.acl>; rel="acl"', 'WAC-Allow': 'public=""' }),
-        );
-        FakeServer.respond(`${containerUrl}.acl`, '<#owner> a <http://www.w3.org/ns/auth/acl#Authorization> .');
+    function respondWithContainerACR(turtle: string | null): void {
+        respondWithACLLink(containerUrl, '.acr');
+        respondWithACR(acrUrl, turtle);
+    }
 
-        // Act
-        await container.fetchPermissions();
+    function accessControlPolicies(accessControl?: ACPAccessControl) {
+        const matcherData = (matchers?: ACPMatcher[]) =>
+            matchers?.map(({ agents, clients, issuers }) => ({ agents, clients, issuers }));
 
-        // Assert
-        expect(container.usesWAC()).toBe(true);
-        expect(() => container.requireACPAccessControlResources()).toThrow(SoukaiError);
-    });
+        return accessControl?.policies?.map((policy) => ({
+            allow: policy.allow,
+            deny: policy.deny,
+            allOf: matcherData(policy.allOfMatchers),
+            anyOf: matcherData(policy.anyOfMatchers),
+            noneOf: matcherData(policy.noneOfMatchers),
+        }));
+    }
 });

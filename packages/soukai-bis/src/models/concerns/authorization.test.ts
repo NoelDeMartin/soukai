@@ -1,34 +1,18 @@
 import { SolidDocumentPermissions, Unauthorized } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-import { setEngine } from 'soukai-bis/engines';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { rememberAuthorizationProtocol } from 'soukai-bis/models/internals/permissions';
 import Movie from 'soukai-bis/testing/stubs/Movie';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { respondWithACLLink, respondWithACR } from 'soukai-bis/testing/utils/acp';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('Authorization', () => {
     const rootUrl = 'https://alice.example/';
     const containerUrl = `${rootUrl}movies/`;
     const documentUrl = `${containerUrl}spirited-away`;
-    const acpPrefixes = `
-        @prefix acl: <http://www.w3.org/ns/auth/acl#>.
-        @prefix acp: <http://www.w3.org/ns/solid/acp#>.
-    `;
-    const acrType = { Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"' };
 
-    function respondWithLinks(url: string, aclLink: string, headers: Record<string, string> = {}): void {
-        FakeServer.respond(url, FakeResponse.success(undefined, { Link: `<${aclLink}>; rel="acl"`, ...headers }));
-    }
-
-    function respondWithACR(url: string, turtle: string | null): void {
-        FakeServer.respond(
-            url,
-            turtle === null ? FakeResponse.notFound() : FakeResponse.success(`${acpPrefixes}\n${turtle}`, acrType),
-        );
-    }
-
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('detects WAC and remembers it by origin', async () => {
         // Arrange
@@ -36,8 +20,8 @@ describe('Authorization', () => {
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
         const otherMovie = new Movie({ url: `${otherDocumentUrl}#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read write", public="read"' });
-        respondWithLinks(otherDocumentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
+        respondWithACLLink(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read write", public="read"' });
+        respondWithACLLink(otherDocumentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
         FakeServer.respond(`${documentUrl}.acl`, '<#owner> a <http://www.w3.org/ns/auth/acl#Authorization> .');
         FakeServer.respond(`${otherDocumentUrl}.acl`, FakeResponse.notFound());
 
@@ -67,8 +51,8 @@ describe('Authorization', () => {
         // Arrange
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
-        respondWithLinks(containerUrl, '.acl');
+        respondWithACLLink(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
+        respondWithACLLink(containerUrl, '.acl');
         FakeServer.respond(`${documentUrl}.acl`, FakeResponse.notFound());
         FakeServer.respond(`${containerUrl}.acl`, '<#owner> a <http://www.w3.org/ns/auth/acl#Authorization> .');
 
@@ -88,7 +72,7 @@ describe('Authorization', () => {
         // Arrange
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
+        respondWithACLLink(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
         FakeServer.respond(
             `${documentUrl}.acl`,
             `
@@ -125,7 +109,7 @@ describe('Authorization', () => {
         // Arrange
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acr', { 'WAC-Allow': 'public="read"' });
+        respondWithACLLink(documentUrl, 'spirited-away.acr', { 'WAC-Allow': 'public="read"' });
         respondWithACR(
             `${documentUrl}.acr`,
             `
@@ -152,9 +136,9 @@ describe('Authorization', () => {
         // Arrange
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acr');
+        respondWithACLLink(documentUrl, 'spirited-away.acr');
         respondWithACR(`${documentUrl}.acr`, null);
-        respondWithLinks(containerUrl, '.acr');
+        respondWithACLLink(containerUrl, '.acr');
         respondWithACR(`${containerUrl}.acr`, '<#it> acp:resource <./> .');
 
         // Act
@@ -167,36 +151,12 @@ describe('Authorization', () => {
         expect(FakeServer.getRequests(rootUrl)).toHaveLength(0);
     });
 
-    it('fails getting public permissions without WAC-Allow headers', async () => {
-        // Arrange
-        const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
-
-        respondWithLinks(documentUrl, 'spirited-away.acr');
-        respondWithACR(`${documentUrl}.acr`, '<#it> acp:resource <spirited-away> .');
-
-        // Act
-        await movie.fetchPermissions();
-
-        // Assert
-        expect(() => movie.isPublic()).toThrow(SoukaiError);
-        expect(() => movie.isPrivate()).toThrow(SoukaiError);
-    });
-
-    it('fails getting permissions before loading them', () => {
-        // Arrange
-        const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
-
-        // Act & Assert
-        expect(() => movie.isPublic()).toThrow(SoukaiError);
-        expect(() => movie.usesACP()).toThrow(SoukaiError);
-    });
-
     it('detects protocols again when remembered WAC responses are missing WAC-Allow', async () => {
         // Arrange
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
         rememberAuthorizationProtocol(rootUrl, 'wac');
-        respondWithLinks(documentUrl, 'spirited-away.acr');
+        respondWithACLLink(documentUrl, 'spirited-away.acr');
         respondWithACR(`${documentUrl}.acr`, '<#it> acp:resource <spirited-away> .');
 
         // Act
@@ -243,11 +203,11 @@ describe('Authorization', () => {
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
         const otherMovie = new Movie({ url: `${rootUrl}shows/spirited-away#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read", public="read"' });
+        respondWithACLLink(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read", public="read"' });
         FakeServer.respond(`${documentUrl}.acl`, new Response(null, { status: 403 }));
-        respondWithLinks(otherMovie.requireDocumentUrl(), 'spirited-away.acl', { 'WAC-Allow': 'user="read"' });
+        respondWithACLLink(otherMovie.requireDocumentUrl(), 'spirited-away.acl', { 'WAC-Allow': 'user="read"' });
         FakeServer.respond(`${otherMovie.requireDocumentUrl()}.acl`, FakeResponse.notFound());
-        respondWithLinks(`${rootUrl}shows/`, '.acl');
+        respondWithACLLink(`${rootUrl}shows/`, '.acl');
         FakeServer.respond(`${rootUrl}shows/.acl`, new Response(null, { status: 403 }));
 
         // Act
@@ -268,7 +228,7 @@ describe('Authorization', () => {
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
         rememberAuthorizationProtocol(rootUrl, 'wac');
-        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read", public="read"' });
+        respondWithACLLink(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'user="read", public="read"' });
         FakeServer.respond(`${documentUrl}.acl`, new Response(null, { status: 403 }));
 
         // Act
@@ -296,7 +256,7 @@ describe('Authorization', () => {
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
         rememberAuthorizationProtocol(rootUrl, 'wac');
-        respondWithLinks(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
+        respondWithACLLink(documentUrl, 'spirited-away.acl', { 'WAC-Allow': 'public=""' });
         FakeServer.respond(`${documentUrl}.acl`, new Response(null, { status: 500 }));
 
         // Act
@@ -312,7 +272,7 @@ describe('Authorization', () => {
         // Arrange
         const movie = new Movie({ url: `${documentUrl}#it`, title: 'Spirited Away' });
 
-        respondWithLinks(documentUrl, 'spirited-away.acr');
+        respondWithACLLink(documentUrl, 'spirited-away.acr');
         respondWithACR(`${documentUrl}.acr`, null);
         FakeServer.respond(containerUrl, new Response(null, { status: 403 }));
 

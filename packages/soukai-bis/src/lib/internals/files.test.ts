@@ -1,16 +1,12 @@
 import { FakeResponse, fakeContainerUrl } from '@noeldemartin/testing';
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { engine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { deleteFile, isRDFMediaType, uploadFile } from './files';
 
 describe('Files', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => setEngine((engine = new InMemoryEngine())));
-
     it('uploads files to containers', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();

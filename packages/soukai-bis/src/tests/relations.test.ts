@@ -1,16 +1,15 @@
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import { setEngine } from 'soukai-bis/engines';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import EpisodeWithTombstone from 'soukai-bis/testing/stubs/EpisodeWithTombstone';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import ShowWithTombstone from 'soukai-bis/testing/stubs/ShowWithTombstone';
 import User from 'soukai-bis/testing/stubs/User';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('Relations', () => {
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('belongsToOne', async () => {
         // Arrange

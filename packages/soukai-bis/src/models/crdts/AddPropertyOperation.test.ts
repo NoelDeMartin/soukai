@@ -5,29 +5,13 @@ import { describe, expect, it } from 'vite-plus/test';
 import AddPropertyOperation from './AddPropertyOperation';
 import RemovePropertyOperation from './RemovePropertyOperation';
 import SetPropertyOperation from './SetPropertyOperation';
+import { keywordsDocumentQuads } from './testing/helpers';
 
 describe('AddPropertyOperation', () => {
-    async function documentQuads(documentUrl: string) {
-        return turtleToQuads(
-            `
-                @prefix schema: <https://schema.org/> .
-                @prefix http: <http://schema.org/> .
-
-                <#it>
-                    schema:keywords "anime", "comedy" ;
-                    http:keywords "drama" ;
-                    schema:actor <#alice> .
-
-                <#other> schema:keywords "anime" .
-            `,
-            { baseIRI: documentUrl },
-        );
-    }
-
     it('adds values to quads', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
-        const quads = await documentQuads(documentUrl);
+        const quads = await keywordsDocumentQuads(documentUrl);
         const operation = new AddPropertyOperation({
             resourceUrl: `${documentUrl}#it`,
             property: expandIRI('schema:keywords'),
@@ -57,7 +41,7 @@ describe('AddPropertyOperation', () => {
     it('adds named nodes to quads', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
-        const quads = await documentQuads(documentUrl);
+        const quads = await keywordsDocumentQuads(documentUrl);
         const operation = new AddPropertyOperation({
             resourceUrl: `${documentUrl}#it`,
             property: expandIRI('schema:actor'),
@@ -80,7 +64,7 @@ describe('AddPropertyOperation', () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
         const resourceUrl = `${documentUrl}#it`;
-        const sparql = new SparqlUpdate(new SolidDocument(documentUrl, await documentQuads(documentUrl)));
+        const sparql = new SparqlUpdate(new SolidDocument(documentUrl, await keywordsDocumentQuads(documentUrl)));
         const operation = new AddPropertyOperation({
             resourceUrl,
             property: expandIRI('schema:keywords'),

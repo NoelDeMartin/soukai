@@ -1,24 +1,13 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { InMemoryEngine, setEngine } from 'soukai-bis/engines';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { bootModels } from 'soukai-bis/models/registry';
-import { defineSchema } from 'soukai-bis/models/schema';
-import BaseMoviesCollection from 'soukai-bis/testing/stubs/MoviesCollection';
+import MoviesCollection from 'soukai-bis/testing/stubs/MoviesCollectionWithHistory';
 import User from 'soukai-bis/testing/stubs/UserWithHistory';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-
-const fixture = <T = string>(name: string) => loadFixture<T>(`crdts/${name}`);
-const MoviesCollection = defineSchema(BaseMoviesCollection, {
-    history: true,
-    timestamps: true,
-});
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 describe('CRDTs', () => {
-    beforeEach(() => {
-        setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
-        bootModels({ User, MoviesCollection }, { reset: true });
-    });
+    useSolidEngine();
 
     it('Updates metadata and creates operations', async () => {
         // Arrange - stub create requests
@@ -103,4 +92,8 @@ describe('CRDTs', () => {
         expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toEqualSparql(fixture('create-movies.sparql'));
         expect(FakeServer.fetchSpy.mock.calls[6]?.[1]?.body).toEqualSparql(fixture('update-movies.sparql'));
     });
+
+    function fixture<T = string>(name: string): T {
+        return loadFixture<T>(`crdts/${name}`);
+    }
 });

@@ -1,5 +1,3 @@
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import { setEngine } from 'soukai-bis/engines/state';
 import { bootModels } from 'soukai-bis/models/registry';
 import { belongsToMany, belongsToOne, hasOne } from 'soukai-bis/models/relations/fluent';
 import { defineSchema } from 'soukai-bis/models/schema';
@@ -9,6 +7,7 @@ import type EpisodeWithTombstone from 'soukai-bis/testing/stubs/EpisodeWithTombs
 import InverseEpisode from 'soukai-bis/testing/stubs/InverseEpisode';
 import InverseSeason from 'soukai-bis/testing/stubs/InverseSeason';
 import Rating from 'soukai-bis/testing/stubs/Rating';
+import RatingWithHistory from 'soukai-bis/testing/stubs/RatingWithHistory';
 import Review from 'soukai-bis/testing/stubs/Review';
 import ReviewedMovie from 'soukai-bis/testing/stubs/ReviewedMovie';
 import Season from 'soukai-bis/testing/stubs/Season';
@@ -16,15 +15,12 @@ import type SeasonWithTombstone from 'soukai-bis/testing/stubs/SeasonWithTombsto
 import Show from 'soukai-bis/testing/stubs/Show';
 import ShowWithTombstone from 'soukai-bis/testing/stubs/ShowWithTombstone';
 import User from 'soukai-bis/testing/stubs/User';
+import { engine } from 'soukai-bis/testing/utils/engines';
 import { tombstoneJsonLD } from 'soukai-bis/testing/utils/rdf';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { url } from 'zod';
 
 describe('Deletes', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => setEngine((engine = new InMemoryEngine())));
-
     it('cascades deletes in the same document', async () => {
         // Arrange
         const deletedUrls: string[] = [];
@@ -90,9 +86,7 @@ describe('Deletes', () => {
 
     it('cascades deletes into soft deleted models in the same document', async () => {
         // Arrange
-        class RatingWithHistory extends defineSchema(Rating, { history: true }) {}
-
-        bootModels({ Rating: RatingWithHistory });
+        bootModels({ Rating: RatingWithHistory }, { reset: true });
 
         const review = new Review({ itemReviewedUrl: 'https://example.com/movie' });
         const rating = review.relatedRating.attach({ ratingValue: 5 });

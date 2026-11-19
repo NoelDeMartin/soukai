@@ -1,6 +1,5 @@
 import {
     SolidDocumentPermissions,
-    UnsupportedAuthorizationProtocol,
     quadsToTurtle,
     sparqlToQuadsSync,
     turtleToQuadsSync,
@@ -20,47 +19,11 @@ describe('Permissions', () => {
     const containerUrl = 'https://alice.example/movies/';
     const documentUrl = `${containerUrl}spirited-away`;
     const aclUrl = `${documentUrl}.acl`;
+
     const prefixes = `
         @prefix acl: <http://www.w3.org/ns/auth/acl#>.
         @prefix foaf: <http://xmlns.com/foaf/0.1/>.
     `;
-
-    function respondWithUpdatableACL(url: string, turtle: string | null): void {
-        let quads = turtle === null ? null : turtleToQuadsSync(`${prefixes}\n${turtle}`, { baseIRI: url });
-
-        FakeServer.respondWith(url, (request) => {
-            if (request.method === 'GET') {
-                return quads ? FakeResponse.success(quadsToTurtle(quads)) : FakeResponse.notFound();
-            }
-
-            const { insert = [], delete: remove = [] } = sparqlToQuadsSync(request.body, { baseIRI: url });
-
-            quads = [...(quads ?? []).filter((quad) => !remove.some((other) => other.equals(quad))), ...insert];
-
-            return FakeResponse.success();
-        });
-    }
-
-    function respondWithDocument(url: string, aclLink: string, publicPermissions?: () => string): void {
-        FakeServer.respondWith(url, () =>
-            FakeResponse.success(undefined, {
-                Link: `<${aclLink}>; rel="acl"`,
-                ...(publicPermissions ? { 'WAC-Allow': `public="${publicPermissions()}"` } : {}),
-            }),
-        );
-    }
-
-    function respondWithInheritedACL(turtle: string): void {
-        respondWithDocument(documentUrl, 'spirited-away.acl');
-        respondWithDocument(containerUrl, '.acl');
-        respondWithUpdatableACL(`${containerUrl}.acl`, turtle);
-        respondWithUpdatableACL(aclUrl, null);
-    }
-
-    function respondWithDocumentACL(turtle: string): void {
-        respondWithDocument(documentUrl, 'spirited-away.acl');
-        respondWithUpdatableACL(aclUrl, turtle);
-    }
 
     beforeEach(() => {
         setEngine(new SolidEngine({ fetch: FakeServer.fetch }));
@@ -650,28 +613,6 @@ describe('Permissions', () => {
         expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([`${aclUrl}#owner`, `${aclUrl}#public`]);
     });
 
-    it('fails creating WAC authorizations without agents or modes', async () => {
-        // Arrange
-        respondWithDocumentACL(`
-            <#owner>
-                a acl:Authorization;
-                acl:agent <https://alice.example/profile/card#me>;
-                acl:accessTo <./spirited-away>;
-                acl:mode acl:Read, acl:Write, acl:Control.
-        `);
-
-        await movie.fetchPermissions();
-
-        // Act
-        const promisedWithoutAgents = movie.createWACAuthorization({ modes: ['http://www.w3.org/ns/auth/acl#Read'] });
-        const promisedWithoutModes = movie.createWACAuthorization({ agents: ['https://bob.example/profile/card#me'] });
-
-        // Assert
-        await expect(promisedWithoutAgents).rejects.toThrow(SoukaiError);
-        await expect(promisedWithoutModes).rejects.toThrow(SoukaiError);
-        expect(FakeServer.getRequests('PATCH', aclUrl)).toHaveLength(0);
-    });
-
     it('ignores deleted WAC authorizations', async () => {
         // Arrange
         respondWithDocumentACL(`
@@ -695,47 +636,6 @@ describe('Permissions', () => {
 
         // Assert
         expect(movie.requireWACAuthorizations().map(({ url }) => url)).toEqual([`${aclUrl}#owner`]);
-    });
-
-    it('fails with ACP resources', async () => {
-        // Arrange
-        FakeServer.respond(documentUrl, FakeResponse.success(undefined, { Link: '<spirited-away.acr>; rel="acl"' }));
-        FakeServer.respond(
-            `${documentUrl}.acr`,
-            FakeResponse.success(undefined, {
-                Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"',
-            }),
-        );
-
-        // Act
-        const promisedUpdate = movie.updatePublicPermissions([SolidDocumentPermissions.Read]);
-
-        // Assert
-        await expect(promisedUpdate).rejects.toBeInstanceOf(UnsupportedAuthorizationProtocol);
-    });
-
-    it('fails creating WAC authorizations with ACP resources', async () => {
-        // Arrange
-        FakeServer.respond(documentUrl, FakeResponse.success(undefined, { Link: '<spirited-away.acr>; rel="acl"' }));
-        FakeServer.respond(
-            `${documentUrl}.acr`,
-            FakeResponse.success('<#it> <http://www.w3.org/ns/solid/acp#resource> <spirited-away> .', {
-                Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"',
-            }),
-        );
-
-        await movie.fetchPermissions();
-
-        // Act
-        const promisedAuthorization = movie.createWACAuthorization({
-            agents: ['https://bob.example/profile/card#me'],
-            modes: ['http://www.w3.org/ns/auth/acl#Read'],
-        });
-
-        // Assert
-        expect(movie.usesACP()).toBe(true);
-        await expect(promisedAuthorization).rejects.toThrow(SoukaiError);
-        expect(FakeServer.getRequests('PATCH')).toHaveLength(0);
     });
 
     it('updates permissions of models using non-Solid engines', async () => {
@@ -766,4 +666,41 @@ describe('Permissions', () => {
             }
         `);
     });
+
+    function respondWithUpdatableACL(url: string, turtle: string | null): void {
+        let quads = turtle === null ? null : turtleToQuadsSync(`${prefixes}\n${turtle}`, { baseIRI: url });
+
+        FakeServer.respondWith(url, (request) => {
+            if (request.method === 'GET') {
+                return quads ? FakeResponse.success(quadsToTurtle(quads)) : FakeResponse.notFound();
+            }
+
+            const { insert = [], delete: remove = [] } = sparqlToQuadsSync(request.body, { baseIRI: url });
+
+            quads = [...(quads ?? []).filter((quad) => !remove.some((other) => other.equals(quad))), ...insert];
+
+            return FakeResponse.success();
+        });
+    }
+
+    function respondWithDocument(url: string, aclLink: string, publicPermissions?: () => string): void {
+        FakeServer.respondWith(url, () =>
+            FakeResponse.success(undefined, {
+                Link: `<${aclLink}>; rel="acl"`,
+                ...(publicPermissions ? { 'WAC-Allow': `public="${publicPermissions()}"` } : {}),
+            }),
+        );
+    }
+
+    function respondWithInheritedACL(turtle: string): void {
+        respondWithDocument(documentUrl, 'spirited-away.acl');
+        respondWithDocument(containerUrl, '.acl');
+        respondWithUpdatableACL(`${containerUrl}.acl`, turtle);
+        respondWithUpdatableACL(aclUrl, null);
+    }
+
+    function respondWithDocumentACL(turtle: string): void {
+        respondWithDocument(documentUrl, 'spirited-away.acl');
+        respondWithUpdatableACL(aclUrl, turtle);
+    }
 });

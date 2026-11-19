@@ -38,12 +38,14 @@ describe('Zod utils', () => {
     });
 
     it('Serializes values with custom casts', () => {
+        // Arrange
         const definition = array(string())
             .optional()
             .rdfCast({
                 serialize: (values) => [...values.map((value) => new RDFNamedNode(value)), values.length, null],
             });
 
+        // Act & Assert
         expect(castToRDF(['https://a.example', 'https://b.example'], definition).map(serializeTerm)).toEqual([
             '<https://a.example>',
             '<https://b.example>',
@@ -61,11 +63,13 @@ describe('Zod utils', () => {
     });
 
     it('Deserializes values with custom casts', () => {
+        // Arrange
         const deserialize = vi.fn((values: unknown[]) => values);
         const definition = number().optional().rdfCast({ deserialize });
         const one = new RDFLiteral('1', undefined, new RDFNamedNode(expandIRI('xsd:integer')));
         const two = new RDFLiteral('2', undefined, new RDFNamedNode(expandIRI('xsd:integer')));
 
+        // Act & Assert
         expect(castToJavaScript([one], definition)).toEqual([1]);
         expect(castToJavaScript([one, two], definition)).toEqual([1, 2]);
         expect(deserialize).toHaveBeenNthCalledWith(1, [1], [one]);

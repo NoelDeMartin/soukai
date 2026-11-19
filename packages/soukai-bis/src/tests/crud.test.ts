@@ -1,17 +1,16 @@
 import { faker } from '@noeldemartin/faker';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { escapeRegexText } from '@noeldemartin/utils';
-import { setEngine } from 'soukai-bis/engines';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 import z from 'zod';
 
 describe('CRUD', () => {
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('Creates models', async () => {
         // Arrange

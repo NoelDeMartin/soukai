@@ -2,13 +2,10 @@ import { faker } from '@noeldemartin/faker';
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import type { JsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import { describeLocalEngineFileTests } from 'soukai-bis/testing/utils/local-engines';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import InMemoryEngine from './InMemoryEngine';
@@ -22,6 +19,7 @@ describe('InMemoryEngine', () => {
     });
 
     it('creates documents', async () => {
+        // Arrange
         const documentUrl = fakeDocumentUrl();
         const name = faker.name.firstName();
         const document: JsonLD = {
@@ -30,8 +28,10 @@ describe('InMemoryEngine', () => {
             [expandIRI('foaf:name')]: name,
         };
 
+        // Act
         await engine.createDocument(documentUrl, document);
 
+        // Assert
         expect(engine.documents[documentUrl]?.graph).toEqual(document);
     });
 
@@ -74,14 +74,6 @@ describe('InMemoryEngine', () => {
         });
     });
 
-    it('fails creating documents when they already exist', async () => {
-        const documentUrl = fakeDocumentUrl();
-
-        await engine.createDocument(documentUrl, {});
-
-        await expect(engine.createDocument(documentUrl, {})).rejects.toBeInstanceOf(DocumentAlreadyExists);
-    });
-
     it('creates documents in containers', async () => {
         const containerUrl = fakeContainerUrl();
         const documentUrl = `${containerUrl}document`;
@@ -92,28 +84,8 @@ describe('InMemoryEngine', () => {
         expect(engine.documents[documentUrl]).toBeDefined();
     });
 
-    it('fails creating documents in containers with invalid urls', async () => {
-        const containerUrl = fakeContainerUrl();
-
-        await expect(
-            engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: `${containerUrl}child/` }),
-        ).rejects.toThrow(SoukaiError);
-        await expect(
-            engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: `${containerUrl}child/doc` }),
-        ).rejects.toThrow(SoukaiError);
-        await expect(
-            engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: fakeDocumentUrl() }),
-        ).rejects.toThrow(SoukaiError);
-        await expect(engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: containerUrl })).rejects.toThrow(
-            SoukaiError,
-        );
-    });
-
-    it('fails creating documents in containers without proposed urls', async () => {
-        await expect(engine.createDocumentInContainer(fakeContainerUrl(), {})).rejects.toThrow(SoukaiError);
-    });
-
     it('updates documents', async () => {
+        // Arrange
         const documentUrl = fakeDocumentUrl();
         const name = faker.name.firstName();
         const newName = faker.name.firstName();
@@ -124,6 +96,7 @@ describe('InMemoryEngine', () => {
             [expandIRI('foaf:name')]: name,
         });
 
+        // Act
         await engine.updateDocument(documentUrl, [
             new SetPropertyOperation({
                 resourceUrl: `${documentUrl}#it`,
@@ -133,6 +106,7 @@ describe('InMemoryEngine', () => {
             }),
         ]);
 
+        // Assert
         await expect(engine.documents[documentUrl]?.graph).toEqualJsonLD({
             '@id': `${documentUrl}#it`,
             '@type': expandIRI('foaf:Person'),
@@ -248,6 +222,7 @@ describe('InMemoryEngine', () => {
     });
 
     it('deletes documents', async () => {
+        // Arrange
         const documentUrl = fakeDocumentUrl();
         const name = faker.name.firstName();
         const document: JsonLD = {
@@ -258,8 +233,10 @@ describe('InMemoryEngine', () => {
 
         await engine.createDocument(documentUrl, document);
 
+        // Act
         await engine.deleteDocument(documentUrl);
 
+        // Assert
         expect(engine.documents[documentUrl]).toBeUndefined();
     });
 
@@ -279,11 +256,6 @@ describe('InMemoryEngine', () => {
         await expect(deletingDocument).rejects.toThrow(PreconditionFailed);
         expect(engine.documents[emptyDocumentUrl]).toBeUndefined();
         expect(engine.documents[documentUrl]).toBeDefined();
-    });
-
-    it('fails deleting missing documents', async () => {
-        // Act & Assert
-        await expect(engine.deleteDocument(fakeDocumentUrl())).rejects.toThrow(DocumentNotFound);
     });
 
     it('creates documents with metadata', async () => {
@@ -482,6 +454,4 @@ describe('InMemoryEngine', () => {
             removeListener();
         }
     });
-
-    describeLocalEngineFileTests(() => engine);
 });

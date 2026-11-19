@@ -5,7 +5,7 @@ import { defineSchema } from 'soukai-bis/models/schema';
 import Post from 'soukai-bis/testing/stubs/Post';
 import type Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
-import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
 import { string } from 'zod';
 
 import ComputedAttribute from './ComputedAttribute';
@@ -13,7 +13,6 @@ import { clearCache, loaded } from './helpers';
 
 describe('Computed Attributes', () => {
     beforeEach(() => ComputedAttribute.enableLoadingRelations());
-    afterEach(() => ComputedAttribute.disableLoadingRelations());
 
     it('calculates computed attributes', async () => {
         // Starts as empty array

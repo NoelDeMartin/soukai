@@ -1,5 +1,4 @@
 import { FakeServer, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import { bootModels } from 'soukai-bis/models/registry';
@@ -9,16 +8,13 @@ import InverseSeason from 'soukai-bis/testing/stubs/InverseSeason';
 import Season from 'soukai-bis/testing/stubs/Season';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
+import { engine } from 'soukai-bis/testing/utils/engines';
 import { metadataJsonLD } from 'soukai-bis/testing/utils/rdf';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 import { belongsToMany } from './fluent';
 
 describe('BelongsToManyRelation', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => setEngine((engine = new InMemoryEngine())));
-
     it('initializes empty relations', async () => {
         // Arrange
         const bob = await User.create({ name: 'Bob' });

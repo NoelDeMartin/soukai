@@ -1,48 +1,36 @@
 import { faker } from '@noeldemartin/faker';
-import { expandIRI, jsonldToQuads, quadsToJsonLD } from '@noeldemartin/solid-utils';
-import type { JsonLD } from '@noeldemartin/solid-utils';
+import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { deleteDB } from 'idb';
-import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
-import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
-import { serializeIDBQuads } from 'soukai-bis/lib/internals/idb-quads';
-import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
-import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
-import type { LocalDocument } from 'soukai-bis/lib/internals/SoukaiIndexedDB';
-import { getNamespace } from 'soukai-bis/lib/namespace';
+import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
-import { describeLocalEngineFileTests } from 'soukai-bis/testing/utils/local-engines';
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import IndexedDBEngine from './IndexedDBEngine';
 import DeleteResourceOperation from './operations/DeleteResourceOperation';
+import { getDatabaseDocuments, setDatabaseDocument } from './testing/helpers';
 
 describe('IndexedDBEngine', () => {
     let engine: IndexedDBEngine;
 
-    beforeEach(async () => {
+    beforeEach(() => {
         engine = new IndexedDBEngine();
-
-        await resetDatabase();
-    });
-
-    afterEach(async () => {
-        await engine.close();
-        await dropDatabases();
     });
 
     it('creates documents', async () => {
+        // Arrange
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const name = faker.name.firstName();
 
+        // Act
         await engine.createDocument(documentUrl, {
             '@id': `${documentUrl}#it`,
             '@type': expandIRI('foaf:Person'),
             [expandIRI('foaf:name')]: name,
         });
 
+        // Assert
         const documents = await getDatabaseDocuments(containerUrl);
 
         expect(documents).toHaveLength(1);
@@ -58,90 +46,8 @@ describe('IndexedDBEngine', () => {
         });
     });
 
-    it('creates containers', async () => {
-        // Arrange
-        const parentUrl = fakeContainerUrl();
-        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
-
-        // Act
-        await engine.createDocument(containerUrl, {
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
-        });
-
-        // Assert
-        const documents = await getDatabaseDocuments(parentUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({
-            url: containerUrl,
-            containerUrl: parentUrl,
-            resources: {
-                [containerUrl]: [
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
-                ],
-            },
-        });
-    });
-
-    it('creates containers with meta', async () => {
-        // Arrange
-        const parentUrl = fakeContainerUrl();
-        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
-        const name = faker.name.firstName();
-
-        // Act
-        await engine.createDocument(containerUrl, {
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [expandIRI('rdfs:label')]: name,
-            [LDP_CONTAINS]: { '@id': fakeDocumentUrl() },
-        });
-
-        // Assert
-        const documents = await getDatabaseDocuments(parentUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({
-            url: containerUrl,
-            containerUrl: parentUrl,
-            resources: {
-                [containerUrl]: [
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
-                    { p: expandIRI('rdfs:label'), o: { v: name } },
-                ],
-            },
-        });
-    });
-
-    it('fails creating documents when they already exist', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const name = faker.name.firstName();
-
-        await setDatabaseDocument(containerUrl, documentUrl, {
-            '@id': `${documentUrl}#it`,
-            '@type': expandIRI('foaf:Person'),
-            [expandIRI('foaf:name')]: name,
-        });
-
-        // Act
-        const createDocument = () =>
-            engine.createDocument(documentUrl, {
-                '@id': `${documentUrl}#it`,
-                '@type': expandIRI('foaf:Person'),
-                [expandIRI('foaf:name')]: name,
-            });
-
-        // Assert
-        await expect(createDocument).rejects.toBeInstanceOf(DocumentAlreadyExists);
-    });
-
     it('updates documents', async () => {
+        // Arrange
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const name = faker.name.firstName();
@@ -153,6 +59,7 @@ describe('IndexedDBEngine', () => {
             [expandIRI('foaf:name')]: name,
         });
 
+        // Act
         await engine.updateDocument(documentUrl, [
             new SetPropertyOperation({
                 resourceUrl: `${documentUrl}#it`,
@@ -162,6 +69,7 @@ describe('IndexedDBEngine', () => {
             }),
         ]);
 
+        // Assert
         const documents = await getDatabaseDocuments(containerUrl);
 
         expect(documents).toHaveLength(1);
@@ -177,90 +85,8 @@ describe('IndexedDBEngine', () => {
         });
     });
 
-    it('updates containers', async () => {
-        // Arrange
-        const parentUrl = fakeContainerUrl();
-        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
-        const documentUrl = fakeDocumentUrl();
-
-        await setDatabaseDocument(parentUrl, containerUrl, {
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-        });
-
-        // Act
-        await engine.updateDocument(containerUrl, [
-            new SetPropertyOperation({
-                resourceUrl: containerUrl,
-                property: LDP_CONTAINS_PREDICATE.value,
-                value: [documentUrl],
-                date: new Date(),
-            }).setNamedNode(true),
-        ]);
-
-        // Assert
-        const documents = await getDatabaseDocuments(parentUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({
-            url: containerUrl,
-            containerUrl: parentUrl,
-            resources: {
-                [containerUrl]: [
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
-                ],
-            },
-        });
-    });
-
-    it('updates containers meta', async () => {
-        // Arrange
-        const parentUrl = fakeContainerUrl();
-        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
-        const documentUrl = fakeDocumentUrl();
-        const name = faker.name.firstName();
-
-        await setDatabaseDocument(parentUrl, containerUrl, {
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [expandIRI('rdfs:label')]: faker.name.firstName(),
-        });
-
-        // Act
-        await engine.updateDocument(containerUrl, [
-            new SetPropertyOperation({
-                resourceUrl: containerUrl,
-                property: LDP_CONTAINS_PREDICATE.value,
-                value: [documentUrl],
-                date: new Date(),
-            }).setNamedNode(true),
-            new SetPropertyOperation({
-                resourceUrl: containerUrl,
-                property: expandIRI('rdfs:label'),
-                value: [name],
-                date: new Date(),
-            }),
-        ]);
-
-        // Assert
-        const documents = await getDatabaseDocuments(parentUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({
-            url: containerUrl,
-            containerUrl: parentUrl,
-            resources: {
-                [containerUrl]: [
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_CONTAINER },
-                    { p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: LDP_BASIC_CONTAINER },
-                    { p: expandIRI('rdfs:label'), o: { v: name } },
-                ],
-            },
-        });
-    });
-
     it('reads documents', async () => {
+        // Arrange
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const name = faker.name.firstName();
@@ -271,8 +97,10 @@ describe('IndexedDBEngine', () => {
             [expandIRI('foaf:name')]: name,
         });
 
+        // Act
         const document = await engine.readDocument(documentUrl);
 
+        // Assert
         await expect(await quadsToJsonLD(document.getQuads())).toEqualJsonLD({
             '@id': `${documentUrl}#it`,
             '@type': expandIRI('foaf:Person'),
@@ -280,93 +108,8 @@ describe('IndexedDBEngine', () => {
         });
     });
 
-    it('reads containers', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-
-        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl });
-
-        // Act
-        const container = await engine.readDocument(containerUrl);
-
-        // Assert
-        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [LDP_CONTAINS]: { '@id': documentUrl },
-        });
-    });
-
-    it('reads virtual containers', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const childContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
-        const grandchildContainerUrl = fakeContainerUrl({ baseUrl: childContainerUrl });
-        const documentUrl = fakeDocumentUrl({ containerUrl: grandchildContainerUrl });
-
-        await setDatabaseDocument(grandchildContainerUrl, documentUrl, { '@id': documentUrl });
-
-        // Act
-        const container = await engine.readDocument(containerUrl);
-
-        // Assert
-        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [LDP_CONTAINS]: { '@id': childContainerUrl },
-        });
-    });
-
-    it('reads parent containers', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const childContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
-        const documentUrl = fakeDocumentUrl({ containerUrl: childContainerUrl });
-
-        await setDatabaseDocument(containerUrl, childContainerUrl, { '@id': containerUrl });
-        await setDatabaseDocument(childContainerUrl, documentUrl, { '@id': documentUrl });
-
-        // Act
-        const container = await engine.readDocument(containerUrl);
-
-        // Assert
-        expect(container.getQuads()).toHaveLength(3);
-
-        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [LDP_CONTAINS]: { '@id': childContainerUrl },
-        });
-    });
-
-    it('reads containers with meta', async () => {
-        // Arrange
-        const parentUrl = fakeContainerUrl();
-        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const name = faker.name.firstName();
-
-        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl });
-        await setDatabaseDocument(parentUrl, containerUrl, {
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [expandIRI('rdfs:label')]: name,
-        });
-
-        // Act
-        const container = await engine.readDocument(containerUrl);
-
-        // Assert
-        await expect(await quadsToJsonLD(container.getQuads())).toEqualJsonLD({
-            '@id': containerUrl,
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-            [expandIRI('rdfs:label')]: name,
-            [LDP_CONTAINS]: { '@id': documentUrl },
-        });
-    });
-
     it('deletes documents', async () => {
+        // Arrange
         const containerUrl = fakeContainerUrl();
         const documentUrl = fakeDocumentUrl({ containerUrl });
         const name = faker.name.firstName();
@@ -377,238 +120,13 @@ describe('IndexedDBEngine', () => {
             [expandIRI('foaf:name')]: name,
         });
 
+        // Act
         await engine.deleteDocument(documentUrl);
 
+        // Assert
         const documents = await getDatabaseDocuments(containerUrl);
 
         expect(documents).toHaveLength(0);
-    });
-
-    it('creates documents with metadata', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
-        const document: JsonLD = { '@id': documentUrl };
-
-        // Act
-        await engine.createDocument(documentUrl, document, { lastModifiedAt });
-
-        // Assert
-        const documents = await getDatabaseDocuments(containerUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]).toEqual({
-            url: documentUrl,
-            containerUrl,
-            resources: {},
-            lastModifiedAt,
-            status: 'empty',
-        });
-    });
-
-    it('updates documents with metadata', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
-        const newLastModifiedAt = new Date('2023-02-01T00:00:00.000Z');
-
-        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl }, { lastModifiedAt });
-
-        // Act
-        await engine.updateDocument(
-            documentUrl,
-            [
-                new SetPropertyOperation({
-                    resourceUrl: documentUrl,
-                    property: expandIRI('rdfs:label'),
-                    value: ['Updated'],
-                    date: new Date(),
-                }),
-            ],
-            { lastModifiedAt: newLastModifiedAt },
-        );
-
-        // Assert
-        const documents = await getDatabaseDocuments(containerUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]?.lastModifiedAt).toEqual(newLastModifiedAt);
-    });
-
-    it('keeps last modified at when updating documents', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const lastModifiedAt = new Date('2023-01-01T00:00:00.000Z');
-
-        await setDatabaseDocument(containerUrl, documentUrl, { '@id': documentUrl }, { lastModifiedAt });
-
-        // Act
-        await engine.updateDocument(documentUrl, [
-            new SetPropertyOperation({
-                resourceUrl: documentUrl,
-                property: expandIRI('rdfs:label'),
-                value: ['Updated'],
-                date: new Date(),
-            }),
-        ]);
-
-        // Assert
-        const documents = await getDatabaseDocuments(containerUrl);
-
-        expect(documents).toHaveLength(1);
-        expect(documents[0]?.lastModifiedAt).toEqual(lastModifiedAt);
-    });
-
-    it('drops containers', async () => {
-        // Arrange
-        const containerUrls = [fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl(), fakeContainerUrl()] as const;
-        const documentUrl = fakeDocumentUrl({ containerUrl: containerUrls[0] });
-
-        await setDatabaseDocument(containerUrls[0], documentUrl, {
-            '@id': documentUrl,
-        });
-
-        await engine.createDocument(containerUrls[1], {
-            '@id': containerUrls[1],
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-        });
-        await engine.createDocument(containerUrls[2], {
-            '@id': containerUrls[2],
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-        });
-        await engine.createDocument(containerUrls[3], {
-            '@id': containerUrls[3],
-            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
-        });
-
-        // Act
-        await engine.dropContainers([containerUrls[0], containerUrls[1]]);
-
-        // Assert
-        await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
-
-        await engine.close();
-    });
-
-    it('gets nested container urls', async () => {
-        // Arrange
-        const rootContainerUrl = fakeContainerUrl();
-        const childContainerUrl = fakeContainerUrl({ baseUrl: rootContainerUrl });
-        const virtualChildContainerUrl = fakeContainerUrl({ baseUrl: fakeContainerUrl() });
-
-        await setDatabaseDocument(rootContainerUrl, fakeDocumentUrl({ containerUrl: rootContainerUrl }), {});
-        await setDatabaseDocument(childContainerUrl, fakeDocumentUrl({ containerUrl: childContainerUrl }), {});
-        await setDatabaseDocument(
-            virtualChildContainerUrl,
-            fakeDocumentUrl({ containerUrl: virtualChildContainerUrl }),
-            {},
-        );
-
-        // Act
-        const containerUrls = await engine.getContainerUrls();
-
-        // Assert
-        expect(containerUrls).toHaveLength(3);
-        expect(containerUrls).toEqual(
-            expect.arrayContaining([rootContainerUrl, childContainerUrl, virtualChildContainerUrl]),
-        );
-    });
-
-    it('purges metadata', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const lastModifiedAt = new Date();
-
-        await setDatabaseDocument(
-            containerUrl,
-            documentUrl,
-            {
-                '@id': documentUrl,
-                '@type': 'http://schema.org/CreativeWork',
-            },
-            { lastModifiedAt },
-        );
-
-        const initialDocuments = await getDatabaseDocuments(containerUrl);
-        expect(initialDocuments[0]?.lastModifiedAt).toEqual(lastModifiedAt);
-
-        // Act
-        await engine.purgeMetadata();
-
-        // Assert
-        const purgedDocuments = await getDatabaseDocuments(containerUrl);
-        expect(purgedDocuments[0]?.lastModifiedAt).toBeUndefined();
-    });
-
-    it('purges metadata for specific documents', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl1 = fakeDocumentUrl({ containerUrl });
-        const documentUrl2 = fakeDocumentUrl({ containerUrl });
-        const lastModifiedAt = new Date();
-
-        await setDatabaseDocument(
-            containerUrl,
-            documentUrl1,
-            {
-                '@id': documentUrl1,
-                '@type': 'http://schema.org/CreativeWork',
-            },
-            { lastModifiedAt },
-        );
-
-        await setDatabaseDocument(
-            containerUrl,
-            documentUrl2,
-            {
-                '@id': documentUrl2,
-                '@type': 'http://schema.org/CreativeWork',
-            },
-            { lastModifiedAt },
-        );
-
-        // Act
-        await engine.purgeMetadata({ documentUrls: [documentUrl1] });
-
-        // Assert
-        const documents = await getDatabaseDocuments(containerUrl);
-        const doc1 = documents.find((doc) => doc.url === documentUrl1);
-        const doc2 = documents.find((doc) => doc.url === documentUrl2);
-
-        expect(doc1?.lastModifiedAt).toBeUndefined();
-        expect(doc2?.lastModifiedAt).toEqual(lastModifiedAt);
-    });
-
-    it('gets documents last modified at', async () => {
-        // Arrange
-        const firstUrl = fakeDocumentUrl();
-        const secondUrl = fakeDocumentUrl();
-        const lastModifiedAt = new Date();
-
-        await engine.createDocument(
-            firstUrl,
-            {
-                '@id': firstUrl,
-                '@type': 'http://schema.org/CreativeWork',
-            },
-            { lastModifiedAt },
-        );
-        await engine.createDocument(secondUrl, {
-            '@id': secondUrl,
-            '@type': 'http://schema.org/CreativeWork',
-        });
-
-        // Act
-        const timestamps = await engine.getDocumentsLastModifiedAt();
-
-        // Assert
-        expect(timestamps[firstUrl]).toBeInstanceOf(Date);
-        expect(timestamps[firstUrl]?.getTime()).toBe(lastModifiedAt.getTime());
-        expect(timestamps[secondUrl]).toBeNull();
     });
 
     it('reads deep documents', async () => {
@@ -838,29 +356,6 @@ describe('IndexedDBEngine', () => {
         }
     });
 
-    it('resets containers index when the database is deleted from another context', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-
-        await engine.createDocument(fakeDocumentUrl({ containerUrl }), {
-            '@id': `${fakeDocumentUrl({ containerUrl })}#it`,
-            '@type': expandIRI('foaf:Person'),
-        });
-
-        // Act
-        await deleteDB(getNamespace());
-        await engine.createDocument(fakeDocumentUrl({ containerUrl }), {
-            '@id': `${fakeDocumentUrl({ containerUrl })}#it`,
-            '@type': expandIRI('foaf:Person'),
-        });
-
-        // Assert
-        const db = await SoukaiIndexedDB.connect();
-        const containers = await db.getAll('containers');
-
-        expect(containers).toEqual([{ url: containerUrl }]);
-    });
-
     it('hides empty documents', async () => {
         // Arrange
         const containerUrl = fakeContainerUrl();
@@ -905,19 +400,6 @@ describe('IndexedDBEngine', () => {
         expect(await engine.readDocumentIfExists(emptyDocumentUrl, { includeEmptyDocuments: true })).toBeNull();
         expect(await engine.getDocumentLocalChanges(emptyDocumentUrl)).toBeNull();
         expect(await engine.readDocumentIfExists(documentUrl)).not.toBeNull();
-    });
-
-    it('fails deleting missing documents', async () => {
-        // Arrange
-        const containerUrl = fakeContainerUrl();
-        const documentUrl = fakeDocumentUrl({ containerUrl });
-        const missingDocumentUrl = fakeDocumentUrl({ containerUrl });
-
-        await engine.createDocument(documentUrl, { '@id': `${documentUrl}#it`, '@type': expandIRI('foaf:Person') });
-
-        // Act & Assert
-        await expect(engine.deleteDocument(missingDocumentUrl)).rejects.toThrow(DocumentNotFound);
-        await expect(engine.deleteDocument(fakeDocumentUrl())).rejects.toThrow(DocumentNotFound);
     });
 
     it('removes local changes with documents and containers', async () => {
@@ -988,57 +470,4 @@ describe('IndexedDBEngine', () => {
             removeListener();
         }
     });
-
-    describeLocalEngineFileTests(() => engine);
-
-    async function resetDatabase(): Promise<void> {
-        await SoukaiIndexedDB.clear();
-        await SoukaiIndexedDB.connect();
-    }
-
-    async function dropDatabases(): Promise<void> {
-        await SoukaiIndexedDB.clear();
-    }
-
-    async function getDatabaseDocuments(containerUrl: string): Promise<LocalDocument[]> {
-        const db = await SoukaiIndexedDB.connect();
-        const documents = await db.getAllFromIndex('documents', 'containerUrl', containerUrl);
-
-        for (const doc of documents) {
-            if (doc.lastModifiedAt !== undefined) {
-                continue;
-            }
-
-            delete doc.lastModifiedAt;
-        }
-
-        return documents;
-    }
-
-    async function setDatabaseDocument(
-        containerUrl: string,
-        url: string,
-        graph: Record<string, unknown>,
-        metadata?: { lastModifiedAt?: Date },
-    ): Promise<void> {
-        const db = await SoukaiIndexedDB.connect();
-        const transaction = db.transaction(['containers', 'documents'], 'readwrite');
-        const container = await transaction.objectStore('containers').get(containerUrl);
-
-        if (!container) {
-            await transaction.objectStore('containers').add({ url: containerUrl });
-        }
-
-        const quads = await jsonldToQuads(graph);
-        const resources = serializeIDBQuads(quads);
-
-        await transaction.objectStore('documents').put({
-            url,
-            containerUrl,
-            resources,
-            lastModifiedAt: metadata?.lastModifiedAt,
-        });
-
-        await transaction.done;
-    }
 });

@@ -1,11 +1,10 @@
 import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { setEngine } from 'soukai-bis/engines/state';
 import UserWithHistory from 'soukai-bis/testing/stubs/UserWithHistory';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('OperationsRelation', () => {
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('loads document operations', async () => {
         // Arrange

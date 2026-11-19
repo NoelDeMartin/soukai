@@ -7,7 +7,7 @@ import DocumentAlreadyExists from 'soukai/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai/errors/DocumentNotFound';
 import { bootModels } from 'soukai/models';
 import User from 'soukai/testing/stubs/User';
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 describe('IndexedDBEngine', () => {
     let databaseName: string;
@@ -24,15 +24,10 @@ describe('IndexedDBEngine', () => {
         databaseCollections = [User.collection];
         engine = new IndexedDBEngine(databaseName);
 
+        metadataConnection = null;
+        collectionsConnection = null;
+
         await resetDatabase();
-    });
-
-    afterEach(async () => {
-        // oxlint-disable-next-line typescript/no-floating-promises
-        engine.closeConnections();
-        closeConnections();
-
-        await dropDatabases();
     });
 
     it('schema', async () => {

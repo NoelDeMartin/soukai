@@ -1,17 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 import InMemoryIDBStore from './InMemoryIDBStore';
-import SoukaiIndexedDB from './SoukaiIndexedDB';
 
 describe('InMemoryIDBStore', () => {
-    beforeEach(async () => {
-        await SoukaiIndexedDB.clear();
-    });
-
-    afterEach(async () => {
-        await SoukaiIndexedDB.close();
-    });
-
     it('updates other stores', async () => {
         // Arrange
         const key: [string, string] = ['User', 'https://alice.example.org#me'];

@@ -3,22 +3,11 @@ import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it } from 'vite-plus/test';
 
 import ComputedAttributesCache from './ComputedAttributesCache';
 
 describe('ComputedAttributesCache', () => {
-    beforeEach(async () => {
-        ComputedAttributesCache.reset();
-
-        await ComputedAttributesCache.close();
-        await SoukaiIndexedDB.clear();
-    });
-
-    afterEach(async () => {
-        await ComputedAttributesCache.close();
-    });
-
     it('caches values in IndexedDB', async () => {
         // Arrange
         const user = new User({ url: 'https://alice.example.org#me', name: 'Alice' }) as ModelWithUrl;

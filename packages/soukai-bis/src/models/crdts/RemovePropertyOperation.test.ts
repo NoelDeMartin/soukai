@@ -16,31 +16,15 @@ import { describe, expect, it } from 'vite-plus/test';
 import type PropertyOperation from './PropertyOperation';
 import RemovePropertyOperation from './RemovePropertyOperation';
 import SetPropertyOperation from './SetPropertyOperation';
+import { keywordsDocumentQuads } from './testing/helpers';
 
 describe('RemovePropertyOperation', () => {
-    async function documentQuads(documentUrl: string) {
-        return turtleToQuads(
-            `
-                @prefix schema: <https://schema.org/> .
-                @prefix http: <${HTTP_SCHEMA}> .
-
-                <#it>
-                    schema:keywords "anime", "comedy" ;
-                    http:keywords "drama" ;
-                    schema:actor <#alice> .
-
-                <#other> schema:keywords "anime" .
-            `,
-            { baseIRI: documentUrl },
-        );
-    }
-
     it('removes values from quads with IRI variants', async () => {
         // Arrange
         setRDFPrefixAliases({ 'https://schema.org/': HTTP_SCHEMA });
 
         const documentUrl = fakeDocumentUrl();
-        const quads = await documentQuads(documentUrl);
+        const quads = await keywordsDocumentQuads(documentUrl);
         const operation = new RemovePropertyOperation({
             resourceUrl: `${documentUrl}#it`,
             property: expandIRI('schema:keywords'),
@@ -68,7 +52,7 @@ describe('RemovePropertyOperation', () => {
     it('removes named nodes from quads', async () => {
         // Arrange
         const documentUrl = fakeDocumentUrl();
-        const quads = await documentQuads(documentUrl);
+        const quads = await keywordsDocumentQuads(documentUrl);
         const operation = new RemovePropertyOperation({
             resourceUrl: `${documentUrl}#it`,
             property: expandIRI('schema:actor'),
@@ -89,7 +73,7 @@ describe('RemovePropertyOperation', () => {
 
         const documentUrl = fakeDocumentUrl();
         const resourceUrl = `${documentUrl}#it`;
-        const sparql = new SparqlUpdate(new SolidDocument(documentUrl, await documentQuads(documentUrl)));
+        const sparql = new SparqlUpdate(new SolidDocument(documentUrl, await keywordsDocumentQuads(documentUrl)));
         const operation = new RemovePropertyOperation({
             resourceUrl,
             property: expandIRI('schema:keywords'),

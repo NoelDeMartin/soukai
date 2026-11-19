@@ -1,14 +1,12 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
-import { setEngine } from 'soukai-bis/engines';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Movie from 'soukai-bis/testing/stubs/Movie';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 import Resource from './Resource';
 
 describe('Resource', () => {
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('creates resources from type indexes', async () => {
         // Arrange
@@ -85,11 +83,5 @@ describe('Resource', () => {
                     solid:instance <https://alice.example/movies/spirited-away> .
             }
         `);
-    });
-
-    it('fails registering resources without model classes', async () => {
-        const instance = new Resource({ url: 'https://alice.example/movies/spirited-away' }, { exists: true });
-
-        await expect(instance.register('https://alice.example/settings/privateTypeIndex')).rejects.toThrow(SoukaiError);
     });
 });

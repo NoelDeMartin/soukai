@@ -1,6 +1,4 @@
 import { expandIRI, turtleToQuads } from '@noeldemartin/solid-utils';
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import { setEngine } from 'soukai-bis/engines/state';
 import AddPropertyOperation from 'soukai-bis/models/crdts/AddPropertyOperation';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
@@ -9,26 +7,11 @@ import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import UnsetPropertyOperation from 'soukai-bis/models/crdts/UnsetPropertyOperation';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
 import Group from 'soukai-bis/testing/stubs/Group';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-
-const BERSERK = 'https://berserk.fandom.com/wiki/';
+import { engine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 describe('CRDTs', () => {
-    let engine: InMemoryEngine;
-
-    function propertyOperations(operations: unknown, property: string): PropertyOperation[] {
-        return ((operations ?? []) as Operation[]).filter(
-            (operation) => (operation as PropertyOperation).property === expandIRI(`foaf:${property}`),
-        ) as PropertyOperation[];
-    }
-
-    function operationValues(operation: PropertyOperation | undefined): string[] {
-        return (operation as SetPropertyOperation | undefined)?.values.map((value) => value.value) ?? [];
-    }
-
-    beforeEach(() => {
-        setEngine((engine = new InMemoryEngine()));
-    });
+    const BERSERK = 'https://berserk.fandom.com/wiki/';
 
     it('records add and remove operations', async () => {
         // Arrange
@@ -270,4 +253,14 @@ describe('CRDTs', () => {
         expect(group.memberUrls?.slice().sort()).toEqual([`${BERSERK}Casca`, `${BERSERK}Griffith`, `${BERSERK}Guts`]);
         expect(group.makerUrl).toEqual(`${documentUrl}#griffith`);
     });
+
+    function propertyOperations(operations: unknown, property: string): PropertyOperation[] {
+        return ((operations ?? []) as Operation[]).filter(
+            (operation) => (operation as PropertyOperation).property === expandIRI(`foaf:${property}`),
+        ) as PropertyOperation[];
+    }
+
+    function operationValues(operation: PropertyOperation | undefined): string[] {
+        return (operation as SetPropertyOperation | undefined)?.values.map((value) => value.value) ?? [];
+    }
 });

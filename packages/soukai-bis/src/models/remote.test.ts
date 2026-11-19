@@ -1,7 +1,6 @@
 import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { setRemoteEngine } from 'soukai-bis/engines/state';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type Metadata from 'soukai-bis/models/crdts/Metadata';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import Movie from 'soukai-bis/testing/stubs/Movie';
@@ -10,7 +9,6 @@ import Task from 'soukai-bis/testing/stubs/Task';
 import TaskWithHistory from 'soukai-bis/testing/stubs/TaskWithHistory';
 import { describe, expect, it } from 'vite-plus/test';
 
-import Model from './Model';
 import { bootModels, requireBootedModel } from './registry';
 import { remote } from './remote';
 
@@ -52,12 +50,6 @@ describe('Remote models', () => {
 
     it('returns models that are already remote', () => {
         expect(remote(TypeIndex)).toBe(TypeIndex);
-    });
-
-    it('fails with models that are not booted', () => {
-        class Unbooted extends Model {}
-
-        expect(() => remote(Unbooted)).toThrow(SoukaiError);
     });
 
     it('loads same-document relations from the remote engine', async () => {

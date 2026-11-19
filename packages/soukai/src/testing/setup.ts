@@ -1,6 +1,9 @@
 import 'fake-indexeddb/auto';
-import { afterEach, vi } from 'vite-plus/test';
+import { IDBFactory } from 'fake-indexeddb';
+import { beforeEach, vi } from 'vite-plus/test';
 
-afterEach(() => {
+beforeEach(() => {
     vi.useRealTimers();
+
+    globalThis.indexedDB = new IDBFactory();
 });

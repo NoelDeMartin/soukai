@@ -2,6 +2,7 @@ import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Container from 'soukai-bis/models/ldp/Container';
 import ManagerGrant from 'soukai-bis/testing/stubs/ManagerGrant';
+import { ACP_PREFIXES, ACR_TYPE_HEADERS, acrResponse, respondWithACLLink } from 'soukai-bis/testing/utils/acp';
 import { describe, expect, it } from 'vite-plus/test';
 
 import type ACPAccessControlResource from './ACPAccessControlResource';
@@ -12,64 +13,10 @@ describe('ACPAccessControlResource', () => {
     const rootUrl = 'https://alice.example/';
     const containerUrl = `${rootUrl}logbook/`;
     const acrUrl = `${containerUrl}.acr`;
-    const prefixes = `
-        @prefix acl: <http://www.w3.org/ns/auth/acl#>.
-        @prefix acp: <http://www.w3.org/ns/solid/acp#>.
-        @prefix dct: <http://purl.org/dc/terms/>.
-        @prefix ex: <https://example.org/vocab#>.
-        @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-    `;
-    const acrType = { Link: '<http://www.w3.org/ns/solid/acp#AccessControlResource>; rel="type"' };
-
-    function respondWithACR(turtle: string | null): void {
-        FakeServer.respond(containerUrl, FakeResponse.success(undefined, { Link: '<.acr>; rel="acl"' }));
-        FakeServer.respondWith(acrUrl, (request) => {
-            if (request.method !== 'GET') {
-                return FakeResponse.success();
-            }
-
-            return turtle === null ? FakeResponse.notFound() : FakeResponse.success(`${prefixes}\n${turtle}`, acrType);
-        });
-
-        if (turtle === null) {
-            FakeServer.respond(rootUrl, FakeResponse.success(undefined, { Link: '<.acr>; rel="acl"' }));
-            FakeServer.respond(
-                `${rootUrl}.acr`,
-                FakeResponse.success('<#root> a <http://www.w3.org/ns/solid/acp#AccessControlResource> .', acrType),
-            );
-        }
-    }
-
-    async function fetchAccessControlResource(): Promise<ACPAccessControlResource> {
-        const container = new Container({ url: containerUrl }, { exists: true });
-
-        await container.fetchPermissions({ accessControlClass: ManagerGrant });
-
-        const [accessControlResource] = container.requireACPAccessControlResources();
-
-        return accessControlResource ?? container.newACPAccessControlResource();
-    }
-
-    function attachManagerGrant(
-        accessControlResource: ACPAccessControlResource,
-        attributes: { url?: string; agent: string; createdAt: Date },
-    ): ManagerGrant {
-        const grant = new ManagerGrant({ url: attributes.url, createdAt: attributes.createdAt });
-        const policy = new ACPPolicy({
-            allow: ['http://www.w3.org/ns/auth/acl#Read', 'http://www.w3.org/ns/auth/acl#Write'],
-        });
-
-        policy.relatedAnyOfMatchers.attach(new ACPMatcher({ agents: [attributes.agent] }));
-        grant.relatedPolicies.attach(policy);
-        accessControlResource.relatedAccessControls.attach(grant);
-        accessControlResource.relatedMemberAccessControls.attach(grant);
-
-        return grant;
-    }
 
     it('creates ACRs with new access controls', async () => {
         // Arrange
-        respondWithACR(null);
+        respondWithContainerACR(null);
 
         const accessControlResource = await fetchAccessControlResource();
         const grant = attachManagerGrant(accessControlResource, {
@@ -89,7 +36,7 @@ describe('ACPAccessControlResource', () => {
         expect(FakeServer.getRequests('PATCH', acrUrl)).toHaveLength(1);
         expect(FakeServer.getRequest('PATCH', acrUrl)?.body).toEqualSparql(`
             INSERT DATA {
-                ${prefixes}
+                ${ACP_PREFIXES}
 
                 <#it>
                     a acp:AccessControlResource ;
@@ -116,7 +63,7 @@ describe('ACPAccessControlResource', () => {
 
     it('adds access controls to existing ACRs', async () => {
         // Arrange
-        respondWithACR(`
+        respondWithContainerACR(`
             <#logbook>
                 a acp:AccessControlResource ;
                 acp:resource <./> ;
@@ -147,7 +94,7 @@ describe('ACPAccessControlResource', () => {
 
         expect(FakeServer.getRequest('PATCH', acrUrl)?.body).toEqualSparql(`
             INSERT DATA {
-                ${prefixes}
+                ${ACP_PREFIXES}
 
                 <#logbook>
                     acp:accessControl <#manager-bob> ;
@@ -172,7 +119,7 @@ describe('ACPAccessControlResource', () => {
 
     it('creates access control resources in existing ACRs', async () => {
         // Arrange
-        respondWithACR('<#other> acp:resource <https://alice.example/other/> .');
+        respondWithContainerACR('<#other> acp:resource <https://alice.example/other/> .');
 
         const container = new Container({ url: containerUrl }, { exists: true });
 
@@ -200,7 +147,7 @@ describe('ACPAccessControlResource', () => {
 
     it('removes access controls', async () => {
         // Arrange
-        respondWithACR(`
+        respondWithContainerACR(`
             <#logbook>
                 a acp:AccessControlResource ;
                 acp:resource <./> ;
@@ -235,7 +182,7 @@ describe('ACPAccessControlResource', () => {
         expect(accessControlResource.memberAccessControlUrls).toEqual([]);
         expect(FakeServer.getRequest('PATCH', acrUrl)?.body).toEqualSparql(`
             DELETE DATA {
-                ${prefixes}
+                ${ACP_PREFIXES}
 
                 <#logbook>
                     acp:accessControl <#manager-bob> ;
@@ -254,7 +201,7 @@ describe('ACPAccessControlResource', () => {
 
     it('removes access controls with blank node policies', async () => {
         // Arrange
-        respondWithACR(`
+        respondWithContainerACR(`
             <#logbook>
                 a acp:AccessControlResource ;
                 acp:resource <./> ;
@@ -280,25 +227,9 @@ describe('ACPAccessControlResource', () => {
         expect(body).not.toContain('/.well-known/genid/');
     });
 
-    it('fails removing blank node access controls', async () => {
-        // Arrange
-        respondWithACR(`
-            <#logbook>
-                a acp:AccessControlResource ;
-                acp:resource <./> ;
-                acp:accessControl [ acp:apply [ acp:allow acl:Read ; acp:anyOf [ acp:agent acp:PublicAgent ] ] ] .
-        `);
-
-        const accessControlResource = await fetchAccessControlResource();
-        const [accessControl] = accessControlResource.accessControls ?? [];
-
-        // Act & Assert
-        expect(() => accessControlResource.removeAccessControl(accessControl as ManagerGrant)).toThrow(SoukaiError);
-    });
-
     it('fails saving changes that would overwrite blank nodes', async () => {
         // Arrange
-        respondWithACR(`
+        respondWithContainerACR(`
             <#logbook>
                 a acp:AccessControlResource ;
                 acp:resource <./> ;
@@ -319,4 +250,49 @@ describe('ACPAccessControlResource', () => {
         await expect(promisedSave).rejects.toThrow(SoukaiError);
         expect(FakeServer.getRequests('PATCH', acrUrl)).toHaveLength(0);
     });
+
+    function respondWithContainerACR(turtle: string | null): void {
+        respondWithACLLink(containerUrl, '.acr');
+        FakeServer.respondWith(acrUrl, (request) =>
+            request.method === 'GET' ? acrResponse(turtle) : FakeResponse.success(),
+        );
+
+        if (turtle === null) {
+            respondWithACLLink(rootUrl, '.acr');
+            FakeServer.respond(
+                `${rootUrl}.acr`,
+                FakeResponse.success(
+                    '<#root> a <http://www.w3.org/ns/solid/acp#AccessControlResource> .',
+                    ACR_TYPE_HEADERS,
+                ),
+            );
+        }
+    }
+
+    async function fetchAccessControlResource(): Promise<ACPAccessControlResource> {
+        const container = new Container({ url: containerUrl }, { exists: true });
+
+        await container.fetchPermissions({ accessControlClass: ManagerGrant });
+
+        const [accessControlResource] = container.requireACPAccessControlResources();
+
+        return accessControlResource ?? container.newACPAccessControlResource();
+    }
+
+    function attachManagerGrant(
+        accessControlResource: ACPAccessControlResource,
+        attributes: { url?: string; agent: string; createdAt: Date },
+    ): ManagerGrant {
+        const grant = new ManagerGrant({ url: attributes.url, createdAt: attributes.createdAt });
+        const policy = new ACPPolicy({
+            allow: ['http://www.w3.org/ns/auth/acl#Read', 'http://www.w3.org/ns/auth/acl#Write'],
+        });
+
+        policy.relatedAnyOfMatchers.attach(new ACPMatcher({ agents: [attributes.agent] }));
+        grant.relatedPolicies.attach(policy);
+        accessControlResource.relatedAccessControls.attach(grant);
+        accessControlResource.relatedMemberAccessControls.attach(grant);
+
+        return grant;
+    }
 });

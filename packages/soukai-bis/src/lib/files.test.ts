@@ -1,16 +1,12 @@
 import { FakeResponse, FakeServer, fakeContainerUrl } from '@noeldemartin/testing';
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import { setEngine, setRemoteEngine } from 'soukai-bis/engines/state';
+import { setRemoteEngine } from 'soukai-bis/engines/state';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { engine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { readFile, readFileIfExists } from './files';
 
 describe('Files', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => setEngine((engine = new InMemoryEngine())));
-
     it('reads files from local engines', async () => {
         // Arrange
         const url = `${fakeContainerUrl()}001.png`;

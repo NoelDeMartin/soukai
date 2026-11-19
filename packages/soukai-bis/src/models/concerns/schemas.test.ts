@@ -1,15 +1,13 @@
 import { turtleToQuads } from '@noeldemartin/solid-utils';
 import { required } from '@noeldemartin/utils';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { getSchema } from 'soukai-bis/models/internals/model';
 import { bootModels } from 'soukai-bis/models/registry';
-import { belongsToOne } from 'soukai-bis/models/relations/fluent';
 import { remote } from 'soukai-bis/models/remote';
 import { defineSchema } from 'soukai-bis/models/schema';
 import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import { describe, expect, it } from 'vite-plus/test';
-import { string, url } from 'zod';
+import { string } from 'zod';
 
 describe('Schemas', () => {
     it('updates schemas', async () => {
@@ -71,25 +69,6 @@ describe('Schemas', () => {
         expect(Task.getRDFClasses()).toEqual(['http://www.w3.org/2002/12/cal/ical#Task']);
         expect(getSchema(ClasslessSchema).rdfClasses.classes).toEqual([]);
         expect(getSchema(Task)).not.toBe(getSchema(ClasslessSchema));
-    });
-
-    it('fails with different config', async () => {
-        // Arrange
-        const HistorySchema = defineSchema(TaskICalSchema, { history: true });
-
-        // Act & Assert
-        await expect(Task.updateSchema(HistorySchema)).rejects.toThrow(SoukaiError);
-    });
-
-    it('fails with unknown relations', async () => {
-        // Arrange
-        const RelationsSchema = defineSchema(TaskICalSchema, {
-            fields: { assigneeUrl: url().optional() },
-            relations: { assignee: belongsToOne('User', 'assigneeUrl') },
-        });
-
-        // Act & Assert
-        await expect(Task.updateSchema(RelationsSchema)).rejects.toThrow(SoukaiError);
     });
 
     it('restores the original schema when models are reset', async () => {

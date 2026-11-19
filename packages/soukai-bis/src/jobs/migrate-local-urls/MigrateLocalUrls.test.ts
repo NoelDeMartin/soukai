@@ -2,30 +2,18 @@ import { faker } from '@noeldemartin/faker';
 import { quadsToTurtle, turtleToQuads } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { urlRoute } from '@noeldemartin/utils';
-import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { fileLocalChanges } from 'soukai-bis/engines/local-changes';
-import { setEngine } from 'soukai-bis/engines/state';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import Movie from 'soukai-bis/testing/stubs/Movie';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
+import { engine } from 'soukai-bis/testing/utils/engines';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 import MigrateLocalUrls from './MigrateLocalUrls';
 
-const fixture = <T = string>(name: string, replacements: Record<string, string> = {}) =>
-    loadFixture<T>(new URL(`./MigrateLocalUrls.test.ts-fixtures/${name}`, import.meta.url), replacements);
-
 describe('MigrateLocalUrls', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => {
-        engine = new InMemoryEngine();
-
-        setEngine(engine);
-    });
-
     it('migrates files', async () => {
         // Arrange
         const movieDocumentUrl = fakeDocumentUrl({ containerUrl: Movie.defaultContainerUrl });
@@ -260,4 +248,8 @@ describe('MigrateLocalUrls', () => {
         expect(operationUrls).toHaveLength(1);
         expect(operationUrls[0]?.startsWith(migratedUrl)).toBe(true);
     });
+
+    function fixture<T = string>(name: string, replacements: Record<string, string> = {}): T {
+        return loadFixture<T>(new URL(`./testing/fixtures/${name}`, import.meta.url), replacements);
+    }
 });

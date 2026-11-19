@@ -5,6 +5,8 @@ import type { Quad } from '@rdfjs/types';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import { setEngine } from 'soukai-bis/engines/state';
 import InvalidAttributesError from 'soukai-bis/errors/InvalidAttributesError';
+import MigratingTask from 'soukai-bis/models/concerns/testing/stubs/MigratingTask';
+import MigratingTaskICalSchema from 'soukai-bis/models/concerns/testing/stubs/MigratingTask.ical.schema';
 import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { bootModels } from 'soukai-bis/models/registry';
@@ -15,67 +17,16 @@ import Task from 'soukai-bis/testing/stubs/Task';
 import TaskICalSchema from 'soukai-bis/testing/stubs/Task.ical.schema';
 import TaskWithCasts from 'soukai-bis/testing/stubs/TaskWithCasts';
 import { STATUS_COMPLETED } from 'soukai-bis/testing/stubs/TaskWithCasts.schema';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { engine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
 
-class TaskWithHistory extends defineSchema(Task, {
-    history: true,
-    rdfDefaultResourceHash: '',
-    fields: {
-        description: z.string().optional(),
-        priority: z.number().optional(),
-    },
-}) {}
-
-const TaskWithHistoryICalSchema = defineSchema(TaskICalSchema, {
-    history: true,
-    rdfContexts: { schema: 'https://schema.org/' },
-    fields: {
-        description: z.string().rdfProperties(['schema:description', 'description']).optional(),
-        status: z.string().rdfProperty('status'),
-    },
-    hooks: {
-        beforeInitialize(attributes) {
-            attributes.status ??= 'NEEDS-ACTION';
-        },
-    },
-});
-
-function subjectStatements(quads: Quad[], subject: string): Record<string, string[]> {
-    const statements: Record<string, string[]> = {};
-
-    for (const quad of quads) {
-        if (quad.subject.value !== subject) {
-            continue;
-        }
-
-        (statements[quad.predicate.value] ??= []).push(quad.object.value);
-    }
-
-    for (const values of Object.values(statements)) {
-        values.sort();
-    }
-
-    return statements;
-}
-
 describe('Schema migrations', () => {
-    let engine: InMemoryEngine;
-
-    beforeEach(() => {
-        setEngine((engine = new InMemoryEngine()));
-        bootModels({ TaskWithHistory }, { reset: true });
-    });
-
-    async function documentQuads(documentUrl: string): Promise<Quad[]> {
-        return (await engine.readDocument(documentUrl)).getQuads();
-    }
-
     it('migrates models with history', async () => {
         // Arrange
 
         const createdAt = new Date();
-        const task = await TaskWithHistory.create({ name: 'Learn Solid', priority: 1 });
+        const task = await MigratingTask.create({ name: 'Learn Solid', priority: 1 });
 
         vi.advanceTimersByTime(1000);
 
@@ -86,10 +37,10 @@ describe('Schema migrations', () => {
         vi.advanceTimersByTime(1000);
 
         const documentUrl = task.requireDocumentUrl();
-        const freshTask = await TaskWithHistory.findOrFail(task.url);
+        const freshTask = await MigratingTask.findOrFail(task.url);
 
         // Act
-        const migrated = await freshTask.migrateSchema(TaskWithHistoryICalSchema);
+        const migrated = await freshTask.migrateSchema(MigratingTaskICalSchema);
 
         // Assert
         const quads = await documentQuads(documentUrl);
@@ -103,7 +54,7 @@ describe('Schema migrations', () => {
             }))
             .sort((a, b) => a.property.localeCompare(b.property));
 
-        expect(migrated).toBeInstanceOf(TaskWithHistory);
+        expect(migrated).toBeInstanceOf(MigratingTask);
         expect(migrated.url).toEqual(`${documentUrl}#task`);
         expect(migrated.name).toEqual('Learn Solid');
         expect(migrated.description).toEqual('Read the spec');
@@ -153,11 +104,11 @@ describe('Schema migrations', () => {
     it('keeps separate histories for fields with multiple properties', async () => {
         // Arrange
 
-        class AliasedTask extends defineSchema(TaskWithHistory, {
+        class AliasedTask extends defineSchema(MigratingTask, {
             fields: { name: z.string().rdfProperties(['name', 'alternateName']) },
         }) {}
 
-        const AliasedTaskICalSchema = defineSchema(TaskWithHistoryICalSchema, {
+        const AliasedTaskICalSchema = defineSchema(MigratingTaskICalSchema, {
             fields: { name: z.string().rdfProperties(['summary', 'comment']) },
         });
 
@@ -200,7 +151,7 @@ describe('Schema migrations', () => {
     it('replaces operations that would tie with new ones', async () => {
         // Arrange
 
-        const CapitalizedSchema = defineSchema(TaskWithHistoryICalSchema, {
+        const CapitalizedSchema = defineSchema(MigratingTaskICalSchema, {
             hooks: {
                 beforeInitialize(attributes) {
                     attributes.status ??= 'NEEDS-ACTION';
@@ -208,7 +159,7 @@ describe('Schema migrations', () => {
                 },
             },
         });
-        const task = await TaskWithHistory.create({ name: 'Learn solid' });
+        const task = await MigratingTask.create({ name: 'Learn solid' });
 
         vi.advanceTimersByTime(1000);
 
@@ -216,7 +167,7 @@ describe('Schema migrations', () => {
 
         await task.update({ name: 'learn solid' });
 
-        const freshTask = await TaskWithHistory.findOrFail(task.url);
+        const freshTask = await MigratingTask.findOrFail(task.url);
         const existingOperations = (await freshTask.loadRelation('operations')) as PropertyOperation[];
 
         // Act
@@ -275,7 +226,7 @@ describe('Schema migrations', () => {
     it('produces the same document when migrating copies separately', async () => {
         // Arrange
 
-        const task = await TaskWithHistory.create({ name: 'Learn Solid', priority: 1 });
+        const task = await MigratingTask.create({ name: 'Learn Solid', priority: 1 });
 
         vi.advanceTimersByTime(1000);
         await task.update({ description: 'Read the spec' });
@@ -286,12 +237,12 @@ describe('Schema migrations', () => {
         await otherEngine.createDocument(documentUrl, await documentQuads(documentUrl));
 
         // Act
-        await (await TaskWithHistory.findOrFail(task.url)).migrateSchema(TaskWithHistoryICalSchema);
+        await (await MigratingTask.findOrFail(task.url)).migrateSchema(MigratingTaskICalSchema);
 
         vi.advanceTimersByTime(1000);
         setEngine(otherEngine);
 
-        await (await TaskWithHistory.findOrFail(task.url)).migrateSchema(TaskWithHistoryICalSchema);
+        await (await MigratingTask.findOrFail(task.url)).migrateSchema(MigratingTaskICalSchema);
 
         // Assert
         const otherQuads = (await otherEngine.readDocument(documentUrl)).getQuads();
@@ -444,7 +395,7 @@ describe('Schema migrations', () => {
     it('keeps operations for unknown properties', async () => {
         // Arrange
 
-        class TaskWithKeywords extends defineSchema(TaskWithHistory, {
+        class TaskWithKeywords extends defineSchema(MigratingTask, {
             fields: { keywords: z.array(z.string()).default([]) },
         }) {}
 
@@ -456,10 +407,10 @@ describe('Schema migrations', () => {
         await taskWithKeywords.update({ keywords: ['solid'] });
 
         const documentUrl = taskWithKeywords.requireDocumentUrl();
-        const task = await TaskWithHistory.findOrFail(taskWithKeywords.url);
+        const task = await MigratingTask.findOrFail(taskWithKeywords.url);
 
         // Act
-        const migrated = await task.migrateSchema(TaskWithHistoryICalSchema);
+        const migrated = await task.migrateSchema(MigratingTaskICalSchema);
 
         // Assert
         const quads = await documentQuads(documentUrl);
@@ -574,4 +525,26 @@ describe('Schema migrations', () => {
             [`${SCHEMA}keywords`]: ['rdf,solid'],
         });
     });
+
+    function subjectStatements(quads: Quad[], subject: string): Record<string, string[]> {
+        const statements: Record<string, string[]> = {};
+
+        for (const quad of quads) {
+            if (quad.subject.value !== subject) {
+                continue;
+            }
+
+            (statements[quad.predicate.value] ??= []).push(quad.object.value);
+        }
+
+        for (const values of Object.values(statements)) {
+            values.sort();
+        }
+
+        return statements;
+    }
+
+    async function documentQuads(documentUrl: string): Promise<Quad[]> {
+        return (await engine.readDocument(documentUrl)).getQuads();
+    }
 });

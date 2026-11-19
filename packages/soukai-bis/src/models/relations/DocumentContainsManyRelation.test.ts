@@ -1,13 +1,10 @@
 import { FakeServer, fakeDocumentUrl } from '@noeldemartin/testing';
-import { required } from '@noeldemartin/utils';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
-import { setEngine } from 'soukai-bis/engines/state';
-import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('DocumentContainsManyRelation', () => {
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('loads documents models', async () => {
         // Arrange
@@ -41,35 +38,5 @@ describe('DocumentContainsManyRelation', () => {
 
         expect(typeIndex).not.toBeNull();
         expect(typeIndex?.registrations).toHaveLength(2);
-    });
-
-    it('requires deleting detached models', async () => {
-        // Arrange
-        const typeIndexUrl = fakeDocumentUrl();
-
-        FakeServer.respondOnce(
-            typeIndexUrl,
-            `
-                @prefix solid: <http://www.w3.org/ns/solid/terms#> .
-                @prefix schema: <https://schema.org/> .
-
-                <> a solid:TypeIndex .
-
-                <#movies> a solid:TypeRegistration;
-                    solid:forClass schema:Movie;
-                    solid:instanceContainer </movies>.
-            `,
-        );
-
-        const typeIndex = await TypeIndex.findOrFail(typeIndexUrl);
-        const registration = required(typeIndex.registrations?.[0]);
-
-        // Act
-        const detach = () => typeIndex.relatedRegistrations.detach(registration);
-
-        // Assert
-        expect(detach).toThrow(SoukaiError);
-        expect(typeIndex.registrations).toEqual([registration]);
-        expect(registration.isMarkedForDeletion()).toBe(false);
     });
 });

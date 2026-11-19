@@ -1,15 +1,14 @@
 import { FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
-import { setEngine } from 'soukai-bis/engines';
-import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import Container from 'soukai-bis/models/ldp/Container';
 import { bootModels } from 'soukai-bis/models/registry';
 import Post from 'soukai-bis/testing/stubs/Post';
-import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
+import { describe, expect, it } from 'vite-plus/test';
 
 import Person from './Person';
 
 describe('Person', () => {
-    beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
+    useSolidEngine();
 
     it('finds registered containers in all type indexes', async () => {
         // Arrange
