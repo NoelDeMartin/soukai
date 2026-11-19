@@ -689,7 +689,7 @@ describe('Sync', () => {
                         crdt:deletedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
                     <#it-operation-1>
-                        a crdt:SoftDeleteOperation ;
+                        a crdt:DeleteOperation ;
                         crdt:resource <#it> ;
                         crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
                 `,
@@ -719,7 +719,7 @@ describe('Sync', () => {
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <#it-operation-1>
-                    a crdt:SoftDeleteOperation ;
+                    a crdt:DeleteOperation ;
                     crdt:resource <#it> ;
                     crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
@@ -752,7 +752,7 @@ describe('Sync', () => {
                 crdt:deletedAt "2023-01-01T00:00:00.000Z"^^xsd:dateTime .
 
             <#it-operation-3>
-                a crdt:SoftDeleteOperation ;
+                a crdt:DeleteOperation ;
                 crdt:resource <#it> ;
                 crdt:date "2023-01-01T00:00:00.000Z"^^xsd:dateTime .
         `;
@@ -788,7 +788,7 @@ describe('Sync', () => {
                         crdt:updatedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
 
                     <#it-operation-1>
-                        a crdt:SoftDeleteOperation ;
+                        a crdt:DeleteOperation ;
                         crdt:resource <#it> ;
                         crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
@@ -821,7 +821,7 @@ describe('Sync', () => {
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <#it-operation-1>
-                    a crdt:SoftDeleteOperation ;
+                    a crdt:DeleteOperation ;
                     crdt:resource <#it> ;
                     crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
@@ -855,7 +855,7 @@ describe('Sync', () => {
                 crdt:deletedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
 
             <#it-operation-3>
-                a crdt:SoftDeleteOperation ;
+                a crdt:DeleteOperation ;
                 crdt:resource <#it> ;
                 crdt:date "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
         `;
@@ -891,7 +891,7 @@ describe('Sync', () => {
                         crdt:updatedAt "2022-06-01T00:00:00.000Z"^^xsd:dateTime .
 
                     <#it-operation-1>
-                        a crdt:SoftDeleteOperation ;
+                        a crdt:DeleteOperation ;
                         crdt:resource <#it> ;
                         crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
@@ -918,7 +918,7 @@ describe('Sync', () => {
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
                 <#it-operation-1>
-                    a crdt:SoftDeleteOperation ;
+                    a crdt:DeleteOperation ;
                     crdt:resource <#it> ;
                     crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 

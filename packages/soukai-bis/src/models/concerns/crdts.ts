@@ -7,12 +7,12 @@ import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation'
 import { requireEngine } from 'soukai-bis/engines/state';
 import {
     CRDT_ADD_PROPERTY_OPERATION_OBJECT,
+    CRDT_DELETE_OPERATION_OBJECT,
     CRDT_DELETED_AT_PREDICATE,
     CRDT_REMOVE_PROPERTY_OPERATION_OBJECT,
     CRDT_RESOURCE_PREDICATE,
     CRDT_RESTORE_OPERATION_OBJECT,
     CRDT_SET_PROPERTY_OPERATION_OBJECT,
-    CRDT_SOFT_DELETE_OPERATION_OBJECT,
     CRDT_TOMBSTONE_OBJECT,
     CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
     RDF_TYPE_PREDICATE,
@@ -302,7 +302,7 @@ export function getDirtyDocumentsUpdates({
 
         if (pendingSoftDeletion) {
             const LifecycleOperationModel = requireBootedModel(
-                pendingSoftDeletion === 'soft-delete' ? 'SoftDeleteOperation' : 'RestoreOperation',
+                pendingSoftDeletion === 'soft-delete' ? 'DeleteOperation' : 'RestoreOperation',
             );
             const lifecycleOperation = new LifecycleOperationModel({
                 resourceUrl: model.url,
@@ -395,7 +395,7 @@ export function getResourceOperationUrls(document: SolidDocument, resourceUrl: s
         CRDT_UNSET_PROPERTY_OPERATION_OBJECT,
         CRDT_ADD_PROPERTY_OPERATION_OBJECT,
         CRDT_REMOVE_PROPERTY_OPERATION_OBJECT,
-        CRDT_SOFT_DELETE_OPERATION_OBJECT,
+        CRDT_DELETE_OPERATION_OBJECT,
         CRDT_RESTORE_OPERATION_OBJECT,
     ];
 
@@ -469,7 +469,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
     for (const [resourceUrl, operation] of Object.entries(finalLifecycleOperations)) {
         const metadataSubject = findMetadataSubject(quads, resourceUrl);
         const deletedAt = metadataSubject && document.statement(metadataSubject, CRDT_DELETED_AT_PREDICATE);
-        const isSoftDeleted = isBootedModelInstance(operation, 'SoftDeleteOperation');
+        const isSoftDeleted = isBootedModelInstance(operation, 'DeleteOperation');
 
         if (
             isSoftDeleted === !!deletedAt &&

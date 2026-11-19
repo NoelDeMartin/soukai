@@ -4,9 +4,9 @@ import { md5 } from '@noeldemartin/utils';
 import type { Literal } from '@rdfjs/types';
 import { describe, expect, it } from 'vite-plus/test';
 
+import DeleteOperation from './DeleteOperation';
 import RestoreOperation from './RestoreOperation';
 import SetPropertyOperation from './SetPropertyOperation';
-import SoftDeleteOperation from './SoftDeleteOperation';
 import UnsetPropertyOperation from './UnsetPropertyOperation';
 
 describe('SetPropertyOperation', () => {
@@ -144,7 +144,7 @@ describe('SetPropertyOperation', () => {
 
         // Act
         const urls = [
-            new SoftDeleteOperation({ resourceUrl, date }).mintUrl(),
+            new DeleteOperation({ resourceUrl, date }).mintUrl(),
             new RestoreOperation({ resourceUrl, date }).mintUrl(),
         ];
 
@@ -155,7 +155,7 @@ describe('SetPropertyOperation', () => {
                 JSON.stringify([
                     resourceUrl,
                     '2026-07-12T00:00:00.000Z',
-                    'https://vocab.noeldemartin.com/crdt/SoftDeleteOperation',
+                    'https://vocab.noeldemartin.com/crdt/DeleteOperation',
                 ]),
             )}`,
         );

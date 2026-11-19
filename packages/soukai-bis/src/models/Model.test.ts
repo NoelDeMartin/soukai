@@ -1783,7 +1783,7 @@ describe('Model', () => {
             expect(await WatchAction.all({ includeSoftDeleted: true })).toHaveLength(1);
             expect(freshAction?.isSoftDeleted()).toBe(true);
             expect(freshAction?.metadata?.deletedAt).toEqual(new Date());
-            expect(await operationNames(freshAction)).toContain('SoftDeleteOperation');
+            expect(await operationNames(freshAction)).toContain('DeleteOperation');
         });
 
         it('restores soft deleted instances', async () => {
@@ -1804,7 +1804,7 @@ describe('Model', () => {
             expect(freshAction?.isSoftDeleted()).toBe(false);
             expect(freshAction?.metadata?.deletedAt).toBeUndefined();
             expect(await operationNames(freshAction)).toEqual(
-                expect.arrayContaining(['SoftDeleteOperation', 'RestoreOperation']),
+                expect.arrayContaining(['DeleteOperation', 'RestoreOperation']),
             );
         });
 
@@ -1876,7 +1876,7 @@ describe('Model', () => {
             // Assert
             expect(migrated.url).not.toEqual(action.url);
             expect(migrated.isSoftDeleted()).toBe(true);
-            expect(await operationNames(migrated)).toContain('SoftDeleteOperation');
+            expect(await operationNames(migrated)).toContain('DeleteOperation');
         });
 
         it('reverts soft deletes when saving fails', async () => {
@@ -1919,7 +1919,7 @@ describe('Model', () => {
                             crdt:updatedAt "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
                         <#it-operation-1>
-                            a crdt:SoftDeleteOperation ;
+                            a crdt:DeleteOperation ;
                             crdt:resource <#it> ;
                             crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
 
@@ -1964,7 +1964,7 @@ describe('Model', () => {
                             crdt:deletedAt "2022-01-01T00:00:00Z"^^xsd:dateTime .
 
                         <#it-operation-1>
-                            a crdt:SoftDeleteOperation ;
+                            a crdt:DeleteOperation ;
                             crdt:resource <#it> ;
                             crdt:date "2022-01-01T00:00:00.000Z"^^xsd:dateTime .
                     `,

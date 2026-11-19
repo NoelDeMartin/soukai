@@ -77,7 +77,7 @@ export default defineSchema({
 
 ### Soft deletes
 
-If you'd rather keep the data around, models with history tracking and timestamps can also be soft deleted. This will store the deletion date in the model metadata, and create a `crdt:SoftDeleteOperation` so that it is merged properly on sync:
+If you'd rather keep the data around, models with history tracking and timestamps can also be soft deleted. This will store the deletion date in the model metadata, and create a `crdt:DeleteOperation` so that it is merged properly on sync:
 
 ```ts
 await alice.softDelete();

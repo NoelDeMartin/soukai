@@ -12,7 +12,7 @@ import { isBootedModelInstance, requireBootedModel } from 'soukai-bis/models/reg
 
 function getOperationPriority(operation: Operation): number {
     if (
-        isBootedModelInstance(operation, 'SoftDeleteOperation') ||
+        isBootedModelInstance(operation, 'DeleteOperation') ||
         isBootedModelInstance(operation, 'RemovePropertyOperation')
     ) {
         return 1;
@@ -100,9 +100,7 @@ export function isArrayPropertyOperation(
 }
 
 export function isLifecycleOperation(operation: unknown): operation is LifecycleOperation {
-    return (
-        isBootedModelInstance(operation, 'SoftDeleteOperation') || isBootedModelInstance(operation, 'RestoreOperation')
-    );
+    return isBootedModelInstance(operation, 'DeleteOperation') || isBootedModelInstance(operation, 'RestoreOperation');
 }
 
 export function getPropertyOperationKey(operation: PropertyOperation): string {

@@ -4,6 +4,6 @@ import LifecycleOperation from './LifecycleOperation';
 import { OPERATION_FIELDS } from './Operation.schema';
 
 export default defineSchema(LifecycleOperation, {
-    rdfClass: 'SoftDeleteOperation',
+    rdfClass: 'DeleteOperation',
     fields: OPERATION_FIELDS,
 });
