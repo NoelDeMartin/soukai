@@ -23,10 +23,11 @@ export function isSingleModelRelation(relation: Relation): relation is SingleMod
 }
 
 export function isContainsRelation(relation: Relation): relation is ContainsRelation {
-    return (
-        CLASS_MARKER in relation.constructor &&
-        arrayFrom(relation.constructor[CLASS_MARKER]).includes('ContainsRelation')
-    );
+    return isContainsRelationClass(relation.constructor);
+}
+
+export function isContainsRelationClass(relationClass: Function): boolean {
+    return CLASS_MARKER in relationClass && arrayFrom(relationClass[CLASS_MARKER]).includes('ContainsRelation');
 }
 
 export function isDocumentContainsManyRelation(relation: Relation): relation is DocumentContainsManyRelation {

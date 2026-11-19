@@ -9,10 +9,7 @@ export { default as OperationsRelation } from './OperationsRelation';
 export { default as Relation } from './Relation';
 export * from './Relation';
 export * from './fluent';
+export * from './names';
 export * from './schema';
 export * from './types';
 export * from './utils';
-
-export function isCoreRelation(relation: string): boolean {
-    return ['metadata', 'operations', 'tombstone'].includes(relation);
-}

@@ -47,8 +47,8 @@ import type { TypeIndexRegistration } from 'soukai-bis/models/interop/TypeIndex'
 import type TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import Container from 'soukai-bis/models/ldp/Container';
 import type Resource from 'soukai-bis/models/ldp/Resource';
+import { getRemoteContainerUrl } from 'soukai-bis/models/ldp/utils';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
-import { getContainerName } from 'soukai-bis/models/utils';
 
 import {
     getDocumentResolution,
@@ -194,10 +194,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                     }
 
                     const options = typeof model.registration === 'object' ? model.registration : {};
-                    const path = options.path ?? getContainerName(model.model.modelName);
-                    const storageUrl = this.config.userProfile.storageUrls[0].slice(0, -1);
                     const registration: ModelRegistration = {
-                        containerUrl: storageUrl + `/${path}/`.replace(/\/\//g, '/'),
+                        containerUrl: getRemoteContainerUrl(
+                            model.model,
+                            this.config.userProfile.storageUrls[0],
+                            options.path,
+                        ),
                         visibility: options.public ? 'public' : 'private',
                         mode: options.mode ?? 'container',
                     };
