@@ -29,6 +29,7 @@ import { isModelClass } from './utils';
 
 declare const SCHEMA_FIELDS_MARKER: unique symbol;
 declare const SCHEMA_RELATIONS_MARKER: unique symbol;
+declare const SCHEMA_TIMESTAMPS_MARKER: unique symbol;
 
 function getRDFClassesDefinition(config: SchemaConfig): RDFClassesDefinition {
     if (!config.rdfClasses || Array.isArray(config.rdfClasses)) {
@@ -66,6 +67,37 @@ function parseSchemaSlug<TFields extends SchemaFields>(fields: TFields): SchemaS
     }
 }
 
+function parseSchemaTimestamps(timestamps: SchemaTimestamps): TimestampField[] | false {
+    const TIMESTAMP_FIELDS = Object.values(TimestampFields);
+
+    if (typeof timestamps === 'boolean') {
+        return timestamps && [...TIMESTAMP_FIELDS];
+    }
+
+    const invalidField = timestamps.find((field) => !TIMESTAMP_FIELDS.includes(field));
+
+    if (invalidField) {
+        throw new SoukaiError(`Invalid timestamp field '${invalidField}'.`);
+    }
+
+    return timestamps.length > 0 && TIMESTAMP_FIELDS.filter((field) => timestamps.includes(field));
+}
+
+export const TimestampFields = {
+    CreatedAt: 'createdAt',
+    UpdatedAt: 'updatedAt',
+} as const;
+
+export type TimestampField = (typeof TimestampFields)[keyof typeof TimestampFields];
+
+export type SchemaTimestamps = boolean | TimestampField[];
+
+export type SchemaTimestampFields<TTimestamps extends SchemaTimestamps> = [TTimestamps] extends [TimestampField[]]
+    ? TTimestamps[number]
+    : [TTimestamps] extends [false]
+      ? never
+      : TimestampField;
+
 export type SchemaSlug<TFields extends SchemaFields = SchemaFields> =
     | {
           type: 'document';
@@ -83,7 +115,8 @@ export type Schema<
 > = {
     fields: ZodObject<TFields>;
     relations: TRelations;
-    timestamps: boolean;
+    timestamps: TimestampField[] | false;
+    mintsUrls: boolean;
     history: boolean;
     tombstone: boolean;
     rdfContext: { default: string } & Record<string, string>;
@@ -132,6 +165,12 @@ export type BaseSchemaRelations<TBaseClass> = TBaseClass extends {
     ? TBaseRelations
     : {};
 
+export type BaseSchemaTimestampFields<TBaseClass> = TBaseClass extends {
+    [SCHEMA_TIMESTAMPS_MARKER]?: [infer TBaseTimestampFields extends TimestampField];
+}
+    ? TBaseTimestampFields
+    : TimestampField;
+
 export type SchemaComputed = Record<string, unknown>;
 export type SchemaComputedDefinitions<TComputed extends SchemaComputed, TModel extends Model> = {
     [K in keyof TComputed]: SchemaComputedAttributeConfig<TModel, TComputed[K]>;
@@ -158,24 +197,32 @@ export type ExtendedSchemaRelations<
     TBaseClass extends ModelConstructor = typeof Model,
 > = typeof Model extends TBaseClass ? TRelations : Override<BaseSchemaRelations<TBaseClass>, TRelations>;
 
+export type ExtendedSchemaTimestampFields<
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
+    TBaseClass extends ModelConstructor = typeof Model,
+> = TTimestamps extends SchemaTimestamps ? SchemaTimestampFields<TTimestamps> : BaseSchemaTimestampFields<TBaseClass>;
+
 export type SchemaModel<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
     TComputed extends SchemaComputed = {},
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
     TBaseClass extends ModelConstructor = typeof Model,
-> = SchemaModelBase<TFields, TRelations, TBaseClass> &
-    SchemaModelRelations<TRelations, SchemaModelBase<TFields, TRelations, TBaseClass>> &
+> = SchemaModelBase<TFields, TRelations, TTimestamps, TBaseClass> &
+    SchemaModelRelations<TRelations, SchemaModelBase<TFields, TRelations, TTimestamps, TBaseClass>> &
     SchemaModelComputed<TComputed>;
 
 export type SchemaModelBase<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
     TBaseClass extends ModelConstructor = typeof Model,
 > = (typeof Model extends TBaseClass
-    ? Model<SchemaModelAttributes<TFields>, TRelations>
+    ? Model<SchemaModelAttributes<TFields>, TRelations, ExtendedSchemaTimestampFields<TTimestamps>>
     : Model<
           SchemaModelAttributes<ExtendedSchemaFields<TFields, TBaseClass>>,
-          ExtendedSchemaRelations<TRelations, TBaseClass>
+          ExtendedSchemaRelations<TRelations, TBaseClass>,
+          ExtendedSchemaTimestampFields<TTimestamps, TBaseClass>
       > &
           InstanceType<TBaseClass>) &
     SafeInferObject<TFields>;
@@ -184,17 +231,19 @@ export type SchemaModelClass<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = SchemaRelations,
     TComputed extends SchemaComputed = {},
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
     TBaseClass extends ModelConstructor = typeof Model,
 > = Override<
     TBaseClass,
     {
         [SCHEMA_FIELDS_MARKER]?: ExtendedSchemaFields<TFields, TBaseClass>;
         [SCHEMA_RELATIONS_MARKER]?: ExtendedSchemaRelations<TRelations, TBaseClass>;
+        [SCHEMA_TIMESTAMPS_MARKER]?: [ExtendedSchemaTimestampFields<TTimestamps, TBaseClass>];
 
         new (
             attributes?: SchemaModelInput<TFields, TBaseClass>,
             options?: ModelConstructorOptions,
-        ): SchemaModel<TFields, TRelations, TComputed, TBaseClass>;
+        ): SchemaModel<TFields, TRelations, TComputed, TTimestamps, TBaseClass>;
         getRelation<K extends string & keyof ExtendedSchemaRelations<TRelations, TBaseClass>>(
             name: K,
         ): ExtendedSchemaRelations<TRelations, TBaseClass>[K];
@@ -221,11 +270,13 @@ export interface SchemaConfig<
     TFields extends SchemaFields = SchemaFields,
     TRelations extends SchemaRelations = {},
     TComputed extends SchemaComputed = {},
+    TTimestamps extends SchemaTimestamps | undefined = SchemaTimestamps | undefined,
     TBaseClass extends ModelConstructor = typeof Model,
 > {
     history?: boolean;
     tombstone?: boolean;
-    timestamps?: boolean;
+    timestamps?: TTimestamps;
+    mintsUrls?: boolean;
     rdfContext?: string;
     rdfContexts?: Record<string, string>;
     rdfClass?: string;
@@ -233,37 +284,48 @@ export interface SchemaConfig<
     rdfDefaultResourceHash?: string;
     fields?: TFields;
     relations?: TRelations;
-    hooks?: SchemaHooks<SchemaModel<TFields, TRelations, {}, TBaseClass>, SchemaHookAttributes<TFields, TBaseClass>>;
-    computed?: SchemaComputedDefinitions<TComputed, NoInfer<SchemaModel<TFields, TRelations, {}, TBaseClass>>>;
+    hooks?: SchemaHooks<
+        SchemaModel<TFields, TRelations, {}, NoInfer<TTimestamps>, TBaseClass>,
+        SchemaHookAttributes<TFields, TBaseClass>
+    >;
+    computed?: SchemaComputedDefinitions<
+        TComputed,
+        NoInfer<SchemaModel<TFields, TRelations, {}, TTimestamps, TBaseClass>>
+    >;
 }
 
 export function defineSchema<
     TFields extends SchemaFields = {},
     TRelations extends SchemaRelations = {},
     TComputed extends SchemaComputed = {},
->(config: SchemaConfig<TFields, TRelations, TComputed>): SchemaModelClass<TFields, TRelations, TComputed>;
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
+>(
+    config: SchemaConfig<TFields, TRelations, TComputed, TTimestamps>,
+): SchemaModelClass<TFields, TRelations, TComputed, TTimestamps>;
 export function defineSchema<
     TFields extends SchemaFields = {},
     TRelations extends SchemaRelations = {},
     TComputed extends SchemaComputed = {},
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
     TBaseClass extends ModelConstructor = typeof Model,
 >(
     baseClass: TBaseClass,
-    config?: SchemaConfig<TFields, TRelations, TComputed, TBaseClass>,
-): SchemaModelClass<TFields, TRelations, TComputed, TBaseClass>;
+    config?: SchemaConfig<TFields, TRelations, TComputed, TTimestamps, TBaseClass>,
+): SchemaModelClass<TFields, TRelations, TComputed, TTimestamps, TBaseClass>;
 export function defineSchema<
     TFields extends SchemaFields = {},
     TRelations extends SchemaRelations = {},
     TComputed extends SchemaComputed = {},
+    TTimestamps extends SchemaTimestamps | undefined = undefined,
     TBaseClass extends ModelConstructor = typeof Model,
 >(
-    baseClassOrConfig: TBaseClass | SchemaConfig<TFields, TRelations, TComputed, TBaseClass>,
-    configArg?: SchemaConfig<TFields, TRelations, TComputed, TBaseClass>,
-): SchemaModelClass<TFields, TRelations, TComputed, TBaseClass> {
+    baseClassOrConfig: TBaseClass | SchemaConfig<TFields, TRelations, TComputed, TTimestamps, TBaseClass>,
+    configArg?: SchemaConfig<TFields, TRelations, TComputed, TTimestamps, TBaseClass>,
+): SchemaModelClass<TFields, TRelations, TComputed, TTimestamps, TBaseClass> {
     const baseClass = isModelClass(baseClassOrConfig) ? baseClassOrConfig : null;
     const baseSchema = baseClass ? getSchema(baseClass) : undefined;
     const config = isModelClass(baseClassOrConfig)
-        ? (configArg ?? ({ fields: {} } as SchemaConfig<TFields, TRelations, TComputed, TBaseClass>))
+        ? (configArg ?? ({ fields: {} } as SchemaConfig<TFields, TRelations, TComputed, TTimestamps, TBaseClass>))
         : baseClassOrConfig;
     const fields = config.fields ?? ({} as TFields);
     const rdfContext = {
@@ -286,7 +348,8 @@ export function defineSchema<
             ]),
         ),
     };
-    const timestamps = config.timestamps ?? baseSchema?.timestamps ?? true;
+    const timestamps = parseSchemaTimestamps(config.timestamps ?? baseSchema?.timestamps ?? true);
+    const mintsUrls = config.mintsUrls ?? baseSchema?.mintsUrls ?? true;
     const history = config.history ?? baseSchema?.history ?? false;
     const tombstone = config.tombstone ?? config.history ?? baseSchema?.tombstone ?? false;
 
@@ -317,6 +380,7 @@ export function defineSchema<
             fields: baseSchema?.fields.extend(fields) ?? object(fields).extend({ url: url().optional() }),
             relations,
             timestamps,
+            mintsUrls,
             history,
             tombstone,
             rdfContext,
@@ -326,7 +390,7 @@ export function defineSchema<
                     Object.entries(config.computed ?? {}).map(([name, definition]) => [
                         name,
                         typeof definition === 'function'
-                            ? { invalidationStrategy: InvalidationStrategies.DOCUMENT, compute: definition }
+                            ? { invalidationStrategy: InvalidationStrategies.Document, compute: definition }
                             : definition,
                     ]),
                 ),
@@ -343,5 +407,5 @@ export function defineSchema<
                     : (baseSchema?.rdfClasses.clone() ?? new RDFClassesMatcher('all', [])),
             rdfFieldProperties,
         };
-    } as unknown as SchemaModelClass<TFields, TRelations, TComputed, TBaseClass>;
+    } as unknown as SchemaModelClass<TFields, TRelations, TComputed, TTimestamps, TBaseClass>;
 }

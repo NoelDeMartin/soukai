@@ -30,7 +30,12 @@ import type Operation from 'soukai-bis/models/crdts/Operation';
 import type PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import Tombstone from 'soukai-bis/models/crdts/Tombstone';
+import type { TimestampField } from 'soukai-bis/models/schema';
 import type { ModelWithUrl } from 'soukai-bis/models/types';
+
+function tracksTimestamp(metadata: Metadata, field: TimestampField): boolean {
+    return !!metadata[field] || (!metadata.createdAt && !metadata.updatedAt);
+}
 
 function getMetadataUpdates({
     documentMetadatas,
@@ -40,7 +45,7 @@ function getMetadataUpdates({
     documentMetadatas: ModelWithUrl<Metadata>[];
     otherDocumentMetadatas: ModelWithUrl<Metadata>[];
     newOperations: Operation[];
-}): Record<string, { exists: boolean; url: string; createdAt: Date; updatedAt: Date }> {
+}): Record<string, { exists: boolean; url: string; createdAt?: Date; updatedAt?: Date }> {
     const otherMetadataByResource = objectFromEntries(
         otherDocumentMetadatas.map((instance) => [required(instance.resourceUrl), instance]),
     );
@@ -52,8 +57,8 @@ function getMetadataUpdates({
                 updated: false,
                 url: instance.url,
                 resourceUrl: required(instance.resourceUrl),
-                createdAt: required(instance.createdAt),
-                updatedAt: required(instance.updatedAt),
+                createdAt: instance.createdAt,
+                updatedAt: instance.updatedAt,
             },
         ]),
     );
@@ -70,20 +75,20 @@ function getMetadataUpdates({
                     updated: true,
                     url: otherMetadata.url,
                     resourceUrl: operation.resourceUrl,
-                    createdAt: operation.date,
-                    updatedAt: operation.date,
+                    createdAt: tracksTimestamp(otherMetadata, 'createdAt') ? operation.date : undefined,
+                    updatedAt: tracksTimestamp(otherMetadata, 'updatedAt') ? operation.date : undefined,
                 });
             }
 
             continue;
         }
 
-        if (operation.date < metadata.createdAt) {
+        if (metadata.createdAt && operation.date < metadata.createdAt) {
             metadata.createdAt = operation.date;
             metadata.updated = true;
         }
 
-        if (operation.date > metadata.updatedAt) {
+        if (metadata.updatedAt && operation.date > metadata.updatedAt) {
             metadata.updatedAt = operation.date;
             metadata.updated = true;
         }
@@ -208,8 +213,14 @@ function getNewDocumentOperations({
             }) as ModelWithUrl<Metadata>;
 
             instance.cleanDirty();
-            documentOperations.push(...createModelInceptionOperations(instance, metadata.createdAt));
+            documentOperations.push(
+                ...createModelInceptionOperations(instance, required(metadata.createdAt ?? metadata.updatedAt)),
+            );
 
+            continue;
+        }
+
+        if (!metadata.updatedAt) {
             continue;
         }
 

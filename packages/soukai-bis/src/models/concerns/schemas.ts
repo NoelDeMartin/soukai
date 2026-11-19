@@ -16,7 +16,7 @@ export function updateModelSchema(modelClass: ModelConstructor, overrides: Schem
     }
 
     for (const property of IMMUTABLE_CONFIG) {
-        if (overrides[property] === original[property]) {
+        if (JSON.stringify(overrides[property]) === JSON.stringify(original[property])) {
             continue;
         }
 
@@ -37,6 +37,7 @@ export function updateModelSchema(modelClass: ModelConstructor, overrides: Schem
         computed: original.computed,
         hooks: { ...overrides.hooks },
         timestamps: original.timestamps,
+        mintsUrls: original.mintsUrls,
         history: original.history,
         tombstone: original.tombstone,
         rdfContext: { ...overrides.rdfContext },

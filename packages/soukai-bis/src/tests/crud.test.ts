@@ -3,9 +3,12 @@ import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@no
 import { escapeRegexText } from '@noeldemartin/utils';
 import { setEngine } from 'soukai-bis/engines';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
+import { bootModels } from 'soukai-bis/models/registry';
+import { defineSchema } from 'soukai-bis/models/schema';
 import Show from 'soukai-bis/testing/stubs/Show';
 import User from 'soukai-bis/testing/stubs/User';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import z from 'zod';
 
 describe('CRUD', () => {
     beforeEach(() => setEngine(new SolidEngine({ fetch: FakeServer.fetch })));
@@ -101,6 +104,98 @@ describe('CRUD', () => {
                 crdt:createdAt "[[.*]]"^^xsd:dateTime ;
                 crdt:updatedAt "[[.*]]"^^xsd:dateTime .
         `);
+    });
+
+    it('Creates models in containers with same-document relations', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const assignedDocumentUrl = `${containerUrl}assigned`;
+        const show = new Show({ name: 'The Office' });
+        const season = show.relatedSeasons.attach({});
+
+        FakeServer.respondOnce(containerUrl, FakeResponse.created('', { Location: assignedDocumentUrl }));
+
+        // Act
+        await show.save({ containerUrl, postToContainer: true });
+
+        // Assert
+        const request = FakeServer.getRequest('POST', containerUrl);
+
+        expect(show.requireDocumentUrl()).toEqual(assignedDocumentUrl);
+        expect(show.metadata?.requireDocumentUrl()).toEqual(assignedDocumentUrl);
+        expect(show.metadata?.resourceUrl).toEqual(show.url);
+        expect(season.requireDocumentUrl()).toEqual(assignedDocumentUrl);
+        expect(season.metadata?.requireDocumentUrl()).toEqual(assignedDocumentUrl);
+        expect(season.metadata?.resourceUrl).toEqual(season.url);
+        expect(show.seasonUrls).toEqual([season.url]);
+        expect(request?.body).not.toContain(containerUrl);
+    });
+
+    it('Creates models in containers with relations in other documents', async () => {
+        // Arrange
+        const containerUrl = fakeContainerUrl();
+        const assignedDocumentUrl = `${containerUrl}assigned`;
+        const user = new User({ name: 'Alice' });
+        const post = user.relatedPosts.attach({ title: 'Hello World' });
+
+        FakeServer.respondOnce(containerUrl, FakeResponse.created('', { Location: assignedDocumentUrl }));
+        FakeServer.respondOnce('*', FakeResponse.notFound()); // Check if post document exists
+        FakeServer.respondOnce('*', FakeResponse.created()); // Create post document
+
+        // Act
+        await user.save({ containerUrl, postToContainer: true });
+        await post.save();
+
+        // Assert
+        expect(user.requireDocumentUrl()).toEqual(assignedDocumentUrl);
+        expect(post.authorUrl).toEqual(user.url);
+        expect(FakeServer.fetchSpy.mock.calls[2]?.[1]?.body).toContain(`<${assignedDocumentUrl}#it>`);
+    });
+
+    it('Creates models without minting urls', async () => {
+        // Arrange
+        class Stub extends defineSchema({
+            mintsUrls: false,
+            rdfContext: 'https://schema.org/',
+            fields: {
+                name: z.string().useAsSlug(),
+            },
+        }) {}
+
+        bootModels({ Stub });
+
+        const containerUrl = fakeContainerUrl();
+        const assignedDocumentUrl = `${containerUrl}assigned`;
+
+        FakeServer.respondOnce(containerUrl, FakeResponse.created('', { Location: assignedDocumentUrl }));
+
+        // Act
+        const stub = await Stub.createAt(containerUrl, { name: 'Alice' });
+
+        // Assert
+        const request = FakeServer.getRequest('POST', containerUrl);
+
+        expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
+        expect(request).toBeDefined();
+        expect(request?.headers).not.toHaveProperty('Slug');
+        expect(request?.body).toEqualTurtle(`
+            @prefix schema: <https://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <#it>
+                a schema:Stub ;
+                schema:name "Alice" .
+
+            <#it-metadata>
+                a crdt:Metadata ;
+                crdt:resource <#it> ;
+                crdt:createdAt "[[.*]]"^^xsd:dateTime ;
+                crdt:updatedAt "[[.*]]"^^xsd:dateTime .
+        `);
+        expect(stub.url).toEqual(`${assignedDocumentUrl}#it`);
+        expect(stub.metadata?.resourceUrl).toEqual(stub.url);
+        expect(stub.exists()).toBe(true);
     });
 
     it('Updates models', async () => {

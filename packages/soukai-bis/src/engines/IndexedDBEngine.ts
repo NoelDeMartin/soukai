@@ -12,6 +12,7 @@ import {
     silenced,
     tap,
 } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import type { IDBPIndex, IDBPObjectStore, IDBPTransaction } from 'idb';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
@@ -680,7 +681,7 @@ export default class IndexedDBEngine extends LocalEngine {
         >,
         documentUrl: string,
         containerUrl: string,
-        update?: LocalChangesUpdate,
+        update?: Nullable<LocalChangesUpdate>,
     ): Promise<boolean> {
         if (!update) {
             return false;

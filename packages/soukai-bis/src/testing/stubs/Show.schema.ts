@@ -13,7 +13,7 @@ export default defineSchema({
     },
     computed: {
         pendingEpisodeDates: {
-            invalidationStrategy: InvalidationStrategies.CONTAINER,
+            invalidationStrategy: InvalidationStrategies.Container,
             compute(show) {
                 return loaded(show, 'seasons')
                     .flatMap((season) => loaded(season, 'episodes'))

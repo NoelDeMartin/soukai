@@ -88,8 +88,9 @@ import type { ModelClassEvent, ModelInstanceEvent, ModelInstanceListener, ModelL
 import { emitModelClassEvent, emitModelInstanceEvent } from './events';
 import { offModelEvent, onModelEvent } from './internals/events';
 import { CLASS_MARKER, SCHEMA, getFieldRDFProperties, getSchema, mintedUrls, replaceSchema } from './internals/model';
+import type { MODEL_TIMESTAMPS_MARKER } from './internals/model';
 import { createWACAuthorization, updatePublicPermissions } from './internals/permissions';
-import { getDocumentQuads, quadsSourceDocumentUrls, serializeToRDF } from './internals/rdf';
+import { getDocumentQuads, quadsSourceDocumentUrls, convertToRelativeQuads, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
 import type TypeIndex from './interop/TypeIndex';
 import type { RDFClassesInput } from './matching/RDFClassesMatcher';
@@ -100,7 +101,7 @@ import { DETACHED_MODELS, NEW_MODEL, NEW_MODELS } from './relations/internals';
 import type Relation from './relations/Relation';
 import type { GetLoadedRelationModels, SchemaRelationDefinition, SchemaRelations } from './relations/schema';
 import { createRelation } from './relations/utils';
-import type { Schema, SchemaComputedAttributeDefinition } from './schema';
+import type { Schema, SchemaComputedAttributeDefinition, TimestampField } from './schema';
 import type {
     AuthorizationProtocol,
     FetchPermissionsOptions,
@@ -175,6 +176,7 @@ export type UrlFromSlugOptions = Pick<MintUrlOptions, 'containerUrl'>;
 export default class Model<
     Attributes extends Record<string, unknown> = Record<string, unknown>,
     Relations extends Record<string, unknown> = Record<string, unknown>,
+    TimestampFieldName extends TimestampField = TimestampField,
     FieldName extends string = string & keyof Attributes,
     RelationName extends string = string & keyof Relations,
 > extends MagicObject {
@@ -572,6 +574,7 @@ export default class Model<
     declare public relatedOperations?: HasManyRelation<this, Operation, typeof Operation>;
     declare public tombstone?: Tombstone;
     declare public relatedTombstone?: HasOneRelation<this, Tombstone, typeof Tombstone>;
+    declare public [MODEL_TIMESTAMPS_MARKER]?: TimestampFieldName[];
 
     declare protected _exists: boolean;
     declare protected _documentExists: boolean;
@@ -1044,8 +1047,12 @@ export default class Model<
         return this._rdfPrefixAliases !== null;
     }
 
-    public hasTimestamps(): this is ModelWithTimestamps<this> {
-        return getSchema(this.static()).timestamps;
+    public hasTimestamps(): this is ModelWithTimestamps<this, never> {
+        return !!getSchema(this.static()).timestamps;
+    }
+
+    public hasTimestamp<T extends TimestampField>(field: T): this is ModelWithTimestamps<this, T> {
+        return (getSchema(this.static()).timestamps || []).includes(field);
     }
 
     public hasUrl(): this is ModelWithUrl<this> {
@@ -1146,11 +1153,13 @@ export default class Model<
             return this as ModelWithUrl<this>;
         }
 
-        if (options.postToContainer && this._documentExists) {
+        const postToContainer = options.postToContainer ?? this.postsToContainer();
+
+        if (postToContainer && this._documentExists) {
             throw new SoukaiError(`Can't post model to container, its document already exists (${this.url})`);
         }
 
-        if (options.postToContainer && containerUrl && this.url && this.getContainerUrl() !== containerUrl) {
+        if (postToContainer && containerUrl && this.url && this.getContainerUrl() !== containerUrl) {
             throw new SoukaiError(`Can't post model to container ${containerUrl}, its url is ${this.url}`);
         }
 
@@ -1169,7 +1178,7 @@ export default class Model<
         const cascadedModels = await cascadeDeletesInDocument(this.getDocumentModelsPendingDeletion());
 
         try {
-            await this.saveDocumentModels({ ...options, date: options.date ?? new Date() });
+            await this.saveDocumentModels({ ...options, postToContainer, date: options.date ?? new Date() });
         } finally {
             cascadedModels.forEach((model) => model.unmarkForDeletion());
         }
@@ -1276,7 +1285,7 @@ export default class Model<
             return this._attributes[property];
         }
 
-        if (getSchema(this.static()).timestamps && (property === 'createdAt' || property === 'updatedAt')) {
+        if ((property === 'createdAt' || property === 'updatedAt') && this.hasTimestamp(property)) {
             return (
                 (this._relations.metadata?.related as Metadata)?._attributes[property] ??
                 this._legacyTimestamps?.[property]
@@ -1349,9 +1358,20 @@ export default class Model<
     }
 
     protected newUrlDocumentUrl(options: MintUrlOptions = {}): string {
+        if (!getSchema(this.static()).mintsUrls) {
+            return this.newProvisionalDocumentUrl(options);
+        }
+
         const slug = this.newUrlSlug() ?? uuid();
 
         return this.static().documentUrlFromSlug(`${slug}${options.slugSuffix ?? ''}`, options);
+    }
+
+    protected newProvisionalDocumentUrl(options: MintUrlOptions = {}): string {
+        return urlResolve(
+            options.containerUrl ?? this.static().defaultContainerUrl,
+            `${uuid()}${options.slugSuffix ?? ''}`,
+        );
     }
 
     protected mintUniqueUrl(options: MintUrlOptions): void {
@@ -1486,6 +1506,14 @@ export default class Model<
         }
     }
 
+    protected postsToContainer(): boolean {
+        if (getSchema(this.static()).mintsUrls || this._documentExists) {
+            return false;
+        }
+
+        return !this.url || mintedUrls.get(this)?.url === this.url;
+    }
+
     protected async beforeSave(options: BeforeSaveOptions = {}): Promise<void> {
         const { date, ...mintUrlOptions } = options;
 
@@ -1592,11 +1620,12 @@ export default class Model<
                 const documentUrl = this.requireDocumentUrl();
                 const documentModels = this.getDocumentModels().filter((model) => !model._markedForDeletion);
                 const localChanges = localEngine && createdModelsLocalChanges(documentModels, date);
+                const mintsUrls = getSchema(this.static()).mintsUrls;
+                const quads = serializeToRDF(documentModels);
                 const document = await engine.createDocumentInContainer(
                     this.requireContainerUrl(),
-                    documentUrl,
-                    serializeToRDF(documentModels),
-                    localChanges ? { localChanges } : undefined,
+                    mintsUrls ? quads : convertToRelativeQuads(quads, documentUrl),
+                    { localChanges, proposedUrl: mintsUrls ? documentUrl : null },
                 );
 
                 if (document.url !== documentUrl) {
@@ -1702,8 +1731,8 @@ export default class Model<
 
         const metadata = this.relatedMetadata.attach({
             resourceUrl: this.url,
-            createdAt: timestamps.createdAt ?? new Date(),
-            updatedAt: timestamps.updatedAt ?? new Date(),
+            createdAt: this.hasTimestamp('createdAt') ? (timestamps.createdAt ?? new Date()) : undefined,
+            updatedAt: this.hasTimestamp('updatedAt') ? (timestamps.updatedAt ?? new Date()) : undefined,
         });
 
         this.url && metadata.mintUrl();
@@ -1752,8 +1781,8 @@ export default class Model<
         if (!this.metadata) {
             this.initializeMetadata({ createdAt: this._legacyTimestamps?.createdAt ?? now, updatedAt: now });
         } else {
-            this.exists() || this.metadata.setAttribute('createdAt', now);
-            this.metadata.setAttribute('updatedAt', now);
+            this.exists() || !this.hasTimestamp('createdAt') || this.metadata.setAttribute('createdAt', now);
+            this.hasTimestamp('updatedAt') && this.metadata.setAttribute('updatedAt', now);
         }
 
         if (this._pendingSoftDeletion) {
@@ -1933,7 +1962,7 @@ export default class Model<
         const schema = getSchema(this.static());
 
         return (
-            (schema.timestamps && (property === 'createdAt' || property === 'updatedAt')) ||
+            ((property === 'createdAt' || property === 'updatedAt') && this.hasTimestamp(property)) ||
             property in schema.relations ||
             property in schema.computed ||
             (property.startsWith('related') && stringToCamelCase(property.slice(7)) in schema.relations)

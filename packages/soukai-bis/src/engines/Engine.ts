@@ -1,6 +1,7 @@
 import { RDFNamedNode, isJsonLDGraph } from '@noeldemartin/solid-utils';
 import type { JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
 import { arrayChunk, arrayFilter, isInstanceOf, required, tap } from '@noeldemartin/utils';
+import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -31,6 +32,10 @@ import type EngineOperation from './operations/EngineOperation';
 export type ReadDocumentsOptions<TReadOptions extends object = object> = TReadOptions &
     ({ urls: string[] } | { containerUrl: string; deep?: boolean; depth?: number });
 
+export type CreateDocumentInContainerOptions<TWriteOptions extends object = never> = {
+    proposedUrl?: Nullable<string>;
+} & ([TWriteOptions] extends [never] ? {} : TWriteOptions);
+
 export default abstract class Engine<
     TReadOptions extends object = object,
     TWriteOptions extends object = never,
@@ -50,13 +55,20 @@ export default abstract class Engine<
 
     public async createDocumentInContainer(
         containerUrl: string,
-        proposedUrl: string,
         contents: JsonLD | JsonLDGraph | Quad[],
-        options?: TWriteOptions,
+        options: CreateDocumentInContainerOptions<TWriteOptions> = {} as CreateDocumentInContainerOptions<TWriteOptions>,
     ): Promise<SolidDocument> {
+        const { proposedUrl, ...writeOptions } = options;
+
+        if (!proposedUrl) {
+            throw new SoukaiError(
+                `${this.static().engineName} can't create documents in containers without a proposed url`,
+            );
+        }
+
         this.assertContainerDocumentSlug(containerUrl, proposedUrl);
 
-        return this.createDocument(proposedUrl, contents, options);
+        return this.createDocument(proposedUrl, contents, writeOptions as TWriteOptions);
     }
 
     public abstract readDocument(url: string, options?: TReadOptions): Promise<SolidDocument>;

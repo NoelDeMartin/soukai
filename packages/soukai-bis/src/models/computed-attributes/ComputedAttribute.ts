@@ -11,8 +11,8 @@ import type { RelationTree } from './registry';
 const relationsLock = new Semaphore(20);
 
 export const InvalidationStrategies = {
-    DOCUMENT: 'document',
-    CONTAINER: 'container',
+    Document: 'document',
+    Container: 'container',
 } as const;
 
 export interface UpdateOptions {

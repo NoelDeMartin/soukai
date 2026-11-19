@@ -150,8 +150,10 @@ You can also do this with an existing instance, using the `postToContainer` opti
 ```ts
 const alice = new Person({ name: 'Alice' });
 
-await alice.save('https://example.org/people/', { postToContainer: true });
+await alice.save({ containerUrl: 'https://example.org/people/', postToContainer: true });
 ```
+
+If you want to do this for all the models of a given class, you can [disable url minting](../core-concepts/models.md#disabling-url-minting) in the schema instead.
 
 ## Namespacing browser storage
 

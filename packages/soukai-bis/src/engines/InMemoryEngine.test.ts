@@ -85,7 +85,7 @@ describe('InMemoryEngine', () => {
         const containerUrl = fakeContainerUrl();
         const documentUrl = `${containerUrl}document`;
 
-        const document = await engine.createDocumentInContainer(containerUrl, documentUrl, {});
+        const document = await engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: documentUrl });
 
         expect(document.url).toEqual(documentUrl);
         expect(engine.documents[documentUrl]).toBeDefined();
@@ -94,16 +94,22 @@ describe('InMemoryEngine', () => {
     it('fails creating documents in containers with invalid urls', async () => {
         const containerUrl = fakeContainerUrl();
 
-        await expect(engine.createDocumentInContainer(containerUrl, `${containerUrl}child/`, {})).rejects.toThrow(
+        await expect(
+            engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: `${containerUrl}child/` }),
+        ).rejects.toThrow(SoukaiError);
+        await expect(
+            engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: `${containerUrl}child/doc` }),
+        ).rejects.toThrow(SoukaiError);
+        await expect(
+            engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: fakeDocumentUrl() }),
+        ).rejects.toThrow(SoukaiError);
+        await expect(engine.createDocumentInContainer(containerUrl, {}, { proposedUrl: containerUrl })).rejects.toThrow(
             SoukaiError,
         );
-        await expect(engine.createDocumentInContainer(containerUrl, `${containerUrl}child/doc`, {})).rejects.toThrow(
-            SoukaiError,
-        );
-        await expect(engine.createDocumentInContainer(containerUrl, fakeDocumentUrl(), {})).rejects.toThrow(
-            SoukaiError,
-        );
-        await expect(engine.createDocumentInContainer(containerUrl, containerUrl, {})).rejects.toThrow(SoukaiError);
+    });
+
+    it('fails creating documents in containers without proposed urls', async () => {
+        await expect(engine.createDocumentInContainer(fakeContainerUrl(), {})).rejects.toThrow(SoukaiError);
     });
 
     it('updates documents', async () => {

@@ -91,8 +91,8 @@ Concurrent updates with the same options are coalesced, so calling the method mu
 
 Values computed on other devices won't be refreshed automatically, so cached values need to be invalidated when documents are updated during [synchronization](./local-first.md#synchronization). How this is done is determined by the invalidation strategy of each attribute:
 
-- `InvalidationStrategies.DOCUMENT` (the default): Values will be invalidated when the document of the model is synchronized. This is the best option when related models are stored in the [same document](../core-concepts/relations.md#using-the-same-document).
-- `InvalidationStrategies.CONTAINER`: Values will be invalidated when any document in the container of the model (including nested containers) is synchronized. This is useful when related models are stored in different documents within the same container.
+- `InvalidationStrategies.Document` (the default): Values will be invalidated when the document of the model is synchronized. This is the best option when related models are stored in the [same document](../core-concepts/relations.md#using-the-same-document).
+- `InvalidationStrategies.Container`: Values will be invalidated when any document in the container of the model (including nested containers) is synchronized. This is useful when related models are stored in different documents within the same container.
 
 In order to use a different strategy, you need to define the attribute with an object instead of a function:
 
@@ -105,7 +105,7 @@ export default defineSchema({
     },
     computed: {
         pendingEpisodes: {
-            invalidationStrategy: InvalidationStrategies.CONTAINER,
+            invalidationStrategy: InvalidationStrategies.Container,
             compute(show) {
                 return loaded(show, 'episodes').filter((episode) => !episode.watched).length;
             },

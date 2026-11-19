@@ -41,7 +41,7 @@ export interface LocalEngineReadOptions {
 
 export interface LocalEngineWriteOptions {
     lastModifiedAt?: Nullable<Date>;
-    localChanges?: LocalChangesUpdate;
+    localChanges?: Nullable<LocalChangesUpdate>;
 }
 
 export interface LocalEngineDeleteOptions {

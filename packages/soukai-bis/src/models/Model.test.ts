@@ -13,6 +13,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { CRDT_VALUE, XSD_DATE_TIME, serializeTerm } from 'soukai-bis/lib/internals/rdf';
 import { syncDocumentOperations } from 'soukai-bis/models/concerns/crdts';
 import { isPropertyOperation } from 'soukai-bis/models/crdts/helpers';
+import { getSchema } from 'soukai-bis/models/internals/model';
 import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import { ICAL, SCHEMA } from 'soukai-bis/testing/constants';
 import Animal from 'soukai-bis/testing/stubs/Animal';
@@ -50,7 +51,7 @@ import type { ModelConstructorOptions } from './Model';
 import { bootModels } from './registry';
 import { belongsToMany, belongsToOne } from './relations/fluent';
 import { remote } from './remote';
-import { defineSchema } from './schema';
+import { TimestampFields, defineSchema } from './schema';
 import type { ModelWithTimestamps, ModelWithUrl } from './types';
 
 describe('Model', () => {
@@ -529,6 +530,165 @@ describe('Model', () => {
             SoukaiError,
         );
         expect(user.exists()).toBe(false);
+    });
+
+    it('mints provisional urls ignoring slugs when url minting is disabled', () => {
+        // Arrange
+        class DocumentSlugStub extends defineSchema({
+            mintsUrls: false,
+            fields: {
+                name: z.string().useAsSlug(),
+            },
+        }) {}
+
+        class ContainerSlugStub extends defineSchema({
+            mintsUrls: false,
+            fields: {
+                name: z.string().useAsContainerSlug(),
+            },
+        }) {}
+
+        bootModels({ DocumentSlugStub, ContainerSlugStub });
+
+        const documentSlugStub = new DocumentSlugStub({ name: 'Alice' });
+        const containerSlugStub = new ContainerSlugStub({ name: 'Alice' });
+
+        // Act
+        documentSlugStub.mintUrl({ containerUrl: 'local://stubs/' });
+        containerSlugStub.mintUrl({ containerUrl: 'local://stubs/' });
+
+        // Assert
+        const uuidPattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+        expect(documentSlugStub.url).toMatch(new RegExp(`^local://stubs/${uuidPattern}#it$`));
+        expect(containerSlugStub.url).toMatch(new RegExp(`^local://stubs/${uuidPattern}#it$`));
+    });
+
+    it('inherits url minting configuration', () => {
+        const A = defineSchema({ mintsUrls: false });
+        const B = defineSchema(A, {});
+        const C = defineSchema(A, { mintsUrls: true });
+
+        bootModels({ A, B, C });
+
+        expect(getSchema(A).mintsUrls).toBe(false);
+        expect(getSchema(B).mintsUrls).toBe(false);
+        expect(getSchema(C).mintsUrls).toBe(true);
+    });
+
+    it('keeps url minting configuration when updating schemas', async () => {
+        // Arrange
+        class Stub extends defineSchema({ mintsUrls: false }) {}
+
+        const OtherSchema = defineSchema({ rdfContext: 'https://schema.org/' });
+
+        bootModels({ Stub, OtherSchema });
+
+        // Act
+        await Stub.updateSchema(OtherSchema);
+
+        // Assert
+        expect(getSchema(OtherSchema).mintsUrls).toBe(true);
+        expect(getSchema(Stub).mintsUrls).toBe(false);
+    });
+
+    it('enables only some timestamps', async () => {
+        // Arrange
+        class CreatedStub extends defineSchema({
+            rdfContext: 'https://schema.org/',
+            timestamps: ['createdAt'],
+            fields: {
+                name: z.string(),
+            },
+        }) {}
+
+        class UpdatedStub extends defineSchema({
+            rdfContext: 'https://schema.org/',
+            timestamps: [TimestampFields.UpdatedAt],
+            fields: {
+                name: z.string(),
+            },
+        }) {}
+
+        bootModels({ CreatedStub, UpdatedStub });
+
+        const createdStub = await CreatedStub.create({ name: 'Created' });
+        const updatedStub = await UpdatedStub.create({ name: 'Updated' });
+        const originalCreatedAt = createdStub.createdAt;
+        const originalUpdatedAt = updatedStub.updatedAt;
+
+        // Act
+        vi.advanceTimersByTime(1);
+        await createdStub.update({ name: 'Created (edited)' });
+        await updatedStub.update({ name: 'Updated (edited)' });
+
+        // Assert
+        expect(createdStub.hasTimestamps()).toBe(true);
+        expect(createdStub.createdAt).toEqual(originalCreatedAt);
+        expect(createdStub.updatedAt).toBeUndefined();
+        expect(createdStub.metadata?.updatedAt).toBeUndefined();
+
+        expect(updatedStub.hasTimestamps()).toBe(true);
+        expect(updatedStub.createdAt).toBeUndefined();
+        expect(updatedStub.updatedAt).toBeInstanceOf(Date);
+        expect(updatedStub.updatedAt).not.toEqual(originalUpdatedAt);
+        expect(updatedStub.metadata?.createdAt).toBeUndefined();
+
+        expect(await createdStub.toTurtle()).toEqualTurtle(`
+            @prefix schema: <https://schema.org/> .
+            @prefix crdt: <https://vocab.noeldemartin.com/crdt/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            <${createdStub.url}>
+                a schema:CreatedStub ;
+                schema:name "Created (edited)" .
+
+            <${createdStub.url}-metadata>
+                a crdt:Metadata ;
+                crdt:resource <${createdStub.url}> ;
+                crdt:createdAt "${originalCreatedAt?.toISOString()}"^^xsd:dateTime .
+        `);
+    });
+
+    it('treats empty timestamps as disabled', () => {
+        const Stub = defineSchema({ timestamps: [] });
+
+        bootModels({ Stub });
+
+        expect(getSchema(Stub).timestamps).toBe(false);
+        expect(new Stub().hasTimestamps()).toBe(false);
+    });
+
+    it('infers timestamp types from schemas', () => {
+        // Arrange
+        class AllStub extends defineSchema({}) {}
+        class CreatedStub extends defineSchema({ timestamps: [TimestampFields.CreatedAt] }) {}
+        class DisabledStub extends defineSchema({ timestamps: false }) {}
+        class InheritedStub extends defineSchema(CreatedStub, {}) {}
+        class HooksStub extends defineSchema({
+            timestamps: [TimestampFields.CreatedAt],
+            hooks: {
+                beforeSave() {
+                    expectTypeOf(this).toExtend<Model<Record<string, unknown>, Record<string, unknown>, 'createdAt'>>();
+                },
+            },
+        }) {}
+
+        const stub = new CreatedStub();
+
+        // Assert
+        expectTypeOf<ModelWithTimestamps<AllStub>['createdAt']>().toEqualTypeOf<Date>();
+        expectTypeOf<ModelWithTimestamps<AllStub>['updatedAt']>().toEqualTypeOf<Date>();
+        expectTypeOf<ModelWithTimestamps<CreatedStub>['createdAt']>().toEqualTypeOf<Date>();
+        expectTypeOf<ModelWithTimestamps<CreatedStub>['updatedAt']>().toEqualTypeOf<Date | undefined>();
+        expectTypeOf<ModelWithTimestamps<DisabledStub>['createdAt']>().toEqualTypeOf<Date | undefined>();
+        expectTypeOf<ModelWithTimestamps<InheritedStub>['updatedAt']>().toEqualTypeOf<Date | undefined>();
+        expectTypeOf<ModelWithTimestamps<HooksStub>['createdAt']>().toEqualTypeOf<Date>();
+
+        if (stub.hasTimestamp('createdAt')) {
+            expectTypeOf(stub.createdAt).toEqualTypeOf<Date>();
+            expectTypeOf(stub.updatedAt).toEqualTypeOf<Date | undefined>();
+        }
     });
 
     it('updates instances with dirty attributes', async () => {

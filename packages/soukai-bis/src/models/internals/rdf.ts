@@ -1,13 +1,22 @@
 import { RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
 import type { SolidDocument } from '@noeldemartin/solid-utils';
 import { tap, weakMemo } from '@noeldemartin/utils';
-import type { Quad } from '@rdfjs/types';
+import type { Quad, Term } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
 import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import { castToRDF } from 'soukai-bis/zod/utils';
 
 export const quadsSourceDocumentUrls = new WeakMap<Quad[], string>();
+
+export function convertToRelativeQuads(quads: Quad[], documentUrl: string): Quad[] {
+    const toRelative = <T extends Term>(term: T): T =>
+        term.termType === 'NamedNode' && (term.value === documentUrl || term.value.startsWith(`${documentUrl}#`))
+            ? (new RDFNamedNode(term.value.slice(documentUrl.length)) as unknown as T)
+            : term;
+
+    return quads.map((quad) => new RDFQuad(toRelative(quad.subject), quad.predicate, toRelative(quad.object)));
+}
 
 export function getDocumentQuads(document: SolidDocument): Quad[] {
     return weakMemo('document-quads', document, () =>

@@ -7,6 +7,7 @@ import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 
 import Engine from './Engine';
+import type { CreateDocumentInContainerOptions } from './Engine';
 import { CLASS_MARKER } from './internals';
 import type EngineOperation from './operations/EngineOperation';
 
@@ -55,15 +56,18 @@ export default class SolidEngine extends Engine {
 
     public override async createDocumentInContainer(
         containerUrl: string,
-        proposedUrl: string,
         contents: JsonLD | JsonLDGraph | Quad[],
+        { proposedUrl }: CreateDocumentInContainerOptions = {},
     ): Promise<SolidDocument> {
-        const slug = this.assertContainerDocumentSlug(containerUrl, proposedUrl);
+        const slug = proposedUrl ? this.assertContainerDocumentSlug(containerUrl, proposedUrl) : undefined;
 
         return this.lock.run(async () => {
             const quads = Array.isArray(contents) ? contents : await jsonldToQuads(contents);
 
-            return this.client.createInContainer(containerUrl, quads, { slug, base: proposedUrl });
+            return this.client.createInContainer(containerUrl, quads, {
+                slug,
+                base: proposedUrl ?? undefined,
+            });
         });
     }
 

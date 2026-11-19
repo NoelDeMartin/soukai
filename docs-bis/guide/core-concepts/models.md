@@ -106,9 +106,19 @@ export default defineSchema({
 });
 ```
 
-::: warning TODO
-Previous versions of Soukai supported enabling only some of the timestamps (for example, `static timestamps = [TimestampField.CreatedAt]`). At the moment, timestamps can only be enabled or disabled as a whole.
-:::
+You can also enable only some of them passing an array instead:
+
+```ts
+import { defineSchema, TimestampFields } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    timestamps: [TimestampFields.CreatedAt],
+    fields: {
+        name: string(),
+    },
+});
+```
 
 ### Attribute getters and setters
 
@@ -208,15 +218,29 @@ await Person.create({
 
 There are also some helper methods to work with urls, such as `getDocumentUrl()`, `getContainerUrl()`, and `getSlug()` (as well as their `require*` counterparts, which throw an error if the value is missing).
 
-::: warning TODO
-Previous versions of Soukai allowed disabling url minting using `static mintsUrls = false`. This hasn't been implemented yet.
-:::
+### Disabling url minting
+
+If you'd rather let the POD decide the urls, you can disable url minting using the `mintsUrls` option in the schema:
+
+```ts
+import { defineSchema } from 'soukai-bis';
+import { string } from 'zod';
+
+export default defineSchema({
+    mintsUrls: false,
+    fields: {
+        name: string(),
+    },
+});
+```
+
+New models will then be [posted to their container](../advanced/bag-of-tricks.md#server-side-url-minting) when they are saved. Keep in mind that this only works with engines that talk to a POD, such as the `SolidEngine`. Local engines can't decide urls, so they'll throw an error when creating models without an explicit url. If you're using a [local-first setup](../advanced/local-first.md), you can declare these models as [remote models](./engines.md#remote-engine) so that they are always created in the POD.
 
 ## Containers
 
 The equivalent of collections in Soukai are containers (following the [Linked Data Platform](https://www.w3.org/TR/ldp/) terminology, used in Solid). Given the dynamic nature of Solid, container urls should not be hard-coded in the model class. Instead, they will be inferred from the model url.
 
-Since the url of a model is not always available, there are a couple of ways to indicate the container. You can use the `from` option to read models from a container, and the `createAt` method (or the first argument of the `save` method) to create them:
+Since the url of a model is not always available, there are a couple of ways to indicate the container. You can use the `from` option to read models from a container, and the `createAt` method (or the `containerUrl` option of the `save` method) to create them:
 
 ```ts
 // This is something you should obtain at runtime, instead of hard-coding it
@@ -229,7 +253,7 @@ const persons = await Person.all({ from: containerUrl });
 const person = await Person.createAt(containerUrl, { name: 'Amy Doe' });
 
 // Or...
-await new Person({ name: 'Amy Doe' }).save(containerUrl);
+await new Person({ name: 'Amy Doe' }).save({ containerUrl });
 ```
 
 The `find`, `delete` and `save` methods infer the container url from the model url, so it's not necessary to provide it once the url has been minted.

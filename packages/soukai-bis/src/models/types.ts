@@ -12,9 +12,12 @@ import type Container from './ldp/Container';
 import type Model from './Model';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
+import type { TimestampField } from './schema';
 
 export type ContainerConstructor<T extends Container = Container> = Constructor<T> & Omit<typeof Container, 'new'>;
 export type GetModelAttributes<T extends Model> = T extends Model<infer TAttributes> ? TAttributes : never;
+export type GetModelTimestamps<T extends Model> =
+    T extends Model<Record<string, unknown>, Record<string, unknown>, infer TTimestamps> ? TTimestamps : never;
 export type GetModelInput<T extends ModelConstructor> = Pretty<NonNullable<ConstructorParameters<T>[0]>>;
 export type GetModelRelationName<T extends ModelConstructor> = string & keyof T[typeof SCHEMA]['relations'];
 export type LegacyTimestamps = { createdAt?: Date; updatedAt?: Date };
@@ -23,10 +26,11 @@ export type ModelConstructor<T extends Model = Model> = Constructor<T> & Omit<ty
 export type ModelInstanceType<T> = T extends ModelConstructor<infer TInstance> ? TInstance : never;
 export type ModelWithUrl<T extends Model = Model> = T & Model & { url: string };
 
-export type ModelWithTimestamps<T extends Model = Model> = T &
-    Model & {
-        createdAt: Date;
-        updatedAt: Date;
+export type ModelWithTimestamps<
+    T extends Model = Model,
+    TTimestampFields extends TimestampField = GetModelTimestamps<T>,
+> = T &
+    Model & { [K in TTimestampFields]: Date } & {
         metadata: Metadata;
         relatedMetadata: HasOneRelation<T, Metadata, typeof Metadata>;
     };

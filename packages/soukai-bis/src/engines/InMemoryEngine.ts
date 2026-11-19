@@ -207,7 +207,7 @@ export default class InMemoryEngine extends LocalEngine {
         }
     }
 
-    private writeLocalChanges(documentUrl: string, update?: LocalChangesUpdate): boolean {
+    private writeLocalChanges(documentUrl: string, update?: Nullable<LocalChangesUpdate>): boolean {
         if (!update) {
             return false;
         }

@@ -13,6 +13,7 @@ export const migratedModels = new WeakMap<ModelConstructor, WeakMap<ModelConstru
 export const mintedUrls = new WeakMap<Model, { url: string; options: MintUrlOptions }>();
 
 export const CLASS_MARKER: unique symbol = Symbol('classMarker');
+export const MODEL_TIMESTAMPS_MARKER: unique symbol = Symbol('modelTimestampsMarker');
 export const SCHEMA: unique symbol = Symbol('schema');
 
 export function getSchema(modelClass: ModelConstructor): Schema {
