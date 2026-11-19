@@ -1,16 +1,25 @@
-import { RDFNamedNode, RDFQuad, SolidDocument } from '@noeldemartin/solid-utils';
-import { ListenersManager } from '@noeldemartin/utils';
+import { RDFLiteral, RDFNamedNode, RDFQuad, SolidDocument } from '@noeldemartin/solid-utils';
+import { arrayFilter, ListenersManager } from '@noeldemartin/utils';
 import type { Listeners, Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import FileAlreadyExists from 'soukai-bis/errors/FileAlreadyExists';
+import { mediaTypeToRDFType } from 'soukai-bis/lib/internals/files';
 import {
     CRDT_DATE_PREDICATE,
     LDP_BASIC_CONTAINER_OBJECT,
     LDP_CONTAINER_OBJECT,
+    LDP_CONTAINS_PREDICATE,
+    LDP_RESOURCE_OBJECT,
+    PURL_MODIFIED_PREDICATE,
     RDF_TYPE_PREDICATE,
+    XSD_DATE_TIME_TYPE,
 } from 'soukai-bis/lib/internals/rdf';
+import { requireSafeContainerUrl } from 'soukai-bis/lib/internals/urls';
 
 import Engine from './Engine';
+import type { FileWriteOptions } from './Engine';
 import { CLASS_MARKER } from './internals';
 import { getResourceLocalChangesDate } from './local-changes';
 import type EngineOperation from './operations/EngineOperation';
@@ -48,6 +57,23 @@ export interface LocalEngineDeleteOptions {
     ifMatch?: { status: LocalDocumentStatus };
 }
 
+export interface LocalFile {
+    url: string;
+    containerUrl: string;
+    mimeType?: string;
+    lastModifiedAt?: Date | null;
+    blob?: Blob;
+    availableOffline?: boolean;
+    deleted?: boolean;
+}
+
+export interface LocalFileUpdate {
+    blob?: Blob | null;
+    mimeType?: string;
+    lastModifiedAt?: Date | null;
+    availableOffline?: boolean;
+}
+
 export interface PurgeMetadataOptions {
     documentUrls?: string[];
 }
@@ -82,6 +108,10 @@ export default abstract class LocalEngine extends Engine<
 
     public abstract getDocumentsLocalChanges(): Promise<Record<string, DocumentLocalChanges>>;
 
+    public abstract getFile(url: string): Promise<LocalFile | null>;
+
+    public abstract getFiles(options?: { containerUrl?: string }): Promise<LocalFile[]>;
+
     public async getLocalChangesets(): Promise<LocalChangeset[]> {
         const changesets = new Map<number, LocalChangeset>();
         const documentsChanges = await this.getDocumentsLocalChanges();
@@ -111,6 +141,113 @@ export default abstract class LocalEngine extends Engine<
 
         return Array.from(changesets.values()).sort(
             (changeset, other) => changeset.date.getTime() - other.date.getTime(),
+        );
+    }
+
+    public async writeFile(
+        url: string,
+        blob: Blob,
+        options: FileWriteOptions<LocalEngineWriteOptions> = {},
+    ): Promise<null> {
+        this.assertFileUrl(url);
+
+        const existingFile = await this.getFile(url);
+
+        await this.putFile(
+            {
+                url,
+                containerUrl: requireSafeContainerUrl(url),
+                blob,
+                mimeType: options.mimeType ?? (blob.type || existingFile?.mimeType),
+                lastModifiedAt:
+                    options.lastModifiedAt === undefined ? existingFile?.lastModifiedAt : options.lastModifiedAt,
+                availableOffline: existingFile?.availableOffline,
+            },
+            { localChanges: options.localChanges },
+        );
+
+        return null;
+    }
+
+    public async createFile(
+        url: string,
+        blob: Blob,
+        options: FileWriteOptions<LocalEngineWriteOptions> = {},
+    ): Promise<null> {
+        const existingFile = await this.getFile(url);
+
+        if (existingFile && !existingFile.deleted) {
+            throw new FileAlreadyExists(url);
+        }
+
+        return this.writeFile(url, blob, options);
+    }
+
+    public async readFile(url: string): Promise<Blob> {
+        const file = await this.getFile(url);
+
+        if (!file?.blob || file.deleted) {
+            throw new DocumentNotFound(url);
+        }
+
+        return file.blob;
+    }
+
+    public async deleteFile(url: string, options: LocalEngineWriteOptions = {}): Promise<null> {
+        this.assertFileUrl(url);
+
+        const file = await this.getFile(url);
+
+        if (!file) {
+            return null;
+        }
+
+        const localChanges =
+            options.localChanges &&
+            this.applyLocalChangesUpdate(await this.getDocumentLocalChanges(url), options.localChanges);
+
+        if (!localChanges) {
+            await this.removeFile(url);
+
+            return null;
+        }
+
+        await this.putFile(
+            {
+                url: file.url,
+                containerUrl: file.containerUrl,
+                mimeType: file.mimeType,
+                lastModifiedAt: file.lastModifiedAt,
+                availableOffline: file.availableOffline,
+                deleted: true,
+            },
+            { localChanges: () => localChanges },
+        );
+
+        return null;
+    }
+
+    public async updateFile(
+        url: string,
+        update: LocalFileUpdate,
+        options: Pick<LocalEngineWriteOptions, 'localChanges'> = {},
+    ): Promise<void> {
+        this.assertFileUrl(url);
+
+        const file = await this.getFile(url);
+        const blob = update.blob === null ? undefined : (update.blob ?? file?.blob);
+
+        await this.putFile(
+            {
+                url,
+                containerUrl: requireSafeContainerUrl(url),
+                blob,
+                mimeType: update.mimeType ?? file?.mimeType ?? (blob?.type || undefined),
+                lastModifiedAt: update.lastModifiedAt === undefined ? file?.lastModifiedAt : update.lastModifiedAt,
+                availableOffline: update.availableOffline ?? file?.availableOffline,
+                deleted: file?.deleted,
+            },
+            { localChanges: options.localChanges },
         );
     }
 
@@ -180,11 +317,39 @@ export default abstract class LocalEngine extends Engine<
         ];
     }
 
+    protected containerFilesQuads(containerUrl: string, files: LocalFile[]): Quad[] {
+        return files
+            .filter((file) => file.containerUrl === containerUrl && !file.deleted)
+            .flatMap((file) => {
+                const subject = new RDFNamedNode(file.url);
+                const mediaType = file.mimeType || 'application/octet-stream';
+
+                return arrayFilter([
+                    new RDFQuad(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE, subject),
+                    new RDFQuad(subject, RDF_TYPE_PREDICATE, LDP_RESOURCE_OBJECT),
+                    new RDFQuad(subject, RDF_TYPE_PREDICATE, new RDFNamedNode(mediaTypeToRDFType(mediaType))),
+                    file.lastModifiedAt &&
+                        new RDFQuad(
+                            subject,
+                            PURL_MODIFIED_PREDICATE,
+                            new RDFLiteral(file.lastModifiedAt.toISOString(), undefined, XSD_DATE_TIME_TYPE),
+                        ),
+                ]);
+            });
+    }
+
     protected containerMatcher(containerUrls: string[] | RegExp): (url: string) => boolean {
         return Array.isArray(containerUrls)
             ? (url: string) => containerUrls.includes(url)
             : (url: string) => containerUrls.test(url);
     }
+
+    protected abstract putFile(
+        file: LocalFile,
+        options?: { localChanges?: Nullable<LocalChangesUpdate> },
+    ): Promise<void>;
+
+    protected abstract removeFile(url: string): Promise<void>;
 
     private async refreshOperationDatesCache(documentsChanges: Record<string, DocumentLocalChanges>): Promise<void> {
         const operationDates = new Map<string, Date>();

@@ -328,3 +328,41 @@ await movies.relatedMovies.create({ title: 'Spirited Away' });
 
 > [!NOTE]
 > Under the hood, the `contains` relation reads all the documents in the container, which means that there could be more than one model per document.
+
+### Container files
+
+Besides documents, containers can also hold files, such as images or PDFs. These are Solid resources that aren't RDF, so they don't have any models, but you can work with them through the containers that hold them:
+
+```ts
+const gallery = await Container.find('https://example.org/galleries/holidays/');
+
+// Upload a file, and get its url.
+const url = await gallery.uploadFile(image);
+
+// Read the files in the container.
+for (const file of gallery.files) {
+    console.log(file.url, file.mimeType);
+
+    const blob = await file.blob();
+}
+
+// Delete a file.
+await gallery.deleteFile(url);
+```
+
+When uploading files, their name will be taken from the `slug` option, or the name of the `File` (falling back to a random id for plain `Blob` objects). If the name is already in use, a short random id will be appended to it, unless you pass `overwrite: true` to replace the existing file. The media type will be taken from the blob, but you can also set it with the `mimeType` option:
+
+```ts
+await gallery.uploadFile(blob, { slug: 'beach.png', mimeType: 'image/png' });
+```
+
+If you only have the url of a file (for example, stored in a model field), you can read it with the `readFile` and `readFileIfExists` helpers. The first one throws a `DocumentNotFound` error if the file doesn't exist, and the second one returns `null`:
+
+```ts
+import { readFile, readFileIfExists } from 'soukai-bis';
+
+const blob = await readFile(movie.posterUrl);
+const maybeBlob = await readFileIfExists(movie.posterUrl);
+```
+
+When the default engine is a local engine, files that aren't [stored offline](../advanced/local-first.md#syncing-files) only keep their metadata locally, so their contents will be read from the [remote engine](./engines.md#remote-engine) instead.

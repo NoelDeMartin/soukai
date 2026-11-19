@@ -2,7 +2,7 @@ import type { SolidDocument } from '@noeldemartin/solid-utils';
 import { arrayUnique } from '@noeldemartin/utils';
 import { getResourceOperationUrls } from 'soukai-bis/models/concerns/crdts';
 
-import type { DocumentLocalChanges, ResourceLocalChanges } from './LocalEngine';
+import type { DocumentLocalChanges, LocalChangesUpdate, ResourceLocalChanges } from './LocalEngine';
 
 type ResourceLocalChangesKind = 'created' | 'updated' | 'deleted';
 
@@ -54,6 +54,10 @@ function cloneLocalChanges(changes: DocumentLocalChanges | null | undefined): Do
 
 export function isCreatedLocalChange(changes: ResourceLocalChanges | null | undefined): boolean {
     return !!changes && resourceLocalChangesKind(changes) === 'created';
+}
+
+export function isUpdatedLocalChange(changes: ResourceLocalChanges | null | undefined): boolean {
+    return !!changes && resourceLocalChangesKind(changes) === 'updated';
 }
 
 export function isDeletedLocalChange(changes: ResourceLocalChanges | null | undefined): boolean {
@@ -195,5 +199,29 @@ export function migrateLocalChanges(
 export function withoutResourceLocalChanges(changes: DocumentLocalChanges, urls: Set<string>): DocumentLocalChanges {
     return {
         resources: Object.fromEntries(Object.entries(changes.resources).filter(([url]) => !urls.has(url))),
+    };
+}
+
+export function fileLocalChanges(
+    url: string,
+    kind: ResourceLocalChangesKind,
+    date: Date = new Date(),
+): LocalChangesUpdate {
+    return (changes) => {
+        const previousChanges = changes?.resources[url];
+
+        if (kind === 'deleted') {
+            return isCreatedLocalChange(previousChanges) ? null : { resources: { [url]: { deletedAt: date } } };
+        }
+
+        if (isCreatedLocalChange(previousChanges)) {
+            return { resources: { [url]: { createdAt: date } } };
+        }
+
+        return {
+            resources: {
+                [url]: previousChanges || kind === 'updated' ? { updatedAt: date } : { createdAt: date },
+            },
+        };
     };
 }

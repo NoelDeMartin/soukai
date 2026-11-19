@@ -61,6 +61,20 @@ describe('HasOneRelation', () => {
         expect(action.objectUrl).toBe(movie.url);
     });
 
+    it('saves related models for parents that do not exist yet', async () => {
+        // Arrange
+        const movieUrl = fakeResourceUrl();
+        const movie = new Movie({ url: movieUrl, title: 'Spiderman' });
+        const action = new WatchAction({ startTime: new Date() });
+
+        // Act
+        await movie.relatedAction.save(action);
+
+        // Assert
+        expect(movie.action).toBe(action);
+        expect(action.objectUrl).toBe(movieUrl);
+    });
+
     it('creates related models using same document', async () => {
         // Arrange
         const movie = await Movie.create({ title: 'Spiderman' });

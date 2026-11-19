@@ -12,6 +12,7 @@ import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import type { LocalDocument } from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import { getNamespace } from 'soukai-bis/lib/namespace';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import { describeLocalEngineFileTests } from 'soukai-bis/testing/utils/local-engines';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import IndexedDBEngine from './IndexedDBEngine';
@@ -987,6 +988,8 @@ describe('IndexedDBEngine', () => {
             removeListener();
         }
     });
+
+    describeLocalEngineFileTests(() => engine);
 
     async function resetDatabase(): Promise<void> {
         await SoukaiIndexedDB.clear();

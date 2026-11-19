@@ -25,7 +25,7 @@ function getContainedModelClass(containerClass: ContainerConstructor): ModelCons
 }
 
 export function isContainerClass(value: unknown): value is ContainerConstructor {
-    return isModelClass(value) && isSubclassOf(value, Container);
+    return isModelClass(value) && (value === Container || isSubclassOf(value, Container));
 }
 
 export function getRemoteContainerUrl(

@@ -12,6 +12,7 @@ import {
     setRDFPrefixAliases,
     setRemoteEngine,
 } from 'soukai-bis';
+import SoukaiIndexedDB from 'soukai-bis/lib/internals/SoukaiIndexedDB';
 import { resetModelListeners } from 'soukai-bis/models/events';
 import { forgetAuthorizationProtocols } from 'soukai-bis/models/internals/permissions';
 import Animal from 'soukai-bis/testing/stubs/Animal';
@@ -47,7 +48,7 @@ import UserWithHistory from 'soukai-bis/testing/stubs/UserWithHistory';
 import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { beforeEach, vi } from 'vite-plus/test';
 
-beforeEach(() => {
+beforeEach(async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     setRDFPrefixAliases({});
     forgetAuthorizationProtocols();
@@ -96,6 +97,8 @@ beforeEach(() => {
         },
         { reset: true },
     );
+
+    await SoukaiIndexedDB.clear();
 });
 
 installVitestSolidMatchers();

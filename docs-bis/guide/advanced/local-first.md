@@ -153,9 +153,66 @@ await Sync.run({
 });
 ```
 
+### Syncing files
+
+Files stored in containers aren't synchronized by default. In order to sync them, you'll need to use the `files` option of application models, indicating how to find them:
+
+```ts
+import { FilesStrategies, Sync } from 'soukai-bis';
+
+await Sync.run({
+    // ...
+    applicationModels: [
+        {
+            model: Chapter,
+            registration: true,
+            files: [{ strategy: FilesStrategies.Container, availableOffline: true }],
+        },
+        { model: Movie, registration: true, files: [{ strategy: FilesStrategies.Document, fields: ['posterUrl'] }] },
+    ],
+});
+```
+
+There are two strategies:
+
+- `FilesStrategies.Container`: Syncs all the files in containers holding instances of the model. This is useful when files are stored using containers instead of links.
+- `FilesStrategies.Document`: Syncs the files whose urls are stored in the given `fields` of the model. Fields can hold a single url or an array of urls.
+
+By default, only the metadata of the files will be pulled into the local engine, and their contents will be removed once they are pushed to the POD. That way, you can use [`readFile`](../core-concepts/relations.md#container-files) to read their contents from the POD, without storing large files in the browser. If you want them to be available offline, use the `availableOffline` option, and the job will download them after pulling and pushing changes.
+
+When a file is pushed without the `availableOffline` option, the `onFilePushed` listener will be called with its contents. You can use it to keep them somewhere else, such as a Service Worker cache, and avoid reading them from the POD later:
+
+```ts
+await Sync.run({
+    // ...
+    onFilePushed: async ({ url, blob }) => {
+        await (await caches.open('files')).put(url, new Response(blob));
+    },
+});
+```
+
+Unlike documents, files can't be merged, so there will be a conflict when they are modified in more than one place. You can resolve them with the `resolveFileConflict` option, returning `'keep-local'` to push the local version (which is the default) or `'keep-remote'` to discard the local changes:
+
+```ts
+await Sync.run({
+    // ...
+    resolveFileConflict: async (conflict) => {
+        return confirm(`${conflict.url} has been modified in another device, keep local changes?`)
+            ? 'keep-local'
+            : 'keep-remote';
+    },
+});
+```
+
+The `type` of the conflict will be one of the following:
+
+- `'modified-remotely'`: The file has been modified both locally and in the POD.
+- `'deleted-remotely'`: The file has been modified locally, but deleted in the POD.
+- `'deleted-locally'`: The file has been deleted locally, but modified in the POD.
+
 ### Job configuration
 
-There are also some other options to configure the job, such as `publicTypeIndexes`, `privateTypeIndexes`, `createPublicTypeIndex`, `createPrivateTypeIndex`, `concurrency`, `maxErrors`, and `lastModifiedTolerance`. And some other listeners, such as `onFinished`, `onCancelled`, `onModelsRegistered` and `onModelsRegistrationFailed`.
+There are also some other options to configure the job, such as `publicTypeIndexes`, `privateTypeIndexes`, `createPublicTypeIndex`, `createPrivateTypeIndex`, `concurrency`, `maxErrors`, `lastModifiedTolerance`, and `resolveFileConflict`. And some other listeners, such as `onFinished`, `onCancelled`, `onFilePushed`, `onModelsRegistered` and `onModelsRegistrationFailed`.
 
 If you want more control over the job, you can also instantiate it manually. Every job exposes its `progress`, and it can be cancelled:
 
@@ -184,6 +241,8 @@ await MigrateLocalUrls.run({
     },
 });
 ```
+
+Files stored in the migrated containers will also be moved to their new urls, keeping any pending local changes so that they're pushed in the next synchronization.
 
 If during login you've also detected a user preference to use some different [RDF prefixes](./interoperability.md#rdf-prefix-aliases), you can also use the `prefixes` option to replace them in the existing data:
 

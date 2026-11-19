@@ -2,7 +2,7 @@ import { ListenersManager, PromisedValue, facade } from '@noeldemartin/utils';
 import type { Listeners } from '@noeldemartin/utils';
 import { deleteDB, openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
-import type { DocumentLocalChanges, LocalDocumentStatus } from 'soukai-bis/engines/LocalEngine';
+import type { DocumentLocalChanges, LocalDocumentStatus, LocalFile } from 'soukai-bis/engines/LocalEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type { IDBGraph } from 'soukai-bis/lib/internals/idb-quads';
 import { getNamespace } from 'soukai-bis/lib/namespace';
@@ -48,6 +48,13 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
             containerUrl: string;
         };
     };
+    files: {
+        key: string;
+        value: LocalFile;
+        indexes: {
+            containerUrl: string;
+        };
+    };
     computedAttributes: {
         key: [string, string];
         value: {
@@ -74,6 +81,7 @@ export class SoukaiIndexedDB {
                 const connection = await openDB<SoukaiIndexedDBSchema>(getNamespace(), 1, {
                     upgrade(database) {
                         const documentsStore = database.createObjectStore('documents', { keyPath: 'url' });
+                        const filesStore = database.createObjectStore('files', { keyPath: 'url' });
                         const localChangesStore = database.createObjectStore('localChanges', {
                             keyPath: 'documentUrl',
                         });
@@ -84,6 +92,7 @@ export class SoukaiIndexedDB {
                         documentsStore.createIndex('containerUrl', 'containerUrl', { unique: false });
                         documentsStore.createIndex('lastModifiedAt', 'lastModifiedAt', { unique: false });
                         documentsStore.createIndex('status', 'status', { unique: false });
+                        filesStore.createIndex('containerUrl', 'containerUrl', { unique: false });
                         localChangesStore.createIndex('containerUrl', 'containerUrl', { unique: false });
                     },
                     blocked: () => this.throwDatabaseBlockedError(),

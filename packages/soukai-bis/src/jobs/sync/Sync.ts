@@ -3,6 +3,7 @@ import type { SolidResponse, CompleteSolidUserProfile } from '@noeldemartin/soli
 import {
     Semaphore,
     arrayGroupBy,
+    arrayFilter,
     arrayUnique,
     isInstanceOf,
     isTruthy,
@@ -15,13 +16,21 @@ import {
 } from '@noeldemartin/utils';
 import {
     clearPushedLocalChanges,
+    isCreatedLocalChange,
     isDeletedLocalChange,
+    isUpdatedLocalChange,
     mergeLocalChanges,
+    subtractLocalChanges,
     withCreatedAsUpdated,
     withoutResourceLocalChanges,
 } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
-import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
+import type {
+    DocumentLocalChanges,
+    LocalChangesUpdate,
+    LocalFile,
+    ResourceLocalChanges,
+} from 'soukai-bis/engines/LocalEngine';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
@@ -29,6 +38,7 @@ import { getEngine, getRemoteEngine } from 'soukai-bis/engines/state';
 import { isLocalEngine } from 'soukai-bis/engines/utils';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import FileAlreadyExists from 'soukai-bis/errors/FileAlreadyExists';
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import JobFailedError from 'soukai-bis/errors/JobFailedError';
 import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
@@ -36,6 +46,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Job from 'soukai-bis/jobs/Job';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
 import { getExternalSourceUrl, isInExternalSource, type ExternalSource } from 'soukai-bis/jobs/utils';
+import { isNonRDFResource } from 'soukai-bis/lib/internals/files';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
@@ -72,6 +83,17 @@ import {
     getTombstoneUrls,
     withoutTombstones,
 } from './concerns/sync-document-operations';
+import { FilesStrategies, getFileConflictType, isFileUpToDate } from './concerns/sync-files';
+import type {
+    FileConflict,
+    FileConflictResolution,
+    FilePushedEvent,
+    FilesModel,
+    FilesStrategy,
+    PulledFiles,
+    RemoteFile,
+    SyncFilesConfig,
+} from './concerns/sync-files';
 import {
     addRegisteredModels,
     syncContainerRegistration,
@@ -85,6 +107,15 @@ import type {
 } from './concerns/sync-registrations';
 
 export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/sync-conflicts';
+export { FilesStrategies } from './concerns/sync-files';
+export type {
+    FileConflict,
+    FileConflictResolution,
+    FileConflictType,
+    FilePushedEvent,
+    FilesStrategy,
+    SyncFilesConfig,
+} from './concerns/sync-files';
 export type {
     ModelRegistrationMode,
     ModelsRegisteredEvent,
@@ -94,26 +125,13 @@ export type {
 const DEFAULT_MAX_ERRORS = 10;
 const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
-const IANA_MEDIA_TYPE_PREFIX = 'http://www.w3.org/ns/iana/media-types/';
 const NON_RDF_HTTP_STATUS_CODES = new Set([406, 415, 501]);
-const RDF_MEDIA_TYPES = new Set([
-    'text/turtle',
-    'application/ld+json',
-    'application/n-triples',
-    'application/n-quads',
-    'text/n3',
-    'application/rdf+xml',
-    'application/trig',
-]);
 
 export interface SyncConfig {
     userProfile: CompleteSolidUserProfile;
     publicTypeIndexes?: TypeIndex[];
     privateTypeIndexes?: TypeIndex[];
-    applicationModels: {
-        model: ModelConstructor;
-        registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
-    }[];
+    applicationModels: SyncApplicationModel[];
     externalSources?: ExternalSource[];
     maxErrors?: number;
     concurrency?: number;
@@ -121,14 +139,21 @@ export interface SyncConfig {
     createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
     resolveDeletionConflict?: (conflict: DeletionConflict) => Promise<DeletionConflictResolution>;
+    resolveFileConflict?: (conflict: FileConflict) => Promise<FileConflictResolution>;
 }
 
 export interface SyncJobStatus extends JobStatus {
     root?: boolean;
-    children: [JobStatus, JobStatus];
+    children: [JobStatus, JobStatus, JobStatus];
 }
 
-export interface PullTask {
+export interface SyncApplicationModel {
+    model: ModelConstructor;
+    registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
+    files?: SyncFilesConfig[];
+}
+
+export interface SyncTask {
     url: string;
     status?: JobStatus;
     remoteUpdatedAt?: Date;
@@ -137,9 +162,11 @@ export interface PullTask {
 export interface SyncJobResult {
     syncedDocumentUrls: Set<string>;
     documentsWithErrors: Set<string>;
+    syncedFileUrls: Set<string>;
 }
 
 export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResult> {
+    onFilePushed?(event: FilePushedEvent): unknown;
     onModelsRegistered?(event: ModelsRegisteredEvent): unknown;
     onModelsRegistrationFailed?(event: ModelsRegistrationFailedEvent): unknown;
     onExternalSourceFailed?(source: ExternalSource, error: unknown): unknown;
@@ -153,6 +180,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             onModelsRegistered: (event) => config.onModelsRegistered?.(event),
             onModelsRegistrationFailed: (event) => config.onModelsRegistrationFailed?.(event),
             onExternalSourceFailed: (source, error) => config.onExternalSourceFailed?.(source, error),
+            onFilePushed: (event) => config.onFilePushed?.(event),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
             onCancelled: (partialResult) => config.onCancelled?.(partialResult),
@@ -163,6 +191,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
+    public readonly syncedFileUrls = new Set<string>();
     public readonly failedExternalSources = new Map<ExternalSource, unknown>();
     private syncSemaphore: Semaphore;
     private conflictsSemaphore: Semaphore;
@@ -177,6 +206,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private remoteDocumentsWithDeletions: SolidDocument[] = [];
     private typeIndexes: Partial<Record<TypeIndexRegistration, Promise<TypeIndex>>> = {};
     private unsyncedContainers = new Set<string>();
+    private containerFilesConfigs = new Map<string, Promise<SyncFilesConfig[]>>();
+    private documentFilesConfigs: Promise<Map<string, SyncFilesConfig[]>> | null = null;
+    private documentFilesConfigsOutdated = false;
+    private forcePushFileUrls = new Set<string>();
+    private pulledFiles = new Map<string, PulledFiles>();
+    private updatedDocumentUrls = new Set<string>();
 
     declare private localEngine: LocalEngine;
     declare private remoteEngine: SolidEngine;
@@ -214,14 +249,27 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             .concat([Container]);
     }
 
+    private get syncsFiles(): boolean {
+        return this.config.applicationModels.some((model) => (model.files?.length ?? 0) > 0);
+    }
+
+    private get downloadsFiles(): boolean {
+        return this.config.applicationModels.some((model) => model.files?.some((files) => files.availableOffline));
+    }
+
+    private get lastModifiedTolerance(): number {
+        return this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
+    }
+
     protected async run(): Promise<SyncJobResult> {
         this.prepareEngines();
 
         try {
             await this.prepareDocumentsLastModifiedAt();
             await this.prepareDocumentsLocalChanges();
-            await this.pullChanges();
-            await this.pushChanges();
+            await this.syncRemoteDocuments();
+            await this.syncLocalDocuments();
+            await this.downloadFiles();
             await this.finish();
         } finally {
             await this.reportFailedExternalSources();
@@ -257,7 +305,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     private clearLocalChanges(
-        pushedDocument: SolidDocument,
+        syncedDocument: SolidDocument,
         pushedChanges: DocumentLocalChanges | null,
         resolvedUrls: Set<string> = new Set(),
     ): LocalChangesUpdate | undefined {
@@ -265,13 +313,26 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             return undefined;
         }
 
-        this.pushedLocalChanges.set(pushedDocument.url, withoutResourceLocalChanges(pushedChanges, resolvedUrls));
+        this.pushedLocalChanges.set(syncedDocument.url, withoutResourceLocalChanges(pushedChanges, resolvedUrls));
 
-        return (changes) => clearPushedLocalChanges(changes, pushedChanges, pushedDocument);
+        return (changes) => clearPushedLocalChanges(changes, pushedChanges, syncedDocument);
+    }
+
+    private clearPushedFileLocalChanges(
+        fileUrl: string,
+        pushedChanges: DocumentLocalChanges | null,
+    ): LocalChangesUpdate | undefined {
+        if (!pushedChanges) {
+            return undefined;
+        }
+
+        this.pushedLocalChanges.set(fileUrl, pushedChanges);
+
+        return (changes) => subtractLocalChanges(changes, pushedChanges);
     }
 
     private async updateSyncedDocument(
-        pushedDocument: SolidDocument,
+        syncedDocument: SolidDocument,
         operations: EngineOperation[],
         options: {
             lastModifiedAt: Date | null;
@@ -280,15 +341,16 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         },
     ): Promise<void> {
         const { lastModifiedAt, pushedChanges, resolvedUrls } = options;
-        const documentUrl = pushedDocument.url;
+        const documentUrl = syncedDocument.url;
 
         try {
             await this.localEngine.updateDocument(documentUrl, operations, {
                 lastModifiedAt,
-                localChanges: this.clearLocalChanges(pushedDocument, pushedChanges, resolvedUrls),
+                localChanges: this.clearLocalChanges(syncedDocument, pushedChanges, resolvedUrls),
             });
 
             this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
+            this.trackUpdatedDocument(documentUrl);
         } catch (error) {
             if (!isInstanceOf(error, DocumentNotFound) || !pushedChanges) {
                 throw error;
@@ -299,10 +361,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             await this.localEngine.createDocument(documentUrl, [], {
                 lastModifiedAt: recreatedLastModifiedAt,
-                localChanges: () => clearPushedLocalChanges(null, pushedChanges, pushedDocument),
+                localChanges: () => clearPushedLocalChanges(null, pushedChanges, syncedDocument),
             });
 
             this.documentsLastModifiedAt.set(documentUrl, recreatedLastModifiedAt);
+            this.trackUpdatedDocument(documentUrl);
         }
     }
 
@@ -324,7 +387,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return {
             root: true,
             completed: false,
-            children: [{ completed: false }, { completed: false }],
+            children: [{ completed: false }, { completed: false }, { completed: false }],
         };
     }
 
@@ -334,10 +397,13 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         const syncStatus = status as SyncJobStatus;
 
         if (syncStatus.root) {
-            const pullProgress = syncStatus.children[0] ? this.calculateCurrentProgress(syncStatus.children[0]) : 0;
-            const pushProgress = syncStatus.children[1] ? this.calculateCurrentProgress(syncStatus.children[1]) : 0;
+            const [remoteDocumentsProgress, localDocumentsProgress, downloadProgress] = syncStatus.children.map(
+                (child) => (child ? this.calculateCurrentProgress(child) : 0),
+            ) as [number, number, number];
 
-            return round(pullProgress * 0.9 + pushProgress * 0.1, 2);
+            return this.downloadsFiles
+                ? round(remoteDocumentsProgress * 0.8 + localDocumentsProgress * 0.1 + downloadProgress * 0.1, 2)
+                : round(remoteDocumentsProgress * 0.9 + localDocumentsProgress * 0.1, 2);
         }
 
         return super.calculateCurrentProgress(status);
@@ -347,6 +413,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return {
             syncedDocumentUrls: this.syncedDocumentUrls,
             documentsWithErrors: this.documentsWithErrors,
+            syncedFileUrls: this.syncedFileUrls,
         };
     }
 
@@ -363,7 +430,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return new Map(operations.map((operation) => [operation.url, operation]));
     }
 
-    private async skipDocumentPull(documentUrl: string, remoteUpdatedAt?: Date): Promise<boolean> {
+    private async skipDocumentSync(documentUrl: string, remoteUpdatedAt?: Date): Promise<boolean> {
         const lastModifiedAt = this.documentsLastModifiedAt.get(documentUrl);
 
         if (!remoteUpdatedAt || !lastModifiedAt || this.documentsLocalChanges.has(documentUrl)) {
@@ -377,9 +444,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             return true;
         }
 
-        const lastModifiedTolerance = this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
-
-        if (Math.abs(remoteTimestamp - localTimestamp) <= lastModifiedTolerance) {
+        if (Math.abs(remoteTimestamp - localTimestamp) <= this.lastModifiedTolerance) {
             await this.localEngine.updateDocument(documentUrl, [], {
                 lastModifiedAt: remoteUpdatedAt,
             });
@@ -417,7 +482,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     private async finish(): Promise<void> {
-        await ComputedAttributesCache.invalidate({ documentUrls: Array.from(this.syncedDocumentUrls) });
+        await ComputedAttributesCache.invalidate({
+            documentUrls: [...this.syncedDocumentUrls, ...this.syncedFileUrls],
+        });
     }
 
     private shouldPullDocument(document: SolidDocument): boolean {
@@ -432,29 +499,30 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         );
     }
 
-    private async pullChanges(): Promise<void> {
+    private async syncRemoteDocuments(): Promise<void> {
         await this.initializeMatchingContainers();
 
         const containerUrls = Array.from(this.registeredContainers.keys());
         const instanceDocumentUrls = Array.from(this.registeredInstances.keys()).map((url) => urlRoute(url));
         const externalSourceUrls = this.getExternalSources().map((source) => getExternalSourceUrl(source));
         const urls = arrayUnique([...containerUrls, ...instanceDocumentUrls, ...externalSourceUrls]);
-        const pullStatus = this.requireStatus().children[0];
+        const remoteDocumentsStatus = this.requireStatus().children[0];
 
-        pullStatus.children = urls.map(() => ({ completed: false }));
+        remoteDocumentsStatus.children = urls.map(() => ({ completed: false }));
 
-        await this.pullDocuments(urls, pullStatus);
+        await this.syncDocuments(urls, remoteDocumentsStatus);
         await this.syncDocumentsWithDeletions();
+        await this.pullFiles();
         await this.updateProgress((status) => (status.children[0].completed = true));
     }
 
-    private async pullDocuments(urls: string[], pullStatus: JobStatus): Promise<void> {
+    private async syncDocuments(urls: string[], remoteDocumentsStatus: JobStatus): Promise<void> {
         let ongoing = 0;
         let failed = false;
 
         const queue = urls.map((url, index) => ({
             url,
-            status: pullStatus.children?.[index],
+            status: remoteDocumentsStatus.children?.[index],
         }));
 
         return new Promise<void>((resolve, reject) => {
@@ -464,12 +532,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 }
 
                 while (queue.length > 0 && this.syncSemaphore.isAvailable()) {
-                    const pullTask = queue.shift() as PullTask;
+                    const syncTask = queue.shift() as SyncTask;
 
                     ongoing++;
 
                     // oxlint-disable-next-line typescript/no-floating-promises
-                    this.runPullTask(pullTask, queue, {
+                    this.runSyncTask(syncTask, queue, {
                         onFinished: () => {
                             ongoing--;
 
@@ -498,20 +566,20 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         });
     }
 
-    private async runPullTask(
-        pullTask: PullTask,
-        queue: PullTask[],
+    private async runSyncTask(
+        syncTask: SyncTask,
+        queue: SyncTask[],
         options: {
             onFinished: () => void;
             onFailed: (error: unknown) => void;
         },
     ): Promise<void> {
         try {
-            const childPullTasks = await this.syncSemaphore.run(() => {
-                return this.syncDocument(pullTask.url, pullTask.status, pullTask.remoteUpdatedAt);
+            const childSyncTasks = await this.syncSemaphore.run(() => {
+                return this.syncDocument(syncTask.url, syncTask.status, syncTask.remoteUpdatedAt);
             });
 
-            queue.unshift(...childPullTasks);
+            queue.unshift(...childSyncTasks);
         } catch (error) {
             options.onFailed(error);
         } finally {
@@ -519,30 +587,30 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
     }
 
-    private async pushChanges(): Promise<void> {
+    private async syncLocalDocuments(): Promise<void> {
         await this.prepareUnsyncedContainers();
-        await this.pushContainerDocuments(this.config.userProfile.storageUrls[0], this.requireStatus().children[1]);
-        await this.pushExternalSources();
+        await this.syncLocalContainer(this.config.userProfile.storageUrls[0], this.requireStatus().children[1]);
+        await this.syncLocalExternalSources();
         await this.updateProgress((status) => (status.children[1].completed = true));
     }
 
-    private async pushExternalSources(): Promise<void> {
+    private async syncLocalExternalSources(): Promise<void> {
         for (const source of this.getExternalSources()) {
             if (this.documentsWithErrors.has(getExternalSourceUrl(source))) {
                 continue;
             }
 
             if (source.containerUrl !== undefined) {
-                await this.pushContainerDocuments(source.containerUrl, undefined, { register: false });
+                await this.syncLocalContainer(source.containerUrl, undefined, { register: false });
 
                 continue;
             }
 
-            await this.pushInstanceDocument(urlRoute(source.instanceUrl));
+            await this.syncLocalInstanceDocument(urlRoute(source.instanceUrl));
         }
     }
 
-    private async pushInstanceDocument(documentUrl: string): Promise<void> {
+    private async syncLocalInstanceDocument(documentUrl: string): Promise<void> {
         this.assertNotCancelled(this.getResult());
 
         if (!this.documentsLocalChanges.has(documentUrl)) {
@@ -550,7 +618,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
 
         try {
-            await this.pushContainerChildrenDocuments([documentUrl]);
+            await this.syncLocalChildrenDocuments([documentUrl]);
         } catch (error) {
             this.handleDocumentError(documentUrl, error);
         }
@@ -609,7 +677,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             .map((model) => model.model);
     }
 
-    private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<PullTask[]> {
+    private async syncDocument(documentUrl: string, status?: JobStatus, remoteUpdatedAt?: Date): Promise<SyncTask[]> {
         this.assertNotCancelled(this.getResult());
 
         if (this.syncedDocumentUrls.has(documentUrl)) {
@@ -619,11 +687,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         this.syncedDocumentUrls.add(documentUrl);
 
         try {
-            if (await this.skipDocumentPull(documentUrl, remoteUpdatedAt)) {
+            if (await this.skipDocumentSync(documentUrl, remoteUpdatedAt)) {
                 return [];
             }
 
-            const { remoteDocument, childrenPullTasks } = await this.syncRemoteChildren(documentUrl, status);
+            const { remoteDocument, childrenSyncTasks } = await this.syncRemoteChildren(documentUrl, status);
             const localChanges = await this.localEngine.getDocumentLocalChanges(documentUrl);
             const localDocument = await this.localEngine.readDocumentIfExists(documentUrl, {
                 includeEmptyDocuments: true,
@@ -631,11 +699,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             if (!localDocument && remoteDocument) {
                 if (!this.shouldPullDocument(remoteDocument)) {
-                    return childrenPullTasks;
+                    return childrenSyncTasks;
                 }
 
                 const lastModifiedAt = remoteDocument.url.endsWith('/')
-                    ? this.getContainerLastModifiedAt(remoteDocument)
+                    ? this.deferPulledFilesLastModifiedAt(documentUrl, this.getContainerLastModifiedAt(remoteDocument))
                     : remoteDocument.getLastModified();
 
                 await this.localEngine.createDocument(documentUrl, withoutTombstones(remoteDocument.getQuads()), {
@@ -643,12 +711,13 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 });
 
                 this.documentsLastModifiedAt.set(documentUrl, lastModifiedAt);
+                this.trackUpdatedDocument(documentUrl);
 
-                return childrenPullTasks;
+                return childrenSyncTasks;
             }
 
             if (!remoteDocument || !localDocument) {
-                return childrenPullTasks;
+                return childrenSyncTasks;
             }
 
             const syncingDocument = { localDocument, remoteDocument, localChanges };
@@ -656,15 +725,24 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             if (getRemoteDeletions(syncingDocument).length > 0 || getLocalDeletions(syncingDocument).length > 0) {
                 this.remoteDocumentsWithDeletions.push(remoteDocument);
 
-                return childrenPullTasks;
+                return childrenSyncTasks;
             }
 
             await this.syncDocumentContents(localDocument, remoteDocument, localChanges);
 
-            return childrenPullTasks;
+            return childrenSyncTasks;
         } catch (error) {
             if (this.isNonRDFDocumentError(error)) {
                 this.syncedDocumentUrls.delete(documentUrl);
+
+                if (this.syncsFiles && !documentUrl.endsWith('/')) {
+                    this.queuePulledFiles(
+                        documentUrl,
+                        arrayFilter([await this.localEngine.getFile(documentUrl)]),
+                        [{ url: documentUrl, updatedAt: remoteUpdatedAt }],
+                        new Set([documentUrl]),
+                    );
+                }
             } else if (!isInstanceOf(error, DocumentNotFound)) {
                 this.handleDocumentError(documentUrl, error);
             }
@@ -728,7 +806,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private async syncRemoteChildren(
         documentUrl: string,
         status?: JobStatus,
-    ): Promise<{ remoteDocument: SolidDocument | null; childrenPullTasks: PullTask[] }> {
+    ): Promise<{ remoteDocument: SolidDocument | null; childrenSyncTasks: SyncTask[] }> {
         const remoteDocument = await this.remoteEngine.readDocumentIfExists(documentUrl);
 
         if (remoteDocument && documentUrl.endsWith('/')) {
@@ -738,17 +816,32 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
             );
 
-            const resourceUrls = (container?.resourceUrls ?? []).filter(
-                (childDocumentUrl) => !this.isNonRDFResource(remoteDocument, childDocumentUrl),
+            const remoteQuads = remoteDocument.getQuads();
+            const remoteChildUrls = container?.resourceUrls ?? [];
+            const localFiles = this.syncsFiles ? await this.localEngine.getFiles({ containerUrl: documentUrl }) : [];
+            const localFileUrls = new Set(localFiles.map((file) => file.url));
+            const { fileUrls, resourceUrls } = arrayGroupBy(remoteChildUrls, (childDocumentUrl) =>
+                isNonRDFResource(remoteQuads, childDocumentUrl) || localFileUrls.has(childDocumentUrl)
+                    ? 'fileUrls'
+                    : 'resourceUrls',
             );
+            const remoteFiles = (fileUrls ?? []).map((url) => ({
+                url,
+                mimeType: resourcesByUrl[url]?.mimeType,
+                updatedAt: resourcesByUrl[url]?.updatedAt,
+            }));
 
-            if (status && resourceUrls.length > 0) {
+            if (this.syncsFiles) {
+                this.queuePulledFiles(documentUrl, localFiles, remoteFiles, new Set(remoteChildUrls));
+            }
+
+            if (status && resourceUrls && resourceUrls.length > 0) {
                 status.children = resourceUrls.map(() => ({ completed: false }));
 
                 await this.updateProgress();
             }
 
-            const childrenPullTasks = resourceUrls.map((childDocumentUrl, index) => {
+            const childrenSyncTasks = (resourceUrls ?? []).map((childDocumentUrl, index) => {
                 const childResource = resourcesByUrl[childDocumentUrl];
                 const childStatus = status?.children?.[index];
 
@@ -761,13 +854,13 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 };
             });
 
-            return { remoteDocument, childrenPullTasks };
+            return { remoteDocument, childrenSyncTasks };
         }
 
-        return { remoteDocument, childrenPullTasks: [] };
+        return { remoteDocument, childrenSyncTasks: [] };
     }
 
-    private async pushContainerDocuments(
+    private async syncLocalContainer(
         url: string,
         status?: JobStatus,
         options: { register?: boolean } = {},
@@ -790,14 +883,19 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 return;
             }
 
-            const { containerChildren, documentChildren } = arrayGroupBy(container.resourceUrls, (childUrl) => {
-                return childUrl.endsWith('/') ? 'containerChildren' : 'documentChildren';
-            });
+            const localFiles = await this.localEngine.getFiles({ containerUrl: url });
+            const localFileUrls = new Set(localFiles.map((file) => file.url));
+            const { containerChildren, documentChildren } = arrayGroupBy(
+                container.resourceUrls.filter((childUrl) => !localFileUrls.has(childUrl)),
+                (childUrl) => (childUrl.endsWith('/') ? 'containerChildren' : 'documentChildren'),
+            );
 
             const pendingUrls = (documentChildren ?? []).filter(
                 (pendingUrl) => !this.syncedDocumentUrls.has(pendingUrl),
             );
-            const allChildrenUrls = pendingUrls.concat(containerChildren ?? []);
+            const containerChildrenUrls = containerChildren ?? [];
+            const pendingFiles = await this.getPendingFiles(localFiles);
+            const allChildrenUrls = [...pendingUrls, ...containerChildrenUrls, ...pendingFiles.map((file) => file.url)];
 
             if (status && allChildrenUrls.length > 0) {
                 status.children = allChildrenUrls.map(() => ({ completed: false }));
@@ -805,12 +903,20 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 await this.updateProgress();
             }
 
-            const { pushedModels, pushedInstances } = await this.pushContainerChildrenDocuments(pendingUrls, status);
+            const { syncedModelDocuments, syncedModelInstances } = await this.syncLocalChildrenDocuments(
+                pendingUrls,
+                status,
+            );
+
+            await this.syncLocalFiles(
+                pendingFiles,
+                status?.children?.slice(pendingUrls.length + containerChildrenUrls.length),
+            );
 
             if (options.register === false) {
                 await Promise.all(
-                    (containerChildren ?? []).map((containerUrl) =>
-                        this.pushContainerDocuments(containerUrl, undefined, options),
+                    containerChildrenUrls.map((containerUrl) =>
+                        this.syncLocalContainer(containerUrl, undefined, options),
                     ),
                 );
 
@@ -821,12 +927,14 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 return this._listeners.emit('onModelsRegistered', event);
             };
             const onModelsRegistrationFailed = async (event: ModelsRegistrationFailedEvent) => {
-                await this.markDocumentsAsUnsynced(event.models.flatMap((model) => pushedModels.get(model) ?? []));
+                await this.markDocumentsAsUnsynced(
+                    event.models.flatMap((model) => syncedModelDocuments.get(model) ?? []),
+                );
                 await this._listeners.emit('onModelsRegistrationFailed', event);
             };
 
             await syncInstanceRegistration({
-                instances: pushedInstances,
+                instances: syncedModelInstances,
                 registeredInstances: this.registeredInstances,
                 modelRegistrations: this.modelRegistrations,
                 getTypeIndex: (visibility) => this.getTypeIndex(visibility),
@@ -837,7 +945,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             await syncContainerRegistration({
                 container,
                 models: new Set(
-                    Array.from(pushedModels.keys()).filter(
+                    Array.from(syncedModelDocuments.keys()).filter(
                         (model) => this.modelRegistrations.get(model)?.mode !== 'instance',
                     ),
                 ),
@@ -848,13 +956,11 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 onModelsRegistrationFailed,
             });
 
-            const containerChildrenUrls = containerChildren ?? [];
-
             await Promise.all(
                 containerChildrenUrls.map((containerUrl, index) => {
                     const childStatus = status?.children?.[pendingUrls.length + index];
 
-                    return this.pushContainerDocuments(containerUrl, childStatus);
+                    return this.syncLocalContainer(containerUrl, childStatus);
                 }),
             );
         } catch (error) {
@@ -910,11 +1016,14 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         }
     }
 
-    private async pushContainerChildrenDocuments(
+    private async syncLocalChildrenDocuments(
         pendingUrls: string[] = [],
         status?: JobStatus,
-    ): Promise<{ pushedModels: Map<ModelConstructor, string[]>; pushedInstances: Map<ModelConstructor, string[]> }> {
-        const pushedDocumentResources = new Map<string, Map<string, Set<string>>>();
+    ): Promise<{
+        syncedModelDocuments: Map<ModelConstructor, string[]>;
+        syncedModelInstances: Map<ModelConstructor, string[]>;
+    }> {
+        const syncedDocumentResources = new Map<string, Map<string, Set<string>>>();
         const currentLocalChanges = await this.localEngine.getDocumentsLocalChanges();
         const localDocuments = await this.localEngine.readDocuments({
             urls: pendingUrls.filter((url) => url in currentLocalChanges),
@@ -937,10 +1046,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 try {
                     const localChanges = currentLocalChanges[documentUrl] ?? null;
                     const start = new Date();
-                    const pushResult = await this.pushRemoteDocument(localDocument, localChanges);
+                    const syncResult = await this.syncLocalDocument(localDocument, localChanges);
                     const end = new Date();
 
-                    if (!pushResult) {
+                    if (!syncResult) {
                         await silenced(this.localEngine.deleteDocument(documentUrl, { ifMatch: { status: 'empty' } }), {
                             ignore: [PreconditionFailed, DocumentNotFound],
                         });
@@ -948,10 +1057,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                         return;
                     }
 
-                    if (!pushResult.mergedWithExistingDocument) {
+                    if (!syncResult.mergedWithExistingDocument) {
                         const lastModifiedAt = documentUrl.endsWith('/')
-                            ? this.getContainerLastModifiedAt(pushResult.remoteDocument)
-                            : this.getDocumentLastModifiedAt(start, end, pushResult.remoteDocument);
+                            ? this.getContainerLastModifiedAt(syncResult.remoteDocument)
+                            : this.getDocumentLastModifiedAt(start, end, syncResult.remoteDocument);
 
                         await this.updateSyncedDocument(localDocument, [], {
                             lastModifiedAt,
@@ -969,7 +1078,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                         documentResources.set(resourceId, resourceRDFClasses);
                     }
 
-                    pushedDocumentResources.set(documentUrl, documentResources);
+                    syncedDocumentResources.set(documentUrl, documentResources);
                 } catch (error) {
                     this.handleDocumentError(documentUrl, error);
                 } finally {
@@ -980,12 +1089,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             }),
         );
 
-        const pushedModels = new Map<ModelConstructor, string[]>();
-        const pushedInstances = new Map<ModelConstructor, string[]>();
-        const pushedDocuments = pendingUrls
-            .filter((documentUrl) => pushedDocumentResources.has(documentUrl))
+        const syncedModelDocuments = new Map<ModelConstructor, string[]>();
+        const syncedModelInstances = new Map<ModelConstructor, string[]>();
+        const syncedDocuments = pendingUrls
+            .filter((documentUrl) => syncedDocumentResources.has(documentUrl))
             .map((documentUrl) => {
-                const resources = pushedDocumentResources.get(documentUrl) ?? new Map<string, Set<string>>();
+                const resources = syncedDocumentResources.get(documentUrl) ?? new Map<string, Set<string>>();
                 const rdfClasses = new Set(
                     Array.from(resources.values()).flatMap((resourceClasses) => [...resourceClasses]),
                 );
@@ -1001,12 +1110,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             const hasModelClasses = (rdfClasses: Set<string>) => model.model.matchesRDFClasses(rdfClasses);
 
             if (this.modelRegistrations.get(model.model)?.mode !== 'instance') {
-                const documentUrls = pushedDocuments
+                const documentUrls = syncedDocuments
                     .filter(({ rdfClasses }) => hasModelClasses(rdfClasses))
                     .map(({ documentUrl }) => documentUrl);
 
                 if (documentUrls.length > 0) {
-                    pushedModels.set(model.model, documentUrls);
+                    syncedModelDocuments.set(model.model, documentUrls);
                 }
 
                 continue;
@@ -1015,7 +1124,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             const documentUrls: string[] = [];
             const instanceUrls: string[] = [];
 
-            for (const { documentUrl, resources } of pushedDocuments) {
+            for (const { documentUrl, resources } of syncedDocuments) {
                 const documentInstanceUrls = Array.from(resources.entries())
                     .filter(([resourceId, rdfClasses]) => !resourceId.startsWith('_:') && hasModelClasses(rdfClasses))
                     .map(([resourceUrl]) => resourceUrl);
@@ -1029,15 +1138,15 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             }
 
             if (documentUrls.length > 0) {
-                pushedModels.set(model.model, documentUrls);
-                pushedInstances.set(model.model, instanceUrls);
+                syncedModelDocuments.set(model.model, documentUrls);
+                syncedModelInstances.set(model.model, instanceUrls);
             }
         }
 
-        return { pushedModels, pushedInstances };
+        return { syncedModelDocuments, syncedModelInstances };
     }
 
-    private async pushRemoteDocument(
+    private async syncLocalDocument(
         localDocument: SolidDocument,
         localChanges: DocumentLocalChanges | null,
     ): Promise<{ remoteDocument: SolidDocument; mergedWithExistingDocument: boolean } | null> {
@@ -1161,7 +1270,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         const updatedRemoteOperations = await this.getDocumentOperations(updatedRemoteDocument, resourceUrls);
 
         const lastModifiedAt = localDocument.url.endsWith('/')
-            ? (this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument))
+            ? this.deferPulledFilesLastModifiedAt(
+                  localDocument.url,
+                  this.getContainerLastModifiedAt(response) ?? this.getContainerLastModifiedAt(remoteDocument),
+              )
             : this.getDocumentLastModifiedAt(start, end, response);
 
         const localUpdates = await getSyncDocumentOperations({
@@ -1180,6 +1292,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             pushedChanges: localChanges,
             resolvedUrls: new Set([...resolution.discardedLocalResources, ...resolution.restoredLocalResources]),
         });
+
+        if (this.documentFilesConfigs) {
+            this.documentFilesConfigsOutdated = true;
+        }
     }
 
     private async resolveDeletions(documents: SyncingDocument[]): Promise<DeletionsResolution> {
@@ -1297,25 +1413,524 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return lastModifiedAt ? parseDate(lastModifiedAt) : null;
     }
 
-    private isNonRDFResource(containerDocument: SolidDocument, resourceUrl: string): boolean {
-        if (resourceUrl.endsWith('/')) {
-            return false;
+    private trackUpdatedDocument(url: string): void {
+        if (url.endsWith('/')) {
+            return;
         }
 
-        const mediaTypeUrls = containerDocument
-            .statements(resourceUrl, RDF_TYPE_PREDICATE)
-            .map((statement) => statement.object.value)
-            .filter((type) => type.startsWith(IANA_MEDIA_TYPE_PREFIX));
+        this.updatedDocumentUrls.add(url);
+    }
 
-        if (mediaTypeUrls.length === 0) {
-            return false;
-        }
+    private queuePulledFiles(
+        url: string,
+        localFiles: LocalFile[],
+        remoteFiles: RemoteFile[],
+        remoteChildUrls: Set<string>,
+    ): void {
+        const localFilesByUrl = new Map(localFiles.map((file) => [file.url, file] as const));
+        const updatedFiles = remoteFiles.filter((remoteFile) => {
+            const localFile = localFilesByUrl.get(remoteFile.url);
 
-        return !mediaTypeUrls.some((type) => {
-            const mediaType = type.slice(IANA_MEDIA_TYPE_PREFIX.length).replace(/#Resource$/, '');
-
-            return RDF_MEDIA_TYPES.has(mediaType);
+            return (
+                this.documentsLocalChanges.has(remoteFile.url) ||
+                !localFile ||
+                !isFileUpToDate(localFile, remoteFile, this.lastModifiedTolerance)
+            );
         });
+        const deletedFiles = localFiles.filter((localFile) => !remoteChildUrls.has(localFile.url));
+
+        if (updatedFiles.length === 0 && deletedFiles.length === 0) {
+            return;
+        }
+
+        this.pulledFiles.set(url, { url, localFiles, updatedFiles, deletedFiles });
+    }
+
+    private deferPulledFilesLastModifiedAt(url: string, lastModifiedAt: Date | null): Date | null {
+        const pulledFiles = this.pulledFiles.get(url);
+
+        if (!pulledFiles) {
+            return lastModifiedAt;
+        }
+
+        pulledFiles.lastModifiedAt = lastModifiedAt;
+
+        return null;
+    }
+
+    private async pullFiles(): Promise<void> {
+        const pulledFiles = Array.from(this.pulledFiles.values());
+
+        this.pulledFiles.clear();
+
+        await Promise.all(
+            pulledFiles.map((files) =>
+                this.syncSemaphore.run(async () => {
+                    try {
+                        await this.pullContainerFiles(files);
+
+                        if (files.lastModifiedAt !== undefined) {
+                            await this.localEngine.updateDocument(files.url, [], {
+                                lastModifiedAt: files.lastModifiedAt,
+                            });
+
+                            this.documentsLastModifiedAt.set(files.url, files.lastModifiedAt);
+                        }
+                    } catch (error) {
+                        this.handleDocumentError(files.url, error);
+                    }
+                }),
+            ),
+        );
+    }
+
+    private async pullContainerFiles({ localFiles, updatedFiles, deletedFiles }: PulledFiles): Promise<void> {
+        const localFilesByUrl = new Map(localFiles.map((file) => [file.url, file] as const));
+
+        for (const remoteFile of await this.filterSyncedFiles(updatedFiles)) {
+            if (this.documentsLocalChanges.has(remoteFile.url)) {
+                await this.syncModifiedFile(localFilesByUrl.get(remoteFile.url), remoteFile);
+
+                continue;
+            }
+
+            await this.pullFileMetadata(remoteFile);
+        }
+
+        for (const localFile of await this.filterSyncedFiles(deletedFiles)) {
+            if (isUpdatedLocalChange(this.getFileLocalChanges(localFile.url))) {
+                await this.resolveFileConflict({
+                    type: 'deleted-remotely',
+                    url: localFile.url,
+                    localFile,
+                    remoteUpdatedAt: null,
+                });
+
+                continue;
+            }
+
+            if (this.documentsLocalChanges.has(localFile.url)) {
+                continue;
+            }
+
+            await this.localEngine.deleteFile(localFile.url);
+
+            this.syncedFileUrls.add(localFile.url);
+        }
+    }
+
+    private async syncModifiedFile(localFile: LocalFile | undefined, remoteFile: RemoteFile): Promise<void> {
+        if (!localFile) {
+            return;
+        }
+
+        const conflictType = getFileConflictType(
+            localFile,
+            remoteFile,
+            this.getFileLocalChanges(localFile.url),
+            this.lastModifiedTolerance,
+        );
+
+        if (!conflictType) {
+            return;
+        }
+
+        await this.resolveFileConflict(
+            { type: conflictType, url: localFile.url, localFile, remoteUpdatedAt: remoteFile.updatedAt ?? null },
+            remoteFile,
+        );
+    }
+
+    private getFileLocalChanges(url: string): ResourceLocalChanges | undefined {
+        return this.documentsLocalChanges.get(url)?.resources[url];
+    }
+
+    private async resolveFileConflict(conflict: FileConflict, remoteFile?: RemoteFile): Promise<void> {
+        const resolution = await this.getFileConflictResolution(conflict);
+
+        if (resolution === 'keep-local') {
+            this.forcePushFileUrls.add(conflict.url);
+
+            return;
+        }
+
+        this.documentsLocalChanges.delete(conflict.url);
+
+        await this.localEngine.deleteFile(conflict.url);
+
+        if (conflict.type === 'deleted-remotely') {
+            this.syncedFileUrls.add(conflict.url);
+
+            return;
+        }
+
+        const pulledFile = remoteFile ?? (await this.readRemoteFile(conflict.url));
+
+        await this.pullFileMetadata({ ...pulledFile, mimeType: pulledFile.mimeType ?? conflict.localFile.mimeType });
+    }
+
+    private async readRemoteFile(url: string): Promise<RemoteFile> {
+        const metadata = await this.remoteEngine.readFileMetadata(url);
+
+        return { url, mimeType: metadata?.mimeType, updatedAt: metadata?.lastModifiedAt };
+    }
+
+    private async getFileConflictResolution(conflict: FileConflict): Promise<FileConflictResolution> {
+        const resolveFileConflict = this.config.resolveFileConflict;
+
+        if (!resolveFileConflict) {
+            return 'keep-local';
+        }
+
+        const answer = await this.conflictsSemaphore.run(() => resolveFileConflict(conflict));
+
+        this.assertNotCancelled(this.getResult());
+
+        return answer;
+    }
+
+    private async pullFileMetadata(remoteFile: RemoteFile): Promise<void> {
+        const availableOffline = await this.isAvailableOffline(remoteFile.url);
+
+        await this.localEngine.updateFile(remoteFile.url, {
+            blob: null,
+            mimeType: remoteFile.mimeType,
+            lastModifiedAt: remoteFile.updatedAt ?? null,
+            availableOffline,
+        });
+
+        this.syncedFileUrls.add(remoteFile.url);
+    }
+
+    private async downloadFiles(): Promise<void> {
+        const downloadStatus = this.requireStatus().children[2];
+
+        try {
+            if (!this.downloadsFiles) {
+                return;
+            }
+
+            const downloads = await this.getPendingDownloads();
+
+            downloadStatus.children = downloads.map(() => ({ completed: false }));
+
+            await this.updateProgress();
+            await Promise.all(
+                downloads.map((download, index) =>
+                    this.syncSemaphore.run(async () => {
+                        const fileStatus = downloadStatus.children?.[index];
+
+                        await this.downloadFile(download.url, download.localFile);
+
+                        if (fileStatus) {
+                            await this.updateProgress(() => (fileStatus.completed = true));
+                        }
+                    }),
+                ),
+            );
+        } finally {
+            await this.updateProgress(() => (downloadStatus.completed = true));
+        }
+    }
+
+    private async getPendingDownloads(): Promise<{ url: string; localFile?: LocalFile }[]> {
+        const localFiles = await this.localEngine.getFiles();
+        const localFileUrls = new Set(localFiles.map((file) => file.url));
+        const downloads: { url: string; localFile?: LocalFile }[] = localFiles
+            .filter(
+                (file) =>
+                    file.availableOffline && !file.blob && !file.deleted && !this.documentsLocalChanges.has(file.url),
+            )
+            .map((file) => ({ url: file.url, localFile: file }));
+
+        if (this.updatedDocumentUrls.size === 0) {
+            return downloads;
+        }
+
+        for (const [url, configs] of await this.getDocumentFilesConfigs()) {
+            if (
+                localFileUrls.has(url) ||
+                this.documentsLocalChanges.has(url) ||
+                !configs.some((c) => c.availableOffline)
+            ) {
+                continue;
+            }
+
+            downloads.push({ url });
+        }
+
+        return downloads;
+    }
+
+    private async downloadFile(url: string, localFile?: LocalFile): Promise<void> {
+        this.assertNotCancelled(this.getResult());
+
+        try {
+            if (!localFile) {
+                await this.localEngine.updateFile(url, { availableOffline: true });
+            }
+
+            const blob = await this.remoteEngine.readFileIfExists(url);
+
+            if (!blob) {
+                if (!localFile) {
+                    await this.localEngine.deleteFile(url);
+                }
+
+                return;
+            }
+
+            await this.localEngine.updateFile(url, {
+                blob,
+                mimeType: localFile?.mimeType ?? (blob.type || undefined),
+                availableOffline: true,
+            });
+
+            this.syncedFileUrls.add(url);
+        } catch (error) {
+            this.handleDocumentError(url, error);
+        }
+    }
+
+    private getPendingFiles(files: LocalFile[]): Promise<LocalFile[]> {
+        return this.filterSyncedFiles(files.filter((file) => this.documentsLocalChanges.has(file.url)));
+    }
+
+    private async syncLocalFiles(files: LocalFile[], statuses: JobStatus[] = []): Promise<void> {
+        await Promise.all(
+            files.map((file, index) =>
+                this.syncSemaphore.run(async () => {
+                    const fileStatus = statuses[index];
+
+                    await this.syncLocalFile(file);
+
+                    if (fileStatus) {
+                        await this.updateProgress(() => (fileStatus.completed = true));
+                    }
+                }),
+            ),
+        );
+    }
+
+    private async syncLocalFile(file: LocalFile): Promise<void> {
+        this.assertNotCancelled(this.getResult());
+
+        try {
+            try {
+                await this.pushFileChanges(file);
+            } catch (error) {
+                if (!this.isFileConflictError(file, error)) {
+                    throw error;
+                }
+
+                await this.resolveFileConflict({
+                    type: file.deleted ? 'deleted-locally' : 'modified-remotely',
+                    url: file.url,
+                    localFile: file,
+                    remoteUpdatedAt: null,
+                });
+
+                if (this.forcePushFileUrls.has(file.url)) {
+                    await this.pushFileChanges(file);
+                }
+            }
+        } catch (error) {
+            this.handleDocumentError(file.url, error);
+        }
+    }
+
+    private async pushFileChanges(file: LocalFile): Promise<void> {
+        const localChanges = await this.localEngine.getDocumentLocalChanges(file.url);
+        const forcePush = this.forcePushFileUrls.has(file.url);
+        const ifUnmodifiedSince = forcePush ? undefined : this.getFileIfUnmodifiedSince(file);
+
+        if (file.deleted) {
+            await this.remoteEngine.deleteFile(file.url, { ifUnmodifiedSince });
+
+            if ((await this.localEngine.getFile(file.url))?.deleted) {
+                await this.localEngine.deleteFile(file.url);
+            } else {
+                await this.localEngine.updateFile(file.url, { lastModifiedAt: null });
+            }
+
+            this.syncedFileUrls.add(file.url);
+
+            return;
+        }
+
+        if (!file.blob) {
+            throw new SoukaiError(`Can't push file ${file.url} because its contents are not available locally`);
+        }
+
+        const isNewFile = !file.lastModifiedAt && isCreatedLocalChange(localChanges?.resources[file.url]);
+        const start = new Date();
+        const response =
+            isNewFile && !forcePush
+                ? await this.remoteEngine.createFile(file.url, file.blob, { mimeType: file.mimeType })
+                : await this.remoteEngine.writeFile(file.url, file.blob, {
+                      mimeType: file.mimeType,
+                      ifUnmodifiedSince,
+                  });
+        const end = new Date();
+        const availableOffline = await this.isAvailableOffline(file);
+
+        await this.localEngine.updateFile(
+            file.url,
+            {
+                lastModifiedAt: this.getDocumentLastModifiedAt(start, end, response),
+                availableOffline: availableOffline || undefined,
+            },
+            { localChanges: this.clearPushedFileLocalChanges(file.url, localChanges) },
+        );
+
+        if (!availableOffline && !(await this.localEngine.getDocumentLocalChanges(file.url))) {
+            await this.localEngine.updateFile(file.url, { blob: null });
+        }
+
+        this.syncedFileUrls.add(file.url);
+
+        if (!availableOffline) {
+            await this._listeners.emit('onFilePushed', { url: file.url, blob: file.blob });
+        }
+    }
+
+    private isFileConflictError(file: LocalFile, error: unknown): boolean {
+        return (
+            !this.forcePushFileUrls.has(file.url) &&
+            (isInstanceOf(error, PreconditionFailed) || isInstanceOf(error, FileAlreadyExists))
+        );
+    }
+
+    private getFileIfUnmodifiedSince(file: LocalFile): Date | undefined {
+        if (!file.lastModifiedAt) {
+            return undefined;
+        }
+
+        return new Date(file.lastModifiedAt.getTime() + this.lastModifiedTolerance);
+    }
+
+    private async filterSyncedFiles<T extends { url: string }>(files: T[]): Promise<T[]> {
+        const syncedFiles = await Promise.all(files.map((file) => this.isSyncedFile(file.url)));
+
+        return files.filter((_, index) => syncedFiles[index]);
+    }
+
+    private async isSyncedFile(url: string): Promise<boolean> {
+        const containerUrl = safeContainerUrl(url);
+
+        if (containerUrl && (await this.getContainerFilesConfigs(containerUrl)).length > 0) {
+            return true;
+        }
+
+        return (await this.getDocumentFilesConfigs()).has(url);
+    }
+
+    private async getFileConfigs(url: string): Promise<SyncFilesConfig[]> {
+        const containerUrl = safeContainerUrl(url);
+        const containerConfigs = containerUrl ? await this.getContainerFilesConfigs(containerUrl) : [];
+        const documentConfigs = (await this.getDocumentFilesConfigs()).get(url) ?? [];
+
+        return [...containerConfigs, ...documentConfigs];
+    }
+
+    private async isAvailableOffline(file: LocalFile | string): Promise<boolean> {
+        if (typeof file !== 'string' && file.availableOffline) {
+            return true;
+        }
+
+        const configs = await this.getFileConfigs(typeof file === 'string' ? file : file.url);
+
+        return configs.some((config) => config.availableOffline);
+    }
+
+    private getContainerFilesConfigs(containerUrl: string): Promise<SyncFilesConfig[]> {
+        const promise =
+            this.containerFilesConfigs.get(containerUrl) ??
+            (async () => {
+                const models = this.getFilesModels(FilesStrategies.Container);
+
+                if (models.length === 0) {
+                    return [];
+                }
+
+                const documents = await silenced(this.localEngine.readDocuments({ containerUrl }), {
+                    ignore: DocumentNotFound,
+                    default: {} as Record<string, SolidDocument>,
+                });
+                const rdfClasses = new Set(
+                    Object.values(documents)
+                        .filter((document) => document.url !== containerUrl)
+                        .flatMap((document) => document.statements(undefined, RDF_TYPE_PREDICATE))
+                        .map((quad) => quad.object.value),
+                );
+
+                return models.filter(({ model }) => model.matchesRDFClasses(rdfClasses)).flatMap(({ files }) => files);
+            })();
+
+        this.containerFilesConfigs.set(containerUrl, promise);
+
+        return promise;
+    }
+
+    private getDocumentFilesConfigs(): Promise<Map<string, SyncFilesConfig[]>> {
+        if (this.documentFilesConfigsOutdated) {
+            this.documentFilesConfigs = null;
+            this.documentFilesConfigsOutdated = false;
+        }
+
+        return (this.documentFilesConfigs ??= this.inspectDocumentFiles());
+    }
+
+    private async inspectDocumentFiles(): Promise<Map<string, SyncFilesConfig[]>> {
+        const filesConfigs = new Map<string, SyncFilesConfig[]>();
+        const models = this.getFilesModels(FilesStrategies.Document);
+
+        if (models.length === 0) {
+            return filesConfigs;
+        }
+
+        for (const containerUrl of await this.localEngine.getContainerUrls()) {
+            const documents = await silenced(this.localEngine.readDocuments({ containerUrl }), {
+                ignore: DocumentNotFound,
+                default: {} as Record<string, SolidDocument>,
+            });
+
+            for (const document of Object.values(documents)) {
+                if (document.url.endsWith('/')) {
+                    continue;
+                }
+
+                for (const { model, files } of models) {
+                    const instances = await model.createManyFromDocument(document);
+
+                    for (const instance of instances) {
+                        for (const config of files) {
+                            for (const field of config.fields ?? []) {
+                                const value = instance.getAttribute(field as never);
+                                const urls = (Array.isArray(value) ? value : [value]).filter(
+                                    (fileUrl): fileUrl is string => typeof fileUrl === 'string',
+                                );
+
+                                for (const fileUrl of urls) {
+                                    filesConfigs.set(fileUrl, [...(filesConfigs.get(fileUrl) ?? []), config]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return filesConfigs;
+    }
+
+    private getFilesModels(strategy: FilesStrategy): FilesModel[] {
+        return this.config.applicationModels
+            .map((model) => ({
+                model: model.model,
+                files: (model.files ?? []).filter((files) => files.strategy === strategy),
+            }))
+            .filter((model) => model.files.length > 0);
     }
 
     private isNonRDFDocumentError(error: unknown): boolean {

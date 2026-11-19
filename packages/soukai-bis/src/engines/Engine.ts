@@ -29,6 +29,12 @@ import PropertyOperation from 'soukai-bis/models/crdts/PropertyOperation';
 
 import type EngineOperation from './operations/EngineOperation';
 
+export type FileWriteOptions<TWriteOptions extends object = never> = ([TWriteOptions] extends [never]
+    ? {}
+    : TWriteOptions) & {
+    mimeType?: string;
+};
+
 export type ReadDocumentsOptions<TReadOptions extends object = object> = TReadOptions &
     ({ urls: string[] } | { containerUrl: string; deep?: boolean; depth?: number });
 
@@ -81,6 +87,34 @@ export default abstract class Engine<
 
     public abstract deleteDocument(url: string, options?: TDeleteOptions): Promise<SolidResponse>;
 
+    public abstract writeFile(
+        url: string,
+        blob: Blob,
+        options?: FileWriteOptions<TWriteOptions>,
+    ): Promise<SolidResponse | null>;
+
+    public abstract createFile(
+        url: string,
+        blob: Blob,
+        options?: FileWriteOptions<TWriteOptions>,
+    ): Promise<SolidResponse | null>;
+
+    public abstract readFile(url: string, options?: TReadOptions): Promise<Blob>;
+
+    public abstract deleteFile(url: string, options?: TWriteOptions): Promise<SolidResponse | null>;
+
+    public async readFileIfExists(url: string, options?: TReadOptions): Promise<Blob | null> {
+        try {
+            return await this.readFile(url, options);
+        } catch (error) {
+            if (!isInstanceOf(error, DocumentNotFound)) {
+                throw error;
+            }
+
+            return null;
+        }
+    }
+
     public async readDocumentIfExists(url: string, options?: TReadOptions): Promise<SolidDocument | null> {
         try {
             const document = await this.readDocument(url, options);
@@ -119,6 +153,12 @@ export default abstract class Engine<
         }
 
         return slug;
+    }
+
+    protected assertFileUrl(url: string): void {
+        if (url.endsWith('/')) {
+            throw new SoukaiError(`Containers can't be used as files (url ${url})`);
+        }
     }
 
     protected async readDocumentsByUrl(urls: string[], options?: TReadOptions): Promise<Record<string, SolidDocument>> {
@@ -164,8 +204,12 @@ export default abstract class Engine<
     }
 
     protected filterContainerQuads(quads: Quad[], options: { keepTypes?: boolean } = {}): Quad[] {
+        const childrenUrls = new Set(
+            quads.filter((quad) => quad.predicate.equals(LDP_CONTAINS_PREDICATE)).map((quad) => quad.object.value),
+        );
+
         return quads.filter((quad) => {
-            if (quad.predicate.equals(LDP_CONTAINS_PREDICATE)) {
+            if (quad.predicate.equals(LDP_CONTAINS_PREDICATE) || childrenUrls.has(quad.subject.value)) {
                 return false;
             }
 

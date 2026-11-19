@@ -12,6 +12,8 @@ export interface ModelInstanceEvents {
     saved: NoPayload;
     modified: { field: string };
     'relation-loaded': { relation: Relation };
+    'file-uploaded': { url: string; blob: Blob };
+    'file-deleted': { url: string };
 }
 
 export interface ModelClassEvents {

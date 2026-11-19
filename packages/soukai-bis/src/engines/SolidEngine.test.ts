@@ -2,6 +2,8 @@ import { faker } from '@noeldemartin/faker';
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import FileAlreadyExists from 'soukai-bis/errors/FileAlreadyExists';
 import { LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
@@ -395,5 +397,97 @@ describe('SolidEngine', () => {
         // Assert
         expect(FakeServer.fetch).toHaveBeenCalledTimes(1);
         expect(FakeServer.fetch).toHaveBeenNthCalledWith(1, documentUrl, expect.objectContaining({ method: 'DELETE' }));
+    });
+
+    it('writes files', async () => {
+        // Arrange
+        const fileUrl = `${fakeContainerUrl()}001.png`;
+
+        FakeServer.respondOnce(fileUrl, FakeResponse.created());
+
+        // Act
+        await engine.writeFile(fileUrl, new Blob(['page'], { type: 'image/png' }));
+
+        // Assert
+        expect(FakeServer.getRequest('PUT', fileUrl)?.headers).toEqual({ 'Content-Type': 'image/png' });
+    });
+
+    it('creates files', async () => {
+        // Arrange
+        const fileUrl = `${fakeContainerUrl()}001.png`;
+
+        FakeServer.respondOnce(fileUrl, FakeResponse.created());
+
+        // Act
+        await engine.createFile(fileUrl, new Blob(['page'], { type: 'image/png' }));
+
+        // Assert
+        expect(FakeServer.getRequest('PUT', fileUrl)?.headers).toEqual({
+            'Content-Type': 'image/png',
+            'If-None-Match': '*',
+        });
+    });
+
+    it('fails creating existing files', async () => {
+        // Arrange
+        const fileUrl = `${fakeContainerUrl()}001.png`;
+
+        FakeServer.respondOnce(fileUrl, new FakeResponse('', {}, 412));
+
+        // Act & Assert
+        await expect(engine.createFile(fileUrl, new Blob(['page']))).rejects.toThrow(FileAlreadyExists);
+    });
+
+    it('reads files', async () => {
+        // Arrange
+        const fileUrl = `${fakeContainerUrl()}001.png`;
+        const missingFileUrl = `${fakeContainerUrl()}002.png`;
+
+        FakeServer.respondOnce(fileUrl, new Response('page'));
+        FakeServer.respondOnce(missingFileUrl, FakeResponse.notFound());
+
+        // Act
+        const blob = await engine.readFile(fileUrl);
+
+        // Assert
+        expect(await blob.text()).toEqual('page');
+        await expect(engine.readFile(missingFileUrl)).rejects.toThrow(DocumentNotFound);
+    });
+
+    it('reads files metadata', async () => {
+        // Arrange
+        const fileUrl = `${fakeContainerUrl()}001.png`;
+        const lastModifiedAt = new Date('2026-11-17T07:00:00Z');
+
+        FakeServer.respondOnce(
+            fileUrl,
+            new Response(null, {
+                headers: { 'Content-Type': 'image/png; charset=binary', 'Last-Modified': lastModifiedAt.toUTCString() },
+            }),
+        );
+
+        // Act
+        const metadata = await engine.readFileMetadata(fileUrl);
+
+        // Assert
+        expect(FakeServer.getRequest('HEAD', fileUrl)).not.toBeNull();
+        expect(metadata).toEqual({ mimeType: 'image/png', lastModifiedAt });
+    });
+
+    it('deletes files', async () => {
+        // Arrange
+        const fileUrl = `${fakeContainerUrl()}001.png`;
+        const missingFileUrl = `${fakeContainerUrl()}002.png`;
+
+        FakeServer.respondOnce(fileUrl, FakeResponse.success());
+        FakeServer.respondOnce(missingFileUrl, FakeResponse.notFound());
+
+        // Act
+        await engine.deleteFile(fileUrl);
+        await engine.deleteFile(missingFileUrl);
+
+        // Assert
+        expect(FakeServer.getRequest('DELETE', fileUrl)).not.toBeNull();
+        expect(FakeServer.getRequest('DELETE', missingFileUrl)).not.toBeNull();
     });
 });

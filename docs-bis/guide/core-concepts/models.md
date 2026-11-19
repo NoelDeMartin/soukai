@@ -280,6 +280,7 @@ Containers can also be declared as models, extending a class created with `defin
 - The `name` field, mapped to the `rdfs:label` RDF property. It's also used as the slug when minting urls.
 - The `resourceUrls` field, mapped to the `ldp:contains` RDF property.
 - The `resources` relation, with all the documents in the container.
+- The `files` getter and the `uploadFile` and `deleteFile` methods, to work with [files](./relations.md#container-files).
 - Minted urls end with a trailing slash, and don't use a hash.
 
 You can learn more about how to work with containers in the [Relations](./relations.md#contains-and-iscontainedby) section.

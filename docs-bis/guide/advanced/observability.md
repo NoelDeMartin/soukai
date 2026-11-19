@@ -56,6 +56,8 @@ These are all the events that you can listen to:
 | `deleted`         | Instance | `{ model }`              | A model has been deleted.                                              |
 | `modified`        | Instance | `{ model, field }`       | An attribute has been modified (but not saved yet).                    |
 | `relation-loaded` | Instance | `{ model, relation }`    | A relation has been loaded with `loadRelation` or `setRelationModels`. |
+| `file-uploaded`   | Instance | `{ model, url, blob }`   | A file has been uploaded to a container.                               |
+| `file-deleted`    | Instance | `{ model, url }`         | A file has been deleted from a container.                              |
 | `schema-updated`  | Class    | `{ modelClass, schema }` | The schema has been changed with `updateSchema`.                       |
 
 ## Instance listeners

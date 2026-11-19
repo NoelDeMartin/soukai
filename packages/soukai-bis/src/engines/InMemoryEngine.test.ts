@@ -8,6 +8,7 @@ import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import SetPropertyOperation from 'soukai-bis/models/crdts/SetPropertyOperation';
+import { describeLocalEngineFileTests } from 'soukai-bis/testing/utils/local-engines';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import InMemoryEngine from './InMemoryEngine';
@@ -481,4 +482,6 @@ describe('InMemoryEngine', () => {
             removeListener();
         }
     });
+
+    describeLocalEngineFileTests(() => engine);
 });
