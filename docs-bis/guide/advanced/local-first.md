@@ -179,7 +179,6 @@ When users start using your application without being logged in, models will be 
 import { MigrateLocalUrls } from 'soukai-bis';
 
 await MigrateLocalUrls.run({
-    engine: localEngine,
     migrations: {
         'local://tasks/': 'https://alice.example.org/tasks/',
     },
@@ -194,7 +193,6 @@ import { MigrateLocalUrls, Sync, replaceRDFPrefixes } from 'soukai-bis';
 replaceRDFPrefixes({ 'https://schema.org/': 'http://schema.org/' });
 
 await MigrateLocalUrls.run({
-    engine: localEngine,
     migrations: {
         'local://tasks/': 'https://alice.example.org/tasks/',
     },

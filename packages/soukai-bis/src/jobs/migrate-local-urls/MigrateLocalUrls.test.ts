@@ -13,18 +13,15 @@ import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import MigrateLocalUrls from './MigrateLocalUrls';
-import type { MigrateLocalUrlsConfig } from './MigrateLocalUrls';
 
 const fixture = <T = string>(name: string, replacements: Record<string, string> = {}) =>
     loadFixture<T>(new URL(`./MigrateLocalUrls.test.ts-fixtures/${name}`, import.meta.url), replacements);
 
 describe('MigrateLocalUrls', () => {
     let engine: InMemoryEngine;
-    let config: Pick<MigrateLocalUrlsConfig, 'engine'>;
 
     beforeEach(() => {
         engine = new InMemoryEngine();
-        config = { engine };
 
         setEngine(engine);
     });
@@ -46,7 +43,6 @@ describe('MigrateLocalUrls', () => {
 
         // Act
         await MigrateLocalUrls.run({
-            ...config,
             migrations: {
                 [Movie.defaultContainerUrl]: remoteContainerUrl,
             },
@@ -117,7 +113,6 @@ describe('MigrateLocalUrls', () => {
 
         // Act
         await MigrateLocalUrls.run({
-            ...config,
             migrations: { 'local://tasks/': remoteContainerUrl },
             prefixes: { 'https://schema.org/': 'http://schema.org/' },
         });
@@ -178,7 +173,6 @@ describe('MigrateLocalUrls', () => {
 
         // Act - only prefixes, no migrations
         await MigrateLocalUrls.run({
-            ...config,
             prefixes: { 'https://schema.org/': 'http://schema.org/' },
         });
 
@@ -217,7 +211,6 @@ describe('MigrateLocalUrls', () => {
 
         // Act
         await MigrateLocalUrls.run({
-            ...config,
             migrations: { [WatchAction.defaultContainerUrl]: remoteContainerUrl },
         });
 

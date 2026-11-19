@@ -4,6 +4,7 @@ import type { Quad, Term } from '@rdfjs/types';
 import { mergeLocalChanges, migrateLocalChanges } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
 import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
+import { requireLocalEngine } from 'soukai-bis/engines/state';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import Job from 'soukai-bis/jobs/Job';
 import {
@@ -15,7 +16,6 @@ import {
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 
 export interface MigrateLocalUrlsConfig {
-    engine: LocalEngine;
     migrations?: Record<string, string>;
     prefixes?: Record<string, string>;
 }
@@ -27,11 +27,15 @@ export default class MigrateLocalUrls extends Job {
         await job.process();
     }
 
+    declare private engine: LocalEngine;
+
     public constructor(private config: MigrateLocalUrlsConfig) {
         super();
     }
 
     protected async run(): Promise<void> {
+        this.engine = requireLocalEngine();
+
         const hasMigrations = this.hasMigrations();
         const hasPrefixes = this.hasPrefixes();
 
@@ -39,7 +43,7 @@ export default class MigrateLocalUrls extends Job {
             return;
         }
 
-        const localContainerUrls = (await this.config.engine.getContainerUrls())
+        const localContainerUrls = (await this.engine.getContainerUrls())
             .filter((localContainerUrl) => hasPrefixes || !!this.migrateUrl(localContainerUrl))
             .sort((a, b) => a.length - b.length);
 
@@ -48,7 +52,7 @@ export default class MigrateLocalUrls extends Job {
         }
 
         for (const localContainerUrl of localContainerUrls) {
-            const container = await this.config.engine.readDocument(localContainerUrl);
+            const container = await this.engine.readDocument(localContainerUrl);
             const documentUrls = container
                 .statements(new RDFNamedNode(localContainerUrl), LDP_CONTAINS_PREDICATE)
                 .map((quad) => quad.object.value)
@@ -60,7 +64,7 @@ export default class MigrateLocalUrls extends Job {
         }
 
         if (hasMigrations) {
-            await this.config.engine.dropContainers(new RegExp(`^${LOCAL_URL_PROTOCOL}//`));
+            await this.engine.dropContainers(new RegExp(`^${LOCAL_URL_PROTOCOL}//`));
         }
     }
 
@@ -71,8 +75,8 @@ export default class MigrateLocalUrls extends Job {
             return;
         }
 
-        const container = await this.config.engine.readDocument(containerUrl);
-        const localChanges = await this.config.engine.getDocumentLocalChanges(containerUrl);
+        const container = await this.engine.readDocument(containerUrl);
+        const localChanges = await this.engine.getDocumentLocalChanges(containerUrl);
         const metaQuads = container
             .getQuads()
             .filter(
@@ -91,7 +95,7 @@ export default class MigrateLocalUrls extends Job {
         const migratedLocalChanges = this.migrateLocalChanges(localChanges);
 
         try {
-            await this.config.engine.createDocument(remoteUrl, this.migrateQuads(container.getQuads()), {
+            await this.engine.createDocument(remoteUrl, this.migrateQuads(container.getQuads()), {
                 localChanges: migratedLocalChanges,
             });
         } catch (error) {
@@ -100,7 +104,7 @@ export default class MigrateLocalUrls extends Job {
             }
 
             if (migratedLocalChanges) {
-                await this.config.engine.updateDocument(remoteUrl, [], { localChanges: migratedLocalChanges });
+                await this.engine.updateDocument(remoteUrl, [], { localChanges: migratedLocalChanges });
             }
         }
     }
@@ -112,17 +116,17 @@ export default class MigrateLocalUrls extends Job {
             return;
         }
 
-        const document = await this.config.engine.readDocument(documentUrl);
+        const document = await this.engine.readDocument(documentUrl);
         const quads = document.getQuads();
         const migratedQuads = this.migrateQuads(quads);
 
         if (remoteUrl) {
-            const localChanges = await this.config.engine.getDocumentLocalChanges(documentUrl);
+            const localChanges = await this.engine.getDocumentLocalChanges(documentUrl);
 
-            await this.config.engine.createDocument(remoteUrl, migratedQuads, {
+            await this.engine.createDocument(remoteUrl, migratedQuads, {
                 localChanges: this.migrateLocalChanges(localChanges),
             });
-            await this.config.engine.deleteDocument(documentUrl);
+            await this.engine.deleteDocument(documentUrl);
 
             return;
         }
@@ -131,7 +135,7 @@ export default class MigrateLocalUrls extends Job {
             return;
         }
 
-        await this.config.engine.updateDocument(documentUrl, [
+        await this.engine.updateDocument(documentUrl, [
             {
                 applyToQuads: () => migratedQuads,
                 applyToSparql: () => {
