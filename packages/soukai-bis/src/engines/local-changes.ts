@@ -2,7 +2,7 @@ import type { SolidDocument } from '@noeldemartin/solid-utils';
 import { arrayUnique } from '@noeldemartin/utils';
 import { getResourceOperationUrls } from 'soukai-bis/models/concerns/crdts';
 
-import type { DocumentLocalChanges, ResourceLocalChanges, ResourceLocalState } from './LocalEngine';
+import type { DocumentLocalChanges, LocalChangesUpdate, ResourceLocalChanges, ResourceLocalState } from './LocalEngine';
 
 const STATE_PRIORITIES: Record<ResourceLocalState, number> = { updated: 1, created: 2, deleted: 3 };
 
@@ -172,5 +172,21 @@ export function migrateLocalChanges(
 export function withoutResourceLocalChanges(changes: DocumentLocalChanges, urls: Set<string>): DocumentLocalChanges {
     return {
         resources: Object.fromEntries(Object.entries(changes.resources).filter(([url]) => !urls.has(url))),
+    };
+}
+
+export function fileLocalChanges(url: string, state: ResourceLocalState): LocalChangesUpdate {
+    return (changes) => {
+        const previousState = changes?.resources[url]?.state;
+
+        if (state === 'deleted') {
+            return previousState === 'created' ? null : { resources: { [url]: { state } } };
+        }
+
+        if (previousState === 'created') {
+            return { resources: { [url]: { state: 'created' } } };
+        }
+
+        return { resources: { [url]: { state: previousState ? 'updated' : state } } };
     };
 }

@@ -194,6 +194,8 @@ export default abstract class Relation<
         attributes: T,
     ): T;
 
+    protected abstract getEmptyRelatedValue(): Related[] | null;
+
     protected getDocumentModelsCache(): ModelsCache {
         return buildModelsCache(this.parent.getDocumentModels());
     }
@@ -210,15 +212,15 @@ export default abstract class Relation<
         return !this.loaded && this.parent.exists() && this.attachesWithoutLoading();
     }
 
-    protected assertLoaded(method: string): this is { related: Related[] } {
+    protected assertLoaded(method: string): void {
         if (this.loaded) {
-            return true;
+            return;
         }
 
         if (!this.parent.exists() || this.isEmpty()) {
-            this.related = [];
+            this.related = this.getEmptyRelatedValue();
 
-            return true;
+            return;
         }
 
         throw new SoukaiError(`The "${method}" method can't be called before loading the relationship`);

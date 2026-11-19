@@ -94,7 +94,7 @@ export default abstract class MultiModelRelation<
         const detachedUrls = detachedModels.map((model) => model.url);
         const isDetached = (model: Related) => detachedModels.includes(model);
 
-        this.related = this.related?.filter((model) => !isDetached(model));
+        this.related = this.related.filter((model) => !isDetached(model));
         this[NEW_MODELS] = this[NEW_MODELS]?.filter((model) => !isDetached(model));
         this[MODELS_IN_SAME_DOCUMENT] = this[MODELS_IN_SAME_DOCUMENT]?.filter((model) => !isDetached(model));
         this[MODELS_IN_OTHER_DOCUMENT_IDS] = this[MODELS_IN_OTHER_DOCUMENT_IDS]?.filter(
@@ -147,4 +147,12 @@ export default abstract class MultiModelRelation<
     }
 
     public abstract load(options?: RelationLoadOptions): Promise<Related[]>;
+
+    protected assertLoaded(method: string): asserts this is { related: Related[] } {
+        super.assertLoaded(method);
+    }
+
+    protected getEmptyRelatedValue(): Related[] {
+        return [];
+    }
 }

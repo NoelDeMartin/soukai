@@ -3,6 +3,7 @@ import { quadsToTurtle, turtleToQuads } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl, fakeResourceUrl } from '@noeldemartin/testing';
 import { urlRoute } from '@noeldemartin/utils';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
+import { fileLocalChanges } from 'soukai-bis/engines/local-changes';
 import { setEngine } from 'soukai-bis/engines/state';
 import { requireSafeContainerUrl, safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import { trackLocalChanges } from 'soukai-bis/models/local-changes';
@@ -27,6 +28,43 @@ describe('MigrateLocalUrls', () => {
         config = { engine };
 
         setEngine(engine);
+    });
+
+    it('migrates files', async () => {
+        // Arrange
+        const movieDocumentUrl = fakeDocumentUrl({ containerUrl: Movie.defaultContainerUrl });
+        const movieUrl = fakeResourceUrl({ documentUrl: movieDocumentUrl });
+        const fileUrl = `${Movie.defaultContainerUrl}poster.png`;
+        const remoteContainerUrl = fakeContainerUrl({ baseUrl: `https://${faker.internet.domainName()}` });
+        const migratedFileUrl = `${remoteContainerUrl}poster.png`;
+
+        await Movie.create({ url: movieUrl, title: 'Spirited Away' });
+        await engine.writeFile(fileUrl, new Blob(['poster'], { type: 'image/png' }), {
+            localChanges: fileLocalChanges(fileUrl, 'created'),
+        });
+
+        // Act
+        await MigrateLocalUrls.run({
+            ...config,
+            migrations: { [Movie.defaultContainerUrl]: remoteContainerUrl },
+        });
+
+        // Assert
+        const migratedDocumentUrl = movieDocumentUrl.replace(Movie.defaultContainerUrl, remoteContainerUrl);
+
+        expect(await engine.getFile(fileUrl)).toBeNull();
+        expect(await engine.getDocumentLocalChanges(fileUrl)).toBeNull();
+        expect(await engine.getFile(migratedFileUrl)).toMatchObject({
+            url: migratedFileUrl,
+            containerUrl: remoteContainerUrl,
+            mimeType: 'image/png',
+        });
+        expect(await (await engine.readFile(migratedFileUrl)).text()).toEqual('poster');
+        expect(await engine.getDocumentLocalChanges(migratedFileUrl)).toEqual({
+            resources: { [migratedFileUrl]: { state: 'created' } },
+        });
+        expect(await engine.readDocumentIfExists(migratedDocumentUrl)).not.toBeNull();
+        expect(JSON.stringify(engine.documents[remoteContainerUrl]?.graph)).not.toContain('poster.png');
     });
 
     it('migrates urls', async () => {

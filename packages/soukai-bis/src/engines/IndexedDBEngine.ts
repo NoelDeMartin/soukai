@@ -34,6 +34,7 @@ import type {
     LocalEngineDeleteOptions,
     LocalEngineReadOptions,
     LocalEngineWriteOptions,
+    LocalFile,
     PurgeMetadataOptions,
 } from './LocalEngine';
 import type EngineOperation from './operations/EngineOperation';
@@ -154,10 +155,11 @@ export default class IndexedDBEngine extends LocalEngine {
         const containerMatches = this.containerMatcher(containerUrls);
 
         const connection = await SoukaiIndexedDB.connect();
-        const transaction = connection.transaction(['containers', 'documents', 'localChanges'], 'readwrite');
+        const transaction = connection.transaction(['containers', 'documents', 'localChanges', 'files'], 'readwrite');
         const containersStore = transaction.objectStore('containers');
         const documentsStore = transaction.objectStore('documents');
         const localChangesStore = transaction.objectStore('localChanges');
+        const filesStore = transaction.objectStore('files');
         const containersMetadata = await containersStore.getAll();
 
         for (const containerMetadata of containersMetadata) {
@@ -172,6 +174,12 @@ export default class IndexedDBEngine extends LocalEngine {
 
             for (const key of documentKeys) {
                 await documentsStore.delete(key);
+            }
+
+            const fileKeys = await filesStore.index('containerUrl').getAllKeys(containerMetadata.url);
+
+            for (const key of fileKeys) {
+                await filesStore.delete(key);
             }
 
             const localChangesKeys = await localChangesStore.index('containerUrl').getAllKeys(containerMetadata.url);
@@ -234,6 +242,20 @@ export default class IndexedDBEngine extends LocalEngine {
         const records = await connection.getAll('localChanges');
 
         return Object.fromEntries(records.map((record) => [record.documentUrl, this.toDocumentLocalChanges(record)]));
+    }
+
+    public async getFile(url: string): Promise<LocalFile | null> {
+        const connection = await SoukaiIndexedDB.connect();
+
+        return (await connection.get('files', url)) ?? null;
+    }
+
+    public async getFiles(options: { containerUrl?: string } = {}): Promise<LocalFile[]> {
+        const connection = await SoukaiIndexedDB.connect();
+
+        return options.containerUrl
+            ? connection.getAllFromIndex('files', 'containerUrl', options.containerUrl)
+            : connection.getAll('files');
     }
 
     public async purgeMetadata(options: PurgeMetadataOptions = {}): Promise<void> {
@@ -361,6 +383,22 @@ export default class IndexedDBEngine extends LocalEngine {
         await this.close();
         await SoukaiIndexedDB.clear();
         this.containersIndexCache = null;
+    }
+
+    protected async putFile(file: LocalFile, options: { localChanges?: LocalChangesUpdate } = {}): Promise<void> {
+        await this.withDocumentsTransaction(file.containerUrl, 'readwrite', async (transaction) => {
+            await transaction.objectStore('files').put(file);
+            await this.writeLocalChanges(transaction, file.url, file.containerUrl, options.localChanges);
+        });
+    }
+
+    protected async removeFile(url: string): Promise<void> {
+        const connection = await SoukaiIndexedDB.connect();
+        const transaction = connection.transaction(['files', 'localChanges'], 'readwrite');
+
+        await transaction.objectStore('files').delete(url);
+        await transaction.objectStore('localChanges').delete(url);
+        await transaction.done;
     }
 
     protected async readDocumentsByUrl(
@@ -560,6 +598,14 @@ export default class IndexedDBEngine extends LocalEngine {
         documentsByContainer: Map<string, LocalDocument[]>;
         containersIndex: ContainersIndex;
     }): Promise<Record<string, SolidDocument>> {
+        const connection = await SoukaiIndexedDB.connect();
+        const containerFiles = new Map(
+            await Promise.all(
+                Array.from(containerUrls).map(
+                    async (url) => [url, await connection.getAllFromIndex('files', 'containerUrl', url)] as const,
+                ),
+            ),
+        );
         const containerDocuments = Array.from(containerUrls).map((url) => {
             const subject = new RDFNamedNode(url);
             const localDocument = documentsByUrl.get(url);
@@ -577,6 +623,7 @@ export default class IndexedDBEngine extends LocalEngine {
                     (childUrl) => new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(childUrl)),
                 ),
             );
+            document.addQuads(this.containerFilesQuads(url, containerFiles.get(url) ?? []));
 
             return document;
         });
@@ -617,6 +664,10 @@ export default class IndexedDBEngine extends LocalEngine {
             ),
         );
 
+        if (exists) {
+            document.addQuads(this.containerFilesQuads(url, await this.getFiles({ containerUrl: url })));
+        }
+
         return document;
     }
 
@@ -648,7 +699,7 @@ export default class IndexedDBEngine extends LocalEngine {
     private async writeLocalChanges(
         transaction: IDBPTransaction<
             SoukaiIndexedDBSchema,
-            readonly ['documents', 'containers', 'localChanges'],
+            readonly ['documents', 'containers', 'localChanges', 'files'],
             'readwrite'
         >,
         documentUrl: string,
@@ -691,7 +742,7 @@ export default class IndexedDBEngine extends LocalEngine {
         operation: (
             transaction: IDBPTransaction<
                 SoukaiIndexedDBSchema,
-                readonly ['documents', 'containers', 'localChanges'],
+                readonly ['documents', 'containers', 'localChanges', 'files'],
                 TMode
             >,
         ) => Promise<TResult>,
@@ -712,7 +763,7 @@ export default class IndexedDBEngine extends LocalEngine {
         }
 
         const connection = await SoukaiIndexedDB.connect();
-        const transaction = connection.transaction(['documents', 'containers', 'localChanges'] as const, mode);
+        const transaction = connection.transaction(['documents', 'containers', 'localChanges', 'files'] as const, mode);
 
         const result = await operation(transaction);
 

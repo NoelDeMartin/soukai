@@ -16,11 +16,12 @@ import {
 import {
     clearPushedLocalChanges,
     mergeLocalChanges,
+    subtractLocalChanges,
     withCreatedAsUpdated,
     withoutResourceLocalChanges,
 } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
-import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
+import type { DocumentLocalChanges, LocalChangesUpdate, LocalFile } from 'soukai-bis/engines/LocalEngine';
 import DeleteResourceOperation from 'soukai-bis/engines/operations/DeleteResourceOperation';
 import type EngineOperation from 'soukai-bis/engines/operations/EngineOperation';
 import type SolidEngine from 'soukai-bis/engines/SolidEngine';
@@ -28,6 +29,7 @@ import { getEngine, getRemoteEngine } from 'soukai-bis/engines/state';
 import { isLocalEngine } from 'soukai-bis/engines/utils';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import FileAlreadyExists from 'soukai-bis/errors/FileAlreadyExists';
 import JobCancelledError from 'soukai-bis/errors/JobCancelledError';
 import JobFailedError from 'soukai-bis/errors/JobFailedError';
 import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
@@ -35,6 +37,7 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Job from 'soukai-bis/jobs/Job';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
 import { getExternalSourceUrl, isInExternalSource, type ExternalSource } from 'soukai-bis/jobs/utils';
+import { isNonRDFResource } from 'soukai-bis/lib/internals/files';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
 import ComputedAttributesCache from 'soukai-bis/models/computed-attributes/ComputedAttributesCache';
@@ -60,6 +63,9 @@ import type {
     DeletionConflict,
     DeletionConflictResolution,
     DeletionsResolution,
+    FileConflict,
+    FileConflictResolution,
+    FileConflictType,
     SyncingDocument,
 } from './concerns/sync-conflicts';
 import {
@@ -83,7 +89,14 @@ import type {
     ModelsRegistrationFailedEvent,
 } from './concerns/sync-registrations';
 
-export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/sync-conflicts';
+export type {
+    DeletionConflict,
+    DeletionConflictResolution,
+    DeletionConflictType,
+    FileConflict,
+    FileConflictResolution,
+    FileConflictType,
+} from './concerns/sync-conflicts';
 export type {
     ModelRegistrationMode,
     ModelsRegisteredEvent,
@@ -93,26 +106,40 @@ export type {
 const DEFAULT_MAX_ERRORS = 10;
 const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
-const IANA_MEDIA_TYPE_PREFIX = 'http://www.w3.org/ns/iana/media-types/';
 const NON_RDF_HTTP_STATUS_CODES = new Set([406, 415, 501]);
-const RDF_MEDIA_TYPES = new Set([
-    'text/turtle',
-    'application/ld+json',
-    'application/n-triples',
-    'application/n-quads',
-    'text/n3',
-    'application/rdf+xml',
-    'application/trig',
-]);
+
+export const FilesStrategies = {
+    DOCUMENT: 'document',
+    CONTAINER: 'container',
+} as const;
+
+export type FilesStrategy = (typeof FilesStrategies)[keyof typeof FilesStrategies];
+
+export interface SyncFilesConfig {
+    strategy: FilesStrategy;
+    fields?: string[];
+    offline?: boolean;
+    cache?: boolean;
+}
+
+export interface SyncApplicationModel {
+    model: ModelConstructor;
+    registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
+    files?: SyncFilesConfig[];
+}
+
+export interface FilePushedEvent {
+    url: string;
+    blob: Blob;
+    offline: boolean;
+    cache: boolean;
+}
 
 export interface SyncConfig {
     userProfile: CompleteSolidUserProfile;
     publicTypeIndexes?: TypeIndex[];
     privateTypeIndexes?: TypeIndex[];
-    applicationModels: {
-        model: ModelConstructor;
-        registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
-    }[];
+    applicationModels: SyncApplicationModel[];
     externalSources?: ExternalSource[];
     maxErrors?: number;
     concurrency?: number;
@@ -120,6 +147,7 @@ export interface SyncConfig {
     createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
     resolveDeletionConflict?: (conflict: DeletionConflict) => Promise<DeletionConflictResolution>;
+    resolveFileConflict?: (conflict: FileConflict) => Promise<FileConflictResolution>;
 }
 
 export interface SyncJobStatus extends JobStatus {
@@ -136,9 +164,11 @@ export interface PullTask {
 export interface SyncJobResult {
     syncedDocumentUrls: Set<string>;
     documentsWithErrors: Set<string>;
+    updatedFileUrls: Set<string>;
 }
 
 export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResult> {
+    onFilePushed?(event: FilePushedEvent): unknown;
     onModelsRegistered?(event: ModelsRegisteredEvent): unknown;
     onModelsRegistrationFailed?(event: ModelsRegistrationFailedEvent): unknown;
     onExternalSourceFailed?(source: ExternalSource, error: unknown): unknown;
@@ -152,6 +182,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             onModelsRegistered: (event) => config.onModelsRegistered?.(event),
             onModelsRegistrationFailed: (event) => config.onModelsRegistrationFailed?.(event),
             onExternalSourceFailed: (source, error) => config.onExternalSourceFailed?.(source, error),
+            onFilePushed: (event) => config.onFilePushed?.(event),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
             onCancelled: (partialResult) => config.onCancelled?.(partialResult),
@@ -162,6 +193,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
     public readonly documentsWithErrors = new Set<string>();
     public readonly syncedDocumentUrls = new Set<string>();
+    public readonly updatedFileUrls = new Set<string>();
     public readonly failedExternalSources = new Map<ExternalSource, unknown>();
     private syncSemaphore: Semaphore;
     private conflictsSemaphore: Semaphore;
@@ -176,6 +208,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     private remoteDocumentsWithDeletions: SolidDocument[] = [];
     private typeIndexes: Partial<Record<TypeIndexRegistration, Promise<TypeIndex>>> = {};
     private unsyncedContainers = new Set<string>();
+    private containerFilesConfigs = new Map<string, Promise<SyncFilesConfig[]>>();
+    private documentFilesConfigs = new Map<string, SyncFilesConfig[]>();
+    private overwrittenFileUrls = new Set<string>();
+    private documentFilesConfigsUrls = new Set<string>();
 
     declare private localEngine: LocalEngine;
     declare private remoteEngine: SolidEngine;
@@ -218,6 +254,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             await this.prepareDocumentsLastModifiedAt();
             await this.prepareDocumentsLocalChanges();
             await this.pullChanges();
+            await this.pullOfflineFiles();
             await this.pushChanges();
             await this.finish();
         } finally {
@@ -265,6 +302,19 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         this.pushedLocalChanges.set(pushedDocument.url, withoutResourceLocalChanges(pushedChanges, resolvedUrls));
 
         return (changes) => clearPushedLocalChanges(changes, pushedChanges, pushedDocument);
+    }
+
+    private clearPushedFileLocalChanges(
+        fileUrl: string,
+        pushedChanges: DocumentLocalChanges | null,
+    ): LocalChangesUpdate | undefined {
+        if (!pushedChanges) {
+            return undefined;
+        }
+
+        this.pushedLocalChanges.set(fileUrl, pushedChanges);
+
+        return (changes) => subtractLocalChanges(changes, pushedChanges);
     }
 
     private async updateSyncedDocument(
@@ -344,6 +394,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return {
             syncedDocumentUrls: this.syncedDocumentUrls,
             documentsWithErrors: this.documentsWithErrors,
+            updatedFileUrls: this.updatedFileUrls,
         };
     }
 
@@ -414,7 +465,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     private async finish(): Promise<void> {
-        await ComputedAttributesCache.invalidate({ documentUrls: Array.from(this.syncedDocumentUrls) });
+        await ComputedAttributesCache.invalidate({
+            documentUrls: [...this.syncedDocumentUrls, ...this.updatedFileUrls],
+        });
     }
 
     private shouldPullDocument(document: SolidDocument): boolean {
@@ -662,6 +715,10 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         } catch (error) {
             if (this.isNonRDFDocumentError(error)) {
                 this.syncedDocumentUrls.delete(documentUrl);
+
+                if (!documentUrl.endsWith('/') && !this.documentsLocalChanges.has(documentUrl)) {
+                    await this.writeRemoteFileMetadata(documentUrl, { remoteUpdatedAt });
+                }
             } else if (!isInstanceOf(error, DocumentNotFound)) {
                 this.handleDocumentError(documentUrl, error);
             }
@@ -735,17 +792,30 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
             );
 
-            const resourceUrls = (container?.resourceUrls ?? []).filter(
-                (childDocumentUrl) => !this.isNonRDFResource(remoteDocument, childDocumentUrl),
+            const remoteQuads = remoteDocument.getQuads();
+            const remoteChildUrls = container?.resourceUrls ?? [];
+            const localFileUrls = new Set(
+                (await this.localEngine.getFiles({ containerUrl: documentUrl })).map((file) => file.url),
+            );
+            const { fileUrls, resourceUrls } = arrayGroupBy(remoteChildUrls, (childDocumentUrl) =>
+                isNonRDFResource(remoteQuads, childDocumentUrl) || localFileUrls.has(childDocumentUrl)
+                    ? 'fileUrls'
+                    : 'resourceUrls',
             );
 
-            if (status && resourceUrls.length > 0) {
+            await this.syncRemoteFiles(
+                documentUrl,
+                (fileUrls ?? []).map((fileUrl) => resourcesByUrl[fileUrl] ?? fileUrl),
+                new Set(remoteChildUrls),
+            );
+
+            if (status && resourceUrls && resourceUrls.length > 0) {
                 status.children = resourceUrls.map(() => ({ completed: false }));
 
                 await this.updateProgress();
             }
 
-            const childrenPullTasks = resourceUrls.map((childDocumentUrl, index) => {
+            const childrenPullTasks = (resourceUrls ?? []).map((childDocumentUrl, index) => {
                 const childResource = resourcesByUrl[childDocumentUrl];
                 const childStatus = status?.children?.[index];
 
@@ -787,9 +857,12 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 return;
             }
 
-            const { containerChildren, documentChildren } = arrayGroupBy(container.resourceUrls, (childUrl) => {
-                return childUrl.endsWith('/') ? 'containerChildren' : 'documentChildren';
-            });
+            const localFiles = await this.localEngine.getFiles({ containerUrl: url });
+            const localFileUrls = new Set(localFiles.map((file) => file.url));
+            const { containerChildren, documentChildren } = arrayGroupBy(
+                container.resourceUrls.filter((childUrl) => !localFileUrls.has(childUrl)),
+                (childUrl) => (childUrl.endsWith('/') ? 'containerChildren' : 'documentChildren'),
+            );
 
             const pendingUrls = (documentChildren ?? []).filter(
                 (pendingUrl) => !this.syncedDocumentUrls.has(pendingUrl),
@@ -803,6 +876,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             }
 
             const { pushedModels, pushedInstances } = await this.pushContainerChildrenDocuments(pendingUrls, status);
+
+            await this.pushContainerFiles(localFiles);
 
             if (options.register === false) {
                 await Promise.all(
@@ -1294,25 +1369,401 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return lastModifiedAt ? parseDate(lastModifiedAt) : null;
     }
 
-    private isNonRDFResource(containerDocument: SolidDocument, resourceUrl: string): boolean {
-        if (resourceUrl.endsWith('/')) {
-            return false;
+    private async syncRemoteFiles(
+        containerUrl: string,
+        remoteFiles: (Resource | string)[],
+        remoteChildUrls: Set<string>,
+    ): Promise<void> {
+        const localFiles = new Map(
+            (await this.localEngine.getFiles({ containerUrl })).map((file) => [file.url, file] as const),
+        );
+        const remoteFileUrls = new Set<string>();
+
+        for (const remoteFile of remoteFiles) {
+            const url = typeof remoteFile === 'string' ? remoteFile : remoteFile.requireUrl();
+            const mimeType = typeof remoteFile === 'string' ? undefined : remoteFile.mimeType;
+            const remoteUpdatedAt = typeof remoteFile === 'string' ? undefined : remoteFile.updatedAt;
+            const localFile = localFiles.get(url);
+
+            remoteFileUrls.add(url);
+
+            if (this.documentsLocalChanges.has(url)) {
+                await this.detectRemoteFileChanges(url, localFile, { mimeType, remoteUpdatedAt });
+
+                continue;
+            }
+
+            if (localFile && this.matchesDeclaredRemoteMetadata(localFile, { mimeType, remoteUpdatedAt })) {
+                continue;
+            }
+
+            await this.writeRemoteFileMetadata(url, { mimeType, remoteUpdatedAt });
         }
 
-        const mediaTypeUrls = containerDocument
-            .statements(resourceUrl, RDF_TYPE_PREDICATE)
-            .map((statement) => statement.object.value)
-            .filter((type) => type.startsWith(IANA_MEDIA_TYPE_PREFIX));
+        for (const localFile of localFiles.values()) {
+            if (remoteFileUrls.has(localFile.url) || remoteChildUrls.has(localFile.url)) {
+                continue;
+            }
 
-        if (mediaTypeUrls.length === 0) {
-            return false;
+            if (this.documentsLocalChanges.get(localFile.url)?.resources[localFile.url]?.state === 'updated') {
+                await this.resolveFileConflict({
+                    type: 'deleted-remotely',
+                    url: localFile.url,
+                    localFile,
+                    remoteUpdatedAt: null,
+                });
+
+                continue;
+            }
+
+            if (this.documentsLocalChanges.has(localFile.url)) {
+                continue;
+            }
+
+            await this.localEngine.deleteFile(localFile.url);
+
+            this.updatedFileUrls.add(localFile.url);
+        }
+    }
+
+    private async detectRemoteFileChanges(
+        url: string,
+        localFile: LocalFile | undefined,
+        remoteMetadata: { mimeType?: string; remoteUpdatedAt?: Date },
+    ): Promise<void> {
+        const conflictType = localFile && this.getFileConflictType(localFile, remoteMetadata.remoteUpdatedAt);
+
+        if (!localFile || !conflictType) {
+            return;
         }
 
-        return !mediaTypeUrls.some((type) => {
-            const mediaType = type.slice(IANA_MEDIA_TYPE_PREFIX.length).replace(/#Resource$/, '');
+        await this.resolveFileConflict(
+            { type: conflictType, url, localFile, remoteUpdatedAt: remoteMetadata.remoteUpdatedAt ?? null },
+            remoteMetadata.mimeType,
+        );
+    }
 
-            return RDF_MEDIA_TYPES.has(mediaType);
+    private getFileConflictType(localFile: LocalFile, remoteUpdatedAt?: Date): FileConflictType | null {
+        if (!localFile.lastModifiedAt) {
+            const localState = this.documentsLocalChanges.get(localFile.url)?.resources[localFile.url]?.state;
+
+            return !localFile.deleted && localState === 'created' ? 'modified-remotely' : null;
+        }
+
+        if (!remoteUpdatedAt || this.isSameTimestamp(localFile.lastModifiedAt, remoteUpdatedAt)) {
+            return null;
+        }
+
+        return localFile.deleted ? 'deleted-locally' : 'modified-remotely';
+    }
+
+    private async resolveFileConflict(conflict: FileConflict, remoteMimeType?: string): Promise<void> {
+        const resolution = await this.getFileConflictResolution(conflict);
+
+        if (resolution === 'keep-local') {
+            this.overwrittenFileUrls.add(conflict.url);
+
+            return;
+        }
+
+        this.documentsLocalChanges.delete(conflict.url);
+
+        await this.localEngine.deleteFile(conflict.url);
+
+        if (conflict.type === 'deleted-remotely') {
+            this.updatedFileUrls.add(conflict.url);
+
+            return;
+        }
+
+        await this.writeRemoteFileMetadata(conflict.url, {
+            mimeType: remoteMimeType,
+            remoteUpdatedAt: conflict.remoteUpdatedAt ?? undefined,
         });
+    }
+
+    private async getFileConflictResolution(conflict: FileConflict): Promise<FileConflictResolution> {
+        const resolveFileConflict = this.config.resolveFileConflict;
+
+        if (!resolveFileConflict) {
+            return 'keep-local';
+        }
+
+        const answer = await this.conflictsSemaphore.run(() => resolveFileConflict(conflict));
+
+        this.assertNotCancelled(this.getResult());
+
+        return answer;
+    }
+
+    private async writeRemoteFileMetadata(
+        url: string,
+        metadata: { mimeType?: string; remoteUpdatedAt?: Date },
+    ): Promise<void> {
+        await this.localEngine.updateFile(url, {
+            blob: null,
+            mimeType: metadata.mimeType,
+            lastModifiedAt: metadata.remoteUpdatedAt ?? null,
+        });
+
+        this.updatedFileUrls.add(url);
+    }
+
+    private async pullOfflineFiles(): Promise<void> {
+        if (!this.config.applicationModels.some((model) => model.files?.some((files) => files.offline))) {
+            return;
+        }
+
+        const localFiles = new Map((await this.localEngine.getFiles()).map((file) => [file.url, file] as const));
+        const documentFilesConfigs = await this.getDocumentFilesConfigs();
+        const fileUrls = arrayUnique([...localFiles.keys(), ...documentFilesConfigs.keys()]);
+
+        await Promise.all(
+            fileUrls.map(async (url) => {
+                const localFile = localFiles.get(url);
+
+                if (localFile?.blob || localFile?.deleted || this.documentsLocalChanges.has(url)) {
+                    return;
+                }
+
+                const { offline } = await this.getFileOptions(localFile ?? url);
+
+                if (!offline) {
+                    return;
+                }
+
+                await this.syncSemaphore.run(async () => {
+                    try {
+                        const blob = await this.remoteEngine.readFileIfExists(url);
+
+                        if (!blob) {
+                            return;
+                        }
+
+                        await this.localEngine.updateFile(url, {
+                            blob,
+                            mimeType: localFile?.mimeType ?? (blob.type || undefined),
+                            offline: true,
+                        });
+                    } catch (error) {
+                        this.handleDocumentError(url, error);
+                    }
+                });
+            }),
+        );
+    }
+
+    private async pushContainerFiles(files: LocalFile[]): Promise<void> {
+        await Promise.all(
+            files
+                .filter((file) => this.documentsLocalChanges.has(file.url))
+                .map((file) => this.syncSemaphore.run(() => this.pushFile(file))),
+        );
+    }
+
+    private async pushFile(file: LocalFile): Promise<void> {
+        this.assertNotCancelled(this.getResult());
+
+        try {
+            try {
+                await this.pushFileChanges(file);
+            } catch (error) {
+                if (!this.isFileConflictError(file, error)) {
+                    throw error;
+                }
+
+                await this.resolveFileConflict({
+                    type: file.deleted ? 'deleted-locally' : 'modified-remotely',
+                    url: file.url,
+                    localFile: file,
+                    remoteUpdatedAt: null,
+                });
+
+                if (this.overwrittenFileUrls.has(file.url)) {
+                    await this.pushFileChanges(file);
+                }
+            }
+        } catch (error) {
+            this.handleDocumentError(file.url, error);
+        }
+    }
+
+    private async pushFileChanges(file: LocalFile): Promise<void> {
+        const localChanges = await this.localEngine.getDocumentLocalChanges(file.url);
+        const overwrite = this.overwrittenFileUrls.has(file.url);
+        const ifUnmodifiedSince = overwrite ? undefined : this.getFileIfUnmodifiedSince(file);
+
+        this.syncedDocumentUrls.add(file.url);
+
+        if (file.deleted) {
+            await this.remoteEngine.deleteFile(file.url, { ifUnmodifiedSince });
+            await this.localEngine.deleteFile(file.url);
+
+            return;
+        }
+
+        if (!file.blob) {
+            throw new SoukaiError(`Can't push file ${file.url} because its contents are not available locally`);
+        }
+
+        const isNewFile = !file.lastModifiedAt && localChanges?.resources[file.url]?.state === 'created';
+        const start = new Date();
+        const response =
+            isNewFile && !overwrite
+                ? await this.remoteEngine.createFile(file.url, file.blob, { mimeType: file.mimeType })
+                : await this.remoteEngine.writeFile(file.url, file.blob, {
+                      mimeType: file.mimeType,
+                      ifUnmodifiedSince,
+                  });
+        const end = new Date();
+        const { offline, cache } = await this.getFileOptions(file);
+
+        await this.localEngine.updateFile(
+            file.url,
+            {
+                blob: offline ? undefined : null,
+                lastModifiedAt: this.getDocumentLastModifiedAt(start, end, response),
+                offline: offline || undefined,
+            },
+            { localChanges: this.clearPushedFileLocalChanges(file.url, localChanges) },
+        );
+
+        if (!offline) {
+            await this._listeners.emit('onFilePushed', { url: file.url, blob: file.blob, offline, cache });
+        }
+    }
+
+    private isFileConflictError(file: LocalFile, error: unknown): boolean {
+        return (
+            !this.overwrittenFileUrls.has(file.url) &&
+            (isInstanceOf(error, PreconditionFailed) || isInstanceOf(error, FileAlreadyExists))
+        );
+    }
+
+    private getFileIfUnmodifiedSince(file: LocalFile): Date | undefined {
+        if (!file.lastModifiedAt) {
+            return undefined;
+        }
+
+        const lastModifiedTolerance = this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
+
+        return new Date(file.lastModifiedAt.getTime() + lastModifiedTolerance);
+    }
+
+    private async getFileOptions(file: LocalFile | string): Promise<{ offline: boolean; cache: boolean }> {
+        const url = typeof file === 'string' ? file : file.url;
+        const containerUrl = safeContainerUrl(url);
+        const containerConfigs = containerUrl ? await this.getContainerFilesConfigs(containerUrl) : [];
+        const documentConfigs = (await this.getDocumentFilesConfigs()).get(url) ?? [];
+        const configs = [...containerConfigs, ...documentConfigs];
+        const offline = (typeof file !== 'string' && !!file.offline) || configs.some((config) => config.offline);
+
+        return {
+            offline,
+            cache: !offline && configs.every((config) => config.cache !== false),
+        };
+    }
+
+    private getContainerFilesConfigs(containerUrl: string): Promise<SyncFilesConfig[]> {
+        const promise =
+            this.containerFilesConfigs.get(containerUrl) ??
+            (async () => {
+                const models = this.config.applicationModels.filter((model) =>
+                    model.files?.some((files) => files.strategy === FilesStrategies.CONTAINER),
+                );
+
+                if (models.length === 0) {
+                    return [];
+                }
+
+                const documents = await silencedDocumentNotFound(
+                    this.localEngine.readDocuments({ containerUrl }),
+                    {} as Record<string, SolidDocument>,
+                );
+                const rdfClasses = new Set(
+                    Object.values(documents)
+                        .filter((document) => document.url !== containerUrl)
+                        .flatMap((document) => document.statements(undefined, RDF_TYPE_PREDICATE))
+                        .map((quad) => quad.object.value),
+                );
+
+                return models
+                    .filter((model) => model.model.matchesRDFClasses(rdfClasses))
+                    .flatMap((model) => model.files ?? [])
+                    .filter((files) => files.strategy === FilesStrategies.CONTAINER);
+            })();
+
+        this.containerFilesConfigs.set(containerUrl, promise);
+
+        return promise;
+    }
+
+    private async getDocumentFilesConfigs(): Promise<Map<string, SyncFilesConfig[]>> {
+        const filesConfigs = this.documentFilesConfigs;
+        const models = this.config.applicationModels
+            .map((model) => ({
+                model: model.model,
+                files: (model.files ?? []).filter(
+                    (files) => files.strategy === FilesStrategies.DOCUMENT && (files.fields?.length ?? 0) > 0,
+                ),
+            }))
+            .filter((model) => model.files.length > 0);
+
+        if (models.length > 0) {
+            const documentUrls = Array.from(this.syncedDocumentUrls).filter(
+                (url) => !url.endsWith('/') && !this.documentFilesConfigsUrls.has(url),
+            );
+
+            documentUrls.forEach((url) => this.documentFilesConfigsUrls.add(url));
+
+            const documents = await this.localEngine.readDocuments({ urls: documentUrls });
+
+            for (const document of Object.values(documents)) {
+                for (const { model, files } of models) {
+                    const instances = await model.createManyFromDocument(document);
+
+                    for (const instance of instances) {
+                        for (const config of files) {
+                            for (const field of config.fields ?? []) {
+                                const value = instance.getAttribute(field as never);
+                                const urls = (Array.isArray(value) ? value : [value]).filter(
+                                    (fileUrl): fileUrl is string => typeof fileUrl === 'string',
+                                );
+
+                                for (const fileUrl of urls) {
+                                    filesConfigs.set(fileUrl, [...(filesConfigs.get(fileUrl) ?? []), config]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return filesConfigs;
+    }
+
+    private matchesDeclaredRemoteMetadata(
+        localFile: LocalFile,
+        declaredMetadata: { mimeType?: string; remoteUpdatedAt?: Date },
+    ): boolean {
+        const mimeTypeMatchesOrIsUndeclared =
+            !declaredMetadata.mimeType || (localFile.mimeType ?? null) === declaredMetadata.mimeType;
+        const updatedAtMatchesOrIsUndeclared =
+            !declaredMetadata.remoteUpdatedAt ||
+            this.isSameTimestamp(localFile.lastModifiedAt, declaredMetadata.remoteUpdatedAt);
+
+        return mimeTypeMatchesOrIsUndeclared && updatedAtMatchesOrIsUndeclared;
+    }
+
+    private isSameTimestamp(localDate: Date | null | undefined, remoteDate: Date | null | undefined): boolean {
+        if (!localDate || !remoteDate) {
+            return !localDate && !remoteDate;
+        }
+
+        const lastModifiedTolerance = this.config.lastModifiedTolerance ?? DEFAULT_LAST_MODIFIED_TOLERANCE;
+
+        return Math.abs(localDate.getTime() - remoteDate.getTime()) <= lastModifiedTolerance;
     }
 
     private isNonRDFDocumentError(error: unknown): boolean {
@@ -1346,5 +1797,17 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         if (this.ownDocumentsWithErrors.size >= maxErrors) {
             throw new JobFailedError(`Too many errors during sync (${this.ownDocumentsWithErrors.size}).`);
         }
+    }
+}
+
+async function silencedDocumentNotFound<T>(promise: Promise<T>, defaultValue: T): Promise<T> {
+    try {
+        return await promise;
+    } catch (error) {
+        if (!isInstanceOf(error, DocumentNotFound)) {
+            throw error;
+        }
+
+        return defaultValue;
     }
 }

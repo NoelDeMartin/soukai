@@ -1,5 +1,7 @@
-import { objectOnly, requireUrlParentDirectory } from '@noeldemartin/utils';
+import { objectOnly, requireUrlParentDirectory, tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import type { UploadFileOptions } from 'soukai-bis/files/files';
+import { refreshComputedAttributes } from 'soukai-bis/models/computed-attributes/registry';
 import type Container from 'soukai-bis/models/ldp/Container';
 import { isContainerClass } from 'soukai-bis/models/ldp/utils';
 import type Model from 'soukai-bis/models/Model';
@@ -39,6 +41,21 @@ export default class IsContainedByRelation<
         this.related = await this.relatedClass.find(containerUrl, options);
 
         return this.related;
+    }
+
+    public async uploadFile(blob: Blob, options: UploadFileOptions = {}): Promise<string> {
+        this.assertNotEmpty('uploadFile');
+
+        return tap(this.related.uploadFile(blob, options), async () => {
+            await refreshComputedAttributes([this.parent]);
+        });
+    }
+
+    public async deleteFile(url: string): Promise<void> {
+        this.assertNotEmpty('deleteFile');
+
+        await this.related.deleteFile(url);
+        await refreshComputedAttributes([this.parent]);
     }
 
     public async loadFromDocumentRDF(): Promise<void> {

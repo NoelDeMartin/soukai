@@ -135,4 +135,20 @@ export default abstract class SingleModelRelation<
     }
 
     public abstract load(options?: RelationLoadOptions): Promise<Related | null>;
+
+    protected assertLoaded(method: string): asserts this is { related: Related | null } {
+        super.assertLoaded(method);
+    }
+
+    protected assertNotEmpty(method: string): asserts this is { related: Related } {
+        this.assertLoaded(method);
+
+        if (!this.related) {
+            throw new SoukaiError(`The "${method}" method can't be called because the relationship is empty`);
+        }
+    }
+
+    protected getEmptyRelatedValue(): null {
+        return null;
+    }
 }

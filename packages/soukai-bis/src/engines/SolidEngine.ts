@@ -1,18 +1,32 @@
-import { SolidClient, SparqlUpdate, jsonldToQuads, quadsToTurtle } from '@noeldemartin/solid-utils';
+import {
+    NotFound,
+    SolidClient,
+    SparqlUpdate,
+    UnsuccessfulNetworkRequest,
+    jsonldToQuads,
+    quadsToTurtle,
+} from '@noeldemartin/solid-utils';
 import type { Fetch, JsonLD, JsonLDGraph, SolidDocument, SolidResponse } from '@noeldemartin/solid-utils';
-import { Semaphore } from '@noeldemartin/utils';
+import { Semaphore, isInstanceOf } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
+import FileAlreadyExists from 'soukai-bis/errors/FileAlreadyExists';
+import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 
 import Engine from './Engine';
+import type { FileWriteOptions } from './Engine';
 import { CLASS_MARKER } from './internals';
 import type EngineOperation from './operations/EngineOperation';
 
 export interface SolidEngineConfig {
     fetch?: Nullable<Fetch>;
     concurrency?: Nullable<number>;
+}
+
+export interface SolidEngineFileOptions {
+    ifUnmodifiedSince?: Date;
 }
 
 export default class SolidEngine extends Engine {
@@ -118,5 +132,99 @@ export default class SolidEngine extends Engine {
 
     public deleteDocument(url: string): Promise<SolidResponse> {
         return this.lock.run(() => this.client.delete(url));
+    }
+
+    public writeFile(
+        url: string,
+        blob: Blob,
+        options: FileWriteOptions & SolidEngineFileOptions = {},
+    ): Promise<SolidResponse> {
+        this.assertFileUrl(url);
+
+        return this.lock.run(async () => {
+            try {
+                return await this.client.uploadFile(url, blob, {
+                    contentType: options.mimeType,
+                    headers: this.getFileHeaders(options),
+                });
+            } catch (error) {
+                if (isInstanceOf(error, UnsuccessfulNetworkRequest) && error.response.status === 412) {
+                    throw new PreconditionFailed('writing', url);
+                }
+
+                throw error;
+            }
+        });
+    }
+
+    public createFile(url: string, blob: Blob, options: FileWriteOptions = {}): Promise<SolidResponse> {
+        this.assertFileUrl(url);
+
+        return this.lock.run(async () => {
+            try {
+                return await this.client.uploadFile(url, blob, { contentType: options.mimeType, overwrite: false });
+            } catch (error) {
+                if (isInstanceOf(error, UnsuccessfulNetworkRequest) && error.response.status === 412) {
+                    throw new FileAlreadyExists(url);
+                }
+
+                throw error;
+            }
+        });
+    }
+
+    public override async createFileInContainer(
+        containerUrl: string,
+        proposedUrl: string,
+        blob: Blob,
+        options: FileWriteOptions = {},
+    ): Promise<string> {
+        const slug = this.assertContainerDocumentSlug(containerUrl, proposedUrl);
+        const response = await this.lock.run(() =>
+            this.client.uploadFileInContainer(containerUrl, blob, {
+                slug: decodeURIComponent(slug),
+                contentType: options.mimeType,
+            }),
+        );
+
+        return response.url;
+    }
+
+    public readFile(url: string): Promise<Blob> {
+        return this.lock.run(async () => {
+            try {
+                return await this.client.readFile(url);
+            } catch (error) {
+                if (isInstanceOf(error, NotFound)) {
+                    throw new DocumentNotFound(url);
+                }
+
+                throw error;
+            }
+        });
+    }
+
+    public deleteFile(url: string, options: SolidEngineFileOptions = {}): Promise<SolidResponse> {
+        return this.lock.run(async () => {
+            try {
+                return await this.client.delete(url, { headers: this.getFileHeaders(options) });
+            } catch (error) {
+                if (isInstanceOf(error, UnsuccessfulNetworkRequest) && error.response.status === 404) {
+                    return { headers: error.response.headers };
+                }
+
+                if (isInstanceOf(error, UnsuccessfulNetworkRequest) && error.response.status === 412) {
+                    throw new PreconditionFailed('deleting', url);
+                }
+
+                throw error;
+            }
+        });
+    }
+
+    private getFileHeaders(options: SolidEngineFileOptions): Record<string, string> | undefined {
+        return options.ifUnmodifiedSince
+            ? { 'If-Unmodified-Since': options.ifUnmodifiedSince.toUTCString() }
+            : undefined;
     }
 }

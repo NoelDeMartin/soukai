@@ -3,7 +3,7 @@ import type { SolidDocument } from '@noeldemartin/solid-utils';
 import { weakMemo } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import { getLocallyDeletedResourceUrls } from 'soukai-bis/engines/local-changes';
-import type { DocumentLocalChanges } from 'soukai-bis/engines/LocalEngine';
+import type { DocumentLocalChanges, LocalFile } from 'soukai-bis/engines/LocalEngine';
 import { RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { normalizeRDFIRI } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import type Operation from 'soukai-bis/models/crdts/Operation';
@@ -105,6 +105,17 @@ export interface DeletionConflict {
     resourceUrl: string;
     localDocument: SolidDocument;
     remoteDocument: SolidDocument;
+}
+
+export type FileConflictType = 'modified-remotely' | 'deleted-remotely' | 'deleted-locally';
+
+export type FileConflictResolution = 'keep-local' | 'keep-remote';
+
+export interface FileConflict {
+    type: FileConflictType;
+    url: string;
+    localFile: LocalFile;
+    remoteUpdatedAt: Date | null;
 }
 
 export interface DeletionsResolution {

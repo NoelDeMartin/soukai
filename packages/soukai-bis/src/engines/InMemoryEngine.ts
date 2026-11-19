@@ -16,6 +16,7 @@ import type {
     LocalEngineDeleteOptions,
     LocalEngineReadOptions,
     LocalEngineWriteOptions,
+    LocalFile,
     PurgeMetadataOptions,
 } from './LocalEngine';
 import type EngineOperation from './operations/EngineOperation';
@@ -31,6 +32,7 @@ export default class InMemoryEngine extends LocalEngine {
 
     public documents: Record<string, InMemoryDocument> = {};
     public localChanges: Record<string, DocumentLocalChanges> = {};
+    public files: Record<string, LocalFile> = {};
 
     public async createDocument(
         url: string,
@@ -54,11 +56,7 @@ export default class InMemoryEngine extends LocalEngine {
 
         this.writeLocalChanges(url, options?.localChanges);
 
-        let containerUrl: string | null = url;
-
-        while ((containerUrl = safeContainerUrl(containerUrl)) !== null) {
-            this.documents[containerUrl] ??= { graph: await quadsToJsonLD(this.containerQuads(containerUrl)) };
-        }
+        await this.ensureContainersExist(url);
 
         return new SolidDocument(url, quads);
     }
@@ -145,8 +143,24 @@ export default class InMemoryEngine extends LocalEngine {
         return structuredClone(this.localChanges);
     }
 
+    public async getFile(url: string): Promise<LocalFile | null> {
+        const file = this.files[url];
+
+        return file ? { ...file } : null;
+    }
+
+    public async getFiles(options: { containerUrl?: string } = {}): Promise<LocalFile[]> {
+        return Object.values(this.files)
+            .filter((file) => !options.containerUrl || file.containerUrl === options.containerUrl)
+            .map((file) => ({ ...file }));
+    }
+
     public async getContainerUrls(): Promise<string[]> {
         const containerUrls = new Set<string>();
+
+        for (const file of Object.values(this.files)) {
+            containerUrls.add(file.containerUrl);
+        }
 
         for (const documentUrl of Object.keys(this.documents)) {
             if (documentUrl.endsWith('/')) {
@@ -187,6 +201,14 @@ export default class InMemoryEngine extends LocalEngine {
 
             await this.deleteDocument(documentUrl);
         }
+
+        for (const file of Object.values(this.files)) {
+            if (!containerMatches(file.containerUrl)) {
+                continue;
+            }
+
+            await this.removeFile(file.url);
+        }
     }
 
     public async purgeMetadata(options: PurgeMetadataOptions = {}): Promise<void> {
@@ -198,6 +220,27 @@ export default class InMemoryEngine extends LocalEngine {
             }
 
             delete this.documents[documentUrl].lastModifiedAt;
+        }
+    }
+
+    protected async putFile(file: LocalFile, options: { localChanges?: LocalChangesUpdate } = {}): Promise<void> {
+        this.files[file.url] = { ...file };
+
+        this.writeLocalChanges(file.url, options.localChanges);
+
+        await this.ensureContainersExist(file.url);
+    }
+
+    protected async removeFile(url: string): Promise<void> {
+        delete this.files[url];
+        delete this.localChanges[url];
+    }
+
+    private async ensureContainersExist(url: string): Promise<void> {
+        let containerUrl: string | null = url;
+
+        while ((containerUrl = safeContainerUrl(containerUrl)) !== null) {
+            this.documents[containerUrl] ??= { graph: await quadsToJsonLD(this.containerQuads(containerUrl)) };
         }
     }
 
@@ -232,6 +275,8 @@ export default class InMemoryEngine extends LocalEngine {
 
             quads.push(new RDFQuad(subject, LDP_CONTAINS_PREDICATE, new RDFNamedNode(url)));
         }
+
+        quads.push(...this.containerFilesQuads(document.url, Object.values(this.files)));
 
         document.addQuads(quads);
     }

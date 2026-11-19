@@ -3,7 +3,7 @@ import { isInstanceOf } from '@noeldemartin/utils';
 import type { Quad, Term } from '@rdfjs/types';
 import { mergeLocalChanges, migrateLocalChanges } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
-import type { DocumentLocalChanges, LocalChangesUpdate } from 'soukai-bis/engines/LocalEngine';
+import type { DocumentLocalChanges, LocalChangesUpdate, LocalFile } from 'soukai-bis/engines/LocalEngine';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
 import Job from 'soukai-bis/jobs/Job';
 import {
@@ -49,13 +49,19 @@ export default class MigrateLocalUrls extends Job {
 
         for (const localContainerUrl of localContainerUrls) {
             const container = await this.config.engine.readDocument(localContainerUrl);
+            const files = await this.config.engine.getFiles({ containerUrl: localContainerUrl });
+            const fileUrls = new Set(files.map((file) => file.url));
             const documentUrls = container
                 .statements(new RDFNamedNode(localContainerUrl), LDP_CONTAINS_PREDICATE)
                 .map((quad) => quad.object.value)
-                .filter((documentUrl) => !documentUrl.endsWith('/'));
+                .filter((documentUrl) => !documentUrl.endsWith('/') && !fileUrls.has(documentUrl));
 
             for (const documentUrl of documentUrls) {
                 await this.migrateDocument(documentUrl);
+            }
+
+            for (const file of files) {
+                await this.migrateFile(file);
             }
         }
 
@@ -73,16 +79,16 @@ export default class MigrateLocalUrls extends Job {
 
         const container = await this.config.engine.readDocument(containerUrl);
         const localChanges = await this.config.engine.getDocumentLocalChanges(containerUrl);
-        const metaQuads = container
-            .getQuads()
-            .filter(
-                (quad) =>
-                    !quad.predicate.equals(LDP_CONTAINS_PREDICATE) &&
-                    !(
-                        quad.predicate.equals(RDF_TYPE_PREDICATE) &&
-                        (quad.object.equals(LDP_CONTAINER_OBJECT) || quad.object.equals(LDP_BASIC_CONTAINER_OBJECT))
-                    ),
-            );
+        const fileUrls = new Set((await this.config.engine.getFiles({ containerUrl })).map((file) => file.url));
+        const containerQuads = container.getQuads().filter((quad) => !fileUrls.has(quad.subject.value));
+        const metaQuads = containerQuads.filter(
+            (quad) =>
+                !quad.predicate.equals(LDP_CONTAINS_PREDICATE) &&
+                !(
+                    quad.predicate.equals(RDF_TYPE_PREDICATE) &&
+                    (quad.object.equals(LDP_CONTAINER_OBJECT) || quad.object.equals(LDP_BASIC_CONTAINER_OBJECT))
+                ),
+        );
 
         if (metaQuads.length === 0 && !localChanges) {
             return;
@@ -91,7 +97,7 @@ export default class MigrateLocalUrls extends Job {
         const migratedLocalChanges = this.migrateLocalChanges(localChanges);
 
         try {
-            await this.config.engine.createDocument(remoteUrl, this.migrateQuads(container.getQuads()), {
+            await this.config.engine.createDocument(remoteUrl, this.migrateQuads(containerQuads), {
                 localChanges: migratedLocalChanges,
             });
         } catch (error) {
@@ -139,6 +145,31 @@ export default class MigrateLocalUrls extends Job {
                 },
             },
         ]);
+    }
+
+    protected async migrateFile(file: LocalFile): Promise<void> {
+        const remoteUrl = this.migrateUrl(file.url);
+
+        if (!remoteUrl) {
+            return;
+        }
+
+        if (!file.deleted) {
+            const localChanges = await this.config.engine.getDocumentLocalChanges(file.url);
+
+            await this.config.engine.updateFile(
+                remoteUrl,
+                {
+                    blob: file.blob ?? null,
+                    mimeType: file.mimeType,
+                    lastModifiedAt: file.lastModifiedAt,
+                    offline: file.offline,
+                },
+                { localChanges: this.migrateLocalChanges(localChanges) },
+            );
+        }
+
+        await this.config.engine.deleteFile(file.url);
     }
 
     protected migrateQuads(quads: Quad[]): Quad[] {
