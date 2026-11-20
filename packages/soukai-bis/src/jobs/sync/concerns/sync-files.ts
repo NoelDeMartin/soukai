@@ -2,20 +2,20 @@ import { isCreatedLocalChange } from 'soukai-bis/engines/local-changes';
 import type { LocalFile, ResourceLocalChanges } from 'soukai-bis/engines/LocalEngine';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
-export const FilesStrategies = {
+export const FilesSyncStrategies = {
     Document: 'document',
     Container: 'container',
 } as const;
 
-export type FilesStrategy = (typeof FilesStrategies)[keyof typeof FilesStrategies];
+export type FilesSyncStrategy = (typeof FilesSyncStrategies)[keyof typeof FilesSyncStrategies];
 
 export interface SyncFilesConfig {
-    strategy: FilesStrategy;
+    strategy: FilesSyncStrategy;
     fields?: string[];
     availableOffline?: boolean;
 }
 
-export interface FilesModel {
+export interface SyncFilesModel {
     model: ModelConstructor;
     files: SyncFilesConfig[];
 }

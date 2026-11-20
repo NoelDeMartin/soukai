@@ -158,7 +158,7 @@ await Sync.run({
 Files stored in containers aren't synchronized by default. In order to sync them, you'll need to use the `files` option of application models, indicating how to find them:
 
 ```ts
-import { FilesStrategies, Sync } from 'soukai-bis';
+import { FilesSyncStrategies, Sync } from 'soukai-bis';
 
 await Sync.run({
     // ...
@@ -166,17 +166,21 @@ await Sync.run({
         {
             model: Chapter,
             registration: true,
-            files: [{ strategy: FilesStrategies.Container, availableOffline: true }],
+            files: [{ strategy: FilesSyncStrategies.Container, availableOffline: true }],
         },
-        { model: Movie, registration: true, files: [{ strategy: FilesStrategies.Document, fields: ['posterUrl'] }] },
+        {
+            model: Movie,
+            registration: true,
+            files: [{ strategy: FilesSyncStrategies.Document, fields: ['posterUrl'] }],
+        },
     ],
 });
 ```
 
 There are two strategies:
 
-- `FilesStrategies.Container`: Syncs all the files in containers holding instances of the model. This is useful when files are stored using containers instead of links.
-- `FilesStrategies.Document`: Syncs the files whose urls are stored in the given `fields` of the model. Fields can hold a single url or an array of urls.
+- `FilesSyncStrategies.Container`: Syncs all the files in containers holding instances of the model. This is useful when files are stored using containers instead of links.
+- `FilesSyncStrategies.Document`: Syncs the files whose urls are stored in the given `fields` of the model. Fields can hold a single url or an array of urls.
 
 By default, only the metadata of the files will be pulled into the local engine, and their contents will be removed once they are pushed to the POD. That way, you can use [`readFile`](../core-concepts/relations.md#container-files) to read their contents from the POD, without storing large files in the browser. If you want them to be available offline, use the `availableOffline` option, and the job will download them after pulling and pushing changes.
 

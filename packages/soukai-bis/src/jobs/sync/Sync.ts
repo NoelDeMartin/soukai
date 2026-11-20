@@ -83,13 +83,13 @@ import {
     getTombstoneUrls,
     withoutTombstones,
 } from './concerns/sync-document-operations';
-import { FilesStrategies, getFileConflictType, isFileUpToDate } from './concerns/sync-files';
+import { FilesSyncStrategies, getFileConflictType, isFileUpToDate } from './concerns/sync-files';
 import type {
     FileConflict,
     FileConflictResolution,
     FilePushedEvent,
-    FilesModel,
-    FilesStrategy,
+    SyncFilesModel,
+    FilesSyncStrategy,
     PulledFiles,
     RemoteFile,
     SyncFilesConfig,
@@ -107,13 +107,13 @@ import type {
 } from './concerns/sync-registrations';
 
 export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/sync-conflicts';
-export { FilesStrategies } from './concerns/sync-files';
+export { FilesSyncStrategies } from './concerns/sync-files';
 export type {
     FileConflict,
     FileConflictResolution,
     FileConflictType,
     FilePushedEvent,
-    FilesStrategy,
+    FilesSyncStrategy,
     SyncFilesConfig,
 } from './concerns/sync-files';
 export type {
@@ -1847,7 +1847,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         const promise =
             this.containerFilesConfigs.get(containerUrl) ??
             (async () => {
-                const models = this.getFilesModels(FilesStrategies.Container);
+                const models = this.getSyncFilesModels(FilesSyncStrategies.Container);
 
                 if (models.length === 0) {
                     return [];
@@ -1883,7 +1883,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
     private async inspectDocumentFiles(): Promise<Map<string, SyncFilesConfig[]>> {
         const filesConfigs = new Map<string, SyncFilesConfig[]>();
-        const models = this.getFilesModels(FilesStrategies.Document);
+        const models = this.getSyncFilesModels(FilesSyncStrategies.Document);
 
         if (models.length === 0) {
             return filesConfigs;
@@ -1924,7 +1924,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         return filesConfigs;
     }
 
-    private getFilesModels(strategy: FilesStrategy): FilesModel[] {
+    private getSyncFilesModels(strategy: FilesSyncStrategy): SyncFilesModel[] {
         return this.config.applicationModels
             .map((model) => ({
                 model: model.model,
