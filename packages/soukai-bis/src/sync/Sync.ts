@@ -48,10 +48,10 @@ export interface SyncProperties {
     setupCompleted: boolean;
     containerUrls: Record<string, ModelContainerUrls>;
     externalSources: ExternalSource[];
+    activeJob: SyncJob | null;
 }
 
 export interface SyncCompletedEvent {
-    job: SyncJob | null;
     cancelled: boolean;
     error: unknown;
 }
@@ -59,7 +59,6 @@ export interface SyncCompletedEvent {
 export interface SyncListener {
     onUpdated?(changes: Partial<SyncProperties>): unknown;
     onContainersUpdated?(modelClass: ModelConstructor, containerUrls: string[]): unknown;
-    onJobStarted?(job: SyncJob): unknown;
     onFileUpdated?(url: string): unknown;
     onSyncStarted?(): unknown;
     onSyncCompleted?(event: SyncCompletedEvent): unknown;
@@ -87,7 +86,6 @@ export class SyncService {
     public readonly refreshLocalChanges = coalesce(() => updateLocalChanges(this));
     protected autoPush = true;
     protected models: SyncApplicationModel[] = [];
-    protected activeJob: SyncJob | null = null;
     protected previousSyncPendingChangesets: LocalChangeset[] = [];
     private _connected = false;
     private _online = false;
@@ -97,6 +95,7 @@ export class SyncService {
     private _setupCompleted = false;
     private _containerUrls: Record<string, ModelContainerUrls> = {};
     private _externalSources: ExternalSource[] = [];
+    private _activeJob: SyncJob | null = null;
     private session: SyncSession | null = null;
     private userProfile: CompleteSolidUserProfile | null = null;
     private asyncLock = new Semaphore();
@@ -133,6 +132,10 @@ export class SyncService {
 
     public get externalSources(): ExternalSource[] {
         return this._externalSources.slice(0);
+    }
+
+    public get activeJob(): SyncJob | null {
+        return this._activeJob;
     }
 
     public async trackModels(models: SyncApplicationModel[]): Promise<void> {
@@ -191,6 +194,7 @@ export class SyncService {
                 setupCompleted: this.setupCompleted,
                 containerUrls: this.containerUrls,
                 externalSources: this._externalSources,
+                activeJob: null,
             });
 
             for (const syncModel of this.getRegisteredModels()) {
@@ -205,7 +209,7 @@ export class SyncService {
         this._connected = false;
         this.pushLocalChanges.cancel();
 
-        void this.activeJob?.cancel();
+        void this._activeJob?.cancel();
 
         await this.asyncLock.run(async () => {
             if (!this.session) {
@@ -217,6 +221,7 @@ export class SyncService {
             this._syncing = false;
             this._localChangesCount = 0;
             this._error = null;
+            this._activeJob = null;
 
             await this.emit('onUpdated', {
                 connected: false,
@@ -224,6 +229,7 @@ export class SyncService {
                 syncing: false,
                 localChangesCount: 0,
                 error: null,
+                activeJob: null,
             });
 
             this._setupCompleted = false;
@@ -232,7 +238,6 @@ export class SyncService {
             this.session = null;
             this.userProfile = null;
             this.autoPush = true;
-            this.activeJob = null;
             this.previousSyncPendingChangesets = [];
         });
     }

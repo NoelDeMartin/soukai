@@ -204,7 +204,7 @@ describe('Sync', () => {
         await Sync.start();
 
         // Assert
-        expect(onSyncCompleted).toHaveBeenCalledWith({ job: null, cancelled: false, error: null });
+        expect(onSyncCompleted).toHaveBeenCalledWith({ cancelled: false, error: null });
     });
 
     it('only updates connection properties when disconnecting', async () => {
@@ -226,6 +226,7 @@ describe('Sync', () => {
             syncing: false,
             localChangesCount: 0,
             error: null,
+            activeJob: null,
         });
     });
 
@@ -267,6 +268,30 @@ describe('Sync', () => {
         expect(Sync.connected).toBe(false);
     });
 
+    it('tracks active jobs', async () => {
+        // Arrange
+        let runningJob: SyncJob | null = null;
+        let activeJob: SyncJob | null | undefined;
+
+        fakeSyncJob({
+            onRun: (job) => {
+                runningJob = job;
+                activeJob = properties.activeJob;
+            },
+        });
+
+        await connect();
+
+        // Act
+        await Sync.start();
+
+        // Assert
+        expect(runningJob).not.toBeNull();
+        expect(activeJob).toBe(runningJob);
+        expect(Sync.activeJob).toBeNull();
+        expect(properties.activeJob).toBeNull();
+    });
+
     it('does not cancel finished jobs when disconnecting', async () => {
         // Arrange
         const jobs: SyncJob[] = [];
@@ -304,7 +329,7 @@ describe('Sync', () => {
         // Assert
         expect(jobs).toHaveLength(1);
         expect(jobs[0]?.cancel).not.toHaveBeenCalled();
-        expect(onSyncCompleted).toHaveBeenCalledWith({ job: null, cancelled: true, error: null });
+        expect(onSyncCompleted).toHaveBeenCalledWith({ cancelled: true, error: null });
     });
 
     it('cancels running syncs when disconnecting', async () => {

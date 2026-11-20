@@ -29,7 +29,7 @@ function invaded(sync: SyncService) {
     return invade(sync, [
         '_error',
         '_syncing',
-        'activeJob',
+        '_activeJob',
         'emit',
         'models',
         'previousSyncPendingChangesets',
@@ -102,6 +102,12 @@ export async function findTypeIndexes(sync: SyncService): Promise<SyncTypeIndexe
     );
 }
 
+async function setActiveJob(sync: SyncService, job: SyncJob | null): Promise<void> {
+    invaded(sync)._activeJob = job;
+
+    await invaded(sync).emit('onUpdated', { activeJob: job });
+}
+
 async function runJobs(sync: SyncService): Promise<JobsResult> {
     const result: JobsResult = {
         cancelled: false,
@@ -123,16 +129,15 @@ async function runJobs(sync: SyncService): Promise<JobsResult> {
 
         result.typeIndexes = [...typeIndexes.publicTypeIndexes, ...typeIndexes.privateTypeIndexes];
         result.modelsWithFailedRegistration = new Set();
-        invaded(sync).activeJob = job;
-
-        await invaded(sync).emit('onJobStarted', job);
+        await setActiveJob(sync, job);
         await runJob(sync, job, result);
 
         if (job.cancelled) {
             return { ...result, cancelled: true, pendingChangesets: await requireLocalEngine().getLocalChangesets() };
         }
 
-        invaded(sync).activeJob = null;
+        await setActiveJob(sync, null);
+
         previousChangesets = result.pendingChangesets;
         result.pendingChangesets = await requireLocalEngine().getLocalChangesets();
 
@@ -172,7 +177,6 @@ export async function runSync(sync: SyncService): Promise<void> {
     } catch (error) {
         syncError = error;
         invaded(sync).previousSyncPendingChangesets = await requireLocalEngine().getLocalChangesets();
-        invaded(sync).activeJob = null;
         invaded(sync)._error = error;
 
         await invaded(sync).emit('onUpdated', { error });
@@ -181,9 +185,12 @@ export async function runSync(sync: SyncService): Promise<void> {
         invaded(sync)._syncing = false;
 
         await invaded(sync).emit('onUpdated', { syncing: false });
-        await sync.refreshLocalChanges();
-        await invaded(sync).emit('onSyncCompleted', { job: invaded(sync).activeJob, cancelled, error: syncError });
 
-        invaded(sync).activeJob = null;
+        if (sync.activeJob) {
+            await setActiveJob(sync, null);
+        }
+
+        await sync.refreshLocalChanges();
+        await invaded(sync).emit('onSyncCompleted', { cancelled, error: syncError });
     }
 }

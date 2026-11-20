@@ -59,6 +59,7 @@ import type TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import Container from 'soukai-bis/models/ldp/Container';
 import type Resource from 'soukai-bis/models/ldp/Resource';
 import { getRemoteContainerUrl } from 'soukai-bis/models/ldp/utils';
+import type Model from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
 import {
@@ -1361,18 +1362,41 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
         return resolution;
     }
 
-    private async getDeletionConflictResolution(conflict: DeletionConflict): Promise<DeletionConflictResolution> {
+    private async getDeletionConflictResolution(
+        conflict: Omit<DeletionConflict, 'model'>,
+    ): Promise<DeletionConflictResolution> {
         const resolveDeletionConflict = this.config.resolveDeletionConflict;
 
         if (!resolveDeletionConflict) {
             return 'delete';
         }
 
-        const answer = await this.conflictsSemaphore.run(() => resolveDeletionConflict(conflict));
+        const model = await this.findDeletionConflictModel(conflict);
+        const answer = await this.conflictsSemaphore.run(() => resolveDeletionConflict({ ...conflict, model }));
 
         this.assertNotCancelled(this.getResult());
 
         return answer;
+    }
+
+    private async findDeletionConflictModel(conflict: Omit<DeletionConflict, 'model'>): Promise<Model | null> {
+        const document = conflict.type === 'deleted-remotely' ? conflict.localDocument : conflict.remoteDocument;
+
+        for (const modelClass of this.syncedModels) {
+            if (modelClass === Container) {
+                continue;
+            }
+
+            const model = await silenced(
+                modelClass.createFromDocument(document, { url: conflict.resourceUrl, includeSoftDeleted: true }),
+            );
+
+            if (model) {
+                return model;
+            }
+        }
+
+        return null;
     }
 
     private hasUnseenRemoteChanges(url: string, { remoteDocument, localChanges }: SyncingDocument): boolean {

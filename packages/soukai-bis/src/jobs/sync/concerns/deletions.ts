@@ -105,6 +105,7 @@ export interface DeletionConflict {
     resourceUrl: string;
     localDocument: SolidDocument;
     remoteDocument: SolidDocument;
+    model: Model | null;
 }
 
 export interface DeletionsResolution {
