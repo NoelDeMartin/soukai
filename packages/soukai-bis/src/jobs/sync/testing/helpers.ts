@@ -4,7 +4,7 @@ import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import { arrayUnique } from '@noeldemartin/utils';
 import type InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import type { ResourceLocalChanges } from 'soukai-bis/engines/LocalEngine';
-import type { SyncConfig } from 'soukai-bis/jobs/sync/Sync';
+import type { SyncJobConfig } from 'soukai-bis/jobs/sync/SyncJob';
 import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import type TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import { engine } from 'soukai-bis/testing/utils/engines';
@@ -15,7 +15,7 @@ export type SyncTestUserProfile = CompleteSolidUserProfile & { writableProfileUr
 export interface SyncTestContext {
     localEngine: InMemoryEngine;
     typeIndex: TypeIndex;
-    config: Pick<SyncConfig, 'privateTypeIndexes'> & { userProfile: SyncTestUserProfile };
+    config: Pick<SyncJobConfig, 'privateTypeIndexes'> & { userProfile: SyncTestUserProfile };
 }
 
 export function setupSyncTest(): SyncTestContext {

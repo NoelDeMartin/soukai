@@ -10,12 +10,12 @@ import User from 'soukai-bis/testing/stubs/User';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
-import type { ModelRegistrationMode, ModelsRegisteredEvent } from './Sync';
+import SyncJob from './SyncJob';
+import type { ModelRegistrationMode, ModelsRegisteredEvent } from './SyncJob';
 import { createUnsyncedDocument, fakeTypeIndex, setupSyncTest, syncFixture } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync type indexes', () => {
+describe('SyncJob type indexes', () => {
     let localEngine: InMemoryEngine;
     let config: SyncTestContext['config'];
     let containerUrl: string;
@@ -47,7 +47,7 @@ describe('Sync type indexes', () => {
 
     it('registers models in the private type index by default', async () => {
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -71,7 +71,7 @@ describe('Sync type indexes', () => {
         respondWithContainerACL();
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -106,7 +106,7 @@ describe('Sync type indexes', () => {
         const failedModels: ModelConstructor[] = [];
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -124,7 +124,7 @@ describe('Sync type indexes', () => {
 
     it('registers models with instance mode as instances', async () => {
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -147,7 +147,7 @@ describe('Sync type indexes', () => {
         const failedModels: ModelConstructor[] = [];
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -174,7 +174,7 @@ describe('Sync type indexes', () => {
         FakeServer.respond(instanceUrl, syncFixture('person.ttl', { documentUrl: instanceUrl }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -207,7 +207,7 @@ describe('Sync type indexes', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -234,7 +234,7 @@ describe('Sync type indexes', () => {
         FakeServer.respond(containerUrl, containerTurtle([]));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -260,7 +260,7 @@ describe('Sync type indexes', () => {
         FakeServer.respond(instanceUrl, syncFixture('person.ttl', { documentUrl: instanceUrl }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -284,7 +284,7 @@ describe('Sync type indexes', () => {
         ];
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -305,7 +305,7 @@ describe('Sync type indexes', () => {
         const createPrivateTypeIndex = vi.fn(async () => privateTypeIndex);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [],
             privateTypeIndexes: [],
@@ -330,7 +330,7 @@ describe('Sync type indexes', () => {
         FakeServer.respond(containerUrl, containerTurtle([]));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -354,7 +354,7 @@ describe('Sync type indexes', () => {
         FakeServer.respond(containerUrl, containerTurtle([]));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex, secondPrivateTypeIndex],
@@ -393,7 +393,7 @@ describe('Sync type indexes', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -416,7 +416,7 @@ describe('Sync type indexes', () => {
         FakeServer.respond(containerUrl, containerTurtle([]));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             publicTypeIndexes: [publicTypeIndex],
             privateTypeIndexes: [privateTypeIndex],
@@ -448,7 +448,7 @@ describe('Sync type indexes', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             privateTypeIndexes: [],
             createPrivateTypeIndex,
@@ -482,7 +482,7 @@ describe('Sync type indexes', () => {
         FakeServer.respondOnce(documentUrl, syncFixture('person.ttl', { documentUrl }));
         FakeServer.respondOnce(nestedDocumentUrl, syncFixture('person.ttl', { documentUrl: nestedDocumentUrl }));
 
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             privateTypeIndexes: [],
             createPrivateTypeIndex: async () => privateTypeIndex,

@@ -15,21 +15,21 @@ import {
 } from 'soukai-bis/lib/internals/rdf';
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
 
-export interface MigrateLocalUrlsConfig {
+export interface MigrateLocalUrlsJobConfig {
     migrations?: Record<string, string>;
     prefixes?: Record<string, string>;
 }
 
-export default class MigrateLocalUrls extends Job {
-    public static async run(config: MigrateLocalUrlsConfig): Promise<void> {
-        const job = new MigrateLocalUrls(config);
+export default class MigrateLocalUrlsJob extends Job {
+    public static async run(config: MigrateLocalUrlsJobConfig): Promise<void> {
+        const job = new MigrateLocalUrlsJob(config);
 
         await job.process();
     }
 
     declare private engine: LocalEngine;
 
-    public constructor(private config: MigrateLocalUrlsConfig) {
+    public constructor(private config: MigrateLocalUrlsJobConfig) {
         super();
     }
 
@@ -145,7 +145,7 @@ export default class MigrateLocalUrls extends Job {
             {
                 applyToQuads: () => migratedQuads,
                 applyToSparql: () => {
-                    throw new Error('MigrateLocalUrls in-place prefix rewrite is only supported on local engines');
+                    throw new Error('MigrateLocalUrlsJob in-place prefix rewrite is only supported on local engines');
                 },
             },
         ]);

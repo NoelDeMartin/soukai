@@ -2,7 +2,7 @@ import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import { arraySorted, urlRoute } from '@noeldemartin/utils';
 import type InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import type { ExternalSource } from 'soukai-bis/jobs/utils';
+import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import type { ModelConstructor } from 'soukai-bis/models/types';
@@ -11,11 +11,11 @@ import User from 'soukai-bis/testing/stubs/User';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
-import Sync from './Sync';
+import SyncJob from './SyncJob';
 import { createUnsyncedDocument, setupSyncTest, syncFixture } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync external sources', () => {
+describe('SyncJob external sources', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -38,7 +38,7 @@ describe('Sync external sources', () => {
         FakeServer.respond(urlRoute(instanceUrl), syncFixture('person.ttl', { documentUrl: urlRoute(instanceUrl) }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: Movie, registration: true },
@@ -75,7 +75,7 @@ describe('Sync external sources', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Movie, registration: true }],
             externalSources: [{ containerUrl, models: [Movie] }],
@@ -105,7 +105,7 @@ describe('Sync external sources', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
             externalSources: [{ instanceUrl, models: [User] }],
@@ -130,7 +130,7 @@ describe('Sync external sources', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
             externalSources: [{ instanceUrl, models: [User] }],
@@ -155,7 +155,7 @@ describe('Sync external sources', () => {
         FakeServer.respond(workingDocumentUrl, syncFixture('movie.ttl', { documentUrl: workingDocumentUrl }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Movie, registration: true }],
             externalSources: [{ containerUrl, models: [Movie] }],
@@ -194,7 +194,7 @@ describe('Sync external sources', () => {
         // Act
         const result = { documentsWithErrors: new Set<string>() };
 
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             maxErrors: 1,
             applicationModels: [{ model: Movie, registration: true }],

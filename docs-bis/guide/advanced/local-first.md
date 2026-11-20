@@ -104,17 +104,17 @@ Keep in mind that calling `delete()` on a soft deleted model will still delete i
 
 ## Synchronization
 
-The typical setup for a local-first application is to store all the data in a local engine (such as the `IndexedDBEngine`), and synchronize it with a Solid POD when the user is online. This can be done using the `Sync` job, which uses the default engine as the local engine (so it must be a local engine, such as the `IndexedDBEngine` or the `InMemoryEngine`) and the [remote engine](../core-concepts/engines.md#remote-engine) to reach the POD:
+The typical setup for a local-first application is to store all the data in a local engine (such as the `IndexedDBEngine`), and synchronize it with a Solid POD when the user is online. This can be done using `SyncJob`, which uses the default engine as the local engine (so it must be a local engine, such as the `IndexedDBEngine` or the `InMemoryEngine`) and the [remote engine](../core-concepts/engines.md#remote-engine) to reach the POD:
 
 ```ts
-import { IndexedDBEngine, SolidEngine, Sync, setEngine, setRemoteEngine, trackLocalChanges } from 'soukai-bis';
+import { IndexedDBEngine, SolidEngine, SyncJob, setEngine, setRemoteEngine, trackLocalChanges } from 'soukai-bis';
 
 setEngine(new IndexedDBEngine());
 setRemoteEngine(new SolidEngine({ fetch }));
 trackLocalChanges(Task);
 trackLocalChanges(Tag);
 
-await Sync.run({
+await SyncJob.run({
     userProfile,
     applicationModels: [
         { model: Task, registration: true },
@@ -132,7 +132,7 @@ This will pull changes from the POD into the local engine, push local changes to
 
 ### Tracking local changes
 
-`Sync` only pushes the changes recorded by the local engine, and these are only recorded for models that call `trackLocalChanges()`. Changes to other models will stay in the local engine.
+`SyncJob` only pushes the changes recorded by the local engine, and these are only recorded for models that call `trackLocalChanges()`. Changes to other models will stay in the local engine.
 
 Make sure to call it for every synced model when the application boots, before any data is created. Otherwise, models created before calling it (for example, while the user isn't logged in) won't be pushed once they log in.
 
@@ -143,7 +143,7 @@ Tracked models without [history tracking](#history-tracking) can only be created
 If you also need to synchronize data outside of the user's storage (for example, a container shared by someone else), you can use the `externalSources` option. These will be pulled and pushed like the rest, but they won't be registered in type indexes, and their errors won't count towards `maxErrors`:
 
 ```ts
-await Sync.run({
+await SyncJob.run({
     // ...
     externalSources: [
         { containerUrl: 'https://bob.example.org/shared-tasks/', models: [Task] },
@@ -158,9 +158,9 @@ await Sync.run({
 Files stored in containers aren't synchronized by default. In order to sync them, you'll need to use the `files` option of application models, indicating how to find them:
 
 ```ts
-import { FilesSyncStrategies, Sync } from 'soukai-bis';
+import { FilesSyncStrategies, SyncJob } from 'soukai-bis';
 
-await Sync.run({
+await SyncJob.run({
     // ...
     applicationModels: [
         {
@@ -187,7 +187,7 @@ By default, only the metadata of the files will be pulled into the local engine,
 When a file is pushed without the `availableOffline` option, the `onFilePushed` listener will be called with its contents. You can use it to keep them somewhere else, such as a Service Worker cache, and avoid reading them from the POD later:
 
 ```ts
-await Sync.run({
+await SyncJob.run({
     // ...
     onFilePushed: async ({ url, blob }) => {
         await (await caches.open('files')).put(url, new Response(blob));
@@ -198,7 +198,7 @@ await Sync.run({
 Unlike documents, files can't be merged, so there will be a conflict when they are modified in more than one place. You can resolve them with the `resolveFileConflict` option, returning `'keep-local'` to push the local version (which is the default) or `'keep-remote'` to discard the local changes:
 
 ```ts
-await Sync.run({
+await SyncJob.run({
     // ...
     resolveFileConflict: async (conflict) => {
         return confirm(`${conflict.url} has been modified in another device, keep local changes?`)
@@ -221,7 +221,7 @@ There are also some other options to configure the job, such as `publicTypeIndex
 If you want more control over the job, you can also instantiate it manually. Every job exposes its `progress`, and it can be cancelled:
 
 ```ts
-const sync = new Sync(config);
+const sync = new SyncJob(config);
 
 sync.listeners.add({ onUpdated: (progress) => console.log(progress) });
 
@@ -234,12 +234,12 @@ await sync.cancel();
 
 ### Migrating local urls
 
-When users start using your application without being logged in, models will be created with local urls (for example, `local://tasks/...`). Once they log in, you can migrate these urls to their Solid POD using the `MigrateLocalUrls` job:
+When users start using your application without being logged in, models will be created with local urls (for example, `local://tasks/...`). Once they log in, you can migrate these urls to their Solid POD using `MigrateLocalUrlsJob`:
 
 ```ts
-import { MigrateLocalUrls } from 'soukai-bis';
+import { MigrateLocalUrlsJob } from 'soukai-bis';
 
-await MigrateLocalUrls.run({
+await MigrateLocalUrlsJob.run({
     migrations: {
         'local://tasks/': 'https://alice.example.org/tasks/',
     },
@@ -251,11 +251,11 @@ Files stored in the migrated containers will also be moved to their new urls, ke
 If during login you've also detected a user preference to use some different [RDF prefixes](./interoperability.md#rdf-prefix-aliases), you can also use the `prefixes` option to replace them in the existing data:
 
 ```ts
-import { MigrateLocalUrls, Sync, replaceRDFPrefixes } from 'soukai-bis';
+import { MigrateLocalUrlsJob, SyncJob, replaceRDFPrefixes } from 'soukai-bis';
 
 replaceRDFPrefixes({ 'https://schema.org/': 'http://schema.org/' });
 
-await MigrateLocalUrls.run({
+await MigrateLocalUrlsJob.run({
     migrations: {
         'local://tasks/': 'https://alice.example.org/tasks/',
     },

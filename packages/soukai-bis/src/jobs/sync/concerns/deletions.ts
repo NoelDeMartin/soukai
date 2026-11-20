@@ -15,7 +15,7 @@ import { MODELS_IN_SAME_DOCUMENT } from 'soukai-bis/models/relations/internals';
 import type { ModelConstructor, ModelsCache } from 'soukai-bis/models/types';
 import { isArrayField } from 'soukai-bis/zod/utils';
 
-import { getTombstonedResourceUrls } from './sync-document-operations';
+import { getTombstonedResourceUrls } from './document-operations';
 
 function isArrayProperty(document: SolidDocument, link: Quad, models: ModelConstructor[]): boolean {
     const types = new Set(document.statements(link.subject, RDF_TYPE_PREDICATE).map((quad) => quad.object.value));

@@ -4,7 +4,7 @@ import { FakeResponse, FakeServer } from '@noeldemartin/testing';
 import type InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SolidEngine from 'soukai-bis/engines/SolidEngine';
 import { requireEngine, setEngine } from 'soukai-bis/engines/state';
-import Sync from 'soukai-bis/jobs/sync/Sync';
+import SyncJob from 'soukai-bis/jobs/sync/SyncJob';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
 import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
 import { setRDFPrefixAliases } from 'soukai-bis/lib/rdf-prefix-aliases';
@@ -159,7 +159,7 @@ describe('RDF prefix aliases', () => {
             `),
         );
 
-        await Sync.run({
+        await SyncJob.run({
             userProfile: {
                 webId: 'https://alice.example.org/profile/card#me',
                 storageUrls: ['https://alice.example.org/'],

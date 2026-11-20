@@ -9,12 +9,12 @@ import User from 'soukai-bis/testing/stubs/User';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
-import type { FilePushedEvent } from './Sync';
+import SyncJob from './SyncJob';
+import type { FilePushedEvent } from './SyncJob';
 import { createUnsyncedDocument, setupSyncTest, syncFixture } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync files', () => {
+describe('SyncJob files', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -47,7 +47,7 @@ describe('Sync files', () => {
         FakeServer.respond(documentUrl, syncFixture('person.ttl', { documentUrl }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             onFinished: (result) => (syncedFileUrls = result.syncedFileUrls),
@@ -89,7 +89,7 @@ describe('Sync files', () => {
         FakeServer.respondOnce(imageUrl, new Response('image', { headers: { 'Content-Type': 'image/jpeg' } }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: User, registration: true, files: [{ strategy: 'container', availableOffline: true }] },
@@ -126,7 +126,7 @@ describe('Sync files', () => {
         FakeServer.respondOnce(imageUrl, new Response('image', { headers: { 'Content-Type': 'image/jpeg' } }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: User, registration: true, files: [{ strategy: 'container', availableOffline: true }] },
@@ -157,7 +157,7 @@ describe('Sync files', () => {
         await localEngine.updateFile(imageUrl, { mimeType: 'image/jpeg', lastModifiedAt: new Date() });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
         });
@@ -209,12 +209,12 @@ describe('Sync files', () => {
 
         const updateFile = vi.spyOn(localEngine, 'updateFile').mockRejectedValueOnce(new Error('Interrupted'));
 
-        await Sync.run({ ...config, applicationModels });
+        await SyncJob.run({ ...config, applicationModels });
 
         updateFile.mockRestore();
 
         // Act
-        await Sync.run({ ...config, applicationModels });
+        await SyncJob.run({ ...config, applicationModels });
 
         // Assert
         expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ url: imageUrl, mimeType: 'image/jpeg' });
@@ -253,7 +253,7 @@ describe('Sync files', () => {
         const getContainerUrls = vi.spyOn(localEngine, 'getContainerUrls');
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 {
@@ -291,7 +291,7 @@ describe('Sync files', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: false, files: [{ strategy: 'container' }] }],
             onFilePushed: (event) => pushedFiles.push(event),
@@ -338,7 +338,7 @@ describe('Sync files', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: false, files: [{ strategy: 'container' }] }],
         });
@@ -364,7 +364,7 @@ describe('Sync files', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: User, registration: false, files: [{ strategy: 'container', availableOffline: true }] },
@@ -393,7 +393,7 @@ describe('Sync files', () => {
         await localEngine.deleteFile(imageUrl, { localChanges: fileLocalChanges(imageUrl, 'deleted') });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: false, files: [{ strategy: 'container' }] }],
         });
@@ -426,7 +426,7 @@ describe('Sync files', () => {
         await localEngine.deleteFile(imageUrl, { localChanges: fileLocalChanges(imageUrl, 'deleted') });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: false, files: [{ strategy: 'container' }] }],
         });
@@ -460,7 +460,7 @@ describe('Sync files', () => {
         FakeServer.respondOnce(imageUrl, new Response('image', { headers: { 'Content-Type': 'image/png' } }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 {
@@ -505,14 +505,14 @@ describe('Sync files', () => {
         );
         FakeServer.respondOnce(imageUrl, new FakeResponse('', {}, 500));
 
-        await Sync.run({ ...config, applicationModels });
+        await SyncJob.run({ ...config, applicationModels });
 
         typeIndex.relatedRegistrations.related = [];
 
         FakeServer.respondOnce(imageUrl, new Response('image', { headers: { 'Content-Type': 'image/png' } }));
 
         // Act
-        await Sync.run({ ...config, applicationModels });
+        await SyncJob.run({ ...config, applicationModels });
 
         // Assert
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('image');
@@ -542,7 +542,7 @@ describe('Sync files', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: User, registration: false, files: [{ strategy: 'document', fields: ['friendUrls'] }] },
@@ -590,7 +590,7 @@ describe('Sync files', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 {
@@ -618,7 +618,7 @@ describe('Sync files', () => {
         });
 
         // Act
-        await Sync.run({ ...config, applicationModels: [{ model: User, registration: false }] });
+        await SyncJob.run({ ...config, applicationModels: [{ model: User, registration: false }] });
 
         // Assert
         expect(FakeServer.getRequests(imageUrl)).toHaveLength(0);

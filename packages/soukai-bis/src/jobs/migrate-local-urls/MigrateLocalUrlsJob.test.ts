@@ -11,9 +11,9 @@ import { engine } from 'soukai-bis/testing/utils/engines';
 import { loadFixture } from 'soukai-bis/testing/utils/fixtures';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import MigrateLocalUrls from './MigrateLocalUrls';
+import MigrateLocalUrlsJob from './MigrateLocalUrlsJob';
 
-describe('MigrateLocalUrls', () => {
+describe('MigrateLocalUrlsJob', () => {
     it('migrates files', async () => {
         // Arrange
         const movieDocumentUrl = fakeDocumentUrl({ containerUrl: Movie.defaultContainerUrl });
@@ -28,7 +28,7 @@ describe('MigrateLocalUrls', () => {
         });
 
         // Act
-        await MigrateLocalUrls.run({
+        await MigrateLocalUrlsJob.run({
             migrations: { [Movie.defaultContainerUrl]: remoteContainerUrl },
         });
 
@@ -66,7 +66,7 @@ describe('MigrateLocalUrls', () => {
         await Movie.create({ url: nestedMovieUrl, title: 'The Cat' });
 
         // Act
-        await MigrateLocalUrls.run({
+        await MigrateLocalUrlsJob.run({
             migrations: {
                 [Movie.defaultContainerUrl]: remoteContainerUrl,
             },
@@ -136,7 +136,7 @@ describe('MigrateLocalUrls', () => {
         await engine.createDocument(localDocUrl, quads);
 
         // Act
-        await MigrateLocalUrls.run({
+        await MigrateLocalUrlsJob.run({
             migrations: { 'local://tasks/': remoteContainerUrl },
             prefixes: { 'https://schema.org/': 'http://schema.org/' },
         });
@@ -196,7 +196,7 @@ describe('MigrateLocalUrls', () => {
         );
 
         // Act - only prefixes, no migrations
-        await MigrateLocalUrls.run({
+        await MigrateLocalUrlsJob.run({
             prefixes: { 'https://schema.org/': 'http://schema.org/' },
         });
 
@@ -233,7 +233,7 @@ describe('MigrateLocalUrls', () => {
         await action.update({ startTime: new Date() });
 
         // Act
-        await MigrateLocalUrls.run({
+        await MigrateLocalUrlsJob.run({
             migrations: { [WatchAction.defaultContainerUrl]: remoteContainerUrl },
         });
 

@@ -186,6 +186,7 @@ export default class IndexedDBEngine extends LocalEngine {
 
             await this.containersIndexCache?.then((index) => index.delete(containerMetadata.url));
             await containersStore.delete(containerMetadata.url);
+            await documentsStore.delete(containerMetadata.url);
 
             const documentKeys = await documentsStore.index('containerUrl').getAllKeys(containerMetadata.url);
 

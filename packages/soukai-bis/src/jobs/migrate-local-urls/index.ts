@@ -1,2 +1,2 @@
-export * from './MigrateLocalUrls';
-export { default as MigrateLocalUrls } from './MigrateLocalUrls';
+export * from './MigrateLocalUrlsJob';
+export { default as MigrateLocalUrlsJob } from './MigrateLocalUrlsJob';

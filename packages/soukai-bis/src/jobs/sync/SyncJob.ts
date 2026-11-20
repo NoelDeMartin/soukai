@@ -44,8 +44,8 @@ import JobFailedError from 'soukai-bis/errors/JobFailedError';
 import PreconditionFailed from 'soukai-bis/errors/PreconditionFailed';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import Job from 'soukai-bis/jobs/Job';
+import { getExternalSourceUrl, isInExternalSource, type ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type { JobListener, JobStatus } from 'soukai-bis/jobs/types';
-import { getExternalSourceUrl, isInExternalSource, type ExternalSource } from 'soukai-bis/jobs/utils';
 import { isNonRDFResource } from 'soukai-bis/lib/internals/files';
 import { LDP_CONTAINS_PREDICATE, RDF_TYPE_PREDICATE } from 'soukai-bis/lib/internals/rdf';
 import { safeContainerUrl } from 'soukai-bis/lib/internals/urls';
@@ -67,13 +67,13 @@ import {
     getRemoteDeletions,
     getRestoredLinksOperations,
     groupDeletions,
-} from './concerns/sync-conflicts';
+} from './concerns/deletions';
 import type {
     DeletionConflict,
     DeletionConflictResolution,
     DeletionsResolution,
     SyncingDocument,
-} from './concerns/sync-conflicts';
+} from './concerns/deletions';
 import {
     applyOperationsToDocument,
     documentWithoutSubjects,
@@ -82,8 +82,8 @@ import {
     getTombstonedResourceUrls,
     getTombstoneUrls,
     withoutTombstones,
-} from './concerns/sync-document-operations';
-import { FilesSyncStrategies, getFileConflictType, isFileUpToDate } from './concerns/sync-files';
+} from './concerns/document-operations';
+import { FilesSyncStrategies, getFileConflictType, isFileUpToDate } from './concerns/files';
 import type {
     FileConflict,
     FileConflictResolution,
@@ -93,21 +93,17 @@ import type {
     PulledFiles,
     RemoteFile,
     SyncFilesConfig,
-} from './concerns/sync-files';
-import {
-    addRegisteredModels,
-    syncContainerRegistration,
-    syncInstanceRegistration,
-} from './concerns/sync-registrations';
+} from './concerns/files';
+import { addRegisteredModels, syncContainerRegistration, syncInstanceRegistration } from './concerns/registrations';
 import type {
     ModelRegistration,
     ModelRegistrationMode,
     ModelsRegisteredEvent,
     ModelsRegistrationFailedEvent,
-} from './concerns/sync-registrations';
+} from './concerns/registrations';
 
-export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/sync-conflicts';
-export { FilesSyncStrategies } from './concerns/sync-files';
+export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/deletions';
+export { FilesSyncStrategies } from './concerns/files';
 export type {
     FileConflict,
     FileConflictResolution,
@@ -115,19 +111,19 @@ export type {
     FilePushedEvent,
     FilesSyncStrategy,
     SyncFilesConfig,
-} from './concerns/sync-files';
+} from './concerns/files';
 export type {
     ModelRegistrationMode,
     ModelsRegisteredEvent,
     ModelsRegistrationFailedEvent,
-} from './concerns/sync-registrations';
+} from './concerns/registrations';
 
 const DEFAULT_MAX_ERRORS = 10;
 const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
 const NON_RDF_HTTP_STATUS_CODES = new Set([406, 415, 501]);
 
-export interface SyncConfig {
+export interface SyncJobConfig {
     userProfile: CompleteSolidUserProfile;
     publicTypeIndexes?: TypeIndex[];
     privateTypeIndexes?: TypeIndex[];
@@ -153,6 +149,15 @@ export interface SyncApplicationModel {
     files?: SyncFilesConfig[];
 }
 
+export function getSyncModelRemoteContainerUrl(
+    syncModel: SyncApplicationModel,
+    userProfile: CompleteSolidUserProfile,
+): string {
+    const path = typeof syncModel.registration === 'object' ? syncModel.registration.path : undefined;
+
+    return getRemoteContainerUrl(syncModel.model, userProfile.storageUrls[0], path);
+}
+
 export interface SyncTask {
     url: string;
     status?: JobStatus;
@@ -172,9 +177,9 @@ export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResul
     onExternalSourceFailed?(source: ExternalSource, error: unknown): unknown;
 }
 
-export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
-    public static async run(config: SyncConfig & SyncJobListener): Promise<void> {
-        const job = new Sync(config);
+export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
+    public static async run(config: SyncJobConfig & SyncJobListener): Promise<void> {
+        const job = new SyncJob(config);
 
         job.listeners.add({
             onModelsRegistered: (event) => config.onModelsRegistered?.(event),
@@ -216,7 +221,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     declare private localEngine: LocalEngine;
     declare private remoteEngine: SolidEngine;
 
-    public constructor(private config: SyncConfig) {
+    public constructor(private config: SyncJobConfig) {
         super();
 
         this.syncSemaphore = new Semaphore(config.concurrency ?? DEFAULT_CONCURRENCY);
@@ -230,11 +235,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
                     const options = typeof model.registration === 'object' ? model.registration : {};
                     const registration: ModelRegistration = {
-                        containerUrl: getRemoteContainerUrl(
-                            model.model,
-                            this.config.userProfile.storageUrls[0],
-                            options.path,
-                        ),
+                        containerUrl: getSyncModelRemoteContainerUrl(model, this.config.userProfile),
                         visibility: options.public ? 'public' : 'private',
                         mode: options.mode ?? 'container',
                     };
@@ -283,17 +284,17 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         const remoteEngine = getRemoteEngine();
 
         if (!localEngine) {
-            throw new SoukaiError("Can't run Sync without a default engine, call setEngine() first");
+            throw new SoukaiError("Can't run SyncJob without a default engine, call setEngine() first");
         }
 
         if (!isLocalEngine(localEngine)) {
             throw new SoukaiError(
-                `Can't run Sync with a default engine that isn't local (${localEngine.static().engineName})`,
+                `Can't run SyncJob with a default engine that isn't local (${localEngine.static().engineName})`,
             );
         }
 
         if (!remoteEngine) {
-            throw new SoukaiError("Can't run Sync without a remote engine, call setRemoteEngine() first");
+            throw new SoukaiError("Can't run SyncJob without a remote engine, call setRemoteEngine() first");
         }
 
         this.localEngine = localEngine;

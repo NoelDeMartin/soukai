@@ -16,11 +16,11 @@ import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import { string } from 'zod';
 
-import Sync from './Sync';
+import SyncJob from './SyncJob';
 import { createUnsyncedDocument, setupSyncTest, syncFixture } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync', () => {
+describe('SyncJob', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -61,7 +61,7 @@ describe('Sync', () => {
         ];
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: User, registration: true },
@@ -94,7 +94,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(nestedContainerUrl, containerTurtle([nestedDocumentUrl]));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -130,7 +130,7 @@ describe('Sync', () => {
         await createUnsyncedDocument(localEngine, documentUrl, localDocument);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             userProfile: { ...config.userProfile, preferencesFileUrl },
             privateTypeIndexes: [],
@@ -178,7 +178,7 @@ describe('Sync', () => {
         await createUnsyncedDocument(localEngine, documentUrl, localDocument);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             userProfile: { ...config.userProfile, preferencesFileUrl },
             privateTypeIndexes: [],
@@ -227,7 +227,7 @@ describe('Sync', () => {
         );
 
         // Act - First sync
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -247,7 +247,7 @@ describe('Sync', () => {
         await expect(actualLocalDocument).toEqualJsonLD(expectedLocalDocument);
 
         // Act - Subsequent sync
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -286,7 +286,7 @@ describe('Sync', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: Movie, registration: true },
@@ -341,7 +341,7 @@ describe('Sync', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: Movie, registration: true },
@@ -376,7 +376,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, syncFixture('movie.ttl', { documentUrl }));
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Movie, registration: true }],
         });
@@ -415,7 +415,7 @@ describe('Sync', () => {
         await createUnsyncedDocument(localEngine, documentUrl, localDocument);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: false }],
         });
@@ -446,7 +446,7 @@ describe('Sync', () => {
         const progressUpdates: number[] = [];
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Movie, registration: true }],
             onUpdated: (progress) => progressUpdates.push(progress),
@@ -495,7 +495,7 @@ describe('Sync', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Movie, registration: true }],
         });
@@ -561,7 +561,7 @@ describe('Sync', () => {
         FakeServer.respondOnce(documentUrl, FakeResponse.created());
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Movie, registration: true }],
         });
@@ -599,7 +599,7 @@ describe('Sync', () => {
             documentsWithErrors: new Set<string>(),
         };
 
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
             onFinished(res) {
@@ -646,7 +646,7 @@ describe('Sync', () => {
             documentsWithErrors: new Set<string>(),
         };
 
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
             onFinished(res) {
@@ -689,7 +689,7 @@ describe('Sync', () => {
             documentsWithErrors: new Set<string>(),
         };
 
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             onFinished(res) {
@@ -756,7 +756,7 @@ describe('Sync', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: Task, registration: true }],
         });

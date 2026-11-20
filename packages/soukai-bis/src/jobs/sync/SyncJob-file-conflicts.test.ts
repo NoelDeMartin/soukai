@@ -8,11 +8,11 @@ import User from 'soukai-bis/testing/stubs/User';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
+import SyncJob from './SyncJob';
 import { setupSyncTest, syncFixture } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync file conflicts', () => {
+describe('SyncJob file conflicts', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -48,7 +48,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             resolveFileConflict,
@@ -83,7 +83,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             resolveFileConflict,
@@ -106,7 +106,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             resolveFileConflict,
@@ -130,7 +130,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             resolveFileConflict,
@@ -155,7 +155,7 @@ describe('Sync file conflicts', () => {
         await localEngine.deleteFile(imageUrl, { localChanges: fileLocalChanges(imageUrl, 'deleted') });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             resolveFileConflict,
@@ -187,7 +187,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
             resolveFileConflict,
@@ -222,7 +222,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: User, registration: true, files: [{ strategy: 'container', availableOffline: true }] },

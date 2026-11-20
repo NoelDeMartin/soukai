@@ -8,11 +8,11 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
-import Sync from './Sync';
+import SyncJob from './SyncJob';
 import { createUnsyncedDocument, setupSyncTest, syncFixture } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync operations', () => {
+describe('SyncJob operations', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -44,7 +44,7 @@ describe('Sync operations', () => {
         await createUnsyncedDocument(localEngine, documentUrl, localDocument);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -82,7 +82,7 @@ describe('Sync operations', () => {
         await createUnsyncedDocument(localEngine, documentUrl, localDocument);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -122,7 +122,7 @@ describe('Sync operations', () => {
         await createUnsyncedDocument(localEngine, documentUrl, localDocument);
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -207,7 +207,7 @@ describe('Sync operations', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -296,7 +296,7 @@ describe('Sync operations', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: WatchAction, registration: true }],
         });
@@ -401,7 +401,7 @@ describe('Sync operations', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: WatchAction, registration: true }],
         });
@@ -505,7 +505,7 @@ describe('Sync operations', () => {
         );
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: WatchAction, registration: true }],
         });

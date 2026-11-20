@@ -5,8 +5,8 @@ import Movie from 'soukai-bis/testing/stubs/Movie';
 import User from 'soukai-bis/testing/stubs/User';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import { syncContainerRegistration } from './sync-registrations';
-import type { ModelRegistration } from './sync-registrations';
+import { syncContainerRegistration } from './registrations';
+import type { ModelRegistration } from './registrations';
 
 describe('Sync container registration', () => {
     it('reports registered models when other registrations fail', async () => {

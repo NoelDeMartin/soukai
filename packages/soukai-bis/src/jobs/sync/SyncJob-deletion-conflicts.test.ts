@@ -14,15 +14,15 @@ import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { array, url } from 'zod';
 
-import Sync from './Sync';
-import type { SyncConfig } from './Sync';
+import SyncJob from './SyncJob';
+import type { SyncJobConfig } from './SyncJob';
 import { createLocalDocument, setupSyncTest, syncFixture, tombstoneTurtle } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 import CascadingMovie from './testing/stubs/CascadingMovie';
 import Franchise from './testing/stubs/Franchise';
 import RatedMovie from './testing/stubs/RatedMovie';
 
-describe('Sync deletion conflicts', () => {
+describe('SyncJob deletion conflicts', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -496,7 +496,7 @@ describe('Sync deletion conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: MultiRatedMovie, registration: true },
@@ -543,7 +543,7 @@ describe('Sync deletion conflicts', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             concurrency: 1,
             applicationModels: [
@@ -562,7 +562,7 @@ describe('Sync deletion conflicts', () => {
 
     it('fails when resolving deletion conflicts fails', async () => {
         // Arrange
-        const job = new Sync({
+        const job = new SyncJob({
             ...config,
             applicationModels: [
                 { model: CascadingMovie, registration: true },
@@ -599,7 +599,7 @@ describe('Sync deletion conflicts', () => {
     it('finds conflicts again after cancelling', async () => {
         // Arrange
         let cancelling: Promise<void> | undefined;
-        const job: Sync = new Sync({
+        const job: SyncJob = new SyncJob({
             ...config,
             applicationModels: [
                 { model: CascadingMovie, registration: true },
@@ -662,8 +662,10 @@ describe('Sync deletion conflicts', () => {
         `;
     }
 
-    async function syncCascadingMovies(resolveDeletionConflict?: SyncConfig['resolveDeletionConflict']): Promise<void> {
-        await Sync.run({
+    async function syncCascadingMovies(
+        resolveDeletionConflict?: SyncJobConfig['resolveDeletionConflict'],
+    ): Promise<void> {
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: CascadingMovie, registration: true },
@@ -690,8 +692,8 @@ describe('Sync deletion conflicts', () => {
         `;
     }
 
-    async function syncFranchises(resolveDeletionConflict: SyncConfig['resolveDeletionConflict']): Promise<void> {
-        await Sync.run({
+    async function syncFranchises(resolveDeletionConflict: SyncJobConfig['resolveDeletionConflict']): Promise<void> {
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: CascadingMovie, registration: true },
@@ -733,7 +735,7 @@ describe('Sync deletion conflicts', () => {
     }
 
     async function syncRatedMovies(): Promise<void> {
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: RatedMovie, registration: true },

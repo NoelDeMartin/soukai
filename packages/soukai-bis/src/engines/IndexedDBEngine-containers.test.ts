@@ -1,6 +1,7 @@
 import { faker } from '@noeldemartin/faker';
 import { expandIRI, quadsToJsonLD } from '@noeldemartin/solid-utils';
 import { fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
+import { escapeRegexText } from '@noeldemartin/utils';
 import { deleteDB } from 'idb';
 import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import { LDP_BASIC_CONTAINER, LDP_CONTAINER, LDP_CONTAINS, LDP_CONTAINS_PREDICATE } from 'soukai-bis/lib/internals/rdf';
@@ -278,6 +279,36 @@ describe('IndexedDBEngine containers', () => {
 
         await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
         expect(containers.map((container) => container.url)).not.toContain(containerUrls[0]);
+
+        await engine.close();
+    });
+
+    it('drops container documents', async () => {
+        // Arrange
+        const parentUrl = fakeContainerUrl();
+        const containerUrl = fakeContainerUrl({ baseUrl: parentUrl });
+        const childContainerUrl = fakeContainerUrl({ baseUrl: containerUrl });
+        const documentUrl = fakeDocumentUrl({ containerUrl });
+
+        await engine.createDocument(containerUrl, {
+            '@id': containerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+        await engine.createDocument(childContainerUrl, {
+            '@id': childContainerUrl,
+            '@type': [LDP_CONTAINER, LDP_BASIC_CONTAINER],
+        });
+        await engine.createDocument(documentUrl, { '@id': documentUrl });
+
+        // Act
+        await engine.dropContainers(new RegExp(`^${escapeRegexText(containerUrl)}`));
+
+        // Assert
+        await expect(engine.readDocument(containerUrl)).rejects.toBeInstanceOf(DocumentNotFound);
+        await expect(engine.readDocument(childContainerUrl)).rejects.toBeInstanceOf(DocumentNotFound);
+        await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
+        expect(await getDatabaseDocuments(parentUrl)).toEqual([]);
+        expect(await getDatabaseDocuments(containerUrl)).toEqual([]);
 
         await engine.close();
     });

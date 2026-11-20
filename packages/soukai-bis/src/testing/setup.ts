@@ -15,6 +15,7 @@ import MultiClassTask from 'soukai-bis/models/interop/testing/stubs/MultiClassTa
 import Gallery from 'soukai-bis/models/ldp/testing/stubs/Gallery';
 import Blogger from 'soukai-bis/models/relations/testing/stubs/Blogger';
 import TodoWithHooks from 'soukai-bis/models/testing/stubs/TodoWithHooks';
+import Sync from 'soukai-bis/sync/Sync';
 import Animal from 'soukai-bis/testing/stubs/Animal';
 import Episode from 'soukai-bis/testing/stubs/Episode';
 import EpisodeWithTombstone from 'soukai-bis/testing/stubs/EpisodeWithTombstone';
@@ -112,6 +113,7 @@ beforeEach(async () => {
 
     await SoukaiIndexedDB.clear();
 
+    Sync.reset();
     SoukaiIndexedDB.reset();
     ComputedAttributesCache.reset();
 });

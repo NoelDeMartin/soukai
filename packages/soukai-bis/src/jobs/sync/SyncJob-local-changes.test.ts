@@ -10,7 +10,7 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { containerTurtle } from 'soukai-bis/testing/utils/rdf';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
+import SyncJob from './SyncJob';
 import {
     createLocalDocument,
     createUnsyncedDocument,
@@ -20,7 +20,7 @@ import {
 } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 
-describe('Sync local changes', () => {
+describe('SyncJob local changes', () => {
     let localEngine: InMemoryEngine;
     let typeIndex: TypeIndex;
     let config: SyncTestContext['config'];
@@ -181,7 +181,7 @@ describe('Sync local changes', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: WatchAction, registration: true }],
         });
@@ -256,7 +256,7 @@ describe('Sync local changes', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true }],
         });
@@ -540,7 +540,7 @@ describe('Sync local changes', () => {
         });
 
         // Act
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [{ model: WatchAction, registration: true }],
         });
@@ -585,7 +585,7 @@ describe('Sync local changes', () => {
     });
 
     async function syncMovies(): Promise<void> {
-        await Sync.run({
+        await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: Movie, registration: true },

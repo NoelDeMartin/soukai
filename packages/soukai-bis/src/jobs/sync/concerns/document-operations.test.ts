@@ -6,7 +6,7 @@ import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import type Operation from 'soukai-bis/models/crdts/Operation';
 import { describe, expect, it } from 'vite-plus/test';
 
-import { applyOperationsToDocument, getSyncDocumentOperations } from './sync-document-operations';
+import { applyOperationsToDocument, getSyncDocumentOperations } from './document-operations';
 
 describe('Sync document operations', () => {
     type OperationType = 'Set' | 'Unset' | 'Add' | 'Remove';
