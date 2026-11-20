@@ -159,6 +159,6 @@ describe('Container files', () => {
 
         // Assert
         await expect(deletion).rejects.toThrow(SoukaiError);
-        expect(await engine.getFile(fileUrl)).not.toBeNull();
+        expect(await engine.getLocalFile(fileUrl)).not.toBeNull();
     });
 });

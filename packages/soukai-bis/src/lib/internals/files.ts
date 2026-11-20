@@ -52,7 +52,7 @@ async function writeFile(url: string, blob: Blob, options: UploadFileOptions & F
 }
 
 async function writeLocalFile(engine: LocalEngine, url: string, blob: Blob, options: UploadFileOptions): Promise<void> {
-    const existingFile = await engine.getFile(url);
+    const existingFile = await engine.getLocalFile(url);
     const exists = !!existingFile && !existingFile.deleted;
     const localChanges = fileLocalChanges(url, exists ? 'updated' : 'created');
 

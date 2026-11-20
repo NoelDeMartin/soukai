@@ -55,7 +55,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Assert
-        const file = await localEngine.getFile(imageUrl);
+        const file = await localEngine.getLocalFile(imageUrl);
 
         expect(resolveFileConflict).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -67,7 +67,7 @@ describe('Sync file conflicts', () => {
         expect(FakeServer.getRequest('PUT', imageUrl)).toBeNull();
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
         expect(file).toMatchObject({ mimeType: 'image/png', lastModifiedAt: remoteModifiedAt });
-        expect(file?.blob).toBeUndefined();
+        expect(await localEngine.readFileIfExists(imageUrl)).toBeNull();
     });
 
     it('keeps local files modified remotely', async () => {
@@ -115,7 +115,7 @@ describe('Sync file conflicts', () => {
         // Assert
         expect(resolveFileConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'modified-remotely' }));
         expect(FakeServer.getRequest('PUT', imageUrl)).toBeNull();
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({ lastModifiedAt: remoteModifiedAt });
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ lastModifiedAt: remoteModifiedAt });
     });
 
     it('detects files deleted remotely', async () => {
@@ -141,7 +141,7 @@ describe('Sync file conflicts', () => {
             expect.objectContaining({ type: 'deleted-remotely', url: imageUrl }),
         );
         expect(FakeServer.getRequest('PUT', imageUrl)).toBeNull();
-        expect(await localEngine.getFile(imageUrl)).toBeNull();
+        expect(await localEngine.getLocalFile(imageUrl)).toBeNull();
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
     });
 
@@ -162,7 +162,7 @@ describe('Sync file conflicts', () => {
         });
 
         // Assert
-        const file = await localEngine.getFile(imageUrl);
+        const file = await localEngine.getLocalFile(imageUrl);
 
         expect(resolveFileConflict).toHaveBeenCalledWith(
             expect.objectContaining({ type: 'deleted-locally', url: imageUrl }),
@@ -234,7 +234,7 @@ describe('Sync file conflicts', () => {
         expect(resolveFileConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'modified-remotely' }));
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('remote');
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({
             mimeType: 'image/png',
             lastModifiedAt: remoteModifiedAt,
         });

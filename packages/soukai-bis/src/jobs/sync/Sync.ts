@@ -738,7 +738,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 if (this.syncsFiles && !documentUrl.endsWith('/')) {
                     this.queuePulledFiles(
                         documentUrl,
-                        arrayFilter([await this.localEngine.getFile(documentUrl)]),
+                        arrayFilter([await this.localEngine.getLocalFile(documentUrl)]),
                         [{ url: documentUrl, updatedAt: remoteUpdatedAt }],
                         new Set([documentUrl]),
                     );
@@ -818,7 +818,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
 
             const remoteQuads = remoteDocument.getQuads();
             const remoteChildUrls = container?.resourceUrls ?? [];
-            const localFiles = this.syncsFiles ? await this.localEngine.getFiles({ containerUrl: documentUrl }) : [];
+            const localFiles = this.syncsFiles
+                ? await this.localEngine.getLocalFiles({ containerUrl: documentUrl })
+                : [];
             const localFileUrls = new Set(localFiles.map((file) => file.url));
             const { fileUrls, resourceUrls } = arrayGroupBy(remoteChildUrls, (childDocumentUrl) =>
                 isNonRDFResource(remoteQuads, childDocumentUrl) || localFileUrls.has(childDocumentUrl)
@@ -883,7 +885,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
                 return;
             }
 
-            const localFiles = await this.localEngine.getFiles({ containerUrl: url });
+            const localFiles = await this.localEngine.getLocalFiles({ containerUrl: url });
             const localFileUrls = new Set(localFiles.map((file) => file.url));
             const { containerChildren, documentChildren } = arrayGroupBy(
                 container.resourceUrls.filter((childUrl) => !localFileUrls.has(childUrl)),
@@ -1634,12 +1636,15 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
     }
 
     private async getPendingDownloads(): Promise<{ url: string; localFile?: LocalFile }[]> {
-        const localFiles = await this.localEngine.getFiles();
+        const localFiles = await this.localEngine.getLocalFiles();
         const localFileUrls = new Set(localFiles.map((file) => file.url));
         const downloads: { url: string; localFile?: LocalFile }[] = localFiles
             .filter(
                 (file) =>
-                    file.availableOffline && !file.blob && !file.deleted && !this.documentsLocalChanges.has(file.url),
+                    file.availableOffline &&
+                    !file.hasLocalContents &&
+                    !file.deleted &&
+                    !this.documentsLocalChanges.has(file.url),
             )
             .map((file) => ({ url: file.url, localFile: file }));
 
@@ -1747,7 +1752,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         if (file.deleted) {
             await this.remoteEngine.deleteFile(file.url, { ifUnmodifiedSince });
 
-            if ((await this.localEngine.getFile(file.url))?.deleted) {
+            if ((await this.localEngine.getLocalFile(file.url))?.deleted) {
                 await this.localEngine.deleteFile(file.url);
             } else {
                 await this.localEngine.updateFile(file.url, { lastModifiedAt: null });
@@ -1758,7 +1763,9 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
             return;
         }
 
-        if (!file.blob) {
+        const blob = await this.localEngine.readFileIfExists(file.url);
+
+        if (!blob) {
             throw new SoukaiError(`Can't push file ${file.url} because its contents are not available locally`);
         }
 
@@ -1766,8 +1773,8 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         const start = new Date();
         const response =
             isNewFile && !forcePush
-                ? await this.remoteEngine.createFile(file.url, file.blob, { mimeType: file.mimeType })
-                : await this.remoteEngine.writeFile(file.url, file.blob, {
+                ? await this.remoteEngine.createFile(file.url, blob, { mimeType: file.mimeType })
+                : await this.remoteEngine.writeFile(file.url, blob, {
                       mimeType: file.mimeType,
                       ifUnmodifiedSince,
                   });
@@ -1790,7 +1797,7 @@ export default class Sync extends Job<SyncJobResult, SyncJobResult, SyncJobStatu
         this.syncedFileUrls.add(file.url);
 
         if (!availableOffline) {
-            await this._listeners.emit('onFilePushed', { url: file.url, blob: file.blob });
+            await this._listeners.emit('onFilePushed', { url: file.url, blob });
         }
     }
 

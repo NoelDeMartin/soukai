@@ -38,7 +38,7 @@ describe('Container computed attributes', () => {
 
         // Assert
         await expect(upload).rejects.toThrow(SoukaiError);
-        expect(await engine.getFile(`${containerUrl}beach.png`)).toBeNull();
+        expect(await engine.getLocalFile(`${containerUrl}beach.png`)).toBeNull();
     });
 
     it('does not upload files to related containers before loading them', async () => {
@@ -50,7 +50,7 @@ describe('Container computed attributes', () => {
 
         // Assert
         await expect(upload).rejects.toThrow(SoukaiError);
-        expect(await engine.getFile(`${containerUrl}beach.png`)).toBeNull();
+        expect(await engine.getLocalFile(`${containerUrl}beach.png`)).toBeNull();
     });
 
     it('refreshes computed attributes after deleting files from loaded related containers', async () => {

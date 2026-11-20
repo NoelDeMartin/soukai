@@ -22,7 +22,7 @@ export function defineLocalEngineFileTests(getEngine: () => LocalEngine): void {
         await engine.writeFile(fileUrl, blob);
 
         // Assert
-        const file = await engine.getFile(fileUrl);
+        const file = await engine.getLocalFile(fileUrl);
         const storedBlob = await engine.readFile(fileUrl);
 
         expect(file).toMatchObject({ url: fileUrl, containerUrl, mimeType: 'image/png' });
@@ -114,7 +114,7 @@ export function defineLocalEngineFileTests(getEngine: () => LocalEngine): void {
         await engine.deleteFile(fileUrl, { localChanges: fileLocalChanges(fileUrl, 'deleted') });
 
         // Assert
-        expect(await engine.getFile(fileUrl)).toBeNull();
+        expect(await engine.getLocalFile(fileUrl)).toBeNull();
         expect(await engine.getDocumentLocalChanges(fileUrl)).toBeNull();
     });
 
@@ -131,7 +131,7 @@ export function defineLocalEngineFileTests(getEngine: () => LocalEngine): void {
         // Assert
         const container = await engine.readDocument(containerUrl);
 
-        expect(await engine.getFile(fileUrl)).toMatchObject({ url: fileUrl, deleted: true });
+        expect(await engine.getLocalFile(fileUrl)).toMatchObject({ url: fileUrl, deleted: true });
         expect(await engine.getDocumentLocalChanges(fileUrl)).toEqual({
             resources: { [fileUrl]: { deletedAt: new Date() } },
         });
@@ -153,7 +153,7 @@ export function defineLocalEngineFileTests(getEngine: () => LocalEngine): void {
         const container = await engine.readDocument(containerUrl);
 
         expect(await engine.readFileIfExists(fileUrl)).toBeNull();
-        expect(await engine.getFile(fileUrl)).toMatchObject({ url: fileUrl, mimeType: 'image/png' });
+        expect(await engine.getLocalFile(fileUrl)).toMatchObject({ url: fileUrl, mimeType: 'image/png' });
         expect(
             container
                 .statements(new RDFNamedNode(containerUrl), LDP_CONTAINS_PREDICATE)
@@ -172,7 +172,7 @@ export function defineLocalEngineFileTests(getEngine: () => LocalEngine): void {
         await engine.dropContainers([containerUrl]);
 
         // Assert
-        expect(await engine.getFile(fileUrl)).toBeNull();
+        expect(await engine.getLocalFile(fileUrl)).toBeNull();
         expect(await engine.getDocumentLocalChanges(fileUrl)).toBeNull();
     });
 }

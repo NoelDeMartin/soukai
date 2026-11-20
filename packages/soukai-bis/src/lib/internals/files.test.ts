@@ -62,7 +62,7 @@ describe('Files', () => {
         await deleteFile(url);
 
         // Assert
-        expect(await engine.getFile(url)).toBeNull();
+        expect(await engine.getLocalFile(url)).toBeNull();
         expect(await engine.getDocumentLocalChanges(url)).toBeNull();
     });
 

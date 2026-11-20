@@ -18,14 +18,18 @@ export async function readFileIfExists(url: string, options: ReadFileOptions = {
         return engine.readFileIfExists(url);
     }
 
-    const file = await engine.getFile(url);
+    const file = await engine.getLocalFile(url);
 
     if (file?.deleted) {
         return null;
     }
 
-    if (file?.blob) {
-        return file.blob;
+    if (file?.hasLocalContents) {
+        const blob = await engine.readFileIfExists(url);
+
+        if (blob) {
+            return blob;
+        }
     }
 
     const remoteEngine = getRemoteEngine();

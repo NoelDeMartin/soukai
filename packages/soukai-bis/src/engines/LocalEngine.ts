@@ -3,7 +3,6 @@ import { arrayFilter, ListenersManager } from '@noeldemartin/utils';
 import type { Listeners, Nullable } from '@noeldemartin/utils';
 import type { Quad } from '@rdfjs/types';
 import DocumentAlreadyExists from 'soukai-bis/errors/DocumentAlreadyExists';
-import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import FileAlreadyExists from 'soukai-bis/errors/FileAlreadyExists';
 import { mediaTypeToRDFType } from 'soukai-bis/lib/internals/files';
 import {
@@ -62,8 +61,8 @@ export interface LocalFile {
     containerUrl: string;
     mimeType?: string;
     lastModifiedAt?: Date | null;
-    blob?: Blob;
     availableOffline?: boolean;
+    hasLocalContents?: boolean;
     deleted?: boolean;
 }
 
@@ -108,9 +107,9 @@ export default abstract class LocalEngine extends Engine<
 
     public abstract getDocumentsLocalChanges(): Promise<Record<string, DocumentLocalChanges>>;
 
-    public abstract getFile(url: string): Promise<LocalFile | null>;
+    public abstract getLocalFile(url: string): Promise<LocalFile | null>;
 
-    public abstract getFiles(options?: { containerUrl?: string }): Promise<LocalFile[]>;
+    public abstract getLocalFiles(options?: { containerUrl?: string }): Promise<LocalFile[]>;
 
     public async getLocalChangesets(): Promise<LocalChangeset[]> {
         const changesets = new Map<number, LocalChangeset>();
@@ -151,19 +150,19 @@ export default abstract class LocalEngine extends Engine<
     ): Promise<null> {
         this.assertFileUrl(url);
 
-        const existingFile = await this.getFile(url);
+        const existingFile = await this.getLocalFile(url);
 
         await this.putFile(
             {
                 url,
                 containerUrl: requireSafeContainerUrl(url),
-                blob,
                 mimeType: options.mimeType ?? (blob.type || existingFile?.mimeType),
                 lastModifiedAt:
                     options.lastModifiedAt === undefined ? existingFile?.lastModifiedAt : options.lastModifiedAt,
                 availableOffline: existingFile?.availableOffline,
+                hasLocalContents: true,
             },
-            { localChanges: options.localChanges },
+            { blob, localChanges: options.localChanges },
         );
 
         return null;
@@ -174,7 +173,7 @@ export default abstract class LocalEngine extends Engine<
         blob: Blob,
         options: FileWriteOptions<LocalEngineWriteOptions> = {},
     ): Promise<null> {
-        const existingFile = await this.getFile(url);
+        const existingFile = await this.getLocalFile(url);
 
         if (existingFile && !existingFile.deleted) {
             throw new FileAlreadyExists(url);
@@ -183,20 +182,10 @@ export default abstract class LocalEngine extends Engine<
         return this.writeFile(url, blob, options);
     }
 
-    public async readFile(url: string): Promise<Blob> {
-        const file = await this.getFile(url);
-
-        if (!file?.blob || file.deleted) {
-            throw new DocumentNotFound(url);
-        }
-
-        return file.blob;
-    }
-
     public async deleteFile(url: string, options: LocalEngineWriteOptions = {}): Promise<null> {
         this.assertFileUrl(url);
 
-        const file = await this.getFile(url);
+        const file = await this.getLocalFile(url);
 
         if (!file) {
             return null;
@@ -221,7 +210,7 @@ export default abstract class LocalEngine extends Engine<
                 availableOffline: file.availableOffline,
                 deleted: true,
             },
-            { localChanges: () => localChanges },
+            { blob: null, localChanges: () => localChanges },
         );
 
         return null;
@@ -234,20 +223,19 @@ export default abstract class LocalEngine extends Engine<
     ): Promise<void> {
         this.assertFileUrl(url);
 
-        const file = await this.getFile(url);
-        const blob = update.blob === null ? undefined : (update.blob ?? file?.blob);
+        const file = await this.getLocalFile(url);
 
         await this.putFile(
             {
                 url,
                 containerUrl: requireSafeContainerUrl(url),
-                blob,
-                mimeType: update.mimeType ?? file?.mimeType ?? (blob?.type || undefined),
+                mimeType: update.mimeType ?? file?.mimeType ?? (update.blob?.type || undefined),
                 lastModifiedAt: update.lastModifiedAt === undefined ? file?.lastModifiedAt : update.lastModifiedAt,
                 availableOffline: update.availableOffline ?? file?.availableOffline,
+                hasLocalContents: update.blob === undefined ? file?.hasLocalContents : update.blob ? true : undefined,
                 deleted: file?.deleted,
             },
-            { localChanges: options.localChanges },
+            { blob: update.blob, localChanges: options.localChanges },
         );
     }
 
@@ -346,7 +334,7 @@ export default abstract class LocalEngine extends Engine<
 
     protected abstract putFile(
         file: LocalFile,
-        options?: { localChanges?: Nullable<LocalChangesUpdate> },
+        options?: { blob?: Blob | null; localChanges?: Nullable<LocalChangesUpdate> },
     ): Promise<void>;
 
     protected abstract removeFile(url: string): Promise<void>;

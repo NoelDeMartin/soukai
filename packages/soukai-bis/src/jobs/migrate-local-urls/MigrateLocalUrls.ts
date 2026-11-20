@@ -53,7 +53,7 @@ export default class MigrateLocalUrls extends Job {
 
         for (const localContainerUrl of localContainerUrls) {
             const container = await this.engine.readDocument(localContainerUrl);
-            const files = await this.engine.getFiles({ containerUrl: localContainerUrl });
+            const files = await this.engine.getLocalFiles({ containerUrl: localContainerUrl });
             const fileUrls = new Set(files.map((file) => file.url));
             const documentUrls = container
                 .statements(new RDFNamedNode(localContainerUrl), LDP_CONTAINS_PREDICATE)
@@ -83,7 +83,7 @@ export default class MigrateLocalUrls extends Job {
 
         const container = await this.engine.readDocument(containerUrl);
         const localChanges = await this.engine.getDocumentLocalChanges(containerUrl);
-        const fileUrls = new Set((await this.engine.getFiles({ containerUrl })).map((file) => file.url));
+        const fileUrls = new Set((await this.engine.getLocalFiles({ containerUrl })).map((file) => file.url));
         const containerQuads = container.getQuads().filter((quad) => !fileUrls.has(quad.subject.value));
         const metaQuads = containerQuads.filter(
             (quad) =>
@@ -160,11 +160,12 @@ export default class MigrateLocalUrls extends Job {
 
         if (!file.deleted) {
             const localChanges = await this.engine.getDocumentLocalChanges(file.url);
+            const blob = await this.engine.readFileIfExists(file.url);
 
             await this.engine.updateFile(
                 remoteUrl,
                 {
-                    blob: file.blob ?? null,
+                    blob,
                     mimeType: file.mimeType,
                     lastModifiedAt: file.lastModifiedAt,
                     availableOffline: file.availableOffline,

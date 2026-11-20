@@ -33,6 +33,7 @@ export default class InMemoryEngine extends LocalEngine {
     public documents: Record<string, InMemoryDocument> = {};
     public localChanges: Record<string, DocumentLocalChanges> = {};
     public files: Record<string, LocalFile> = {};
+    public fileContents: Record<string, Blob> = {};
 
     public async createDocument(
         url: string,
@@ -149,16 +150,27 @@ export default class InMemoryEngine extends LocalEngine {
         return structuredClone(this.localChanges);
     }
 
-    public async getFile(url: string): Promise<LocalFile | null> {
+    public async getLocalFile(url: string): Promise<LocalFile | null> {
         const file = this.files[url];
 
         return file ? { ...file } : null;
     }
 
-    public async getFiles(options: { containerUrl?: string } = {}): Promise<LocalFile[]> {
+    public async getLocalFiles(options: { containerUrl?: string } = {}): Promise<LocalFile[]> {
         return Object.values(this.files)
             .filter((file) => !options.containerUrl || file.containerUrl === options.containerUrl)
             .map((file) => ({ ...file }));
+    }
+
+    public async readFile(url: string): Promise<Blob> {
+        const file = this.files[url];
+        const blob = this.fileContents[url];
+
+        if (!file || file.deleted || !blob) {
+            throw new DocumentNotFound(url);
+        }
+
+        return file.mimeType && blob.type !== file.mimeType ? blob.slice(0, blob.size, file.mimeType) : blob;
     }
 
     public async getContainerUrls(): Promise<string[]> {
@@ -231,9 +243,17 @@ export default class InMemoryEngine extends LocalEngine {
 
     protected async putFile(
         file: LocalFile,
-        options: { localChanges?: Nullable<LocalChangesUpdate> } = {},
+        options: { blob?: Blob | null; localChanges?: Nullable<LocalChangesUpdate> } = {},
     ): Promise<void> {
         this.files[file.url] = { ...file };
+
+        if (options.blob !== undefined) {
+            if (options.blob) {
+                this.fileContents[file.url] = options.blob;
+            } else {
+                delete this.fileContents[file.url];
+            }
+        }
 
         const localChangesUpdated = this.writeLocalChanges(file.url, options.localChanges);
 
@@ -246,6 +266,7 @@ export default class InMemoryEngine extends LocalEngine {
         const hadLocalChanges = url in this.localChanges;
 
         delete this.files[url];
+        delete this.fileContents[url];
         delete this.localChanges[url];
 
         hadLocalChanges && (await this.emitLocalChangesUpdated());

@@ -660,7 +660,7 @@ describe('Sync', () => {
         expect(result.syncedDocumentUrls.has(imageUrl)).toBe(false);
         expect(result.documentsWithErrors.size).toBe(0);
         expect(FakeServer.getRequests(imageUrl)).toHaveLength(0);
-        expect(await localEngine.getFile(imageUrl)).toBeNull();
+        expect(await localEngine.getLocalFile(imageUrl)).toBeNull();
     });
 
     it('ignores non-RDF documents returning 501 or 406', async () => {
@@ -701,8 +701,8 @@ describe('Sync', () => {
         // Assert
         expect(result.syncedDocumentUrls.has(documentUrl)).toBe(true);
         expect(result.documentsWithErrors.size).toBe(0);
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({ url: imageUrl, containerUrl });
-        expect(await localEngine.getFile(textUrl)).toMatchObject({ url: textUrl, containerUrl });
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ url: imageUrl, containerUrl });
+        expect(await localEngine.getLocalFile(textUrl)).toMatchObject({ url: textUrl, containerUrl });
         expect(arraySorted((await Container.find(containerUrl))?.fileUrls ?? [])).toEqual([textUrl, imageUrl].sort());
     });
 

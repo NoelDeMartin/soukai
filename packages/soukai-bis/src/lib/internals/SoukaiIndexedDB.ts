@@ -20,6 +20,11 @@ export interface LocalDocument {
     status?: LocalDocumentStatus;
 }
 
+export interface LocalFileContents {
+    url: string;
+    data: ArrayBuffer;
+}
+
 export interface SoukaiIndexedDBListener {
     onCleared?(): unknown;
 }
@@ -54,6 +59,10 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
             containerUrl: string;
         };
     };
+    fileContents: {
+        key: string;
+        value: LocalFileContents;
+    };
     computedAttributes: {
         key: [string, string];
         value: {
@@ -86,6 +95,7 @@ export class SoukaiIndexedDB {
                         });
 
                         database.createObjectStore('containers', { keyPath: 'url' });
+                        database.createObjectStore('fileContents', { keyPath: 'url' });
                         database.createObjectStore('computedAttributes', { keyPath: ['model', 'url'] });
 
                         documentsStore.createIndex('containerUrl', 'containerUrl', { unique: false });

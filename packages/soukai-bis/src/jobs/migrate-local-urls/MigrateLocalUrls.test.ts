@@ -35,9 +35,9 @@ describe('MigrateLocalUrls', () => {
         // Assert
         const migratedDocumentUrl = movieDocumentUrl.replace(Movie.defaultContainerUrl, remoteContainerUrl);
 
-        expect(await engine.getFile(fileUrl)).toBeNull();
+        expect(await engine.getLocalFile(fileUrl)).toBeNull();
         expect(await engine.getDocumentLocalChanges(fileUrl)).toBeNull();
-        expect(await engine.getFile(migratedFileUrl)).toMatchObject({
+        expect(await engine.getLocalFile(migratedFileUrl)).toMatchObject({
             url: migratedFileUrl,
             containerUrl: remoteContainerUrl,
             mimeType: 'image/png',

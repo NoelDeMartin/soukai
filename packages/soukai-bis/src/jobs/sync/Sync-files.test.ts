@@ -55,10 +55,10 @@ describe('Sync files', () => {
 
         // Assert
         const localContainer = await localEngine.readDocument(containerUrl);
-        const file = await localEngine.getFile(imageUrl);
+        const file = await localEngine.getLocalFile(imageUrl);
 
         expect(file).toMatchObject({ url: imageUrl, mimeType: 'image/jpeg', lastModifiedAt: imageModifiedAt });
-        expect(file?.blob).toBeUndefined();
+        expect(await localEngine.readFileIfExists(imageUrl)).toBeNull();
         expect(syncedFileUrls).toEqual(new Set([imageUrl]));
         expect(invalidateComputedAttributesCache).toHaveBeenCalledWith({
             documentUrls: expect.arrayContaining([imageUrl]),
@@ -97,7 +97,7 @@ describe('Sync files', () => {
         });
 
         // Assert
-        const file = await localEngine.getFile(imageUrl);
+        const file = await localEngine.getLocalFile(imageUrl);
 
         expect(file).toMatchObject({ url: imageUrl, mimeType: 'image/jpeg', availableOffline: true });
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('image');
@@ -163,7 +163,7 @@ describe('Sync files', () => {
         });
 
         // Assert
-        expect(await localEngine.getFile(imageUrl)).toBeNull();
+        expect(await localEngine.getLocalFile(imageUrl)).toBeNull();
     });
 
     it('pulls container files again after failing to process them', async () => {
@@ -217,7 +217,7 @@ describe('Sync files', () => {
         await Sync.run({ ...config, applicationModels });
 
         // Assert
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({ url: imageUrl, mimeType: 'image/jpeg' });
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ url: imageUrl, mimeType: 'image/jpeg' });
     });
 
     it('skips files rules when nothing changed', async () => {
@@ -299,14 +299,14 @@ describe('Sync files', () => {
         });
 
         // Assert
-        const file = await localEngine.getFile(imageUrl);
+        const file = await localEngine.getLocalFile(imageUrl);
 
         expect(FakeServer.getRequest('PUT', imageUrl)?.headers).toEqual({
             'Content-Type': 'image/png',
             'If-None-Match': '*',
         });
         expect(file).toMatchObject({ url: imageUrl, mimeType: 'image/png' });
-        expect(file?.blob).toBeUndefined();
+        expect(await localEngine.readFileIfExists(imageUrl)).toBeNull();
         expect(file?.lastModifiedAt).toBeInstanceOf(Date);
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
         expect(syncedFileUrls.has(imageUrl)).toBe(true);
@@ -374,7 +374,7 @@ describe('Sync files', () => {
 
         // Assert
         expect(FakeServer.getRequest('PUT', imageUrl)).not.toBeNull();
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({ url: imageUrl, availableOffline: true });
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ url: imageUrl, availableOffline: true });
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('image');
         expect(pushedFiles).toHaveLength(0);
     });
@@ -400,7 +400,7 @@ describe('Sync files', () => {
 
         // Assert
         expect(FakeServer.getRequest('DELETE', imageUrl)).not.toBeNull();
-        expect(await localEngine.getFile(imageUrl)).toBeNull();
+        expect(await localEngine.getLocalFile(imageUrl)).toBeNull();
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
     });
 
@@ -433,7 +433,7 @@ describe('Sync files', () => {
 
         // Assert
         expect(FakeServer.getRequest('DELETE', imageUrl)).not.toBeNull();
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({ lastModifiedAt: null });
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ lastModifiedAt: null });
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).not.toBeNull();
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('uploaded');
     });
@@ -473,7 +473,7 @@ describe('Sync files', () => {
         });
 
         // Assert
-        expect(await localEngine.getFile(imageUrl)).toMatchObject({ url: imageUrl, availableOffline: true });
+        expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ url: imageUrl, availableOffline: true });
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('image');
         expect(syncedFileUrls.has(imageUrl)).toBe(true);
     });
