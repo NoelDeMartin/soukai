@@ -1,4 +1,6 @@
-import { arrayFilter, urlRoute } from '@noeldemartin/utils';
+import { arrayFilter, escapeRegexText, silenced, urlRoute } from '@noeldemartin/utils';
+import { requireLocalEngine } from 'soukai-bis/engines/state';
+import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type { ModelConstructor } from 'soukai-bis/models';
 import { getBootedModels } from 'soukai-bis/models/registry';
@@ -50,4 +52,14 @@ export function assertExternalSourceModelsBooted(source: ExternalSource): void {
             );
         }
     }
+}
+
+export async function deleteExternalSourceData(source: ExternalSource): Promise<void> {
+    if (source.containerUrl !== undefined) {
+        await requireLocalEngine().dropContainers(new RegExp(`^${escapeRegexText(source.containerUrl)}`));
+
+        return;
+    }
+
+    await silenced(requireLocalEngine().deleteDocument(getExternalSourceUrl(source)), { ignore: DocumentNotFound });
 }
