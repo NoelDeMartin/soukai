@@ -176,12 +176,12 @@ export default class IndexedDBEngine extends LocalEngine {
         let localChangesUpdated = false;
 
         for (const containerMetadata of containersMetadata) {
-            if (containerMetadata.dropped || !containerMatches(containerMetadata.url)) {
+            if (!containerMatches(containerMetadata.url)) {
                 continue;
             }
 
             await this.containersIndexCache?.then((index) => index.delete(containerMetadata.url));
-            await containersStore.put({ url: containerMetadata.url, dropped: true });
+            await containersStore.delete(containerMetadata.url);
 
             const documentKeys = await documentsStore.index('containerUrl').getAllKeys(containerMetadata.url);
 
@@ -613,7 +613,7 @@ export default class IndexedDBEngine extends LocalEngine {
                 const transaction = connection.transaction('containers', 'readonly');
                 const documents = await transaction.store.getAll();
 
-                const urls = documents.filter((document) => !document.dropped).map((document) => document.url);
+                const urls = documents.map((document) => document.url);
                 promised.resolve(new ContainersIndex(new Set(urls)));
             } catch (error) {
                 promised.reject(error instanceof Error ? error : new Error(String(error)));

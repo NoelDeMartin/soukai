@@ -273,7 +273,11 @@ describe('IndexedDBEngine containers', () => {
         await engine.dropContainers([containerUrls[0], containerUrls[1]]);
 
         // Assert
+        const db = await SoukaiIndexedDB.connect();
+        const containers = await db.getAll('containers');
+
         await expect(engine.readDocument(documentUrl)).rejects.toBeInstanceOf(DocumentNotFound);
+        expect(containers.map((container) => container.url)).not.toContain(containerUrls[0]);
 
         await engine.close();
     });

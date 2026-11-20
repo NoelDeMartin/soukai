@@ -38,7 +38,6 @@ export interface SoukaiIndexedDBSchema extends DBSchema {
         key: string;
         value: {
             url: string;
-            dropped?: boolean;
         };
     };
     localChanges: {
