@@ -8,10 +8,18 @@ import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { newModelContainerUrls } from 'soukai-bis/sync/concerns/container-urls';
 import Sync from 'soukai-bis/sync/Sync';
-import type { ModelContainerUrls, SyncProperties, SyncSession } from 'soukai-bis/sync/Sync';
+import type SyncSession from 'soukai-bis/sync/SyncSession';
+import type {
+    ModelContainerUrls,
+    SyncProperties,
+    SyncSessionConfig,
+    SyncTypeIndexes,
+    UserProfileManager,
+} from 'soukai-bis/sync/SyncSession';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { vi } from 'vite-plus/test';
 
+export let session: SyncSession;
 export let properties: Partial<SyncProperties> = {};
 export let discoveryUrls = new Map<ModelConstructor, string[]>();
 
@@ -43,26 +51,45 @@ export function postContainerUrls(containerUrls: Partial<ModelContainerUrls> = {
     return { ...newModelContainerUrls('https://alice.example/posts/'), ...containerUrls };
 }
 
-export function typeIndexes(registrations: [ModelConstructor, string][] = []): SyncSession['findTypeIndexes'] {
+export function typeIndexes(registrations: [ModelConstructor, string][] = []): () => Promise<SyncTypeIndexes> {
     return async () => ({ publicTypeIndexes: [], privateTypeIndexes: [typeIndexWithRegistrations(registrations)] });
 }
 
-export async function connect(session: Partial<SyncSession> = {}): Promise<void> {
+export class FakeUserProfileManager implements UserProfileManager {
+    public profile: CompleteSolidUserProfile = user;
+    public findTypeIndexes: () => Promise<SyncTypeIndexes>;
+    public createPublicTypeIndex = vi.fn(async () => typeIndexWithRegistrations());
+    public createPrivateTypeIndex = vi.fn(async () => typeIndexWithRegistrations());
+
+    constructor(findTypeIndexes?: () => Promise<SyncTypeIndexes>) {
+        this.findTypeIndexes = findTypeIndexes ?? (async () => ({ publicTypeIndexes: [], privateTypeIndexes: [] }));
+    }
+
+    public getProfile(): CompleteSolidUserProfile {
+        return this.profile;
+    }
+}
+
+export async function connect(
+    config: Partial<SyncSessionConfig> & { findTypeIndexes?: () => Promise<SyncTypeIndexes> } = {},
+): Promise<SyncSession> {
+    const { findTypeIndexes, ...sessionConfig } = config;
+
     properties = {};
     discoveryUrls = new Map();
 
-    await Sync.connect({
-        userProfile: user,
+    return (session = await Sync.connect({
+        profileManager: new FakeUserProfileManager(findTypeIndexes),
         online: true,
         autoPush: false,
         onContainersUpdated: (modelClass, urls) => discoveryUrls.set(modelClass, urls),
-        ...session,
+        ...sessionConfig,
         onUpdated: (changes) => {
             properties = { ...properties, ...changes };
 
-            return session.onUpdated?.(changes);
+            return sessionConfig.onUpdated?.(changes);
         },
-    });
+    }));
 }
 
 export function fakeSyncJob(

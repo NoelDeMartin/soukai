@@ -1,10 +1,10 @@
 import { invade } from '@noeldemartin/utils';
 import type { LocalChangeset } from 'soukai-bis/engines/LocalEngine';
 import { requireLocalEngine } from 'soukai-bis/engines/state';
-import type { SyncService } from 'soukai-bis/sync/Sync';
+import type SyncSession from 'soukai-bis/sync/SyncSession';
 
-function invaded(sync: SyncService) {
-    return invade(sync, [
+function invaded(session: SyncSession) {
+    return invade(session, [
         '_localChangesCount',
         'autoPush',
         'emit',
@@ -20,36 +20,36 @@ export function haveSameChangesets(changesets: LocalChangeset[], otherChangesets
     );
 }
 
-function shouldPushLocalChanges(sync: SyncService, changesets: LocalChangeset[]): boolean {
-    const { autoPush, previousSyncPendingChangesets } = invaded(sync);
+function shouldPushLocalChanges(session: SyncSession, changesets: LocalChangeset[]): boolean {
+    const { autoPush, previousSyncPendingChangesets } = invaded(session);
 
     return (
         autoPush &&
-        sync.setupCompleted &&
-        !sync.syncing &&
+        session.setupCompleted &&
+        !session.syncing &&
         changesets.length > 0 &&
         !haveSameChangesets(changesets, previousSyncPendingChangesets)
     );
 }
 
-export async function updateLocalChanges(sync: SyncService): Promise<void> {
-    if (!sync.connected) {
+export async function updateLocalChanges(session: SyncSession): Promise<void> {
+    if (!session.isActive()) {
         return;
     }
 
     const changesets = await requireLocalEngine().getLocalChangesets();
 
-    if (!sync.connected) {
+    if (!session.isActive()) {
         return;
     }
 
-    invaded(sync)._localChangesCount = changesets.length;
+    invaded(session)._localChangesCount = changesets.length;
 
-    await invaded(sync).emit('onUpdated', { localChangesCount: changesets.length });
+    await invaded(session).emit('onUpdated', { localChangesCount: changesets.length });
 
-    if (!shouldPushLocalChanges(sync, changesets)) {
+    if (!shouldPushLocalChanges(session, changesets)) {
         return;
     }
 
-    invaded(sync).pushLocalChanges();
+    invaded(session).pushLocalChanges();
 }

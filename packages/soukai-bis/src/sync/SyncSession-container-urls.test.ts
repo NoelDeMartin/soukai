@@ -2,7 +2,6 @@ import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
 import {
     connect,
     discoveryUrls,
@@ -10,17 +9,17 @@ import {
     typeIndexWithRegistrations,
     postContainerUrls,
     properties,
+    session,
     typeIndexes,
 } from './testing/helpers';
 
-describe('Sync container urls', () => {
+describe('SyncSession container urls', () => {
     it('restores default containers when connecting', async () => {
         // Arrange
         const containerUrls = { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) };
 
         // Act
-        await connect({ containerUrls });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({ containerUrls, models: [{ model: Post, registration: true }] });
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
@@ -32,13 +31,16 @@ describe('Sync container urls', () => {
 
         fakeSyncJob();
 
-        await connect({ containerUrls: { Post: postContainerUrls() }, findTypeIndexes });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            findTypeIndexes,
+            models: [{ model: Post, registration: true }],
+        });
 
         expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/']);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(findTypeIndexes).toHaveBeenCalledOnce();
@@ -56,11 +58,10 @@ describe('Sync container urls', () => {
         // Arrange
         fakeSyncJob({ createdTypeIndex: typeIndexWithRegistrations([[Post, 'https://alice.example/blog/']]) });
 
-        await connect({ containerUrls: { Post: postContainerUrls() } });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
@@ -74,11 +75,11 @@ describe('Sync container urls', () => {
         await connect({
             containerUrls: { Post: postContainerUrls() },
             findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
         });
-        await Sync.trackModels([{ model: Post, registration: true }]);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
@@ -98,11 +99,11 @@ describe('Sync container urls', () => {
                 [Post, 'https://alice.example/blog/'],
                 [Post, 'https://alice.example/posts/'],
             ]),
+            models: [{ model: Post, registration: true }],
         });
-        await Sync.trackModels([{ model: Post, registration: true }]);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
@@ -126,11 +127,11 @@ describe('Sync container urls', () => {
         await connect({
             containerUrls: { Post: postContainerUrls() },
             findTypeIndexes: async () => ({ publicTypeIndexes: [], privateTypeIndexes: [typeIndex] }),
+            models: [{ model: Post, registration: { mode: 'instance' } }],
         });
-        await Sync.trackModels([{ model: Post, registration: { mode: 'instance' } }]);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
@@ -139,11 +140,11 @@ describe('Sync container urls', () => {
     });
 
     it('reads singleton models from the default container before they are registered', async () => {
-        // Arrange
-        await connect({ containerUrls: { Post: postContainerUrls() } });
-
         // Act
-        await Sync.trackModels([{ model: Post, registration: { mode: 'instance' } }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            models: [{ model: Post, registration: { mode: 'instance' } }],
+        });
 
         // Assert
         expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/']);
@@ -157,11 +158,11 @@ describe('Sync container urls', () => {
         await connect({
             containerUrls: { Post: postContainerUrls() },
             findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: { mode: 'instance' } }],
         });
-        await Sync.trackModels([{ model: Post, registration: { mode: 'instance' } }]);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);
@@ -183,11 +184,11 @@ describe('Sync container urls', () => {
         await connect({
             containerUrls: { Post: postContainerUrls({ unlisted: ['https://alice.example/drafts/'] }) },
             findTypeIndexes: async () => ({ publicTypeIndexes: [], privateTypeIndexes: [typeIndex] }),
+            models: [{ model: Post, registration: true }],
         });
-        await Sync.trackModels([{ model: Post, registration: true }]);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(properties.containerUrls?.Post?.instances).toEqual([registeredPostUrl]);
@@ -212,12 +213,12 @@ describe('Sync container urls', () => {
         await connect({
             containerUrls: { Post: postContainerUrls({ instances: [registeredPostUrl] }) },
             findTypeIndexes: async () => ({ publicTypeIndexes: [], privateTypeIndexes: [typeIndex] }),
+            models: [{ model: Post, registration: { mode: 'instance' } }],
         });
-        await Sync.trackModels([{ model: Post, registration: { mode: 'instance' } }]);
         await new Post({ title: 'Post' }).save({ containerUrl: 'https://alice.example/posts/' });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(properties.containerUrls?.Post?.instances).toEqual([registeredPostUrl]);
@@ -225,11 +226,11 @@ describe('Sync container urls', () => {
     });
 
     it('reads models from registered containers before syncing', async () => {
-        // Arrange
-        await connect({ containerUrls: { Post: postContainerUrls({ registered: ['https://alice.example/blog/'] }) } });
-
         // Act
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls({ registered: ['https://alice.example/blog/'] }) },
+            models: [{ model: Post, registration: true }],
+        });
 
         // Assert
         expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
@@ -239,12 +240,11 @@ describe('Sync container urls', () => {
         // Arrange
         fakeSyncJob();
 
-        await connect({ containerUrls: { Post: postContainerUrls() } });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
         await new Post({ title: 'Elsewhere' }).save({ containerUrl: 'https://alice.example/blog/' });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(properties.containerUrls?.Post?.unlisted).toEqual(['https://alice.example/blog/']);
@@ -256,8 +256,10 @@ describe('Sync container urls', () => {
         const post = new Post({ title: 'Registered' });
         const instanceUrl = post.mintUrl({ containerUrl: 'https://alice.example/blog/' });
 
-        await connect({ containerUrls: { Post: postContainerUrls({ instances: [instanceUrl] }) } });
-        await Sync.trackModels([{ model: Post, registration: { mode: 'instance' } }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls({ instances: [instanceUrl] }) },
+            models: [{ model: Post, registration: { mode: 'instance' } }],
+        });
 
         // Act
         await post.save();
@@ -267,11 +269,11 @@ describe('Sync container urls', () => {
     });
 
     it('reads models from unlisted containers before syncing', async () => {
-        // Arrange
-        await connect({ containerUrls: { Post: postContainerUrls({ unlisted: ['https://alice.example/blog/'] }) } });
-
         // Act
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls({ unlisted: ['https://alice.example/blog/'] }) },
+            models: [{ model: Post, registration: true }],
+        });
 
         // Assert
         expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
@@ -284,11 +286,11 @@ describe('Sync container urls', () => {
         await connect({
             containerUrls: { Post: postContainerUrls({ unlisted: ['https://alice.example/blog/'] }) },
             findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
         });
-        await Sync.trackModels([{ model: Post, registration: true }]);
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);

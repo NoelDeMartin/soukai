@@ -4,9 +4,10 @@ import { requireLocalEngine } from 'soukai-bis/engines/state';
 import SyncJob from 'soukai-bis/jobs/sync/SyncJob';
 import type { SyncJobConfig } from 'soukai-bis/jobs/sync/SyncJob';
 import { dispatch } from 'soukai-bis/jobs/utils';
+import Person from 'soukai-bis/models/identity/Person';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import type { ModelConstructor } from 'soukai-bis/models/types';
-import type { SyncService } from 'soukai-bis/sync/Sync';
+import type SyncSession from 'soukai-bis/sync/SyncSession';
 
 import { findContainerUrls, setContainerUrls } from './container-urls';
 import { haveSameChangesets } from './local-changes';
@@ -25,8 +26,8 @@ interface JobsResult {
     modelsWithFailedRegistration: Set<ModelConstructor>;
 }
 
-function invaded(sync: SyncService) {
-    return invade(sync, [
+function invaded(session: SyncSession) {
+    return invade(session, [
         '_error',
         '_syncing',
         '_activeJob',
@@ -34,28 +35,28 @@ function invaded(sync: SyncService) {
         'models',
         'previousSyncPendingChangesets',
         'pushLocalChanges',
-        'requireSession',
-        'requireUserProfile',
+        'config',
+        'profileManager',
     ]);
 }
 
-function getJobConfig(sync: SyncService, typeIndexes: SyncTypeIndexes): SyncJobConfig {
-    const session = invaded(sync).requireSession();
+function getJobConfig(session: SyncSession, typeIndexes: SyncTypeIndexes): SyncJobConfig {
+    const { config, profileManager, models } = invaded(session);
 
     return {
         ...typeIndexes,
-        externalSources: sync.externalSources,
-        userProfile: invaded(sync).requireUserProfile(),
-        createPublicTypeIndex: session.createPublicTypeIndex?.bind(session),
-        createPrivateTypeIndex: session.createPrivateTypeIndex?.bind(session),
-        resolveDeletionConflict: session.resolveDeletionConflict?.bind(session),
-        resolveFileConflict: session.resolveFileConflict?.bind(session),
-        applicationModels: invaded(sync).models,
+        externalSources: session.externalSources,
+        userProfile: profileManager.getProfile(),
+        createPublicTypeIndex: profileManager.createPublicTypeIndex?.bind(profileManager),
+        createPrivateTypeIndex: profileManager.createPrivateTypeIndex?.bind(profileManager),
+        resolveDeletionConflict: config.resolveDeletionConflict?.bind(config),
+        resolveFileConflict: config.resolveFileConflict?.bind(config),
+        applicationModels: models,
     };
 }
 
 async function runJob(
-    sync: SyncService,
+    session: SyncSession,
     job: SyncJob,
     result: Pick<JobsResult, 'typeIndexes' | 'modelsWithFailedRegistration'>,
 ): Promise<void> {
@@ -65,18 +66,18 @@ async function runJob(
         onModelsRegistered: (event) => {
             result.typeIndexes.includes(event.typeIndex) || result.typeIndexes.push(event.typeIndex);
 
-            return invaded(sync).emit('onModelsRegistered', event);
+            return invaded(session).emit('onModelsRegistered', event);
         },
         onModelsRegistrationFailed: (event) => {
             event.models.forEach((modelClass) => result.modelsWithFailedRegistration.add(modelClass));
 
-            return invaded(sync).emit('onModelsRegistrationFailed', event);
+            return invaded(session).emit('onModelsRegistrationFailed', event);
         },
-        onExternalSourceFailed: (source, error) => invaded(sync).emit('onExternalSourceFailed', source, error),
+        onExternalSourceFailed: (source, error) => invaded(session).emit('onExternalSourceFailed', source, error),
         onFilePushed: (event) => {
             pushedFileUrls.add(event.url);
 
-            return invaded(sync).emit('onFilePushed', event);
+            return invaded(session).emit('onFilePushed', event);
         },
     });
 
@@ -88,27 +89,34 @@ async function runJob(
                 continue;
             }
 
-            await invaded(sync).emit('onFileUpdated', url);
+            await invaded(session).emit('onFileUpdated', url);
         }
     }
 }
 
-export async function findTypeIndexes(sync: SyncService): Promise<SyncTypeIndexes> {
-    return (
-        (await invaded(sync).requireSession().findTypeIndexes?.()) ?? {
-            publicTypeIndexes: [],
-            privateTypeIndexes: [],
-        }
-    );
+export async function findTypeIndexes(session: SyncSession): Promise<SyncTypeIndexes> {
+    const { profileManager } = invaded(session);
+
+    if (profileManager.findTypeIndexes) {
+        return profileManager.findTypeIndexes();
+    }
+
+    const person = Person.createFromProfile(profileManager.getProfile());
+    const [publicTypeIndexes, privateTypeIndexes] = await Promise.all([
+        person.findPublicTypeIndexes(),
+        person.findPrivateTypeIndexes(),
+    ]);
+
+    return { publicTypeIndexes, privateTypeIndexes };
 }
 
-async function setActiveJob(sync: SyncService, job: SyncJob | null): Promise<void> {
-    invaded(sync)._activeJob = job;
+async function setActiveJob(session: SyncSession, job: SyncJob | null): Promise<void> {
+    invaded(session)._activeJob = job;
 
-    await invaded(sync).emit('onUpdated', { activeJob: job });
+    await invaded(session).emit('onUpdated', { activeJob: job });
 }
 
-async function runJobs(sync: SyncService): Promise<JobsResult> {
+async function runJobs(session: SyncSession): Promise<JobsResult> {
     const result: JobsResult = {
         cancelled: false,
         pendingChangesets: await requireLocalEngine().getLocalChangesets(),
@@ -119,24 +127,24 @@ async function runJobs(sync: SyncService): Promise<JobsResult> {
     let previousChangesets: LocalChangeset[] = [];
 
     do {
-        const typeIndexes = await findTypeIndexes(sync);
+        const typeIndexes = await findTypeIndexes(session);
 
-        if (!sync.connected) {
+        if (!session.isActive()) {
             return { ...result, cancelled: true, pendingChangesets: await requireLocalEngine().getLocalChangesets() };
         }
 
-        const job = new SyncJob(getJobConfig(sync, typeIndexes));
+        const job = new SyncJob(getJobConfig(session, typeIndexes));
 
         result.typeIndexes = [...typeIndexes.publicTypeIndexes, ...typeIndexes.privateTypeIndexes];
         result.modelsWithFailedRegistration = new Set();
-        await setActiveJob(sync, job);
-        await runJob(sync, job, result);
+        await setActiveJob(session, job);
+        await runJob(session, job, result);
 
         if (job.cancelled) {
             return { ...result, cancelled: true, pendingChangesets: await requireLocalEngine().getLocalChangesets() };
         }
 
-        await setActiveJob(sync, null);
+        await setActiveJob(session, null);
 
         previousChangesets = result.pendingChangesets;
         result.pendingChangesets = await requireLocalEngine().getLocalChangesets();
@@ -151,46 +159,49 @@ async function runJobs(sync: SyncService): Promise<JobsResult> {
     return result;
 }
 
-export async function runSync(sync: SyncService): Promise<void> {
+export async function runSync(session: SyncSession): Promise<void> {
     let cancelled = false;
     let syncError: unknown = null;
 
-    invaded(sync).pushLocalChanges.cancel();
-    invaded(sync)._syncing = true;
-    invaded(sync)._error = null;
+    invaded(session).pushLocalChanges.cancel();
+    invaded(session)._syncing = true;
+    invaded(session)._error = null;
 
-    await invaded(sync).emit('onUpdated', { syncing: true, error: null });
+    await invaded(session).emit('onUpdated', { syncing: true, error: null });
 
     try {
-        await invaded(sync).emit('onSyncStarted');
+        await invaded(session).emit('onSyncStarted');
 
-        const result = await runJobs(sync);
+        const result = await runJobs(session);
 
-        invaded(sync).previousSyncPendingChangesets = result.pendingChangesets;
+        invaded(session).previousSyncPendingChangesets = result.pendingChangesets;
         cancelled = result.cancelled;
 
         if (cancelled) {
             return;
         }
 
-        await setContainerUrls(sync, findContainerUrls(sync, result.typeIndexes, result.modelsWithFailedRegistration));
+        await setContainerUrls(
+            session,
+            findContainerUrls(session, result.typeIndexes, result.modelsWithFailedRegistration),
+        );
     } catch (error) {
         syncError = error;
-        invaded(sync).previousSyncPendingChangesets = await requireLocalEngine().getLocalChangesets();
-        invaded(sync)._error = error;
+        invaded(session).previousSyncPendingChangesets = await requireLocalEngine().getLocalChangesets();
+        invaded(session)._error = error;
 
-        await invaded(sync).emit('onUpdated', { error });
-        await invaded(sync).emit('onSyncFailed', error);
+        await invaded(session).emit('onUpdated', { error });
+        await invaded(session).emit('onSyncFailed', error);
     } finally {
-        invaded(sync)._syncing = false;
+        invaded(session)._syncing = false;
 
-        await invaded(sync).emit('onUpdated', { syncing: false });
+        await invaded(session).emit('onUpdated', { syncing: false });
 
-        if (sync.activeJob) {
-            await setActiveJob(sync, null);
+        if (session.activeJob) {
+            await setActiveJob(session, null);
         }
 
-        await sync.refreshLocalChanges();
-        await invaded(sync).emit('onSyncCompleted', { cancelled, error: syncError });
+        await session.refreshLocalChanges();
+        await invaded(session).emit('onSyncCompleted', { cancelled, error: syncError });
     }
 }

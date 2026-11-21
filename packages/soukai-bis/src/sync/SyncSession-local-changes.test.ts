@@ -4,17 +4,17 @@ import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
-import { connect, fakeSyncJob, postContainerUrls, properties } from './testing/helpers';
+import { connect, fakeSyncJob, postContainerUrls, properties, session } from './testing/helpers';
 
-describe('Sync local changes', () => {
+describe('SyncSession local changes', () => {
     it('counts local changes in registered containers', async () => {
         // Arrange
-        await connect();
-        await Sync.trackModels([
-            { model: PostsCollection, registration: true },
-            { model: Post, registration: false },
-        ]);
+        await connect({
+            models: [
+                { model: PostsCollection, registration: true },
+                { model: Post, registration: false },
+            ],
+        });
 
         const collection = await PostsCollection.create({ name: 'Drafts' });
 
@@ -23,7 +23,7 @@ describe('Sync local changes', () => {
         await collection.relatedPosts.create({ title: 'Hello' });
 
         // Act
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         // Assert
         expect(properties.localChangesCount).toBe(2);
@@ -31,15 +31,14 @@ describe('Sync local changes', () => {
 
     it('ignores local changes of models deleted before syncing', async () => {
         // Arrange
-        await connect();
-        await Sync.trackModels([{ model: Post, registration: false }]);
+        await connect({ models: [{ model: Post, registration: false }] });
 
         const post = await Post.create({ title: 'Hello' });
 
         await post.delete();
 
         // Act
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         // Assert
         expect(properties.localChangesCount).toBe(0);
@@ -47,21 +46,20 @@ describe('Sync local changes', () => {
 
     it('counts local changes', async () => {
         // Arrange
-        await connect();
-        await Sync.trackModels([{ model: Post, registration: false }]);
+        await connect({ models: [{ model: Post, registration: false }] });
 
         const first = await Post.create({ title: 'First' });
 
         vi.advanceTimersByTime(1000);
 
         await Post.create({ title: 'Second' });
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         expect(properties.localChangesCount).toBe(2);
 
         // Act
         await first.delete();
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         // Assert
         expect(properties.localChangesCount).toBe(1);
@@ -71,16 +69,19 @@ describe('Sync local changes', () => {
         // Arrange
         fakeSyncJob();
 
-        await connect({ containerUrls: { Post: postContainerUrls() }, autoPush: true });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            autoPush: true,
+            models: [{ model: Post, registration: true }],
+        });
 
-        const start = vi.spyOn(Sync.requireInstance(), 'start');
+        const start = vi.spyOn(session, 'start');
 
         vi.useFakeTimers();
 
         // Act
         await Post.create({ title: 'Hello' });
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
         await vi.advanceTimersByTimeAsync(1000);
 
         // Assert
@@ -91,24 +92,27 @@ describe('Sync local changes', () => {
         // Arrange
         fakeSyncJob();
 
-        await connect({ containerUrls: { Post: postContainerUrls() }, autoPush: true });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            autoPush: true,
+            models: [{ model: Post, registration: true }],
+        });
 
         vi.useFakeTimers();
 
         await Post.create({ title: 'Unsynced' });
-        await Sync.start();
+        await session.start();
 
-        const start = vi.spyOn(Sync.requireInstance(), 'start');
+        const start = vi.spyOn(session, 'start');
 
         // Act
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
         await vi.advanceTimersByTimeAsync(1000);
 
         const syncsWithoutNewChanges = start.mock.calls.length;
 
         await Post.create({ title: 'New' });
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
         await vi.advanceTimersByTimeAsync(1000);
 
         // Assert
@@ -119,21 +123,23 @@ describe('Sync local changes', () => {
     it('does not update local changes after disconnecting', async () => {
         // Arrange
         const changeset: LocalChangeset = { date: new Date(), modifiedDocumentResources: {} };
+        let disconnected!: Promise<void>;
 
         await connect();
 
         vi.spyOn(requireLocalEngine(), 'getLocalChangesets').mockImplementationOnce(async () => {
-            await Sync.disconnect();
+            disconnected = session.disconnect();
 
             return [changeset];
         });
 
         // Act
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
+        await disconnected;
 
         // Assert
-        expect(Sync.connected).toBe(false);
-        expect(Sync.localChangesCount).toBe(0);
+        expect(session.connected).toBe(false);
+        expect(session.localChangesCount).toBe(0);
     });
 
     it('syncs again when local changes are made during sync', async () => {
@@ -148,11 +154,10 @@ describe('Sync local changes', () => {
             },
         });
 
-        await connect({ containerUrls: { Post: postContainerUrls() } });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(runs).toBe(2);
@@ -164,12 +169,11 @@ describe('Sync local changes', () => {
 
         fakeSyncJob({ onRun: () => runs++ });
 
-        await connect({ containerUrls: { Post: postContainerUrls() } });
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
         await Post.create({ title: 'Unsynced' });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(runs).toBe(1);

@@ -1,20 +1,20 @@
 import { invade } from '@noeldemartin/utils';
 import { deleteExternalSourceData, getExternalSourceUrl } from 'soukai-bis/jobs/sync/external-sources';
 import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
-import type { SyncService } from 'soukai-bis/sync/Sync';
+import type SyncSession from 'soukai-bis/sync/SyncSession';
 
-function invaded(sync: SyncService) {
-    return invade(sync, ['_externalSources', 'emit']);
+function invaded(session: SyncSession) {
+    return invade(session, ['_externalSources', 'emit']);
 }
 
-export async function discardExternalSource(sync: SyncService, source: ExternalSource): Promise<void> {
+export async function discardExternalSource(session: SyncSession, source: ExternalSource): Promise<void> {
     const sourceUrl = getExternalSourceUrl(source);
 
-    invaded(sync)._externalSources = sync.externalSources.filter(
+    invaded(session)._externalSources = session.externalSources.filter(
         (externalSource) => getExternalSourceUrl(externalSource) !== sourceUrl,
     );
 
-    await invaded(sync).emit('onUpdated', { externalSources: sync.externalSources });
+    await invaded(session).emit('onUpdated', { externalSources: session.externalSources });
     await deleteExternalSourceData(source);
-    await sync.refreshLocalChanges();
+    await session.refreshLocalChanges();
 }

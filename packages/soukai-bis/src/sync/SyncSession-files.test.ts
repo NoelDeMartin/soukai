@@ -1,10 +1,9 @@
 import { requireLocalEngine } from 'soukai-bis/engines/state';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
-import { connect, fakeSyncJob, properties } from './testing/helpers';
+import { connect, fakeSyncJob, properties, session } from './testing/helpers';
 
-describe('Sync files', () => {
+describe('SyncSession files', () => {
     const url = 'https://alice.example/posts/image.png';
 
     it('forwards pushed files', async () => {
@@ -18,7 +17,7 @@ describe('Sync files', () => {
         await connect({ onFilePushed, onFileUpdated });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(onFilePushed).toHaveBeenCalledWith({ url, blob });
@@ -34,7 +33,7 @@ describe('Sync files', () => {
         await connect({ onFileUpdated });
 
         // Act
-        await Sync.start();
+        await session.start();
 
         // Assert
         expect(onFileUpdated).toHaveBeenCalledWith(url);
@@ -45,12 +44,12 @@ describe('Sync files', () => {
         const onFileUpdated = vi.fn();
         let disconnected!: Promise<void>;
 
-        fakeSyncJob({ syncedFileUrls: [url], onRun: () => void (disconnected = Sync.disconnect()) });
+        fakeSyncJob({ syncedFileUrls: [url], onRun: () => void (disconnected = session.disconnect()) });
 
         await connect({ onFileUpdated });
 
         // Act
-        await Sync.start();
+        await session.start();
         await disconnected;
 
         // Assert
@@ -65,7 +64,7 @@ describe('Sync files', () => {
         await requireLocalEngine().writeFile(url, new Blob(['image']), {
             localChanges: () => ({ resources: { [url]: { createdAt: new Date() } } }),
         });
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         // Assert
         expect(properties.localChangesCount).toBe(1);
@@ -77,13 +76,13 @@ describe('Sync files', () => {
         await requireLocalEngine().writeFile(url, new Blob(['image']), {
             localChanges: () => ({ resources: { [url]: { createdAt: new Date() } } }),
         });
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         expect(properties.localChangesCount).toBe(1);
 
         // Act
         await requireLocalEngine().deleteFile(url);
-        await Sync.refreshLocalChanges();
+        await session.refreshLocalChanges();
 
         // Assert
         expect(properties.localChangesCount).toBe(0);

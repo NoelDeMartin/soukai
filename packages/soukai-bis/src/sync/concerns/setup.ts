@@ -3,19 +3,22 @@ import { requireLocalEngine } from 'soukai-bis/engines/state';
 import MigrateLocalUrlsJob from 'soukai-bis/jobs/migrate-local-urls/MigrateLocalUrlsJob';
 import { dispatch } from 'soukai-bis/jobs/utils';
 import { isLocalUrl } from 'soukai-bis/lib/urls';
-import type { SyncService } from 'soukai-bis/sync/Sync';
+import type SyncSession from 'soukai-bis/sync/SyncSession';
 
 import { findContainerUrls, initializeContainerUrls, setContainerUrls } from './container-urls';
 import type { ModelContainerUrls } from './container-urls';
 import { findTypeIndexes } from './sync';
 
-function invaded(sync: SyncService) {
-    return invade(sync, ['_setupCompleted', 'emit', 'getRegisteredModels']);
+function invaded(session: SyncSession) {
+    return invade(session, ['_setupCompleted', 'emit', 'getRegisteredModels']);
 }
 
-async function migrateLocalUrls(sync: SyncService, containerUrls: Record<string, ModelContainerUrls>): Promise<void> {
+async function migrateLocalUrls(
+    session: SyncSession,
+    containerUrls: Record<string, ModelContainerUrls>,
+): Promise<void> {
     const migrations = objectFromEntries(
-        invaded(sync)
+        invaded(session)
             .getRegisteredModels()
             .filter(({ model }) => isLocalUrl(model.defaultContainerUrl))
             .map(({ model }) => [model.defaultContainerUrl, required(containerUrls[model.modelName]).default]),
@@ -28,21 +31,21 @@ async function migrateLocalUrls(sync: SyncService, containerUrls: Record<string,
     await dispatch(new MigrateLocalUrlsJob({ migrations }));
 }
 
-async function completeSetup(sync: SyncService): Promise<void> {
-    if (!sync.connected || sync.setupCompleted) {
+async function completeSetup(session: SyncSession): Promise<void> {
+    if (!session.isActive() || session.setupCompleted) {
         return;
     }
 
-    invaded(sync)._setupCompleted = true;
+    invaded(session)._setupCompleted = true;
 
-    await invaded(sync).emit('onUpdated', { setupCompleted: true });
+    await invaded(session).emit('onUpdated', { setupCompleted: true });
 
-    for (const syncModel of invaded(sync).getRegisteredModels()) {
-        if (sync.containerUrls[syncModel.model.modelName]) {
+    for (const syncModel of invaded(session).getRegisteredModels()) {
+        if (session.containerUrls[syncModel.model.modelName]) {
             continue;
         }
 
-        await initializeContainerUrls(sync, syncModel);
+        await initializeContainerUrls(session, syncModel);
     }
 }
 
@@ -52,16 +55,16 @@ export async function isSetupCompleted(): Promise<boolean> {
     return !containerUrls.some(isLocalUrl);
 }
 
-export async function runSetup(sync: SyncService): Promise<void> {
-    const { publicTypeIndexes, privateTypeIndexes } = await findTypeIndexes(sync);
+export async function runSetup(session: SyncSession): Promise<void> {
+    const { publicTypeIndexes, privateTypeIndexes } = await findTypeIndexes(session);
 
-    if (!sync.connected) {
+    if (!session.isActive()) {
         return;
     }
 
-    const containerUrls = findContainerUrls(sync, [...publicTypeIndexes, ...privateTypeIndexes]);
+    const containerUrls = findContainerUrls(session, [...publicTypeIndexes, ...privateTypeIndexes]);
 
-    await migrateLocalUrls(sync, containerUrls);
-    await setContainerUrls(sync, containerUrls);
-    await completeSetup(sync);
+    await migrateLocalUrls(session, containerUrls);
+    await setContainerUrls(session, containerUrls);
+    await completeSetup(session);
 }

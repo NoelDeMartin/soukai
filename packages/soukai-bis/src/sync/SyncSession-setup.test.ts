@@ -1,11 +1,12 @@
+import { FakeServer } from '@noeldemartin/testing';
 import MigrateLocalUrlsJob from 'soukai-bis/jobs/migrate-local-urls/MigrateLocalUrlsJob';
+import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import Sync from './Sync';
-import { connect, postContainerUrls, properties, typeIndexes } from './testing/helpers';
+import { connect, postContainerUrls, properties, session, typeIndexes, user } from './testing/helpers';
 
-describe('Sync setup', () => {
+describe('SyncSession setup', () => {
     it('completes setup when connecting without local models', async () => {
         // Act
         await connect();
@@ -16,11 +17,11 @@ describe('Sync setup', () => {
 
     it('requires setup when connecting with local models', async () => {
         // Arrange
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
 
         // Act
-        await connect();
+        await connect({ models: [{ model: Post, registration: true }] });
 
         // Assert
         expect(properties.setupCompleted).toBe(false);
@@ -28,14 +29,17 @@ describe('Sync setup', () => {
 
     it('migrates local models to registered containers', async () => {
         // Arrange
-        const start = vi.spyOn(Sync.requireInstance(), 'start');
-
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
-        await connect({ findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]) });
+        await connect({
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+
+        const start = vi.spyOn(session, 'start');
 
         // Act
-        await Sync.setup();
+        await session.setup();
 
         // Assert
         const posts = await Post.all();
@@ -43,7 +47,7 @@ describe('Sync setup', () => {
         expect(properties.setupCompleted).toBe(true);
         expect(start).not.toHaveBeenCalled();
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
-        expect(Sync.requireRemoteContainerUrl(Post)).toEqual('https://alice.example/blog/');
+        expect(session.requireRemoteContainerUrl(Post)).toEqual('https://alice.example/blog/');
         expect(properties.containerUrls).toEqual({
             Post: postContainerUrls({
                 default: 'https://alice.example/blog/',
@@ -58,13 +62,16 @@ describe('Sync setup', () => {
         // Arrange
         const run = vi.spyOn(MigrateLocalUrlsJob.prototype as unknown as { run(): Promise<void> }, 'run');
 
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
-        await connect({ findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]) });
-        await Sync.setup();
+        await connect({
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+        await session.setup();
 
         // Act
-        await Sync.setup();
+        await session.setup();
 
         // Assert
         expect(run).toHaveBeenCalledOnce();
@@ -75,25 +82,26 @@ describe('Sync setup', () => {
         // Arrange
         let disconnected!: Promise<void>;
 
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
         await connect({
             findTypeIndexes: async () => {
-                disconnected = Sync.disconnect();
+                disconnected = session.disconnect();
 
                 return { publicTypeIndexes: [], privateTypeIndexes: [] };
             },
+            models: [{ model: Post, registration: true }],
         });
 
         // Act
-        await Sync.setup();
+        await session.setup();
         await disconnected;
 
         // Assert
         const posts = await Post.all();
 
-        expect(Sync.connected).toBe(false);
-        expect(Sync.setupCompleted).toBe(false);
+        expect(session.connected).toBe(false);
+        expect(session.setupCompleted).toBe(false);
         expect(properties.setupCompleted).toBe(false);
         expect(posts[0]?.url.startsWith('local://')).toBe(true);
     });
@@ -103,30 +111,66 @@ describe('Sync setup', () => {
         let disconnected!: Promise<void>;
 
         vi.spyOn(MigrateLocalUrlsJob.prototype as unknown as { run(): Promise<void> }, 'run').mockImplementation(
-            async () => void (disconnected = Sync.disconnect()),
+            async () => void (disconnected = session.disconnect()),
         );
 
-        await Sync.trackModels([{ model: Post, registration: true }]);
+        trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
-        await connect({ findTypeIndexes: typeIndexes() });
+        await connect({ findTypeIndexes: typeIndexes(), models: [{ model: Post, registration: true }] });
 
         // Act
-        await Sync.setup();
+        await session.setup();
         await disconnected;
 
         // Assert
-        expect(Sync.connected).toBe(false);
+        expect(session.connected).toBe(false);
         expect(properties.setupCompleted).toBe(false);
+    });
+
+    it('finds type indexes from the user profile by default', async () => {
+        // Arrange
+        const privateTypeIndexUrl = 'https://alice.example/settings/privateTypeIndex';
+
+        FakeServer.respondOnce(
+            privateTypeIndexUrl,
+            `
+                @prefix solid: <http://www.w3.org/ns/solid/terms#> .
+
+                <> a solid:TypeIndex .
+
+                <#posts>
+                    a solid:TypeRegistration ;
+                    solid:forClass <${Post.getRDFClasses()[0]}> ;
+                    solid:instanceContainer <https://alice.example/blog/> .
+            `,
+        );
+
+        trackLocalChanges(Post);
+        await Post.create({ title: 'Offline' });
+        await connect({
+            profileManager: { getProfile: () => ({ ...user, privateTypeIndexUrls: [privateTypeIndexUrl] }) },
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Act
+        await session.setup();
+
+        // Assert
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
+        expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);
     });
 
     it('migrates local models to the registration path when they are not registered', async () => {
         // Arrange
-        await Sync.trackModels([{ model: Post, registration: { path: '/articles/' } }]);
+        trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
-        await connect({ findTypeIndexes: typeIndexes() });
+        await connect({
+            findTypeIndexes: typeIndexes(),
+            models: [{ model: Post, registration: { path: '/articles/' } }],
+        });
 
         // Act
-        await Sync.setup();
+        await session.setup();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/articles/');
