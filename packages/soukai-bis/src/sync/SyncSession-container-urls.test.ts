@@ -40,7 +40,7 @@ describe('SyncSession container urls', () => {
         expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/']);
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(findTypeIndexes).toHaveBeenCalledOnce();
@@ -61,7 +61,7 @@ describe('SyncSession container urls', () => {
         await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
@@ -79,7 +79,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
@@ -103,7 +103,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
@@ -131,7 +131,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
@@ -162,7 +162,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);
@@ -188,7 +188,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(properties.containerUrls?.Post?.instances).toEqual([registeredPostUrl]);
@@ -218,7 +218,7 @@ describe('SyncSession container urls', () => {
         await new Post({ title: 'Post' }).save({ containerUrl: 'https://alice.example/posts/' });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(properties.containerUrls?.Post?.instances).toEqual([registeredPostUrl]);
@@ -244,7 +244,7 @@ describe('SyncSession container urls', () => {
         await new Post({ title: 'Elsewhere' }).save({ containerUrl: 'https://alice.example/blog/' });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(properties.containerUrls?.Post?.unlisted).toEqual(['https://alice.example/blog/']);
@@ -290,7 +290,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);

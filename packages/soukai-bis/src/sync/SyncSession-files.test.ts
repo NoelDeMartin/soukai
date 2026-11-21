@@ -17,7 +17,7 @@ describe('SyncSession files', () => {
         await connect({ onFilePushed, onFileUpdated });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(onFilePushed).toHaveBeenCalledWith({ url, blob });
@@ -33,7 +33,7 @@ describe('SyncSession files', () => {
         await connect({ onFileUpdated });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(onFileUpdated).toHaveBeenCalledWith(url);
@@ -49,7 +49,7 @@ describe('SyncSession files', () => {
         await connect({ onFileUpdated });
 
         // Act
-        await session.start();
+        await session.synchronize();
         await disconnected;
 
         // Assert

@@ -66,7 +66,7 @@ describe('Sync', () => {
         // Act
         previousSession.setOnline(false);
         previousSession.addExternalSource({ containerUrl: 'https://bob.example/posts/', models: [Post] });
-        await previousSession.start();
+        await previousSession.synchronize();
 
         // Assert
         expect(Sync.session).toBe(session);
@@ -93,7 +93,7 @@ describe('Sync', () => {
         });
 
         const previousSession = await connect();
-        const syncing = previousSession.start();
+        const syncing = previousSession.synchronize();
 
         await syncStarted;
 

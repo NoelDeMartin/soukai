@@ -107,7 +107,7 @@ export default class SyncSession {
     private disconnection: Promise<void> | null = null;
     private onDisconnected: (() => unknown) | null = null;
     private unsubscribers: (() => void)[] = [];
-    private pushLocalChanges = debounce(() => this.start(), 1000);
+    private pushLocalChanges = debounce(() => this.synchronize(), 1000);
 
     constructor(config: SyncSessionConfig) {
         this.config = config;
@@ -209,13 +209,13 @@ export default class SyncSession {
         });
     }
 
-    public async start(): Promise<void> {
-        if (!this.canStart()) {
+    public async synchronize(): Promise<void> {
+        if (!this.canSynchronize()) {
             return;
         }
 
         await this.asyncLock.run(async () => {
-            if (!this.canStart()) {
+            if (!this.canSynchronize()) {
                 return;
             }
 
@@ -310,7 +310,7 @@ export default class SyncSession {
         return this.models.filter((syncModel) => !!syncModel.registration);
     }
 
-    protected canStart(): boolean {
+    protected canSynchronize(): boolean {
         return this.isActive() && this.setupCompleted && this.online && !this.syncing;
     }
 

@@ -75,7 +75,7 @@ describe('SyncSession local changes', () => {
             models: [{ model: Post, registration: true }],
         });
 
-        const start = vi.spyOn(session, 'start');
+        const synchronize = vi.spyOn(session, 'synchronize');
 
         vi.useFakeTimers();
 
@@ -85,7 +85,7 @@ describe('SyncSession local changes', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         // Assert
-        expect(start).toHaveBeenCalledOnce();
+        expect(synchronize).toHaveBeenCalledOnce();
     });
 
     it('does not push local changes left by the previous sync', async () => {
@@ -101,15 +101,15 @@ describe('SyncSession local changes', () => {
         vi.useFakeTimers();
 
         await Post.create({ title: 'Unsynced' });
-        await session.start();
+        await session.synchronize();
 
-        const start = vi.spyOn(session, 'start');
+        const synchronize = vi.spyOn(session, 'synchronize');
 
         // Act
         await session.refreshLocalChanges();
         await vi.advanceTimersByTimeAsync(1000);
 
-        const syncsWithoutNewChanges = start.mock.calls.length;
+        const syncsWithoutNewChanges = synchronize.mock.calls.length;
 
         await Post.create({ title: 'New' });
         await session.refreshLocalChanges();
@@ -117,7 +117,7 @@ describe('SyncSession local changes', () => {
 
         // Assert
         expect(syncsWithoutNewChanges).toBe(0);
-        expect(start).toHaveBeenCalledOnce();
+        expect(synchronize).toHaveBeenCalledOnce();
     });
 
     it('does not update local changes after disconnecting', async () => {
@@ -157,7 +157,7 @@ describe('SyncSession local changes', () => {
         await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(runs).toBe(2);
@@ -173,7 +173,7 @@ describe('SyncSession local changes', () => {
         await Post.create({ title: 'Unsynced' });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(runs).toBe(1);

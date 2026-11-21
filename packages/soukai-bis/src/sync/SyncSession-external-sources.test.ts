@@ -23,7 +23,7 @@ describe('SyncSession external sources', () => {
         session.addExternalSource(source);
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(config).toMatchObject({ externalSources: [source] });
@@ -85,7 +85,7 @@ describe('SyncSession external sources', () => {
         session.addExternalSource(source);
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(onExternalSourceFailed).toHaveBeenCalledWith(source, error);
@@ -180,7 +180,7 @@ describe('SyncSession external sources', () => {
         session.addExternalSource(source);
 
         // Act
-        const syncing = session.start();
+        const syncing = session.synchronize();
         const removing = session.removeExternalSource(source);
 
         await after({ milliseconds: 10 });

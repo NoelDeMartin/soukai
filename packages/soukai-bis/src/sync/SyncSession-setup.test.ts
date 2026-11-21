@@ -36,7 +36,7 @@ describe('SyncSession setup', () => {
             models: [{ model: Post, registration: true }],
         });
 
-        const start = vi.spyOn(session, 'start');
+        const synchronize = vi.spyOn(session, 'synchronize');
 
         // Act
         await session.setup();
@@ -45,7 +45,7 @@ describe('SyncSession setup', () => {
         const posts = await Post.all();
 
         expect(properties.setupCompleted).toBe(true);
-        expect(start).not.toHaveBeenCalled();
+        expect(synchronize).not.toHaveBeenCalled();
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
         expect(session.requireRemoteContainerUrl(Post)).toEqual('https://alice.example/blog/');
         expect(properties.containerUrls).toEqual({

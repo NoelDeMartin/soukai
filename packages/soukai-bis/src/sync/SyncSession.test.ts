@@ -40,7 +40,7 @@ describe('SyncSession', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         const deletionConflict = { url: 'https://alice.example/posts/1' } as unknown as DeletionConflict;
@@ -80,7 +80,7 @@ describe('SyncSession', () => {
         await connect({ onSyncFailed });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(onSyncFailed).toHaveBeenCalledWith(error);
@@ -103,7 +103,7 @@ describe('SyncSession', () => {
         await connect();
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(session.online).toBe(false);
@@ -122,7 +122,7 @@ describe('SyncSession', () => {
         // Act
         session.setOnline(false);
 
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(session.online).toBe(false);
@@ -170,7 +170,7 @@ describe('SyncSession', () => {
         // Act
         profileManager.profile = updatedUser;
 
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(config).toMatchObject({ userProfile: updatedUser });
@@ -186,7 +186,7 @@ describe('SyncSession', () => {
             models: [{ model: Post, registration: true }],
         });
 
-        const start = vi.spyOn(session, 'start');
+        const synchronize = vi.spyOn(session, 'synchronize');
 
         vi.useFakeTimers();
 
@@ -198,7 +198,7 @@ describe('SyncSession', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         // Assert
-        expect(start).toHaveBeenCalledOnce();
+        expect(synchronize).toHaveBeenCalledOnce();
     });
 
     it('cancels pending pushes when disabling auto push', async () => {
@@ -211,7 +211,7 @@ describe('SyncSession', () => {
             models: [{ model: Post, registration: true }],
         });
 
-        const start = vi.spyOn(session, 'start');
+        const synchronize = vi.spyOn(session, 'synchronize');
 
         vi.useFakeTimers();
 
@@ -224,7 +224,7 @@ describe('SyncSession', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         // Assert
-        expect(start).not.toHaveBeenCalled();
+        expect(synchronize).not.toHaveBeenCalled();
     });
 
     it('stays inert after disconnecting', async () => {
@@ -242,7 +242,7 @@ describe('SyncSession', () => {
             models: [{ model: Post, registration: true }],
         });
 
-        const start = vi.spyOn(session, 'start');
+        const synchronize = vi.spyOn(session, 'synchronize');
 
         await session.disconnect();
 
@@ -254,12 +254,12 @@ describe('SyncSession', () => {
         session.addExternalSource({ containerUrl: 'https://bob.example/posts/', models: [Post] });
         await new Post({ title: 'Elsewhere' }).save({ containerUrl: 'https://alice.example/blog/' });
         await session.refreshLocalChanges();
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(onUpdated).not.toHaveBeenCalled();
         expect(onContainersUpdated).not.toHaveBeenCalled();
-        expect(start).toHaveBeenCalledOnce();
+        expect(synchronize).toHaveBeenCalledOnce();
         expect(session.externalSources).toEqual([]);
         expect(Sync.session).toBeNull();
     });
@@ -282,7 +282,7 @@ describe('SyncSession', () => {
 
         await connect({ onSyncCompleted: () => events.push('sync-completed') });
 
-        const syncing = session.start();
+        const syncing = session.synchronize();
 
         await syncStarted;
 
@@ -341,7 +341,7 @@ describe('SyncSession', () => {
         await connect({ onSyncCompleted });
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(onSyncCompleted).toHaveBeenCalledWith({ cancelled: false, error: null });
@@ -386,7 +386,7 @@ describe('SyncSession', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
         await disconnected;
 
         // Assert
@@ -409,7 +409,7 @@ describe('SyncSession', () => {
         await connect();
 
         // Act
-        await session.start();
+        await session.synchronize();
 
         // Assert
         expect(runningJob).not.toBeNull();
@@ -449,7 +449,7 @@ describe('SyncSession', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
         await disconnected;
 
         // Assert
@@ -478,7 +478,7 @@ describe('SyncSession', () => {
         });
 
         // Act
-        await session.start();
+        await session.synchronize();
         await disconnected;
 
         // Assert
