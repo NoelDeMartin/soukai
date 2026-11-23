@@ -3,6 +3,8 @@ import { arraySorted } from '@noeldemartin/utils';
 import { setEngine } from 'soukai-bis/engines';
 import InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import Gallery from 'soukai-bis/models/ldp/testing/stubs/Gallery';
+import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import { useSolidEngine } from 'soukai-bis/testing/utils/engines';
 import { describe, expect, it } from 'vite-plus/test';
 
@@ -65,6 +67,77 @@ describe('Container files', () => {
 
         // Assert
         expect(container?.fileUrls).toEqual([`${containerUrl}001.png`]);
+    });
+
+    it('records local changes for files of models tracking them', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+
+        setEngine(engine);
+
+        const gallery = await new Gallery({ name: 'Holidays' }).save({
+            containerUrl: 'https://alice.example/gallery/',
+        });
+
+        trackLocalChanges(Gallery);
+
+        await gallery.loadRelation('container');
+
+        // Act
+        const url = await gallery.relatedContainer.uploadFile(new File(['image'], 'image.png', { type: 'image/png' }));
+
+        // Assert
+        expect(await engine.getDocumentLocalChanges(url)).toEqual({
+            resources: { [url]: { createdAt: expect.any(Date) } },
+        });
+    });
+
+    it('records local changes for deleted files of models tracking them', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+        const url = 'https://alice.example/gallery/image.png';
+
+        setEngine(engine);
+
+        const gallery = await new Gallery({ name: 'Holidays' }).save({
+            containerUrl: 'https://alice.example/gallery/',
+        });
+
+        await engine.writeFile(url, new Blob(['image'], { type: 'image/png' }), { lastModifiedAt: new Date() });
+        trackLocalChanges(Gallery);
+        await gallery.loadRelation('container');
+
+        // Act
+        await gallery.relatedContainer.deleteFile(url);
+
+        // Assert
+        expect(await engine.getDocumentLocalChanges(url)).toEqual({
+            resources: { [url]: { deletedAt: expect.any(Date) } },
+        });
+    });
+
+    it('does not record local changes for files of models without tracking', async () => {
+        // Arrange
+        const engine = new InMemoryEngine();
+
+        setEngine(engine);
+
+        const gallery = await new Gallery({ name: 'Holidays' }).save({
+            containerUrl: 'https://alice.example/gallery/',
+        });
+
+        await gallery.loadRelation('container');
+
+        const url = await gallery.relatedContainer.uploadFile(new File(['image'], 'image.png', { type: 'image/png' }));
+        const uploadChanges = await engine.getDocumentLocalChanges(url);
+
+        // Act
+        await gallery.relatedContainer.deleteFile(url);
+
+        // Assert
+        expect(uploadChanges).toBeNull();
+        expect(await engine.getLocalFile(url)).toBeNull();
+        expect(await engine.getDocumentLocalChanges(url)).toBeNull();
     });
 
     it('reads files', async () => {

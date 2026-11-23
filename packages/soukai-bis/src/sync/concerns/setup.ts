@@ -10,7 +10,7 @@ import type { ModelContainerUrls } from './container-urls';
 import { findTypeIndexes } from './sync';
 
 function invaded(session: SyncSession) {
-    return invade(session, ['_setupCompleted', 'emit', 'getRegisteredModels']);
+    return invade(session, ['_setupCompleted', 'emit', 'getRegisteredModels', 'trackLocalChanges']);
 }
 
 async function migrateLocalUrls(
@@ -37,6 +37,7 @@ async function completeSetup(session: SyncSession): Promise<void> {
     }
 
     invaded(session)._setupCompleted = true;
+    invaded(session).trackLocalChanges();
 
     await invaded(session).emit('onUpdated', { setupCompleted: true });
 

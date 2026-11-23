@@ -249,6 +249,43 @@ describe('MigrateLocalUrlsJob', () => {
         expect(operationUrls[0]?.startsWith(migratedUrl)).toBe(true);
     });
 
+    it('creates local changes for files without them', async () => {
+        // Arrange
+        const fileUrl = `${Movie.defaultContainerUrl}poster.png`;
+        const remoteContainerUrl = fakeContainerUrl({ baseUrl: 'https://my-pod.com/' });
+        const migratedFileUrl = `${remoteContainerUrl}poster.png`;
+
+        await engine.writeFile(fileUrl, new Blob(['poster'], { type: 'image/png' }));
+
+        // Act
+        await MigrateLocalUrlsJob.run({
+            migrations: { [Movie.defaultContainerUrl]: remoteContainerUrl },
+        });
+
+        // Assert
+        expect(await engine.getDocumentLocalChanges(migratedFileUrl)).toEqual({
+            resources: { [migratedFileUrl]: { createdAt: expect.any(Date) } },
+        });
+    });
+
+    it('creates local changes for documents without them', async () => {
+        // Arrange
+        const action = await WatchAction.create({ startTime: new Date() });
+        const remoteContainerUrl = fakeContainerUrl({ baseUrl: 'https://my-pod.com/' });
+
+        // Act
+        await MigrateLocalUrlsJob.run({
+            migrations: { [WatchAction.defaultContainerUrl]: remoteContainerUrl },
+        });
+
+        // Assert
+        const migratedUrl = action.url.replace(WatchAction.defaultContainerUrl, remoteContainerUrl);
+
+        expect(await engine.getDocumentsLocalChanges()).toEqual({
+            [urlRoute(migratedUrl)]: { resources: { [migratedUrl]: { createdAt: expect.any(Date) } } },
+        });
+    });
+
     function fixture<T = string>(name: string, replacements: Record<string, string> = {}): T {
         return loadFixture<T>(new URL(`./testing/fixtures/${name}`, import.meta.url), replacements);
     }

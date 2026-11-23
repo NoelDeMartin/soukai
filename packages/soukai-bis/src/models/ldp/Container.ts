@@ -1,11 +1,12 @@
 import { requireUrlParentDirectory, urlResolveDirectory } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import { deleteFile, uploadFile } from 'soukai-bis/lib/internals/files';
-import type { UploadFileOptions } from 'soukai-bis/lib/internals/files';
+import type { DeleteFileOptions, UploadFileOptions } from 'soukai-bis/lib/internals/files';
 import { refreshComputedAttributes } from 'soukai-bis/models/computed-attributes/registry';
 import { emitModelInstanceEvent } from 'soukai-bis/models/events';
 import { resolveTypeIndex } from 'soukai-bis/models/interop/internals';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import { tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import type { BeforeSaveOptions, MintUrlOptions, UrlFromSlugOptions } from 'soukai-bis/models/Model';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 
@@ -51,7 +52,11 @@ export default class Container extends Model {
     }
 
     public async uploadFile(blob: Blob, options: UploadFileOptions = {}): Promise<string> {
-        const url = await uploadFile(this.requireUrl(), blob, { ...options, engine: this.static().requireEngine() });
+        const url = await uploadFile(this.requireUrl(), blob, {
+            ...options,
+            trackLocalChanges: options.trackLocalChanges ?? tracksLocalChanges(this.static()),
+            engine: this.static().requireEngine(),
+        });
 
         await this.afterFilesChanged();
         await emitModelInstanceEvent(this, 'file-uploaded', { url, blob });
@@ -59,14 +64,17 @@ export default class Container extends Model {
         return url;
     }
 
-    public async deleteFile(url: string): Promise<void> {
+    public async deleteFile(url: string, options: DeleteFileOptions = {}): Promise<void> {
         if (requireUrlParentDirectory(url) !== this.requireUrl()) {
             throw new SoukaiError(
                 `Can't delete file ${url} from container ${this.url}, it belongs to another container.`,
             );
         }
 
-        await deleteFile(url, { engine: this.static().requireEngine() });
+        await deleteFile(url, {
+            trackLocalChanges: options.trackLocalChanges ?? tracksLocalChanges(this.static()),
+            engine: this.static().requireEngine(),
+        });
         await this.afterFilesChanged();
         await emitModelInstanceEvent(this, 'file-deleted', { url });
     }

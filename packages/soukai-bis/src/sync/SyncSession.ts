@@ -1,5 +1,6 @@
 import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
 import { Semaphore, coalesce, debounce, fail } from '@noeldemartin/utils';
+import type { ListenerPayload, ListenersManager } from '@noeldemartin/utils';
 import type { LocalChangeset } from 'soukai-bis/engines/LocalEngine';
 import { requireLocalEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
@@ -93,6 +94,7 @@ export default class SyncSession {
     protected readonly models: SyncApplicationModel[];
     protected autoPush: boolean;
     protected previousSyncPendingChangesets: LocalChangeset[] = [];
+    protected listeners: ListenersManager<SyncListener> | null;
     private _connected = false;
     private _disconnecting = false;
     private _online: boolean;
@@ -109,10 +111,11 @@ export default class SyncSession {
     private unsubscribers: (() => void)[] = [];
     private pushLocalChanges = debounce(() => this.synchronize(), 1000);
 
-    constructor(config: SyncSessionConfig) {
+    constructor(config: SyncSessionConfig, listeners: ListenersManager<SyncListener> | null = null) {
         this.config = config;
         this.models = [...(config.models ?? [])];
         this.autoPush = config.autoPush ?? true;
+        this.listeners = listeners;
         this._online = config.online;
         this._containerUrls = { ...config.containerUrls };
         this._externalSources = [...(config.externalSources ?? [])];
@@ -265,7 +268,6 @@ export default class SyncSession {
 
     protected async connect(onDisconnected: () => unknown): Promise<void> {
         this.onDisconnected = onDisconnected;
-        this.models.forEach(({ model }) => trackLocalChanges(model));
 
         await this.asyncLock.run(async () => {
             if (this.disconnecting) {
@@ -280,6 +282,7 @@ export default class SyncSession {
 
             this._connected = true;
             this._setupCompleted = setupCompleted;
+            setupCompleted && this.trackLocalChanges();
             this.listen();
 
             await this.emit('onUpdated', {
@@ -302,6 +305,10 @@ export default class SyncSession {
         await this.refreshLocalChanges();
     }
 
+    protected trackLocalChanges(): void {
+        this.models.forEach(({ model }) => trackLocalChanges(model));
+    }
+
     protected get profileManager(): UserProfileManager {
         return this.config.profileManager;
     }
@@ -316,10 +323,11 @@ export default class SyncSession {
 
     protected async emit<TEvent extends keyof SyncListener>(
         event: TEvent,
-        ...payload: Parameters<NonNullable<SyncListener[TEvent]>>
+        ...payload: ListenerPayload<SyncListener, TEvent>
     ): Promise<void> {
         const config = this.config;
 
+        await this.listeners?.emit(event, ...payload);
         await (config[event] as ((...args: typeof payload) => unknown) | undefined)?.call(config, ...payload);
     }
 

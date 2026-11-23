@@ -1,9 +1,10 @@
 import { objectOnly, requireUrlParentDirectory, tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import type { UploadFileOptions } from 'soukai-bis/lib/internals/files';
+import type { DeleteFileOptions, UploadFileOptions } from 'soukai-bis/lib/internals/files';
 import { refreshComputedAttributes } from 'soukai-bis/models/computed-attributes/registry';
 import type Container from 'soukai-bis/models/ldp/Container';
 import { isContainerClass } from 'soukai-bis/models/ldp/utils';
+import { tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
 
@@ -46,15 +47,24 @@ export default class IsContainedByRelation<
     public async uploadFile(blob: Blob, options: UploadFileOptions = {}): Promise<string> {
         this.assertNotEmpty('uploadFile');
 
-        return tap(this.related.uploadFile(blob, options), async () => {
-            await refreshComputedAttributes([this.parent]);
-        });
+        return tap(
+            this.related.uploadFile(blob, {
+                ...options,
+                trackLocalChanges: options.trackLocalChanges ?? tracksLocalChanges(this.parent.static()),
+            }),
+            async () => {
+                await refreshComputedAttributes([this.parent]);
+            },
+        );
     }
 
-    public async deleteFile(url: string): Promise<void> {
+    public async deleteFile(url: string, options: DeleteFileOptions = {}): Promise<void> {
         this.assertNotEmpty('deleteFile');
 
-        await this.related.deleteFile(url);
+        await this.related.deleteFile(url, {
+            ...options,
+            trackLocalChanges: options.trackLocalChanges ?? tracksLocalChanges(this.parent.static()),
+        });
         await refreshComputedAttributes([this.parent]);
     }
 

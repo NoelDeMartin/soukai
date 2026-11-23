@@ -25,6 +25,25 @@ describe('Sync', () => {
         expect(properties.localChangesCount).toBe(2);
     });
 
+    it('notifies listeners about sessions', async () => {
+        // Arrange
+        const events: string[] = [];
+
+        Sync.listeners.add({
+            onSessionStarted: () => events.push('started'),
+            onUpdated: (changes) => changes.connected !== undefined && events.push(`connected: ${changes.connected}`),
+            onSessionEnded: () => events.push('ended'),
+        });
+
+        // Act
+        await connect();
+        await session.disconnect();
+
+        // Assert
+        expect(events).toEqual(['started', 'connected: true', 'ended', 'connected: false']);
+        expect(properties.connected).toBe(false);
+    });
+
     it('cleans up failed connections', async () => {
         // Arrange
         const error = new Error('Listener failed');
@@ -41,6 +60,30 @@ describe('Sync', () => {
         await expect(connecting).rejects.toThrow(error);
         expect(Sync.session).toBeNull();
         expect(onUpdated).toHaveBeenLastCalledWith(expect.objectContaining({ connected: false }));
+        await expect(connect()).resolves.toBeInstanceOf(SyncSession);
+    });
+
+    it('cleans up connections with failed session listeners', async () => {
+        // Arrange
+        const error = new Error('Listener failed');
+        const onSessionEnded = vi.fn();
+        const stopListening = Sync.listeners.add({
+            onSessionStarted: () => {
+                throw error;
+            },
+            onSessionEnded,
+        });
+
+        // Act
+        const connecting = Sync.connect({ profileManager: new FakeUserProfileManager(), online: true });
+
+        // Assert
+        await expect(connecting).rejects.toThrow(error);
+        expect(Sync.session).toBeNull();
+        expect(onSessionEnded).toHaveBeenCalledOnce();
+
+        stopListening();
+
         await expect(connect()).resolves.toBeInstanceOf(SyncSession);
     });
 

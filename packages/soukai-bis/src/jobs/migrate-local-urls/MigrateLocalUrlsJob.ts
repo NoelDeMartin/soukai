@@ -1,7 +1,7 @@
 import { RDFNamedNode, RDFQuad } from '@noeldemartin/solid-utils';
 import { isInstanceOf } from '@noeldemartin/utils';
 import type { Quad, Term } from '@rdfjs/types';
-import { mergeLocalChanges, migrateLocalChanges } from 'soukai-bis/engines/local-changes';
+import { fileLocalChanges, mergeLocalChanges, migrateLocalChanges } from 'soukai-bis/engines/local-changes';
 import type LocalEngine from 'soukai-bis/engines/LocalEngine';
 import type { DocumentLocalChanges, LocalChangesUpdate, LocalFile } from 'soukai-bis/engines/LocalEngine';
 import { requireLocalEngine } from 'soukai-bis/engines/state';
@@ -14,6 +14,8 @@ import {
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
 import { LOCAL_URL_PROTOCOL } from 'soukai-bis/lib/urls';
+import { isCoreModel } from 'soukai-bis/models/core';
+import { getBootedModels } from 'soukai-bis/models/registry';
 
 export interface MigrateLocalUrlsJobConfig {
     migrations?: Record<string, string>;
@@ -28,6 +30,7 @@ export default class MigrateLocalUrlsJob extends Job {
     }
 
     declare private engine: LocalEngine;
+    declare private migratedAt: Date;
 
     public constructor(private config: MigrateLocalUrlsJobConfig) {
         super();
@@ -35,6 +38,7 @@ export default class MigrateLocalUrlsJob extends Job {
 
     protected async run(): Promise<void> {
         this.engine = requireLocalEngine();
+        this.migratedAt = new Date();
 
         const hasMigrations = this.hasMigrations();
         const hasPrefixes = this.hasPrefixes();
@@ -98,10 +102,11 @@ export default class MigrateLocalUrlsJob extends Job {
             return;
         }
 
-        const migratedLocalChanges = this.migrateLocalChanges(localChanges);
+        const migratedQuads = this.migrateQuads(containerQuads);
+        const migratedLocalChanges = this.migrateDocumentLocalChanges(localChanges, migratedQuads);
 
         try {
-            await this.engine.createDocument(remoteUrl, this.migrateQuads(containerQuads), {
+            await this.engine.createDocument(remoteUrl, migratedQuads, {
                 localChanges: migratedLocalChanges,
             });
         } catch (error) {
@@ -130,7 +135,7 @@ export default class MigrateLocalUrlsJob extends Job {
             const localChanges = await this.engine.getDocumentLocalChanges(documentUrl);
 
             await this.engine.createDocument(remoteUrl, migratedQuads, {
-                localChanges: this.migrateLocalChanges(localChanges),
+                localChanges: this.migrateDocumentLocalChanges(localChanges, migratedQuads),
             });
             await this.engine.deleteDocument(documentUrl);
 
@@ -170,7 +175,11 @@ export default class MigrateLocalUrlsJob extends Job {
                     lastModifiedAt: file.lastModifiedAt,
                     availableOffline: file.availableOffline,
                 },
-                { localChanges: this.migrateLocalChanges(localChanges) },
+                {
+                    localChanges: localChanges
+                        ? this.migrateLocalChanges(localChanges)
+                        : fileLocalChanges(remoteUrl, 'created', this.migratedAt),
+                },
             );
         }
 
@@ -203,14 +212,50 @@ export default class MigrateLocalUrlsJob extends Job {
         return Object.keys(this.config.prefixes ?? {}).length > 0;
     }
 
-    protected migrateLocalChanges(localChanges: DocumentLocalChanges | null): LocalChangesUpdate | undefined {
-        if (!localChanges) {
+    protected migrateDocumentLocalChanges(
+        localChanges: DocumentLocalChanges | null,
+        migratedQuads: Quad[],
+    ): LocalChangesUpdate | undefined {
+        if (localChanges) {
+            return this.migrateLocalChanges(localChanges);
+        }
+
+        const createdResourceUrls = this.getModelResourceUrls(migratedQuads);
+
+        if (createdResourceUrls.length === 0) {
             return undefined;
         }
 
+        return (changes) =>
+            mergeLocalChanges(changes, {
+                resources: Object.fromEntries(createdResourceUrls.map((url) => [url, { createdAt: this.migratedAt }])),
+            });
+    }
+
+    protected migrateLocalChanges(localChanges: DocumentLocalChanges): LocalChangesUpdate {
         const migratedLocalChanges = migrateLocalChanges(localChanges, (url) => this.migrateUrl(url));
 
         return (changes) => mergeLocalChanges(changes, migratedLocalChanges);
+    }
+
+    protected getModelResourceUrls(quads: Quad[]): string[] {
+        const resourceTypes = new Map<string, Set<string>>();
+        const models = Array.from(getBootedModels().values()).filter((model) => !isCoreModel(model));
+
+        for (const quad of quads) {
+            if (!quad.predicate.equals(RDF_TYPE_PREDICATE)) {
+                continue;
+            }
+
+            const types = resourceTypes.get(quad.subject.value) ?? new Set<string>();
+
+            types.add(quad.object.value);
+            resourceTypes.set(quad.subject.value, types);
+        }
+
+        return Array.from(resourceTypes.entries())
+            .filter(([_, types]) => models.some((model) => model.matchesRDFClasses(types)))
+            .map(([resourceUrl]) => resourceUrl);
     }
 
     protected migrateUrl(url: string): string | null {

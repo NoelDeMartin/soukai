@@ -1,7 +1,8 @@
-import { isInstanceOf, tap } from '@noeldemartin/utils';
+import { tap } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import Container from 'soukai-bis/models/ldp/Container';
+import type Container from 'soukai-bis/models/ldp/Container';
 import type Model from 'soukai-bis/models/Model';
+import { isBootedModelInstance } from 'soukai-bis/models/registry';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import { CLASS_MARKER } from './internals';
@@ -19,7 +20,7 @@ export default class ContainsRelation<
     public constructor(parent: Parent, relatedClass: RelatedClass) {
         super(parent, relatedClass, { foreignKeyName: '__unused__' as never });
 
-        if (!isInstanceOf(parent, Container)) {
+        if (!isBootedModelInstance(parent, 'Container')) {
             throw new SoukaiError(
                 `non-container model initialized for ContainsRelation: ${(parent as Model).static().modelName}`,
             );

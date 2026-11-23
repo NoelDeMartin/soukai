@@ -134,7 +134,7 @@ This will pull changes from the POD into the local engine, push local changes to
 
 `SyncJob` only pushes the changes recorded by the local engine, and these are only recorded for models that call `trackLocalChanges()`. Changes to other models will stay in the local engine.
 
-Make sure to call it for every synced model when the application boots, before any data is created. Otherwise, models created before calling it (for example, while the user isn't logged in) won't be pushed once they log in.
+Data with [local urls](#migrating-local-urls) doesn't need to be tracked, because it hasn't been synchronized yet: migrating it records it as created. So call it for every synced model once local urls have been migrated, and when the application boots if they already were. This way, applications used offline without ever logging in don't store local changes they'll never push. Sessions started with `Sync.connect()` do this for their models once setup is completed. File changes follow the model they belong to: files uploaded or deleted through a container (or a model's `isContainedBy` relation) are only recorded when that model tracks local changes, and deleting them before that removes them for good. Plain `Container` instances don't track local changes, so pass `trackLocalChanges: true` to `uploadFile()` and `deleteFile()` when using them for synced files.
 
 Tracked models without [history tracking](#history-tracking) can only be created and deleted, because their updates couldn't be merged with changes from other devices. Trying to update one will throw an error.
 
@@ -246,7 +246,7 @@ await MigrateLocalUrlsJob.run({
 });
 ```
 
-Files stored in the migrated containers will also be moved to their new urls, keeping any pending local changes so that they're pushed in the next synchronization.
+Files stored in the migrated containers will also be moved to their new urls, keeping any pending local changes so that they're pushed in the next synchronization. Documents and files without local changes are recorded as created, so that they're also pushed even if their models didn't [track local changes](#tracking-local-changes) before the migration.
 
 If during login you've also detected a user preference to use some different [RDF prefixes](./interoperability.md#rdf-prefix-aliases), you can also use the `prefixes` option to replace them in the existing data:
 

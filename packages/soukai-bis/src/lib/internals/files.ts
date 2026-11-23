@@ -54,7 +54,7 @@ async function writeFile(url: string, blob: Blob, options: UploadFileOptions & F
 async function writeLocalFile(engine: LocalEngine, url: string, blob: Blob, options: UploadFileOptions): Promise<void> {
     const existingFile = await engine.getLocalFile(url);
     const exists = !!existingFile && !existingFile.deleted;
-    const localChanges = fileLocalChanges(url, exists ? 'updated' : 'created');
+    const localChanges = options.trackLocalChanges ? fileLocalChanges(url, exists ? 'updated' : 'created') : undefined;
 
     options.overwrite
         ? await engine.writeFile(url, blob, { mimeType: options.mimeType, localChanges })
@@ -76,6 +76,11 @@ export interface UploadFileOptions {
     slug?: string;
     mimeType?: string;
     overwrite?: boolean;
+    trackLocalChanges?: boolean;
+}
+
+export interface DeleteFileOptions {
+    trackLocalChanges?: boolean;
 }
 
 export interface FileEngineOptions {
@@ -150,11 +155,13 @@ export async function uploadFile(
     return url;
 }
 
-export async function deleteFile(url: string, options: FileEngineOptions = {}): Promise<void> {
+export async function deleteFile(url: string, options: DeleteFileOptions & FileEngineOptions = {}): Promise<void> {
     const engine = options.engine ?? requireEngine();
 
     isLocalEngine(engine)
-        ? await engine.deleteFile(url, { localChanges: fileLocalChanges(url, 'deleted') })
+        ? await engine.deleteFile(url, {
+              localChanges: options.trackLocalChanges ? fileLocalChanges(url, 'deleted') : undefined,
+          })
         : await engine.deleteFile(url);
 
     await ComputedAttributesCache.invalidate({ documentUrls: [url] });

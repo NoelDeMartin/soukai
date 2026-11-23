@@ -1,12 +1,12 @@
 import { isSubclassOf } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
+import { requireBootedModel } from 'soukai-bis/models/registry';
 import { isContainsRelationClass } from 'soukai-bis/models/relations/helpers';
 import { isCoreRelation } from 'soukai-bis/models/relations/names';
 import { getRelatedClass } from 'soukai-bis/models/relations/utils';
 
 import type { ContainerConstructor, ModelConstructor } from '../types';
 import { getContainerName, isModelClass } from '../utils';
-import Container from './Container';
 
 function getContainedModelClass(containerClass: ContainerConstructor): ModelConstructor | null {
     for (const [relationName, definition] of Object.entries(containerClass.getRelations())) {
@@ -25,7 +25,9 @@ function getContainedModelClass(containerClass: ContainerConstructor): ModelCons
 }
 
 export function isContainerClass(value: unknown): value is ContainerConstructor {
-    return isModelClass(value) && (value === Container || isSubclassOf(value, Container));
+    const containerClass = requireBootedModel('Container');
+
+    return isModelClass(value) && (value === containerClass || isSubclassOf(value, containerClass));
 }
 
 export function getRemoteContainerUrl(

@@ -1,6 +1,8 @@
 import { FakeServer } from '@noeldemartin/testing';
+import { urlRoute } from '@noeldemartin/utils';
+import { requireLocalEngine } from 'soukai-bis/engines/state';
 import MigrateLocalUrlsJob from 'soukai-bis/jobs/migrate-local-urls/MigrateLocalUrlsJob';
-import { trackLocalChanges } from 'soukai-bis/models/local-changes';
+import { trackLocalChanges, tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
@@ -56,6 +58,55 @@ describe('SyncSession setup', () => {
         });
         expect(posts.map((post) => post.title)).toEqual(['Offline']);
         expect(posts[0]?.url.startsWith('https://alice.example/blog/')).toBe(true);
+    });
+
+    it('tracks local changes when connecting after setup', async () => {
+        // Act
+        await connect({ models: [{ model: Post, registration: true }] });
+
+        // Assert
+        expect(tracksLocalChanges(Post)).toBe(true);
+    });
+
+    it('tracks local changes once setup is completed', async () => {
+        // Arrange
+        await Post.create({ title: 'Offline' });
+        await connect({
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+
+        const trackedBeforeSetup = tracksLocalChanges(Post);
+
+        // Act
+        await session.setup();
+
+        // Assert
+        expect(trackedBeforeSetup).toBe(false);
+        expect(tracksLocalChanges(Post)).toBe(true);
+    });
+
+    it('migrates local models created without tracking local changes', async () => {
+        // Arrange
+        await Post.create({ title: 'Offline' });
+        await connect({
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Act
+        await session.setup();
+
+        // Assert
+        const posts = await Post.all();
+
+        expect(posts[0]?.url.startsWith('https://alice.example/blog/')).toBe(true);
+        expect(await requireLocalEngine().getDocumentsLocalChanges()).toEqual({
+            [urlRoute(posts[0]?.requireUrl() ?? '')]: {
+                resources: { [posts[0]?.requireUrl() ?? '']: { createdAt: expect.any(Date) } },
+            },
+        });
+        expect(session.localChangesCount).toEqual(1);
     });
 
     it('only migrates local urls', async () => {

@@ -5,7 +5,7 @@ import DocumentNotFound from 'soukai-bis/errors/DocumentNotFound';
 
 import { isLocalUrl } from './urls';
 
-export type { UploadFileOptions } from './internals/files';
+export type { DeleteFileOptions, UploadFileOptions } from './internals/files';
 
 export interface ReadFileOptions {
     engine?: Engine;

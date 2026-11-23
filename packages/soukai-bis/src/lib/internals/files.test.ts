@@ -13,7 +13,7 @@ describe('Files', () => {
         const file = new File(['page'], '001 page.png', { type: 'image/png' });
 
         // Act
-        const url = await uploadFile(containerUrl, file);
+        const url = await uploadFile(containerUrl, file, { trackLocalChanges: true });
 
         // Assert
         expect(url).toEqual(`${containerUrl}001%20page.png`);
@@ -45,7 +45,7 @@ describe('Files', () => {
         await engine.writeFile(url, new Blob(['first']), { lastModifiedAt: new Date() });
 
         // Act
-        await uploadFile(url, new Blob(['second']), { overwrite: true });
+        await uploadFile(url, new Blob(['second']), { overwrite: true, trackLocalChanges: true });
 
         // Assert
         expect(await (await engine.readFile(url)).text()).toEqual('second');
@@ -62,6 +62,21 @@ describe('Files', () => {
         await deleteFile(url);
 
         // Assert
+        expect(await engine.getLocalFile(url)).toBeNull();
+        expect(await engine.getDocumentLocalChanges(url)).toBeNull();
+    });
+
+    it('does not record file changes without tracking local changes', async () => {
+        // Arrange
+        const url = await uploadFile(fakeContainerUrl(), new File(['page'], '001.png'));
+
+        const uploadChanges = await engine.getDocumentLocalChanges(url);
+
+        // Act
+        await deleteFile(url);
+
+        // Assert
+        expect(uploadChanges).toBeNull();
         expect(await engine.getLocalFile(url)).toBeNull();
         expect(await engine.getDocumentLocalChanges(url)).toBeNull();
     });
