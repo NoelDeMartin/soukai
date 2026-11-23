@@ -1,13 +1,77 @@
+import { tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import Sync from './Sync';
 import SyncSession from './SyncSession';
 import type { SyncProperties } from './SyncSession';
-import { FakeUserProfileManager, connect, fakeSyncJob, properties, session } from './testing/helpers';
+import FakeSyncStorageProvider from './testing/FakeSyncStorageProvider';
+import FakeUserProfileManager from './testing/FakeUserProfileManager';
+import { connect, fakeSyncJob, postContainerUrls, properties, session } from './testing/helpers';
 
 describe('Sync', () => {
+    beforeEach(() => Sync.boot({ storageProvider: new FakeSyncStorageProvider() }));
+
+    it('discovers models in default containers without saved containers', async () => {
+        // Act
+        await Sync.boot({
+            storageProvider: new FakeSyncStorageProvider(),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Assert
+        expect(Sync.getDiscoveryUrls(Post)).toEqual([Post.defaultContainerUrl]);
+    });
+
+    it('fails connecting before booting', async () => {
+        // Arrange
+        Sync.reset();
+
+        // Act & Assert
+        await expect(Sync.connect({ profileManager: new FakeUserProfileManager(), online: true })).rejects.toThrow(
+            /hasn't been booted/,
+        );
+    });
+
+    it('restores saved containers when booting after setup', async () => {
+        // Arrange
+        const onContainersUpdated = vi.fn();
+        const containerUrls = { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) };
+
+        Sync.listeners.add({ onContainersUpdated });
+
+        // Act
+        await Sync.boot({
+            storageProvider: new FakeSyncStorageProvider({ setupCompleted: true, containerUrls }),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Assert
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/blog/']);
+        expect(onContainersUpdated).not.toHaveBeenCalled();
+        expect(tracksLocalChanges(Post)).toBe(true);
+        expect(Sync.models).toEqual([{ model: Post, registration: true }]);
+    });
+
+    it('restores saved discovery containers when booting before setup', async () => {
+        // Arrange
+        const defaultContainerUrl = Post.defaultContainerUrl;
+        const containerUrls = { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) };
+
+        // Act
+        await Sync.boot({
+            storageProvider: new FakeSyncStorageProvider({ containerUrls }),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Assert
+        expect(Post.defaultContainerUrl).toEqual(defaultContainerUrl);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/blog/']);
+        expect(tracksLocalChanges(Post)).toBe(false);
+    });
+
     it('tracks local changes before connecting', async () => {
         // Arrange
         Sync.trackLocalChanges([Post, PostsCollection]);
@@ -54,7 +118,11 @@ describe('Sync', () => {
         });
 
         // Act
-        const connecting = Sync.connect({ profileManager: new FakeUserProfileManager(), online: true, onUpdated });
+        const connecting = Sync.connect({
+            profileManager: new FakeUserProfileManager(),
+            online: true,
+            onUpdated,
+        });
 
         // Assert
         await expect(connecting).rejects.toThrow(error);
@@ -75,7 +143,10 @@ describe('Sync', () => {
         });
 
         // Act
-        const connecting = Sync.connect({ profileManager: new FakeUserProfileManager(), online: true });
+        const connecting = Sync.connect({
+            profileManager: new FakeUserProfileManager(),
+            online: true,
+        });
 
         // Assert
         await expect(connecting).rejects.toThrow(error);
@@ -92,7 +163,9 @@ describe('Sync', () => {
         await connect();
 
         // Act & Assert
-        await expect(connect()).rejects.toThrow(/running session/);
+        await expect(Sync.connect({ profileManager: new FakeUserProfileManager(), online: true })).rejects.toThrow(
+            /running session/,
+        );
     });
 
     it('ignores previous sessions after reconnecting', async () => {
@@ -108,15 +181,12 @@ describe('Sync', () => {
 
         // Act
         previousSession.setOnline(false);
-        previousSession.addExternalSource({ containerUrl: 'https://bob.example/posts/', models: [Post] });
         await previousSession.synchronize();
 
         // Assert
         expect(Sync.session).toBe(session);
         expect(session.online).toBe(true);
         expect(properties.online).toBe(true);
-        expect(session.externalSources).toEqual([]);
-        expect(properties.externalSources).toEqual([]);
         expect(onRun).not.toHaveBeenCalled();
     });
 
@@ -143,7 +213,10 @@ describe('Sync', () => {
         const disconnected = previousSession.disconnect();
 
         // Act
-        const connecting = Sync.connect({ profileManager: new FakeUserProfileManager(), online: true });
+        const connecting = Sync.connect({
+            profileManager: new FakeUserProfileManager(),
+            online: true,
+        });
 
         // Assert
         await expect(connecting).rejects.toThrow(/running session/);
@@ -160,7 +233,10 @@ describe('Sync', () => {
         expect(previousSession.disconnecting).toBe(false);
         expect(Sync.session).toBeNull();
         await expect(
-            Sync.connect({ profileManager: new FakeUserProfileManager(), online: true }),
+            Sync.connect({
+                profileManager: new FakeUserProfileManager(),
+                online: true,
+            }),
         ).resolves.toBeInstanceOf(SyncSession);
     });
 
@@ -174,7 +250,10 @@ describe('Sync', () => {
                     return;
                 }
 
-                reconnecting = Sync.connect({ profileManager: new FakeUserProfileManager(), online: true });
+                reconnecting = Sync.connect({
+                    profileManager: new FakeUserProfileManager(),
+                    online: true,
+                });
             },
         });
 
@@ -188,17 +267,19 @@ describe('Sync', () => {
 
     it('disconnects connections in progress', async () => {
         // Arrange
-        const connecting = connect();
+        const onUpdated = vi.fn();
+        const connecting = Sync.connect({ profileManager: new FakeUserProfileManager(), online: true, onUpdated });
 
         // Act
         await Sync.session?.disconnect();
-        await connecting;
+
+        const session = await connecting;
 
         // Assert
         expect(session.connected).toBe(false);
         expect(session.disconnecting).toBe(false);
         expect(Sync.session).toBeNull();
-        expect(properties.connected).toBeUndefined();
+        expect(onUpdated).not.toHaveBeenCalledWith(expect.objectContaining({ connected: true }));
         await expect(connect()).resolves.toBeInstanceOf(SyncSession);
     });
 });

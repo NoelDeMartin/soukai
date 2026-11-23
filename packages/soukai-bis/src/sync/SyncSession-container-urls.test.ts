@@ -2,14 +2,15 @@ import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
+import Sync from './Sync';
 import {
     connect,
-    discoveryUrls,
     fakeSyncJob,
     typeIndexWithRegistrations,
     postContainerUrls,
     properties,
     session,
+    storage,
     typeIndexes,
 } from './testing/helpers';
 
@@ -25,6 +26,72 @@ describe('SyncSession container urls', () => {
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
     });
 
+    it('restores container urls from async storage', async () => {
+        // Arrange
+        const containerUrls = { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) };
+
+        // Act
+        await connect({
+            models: [{ model: Post, registration: true }],
+            storageProvider: {
+                getSetupCompleted: async () => true,
+                setSetupCompleted: () => null,
+                getContainerUrls: async () => containerUrls,
+                setContainerUrls: () => null,
+                getExternalSources: async () => [],
+                setExternalSources: () => null,
+            },
+        });
+
+        // Assert
+        expect(Sync.containerUrls).toEqual(containerUrls);
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
+    });
+
+    it('saves container urls updated during sync', async () => {
+        // Arrange
+        fakeSyncJob();
+
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Act
+        await session.synchronize();
+
+        // Assert
+        expect(storage.containerUrls).toEqual({
+            Post: postContainerUrls({
+                default: 'https://alice.example/blog/',
+                registered: ['https://alice.example/blog/'],
+            }),
+        });
+    });
+
+    it('notifies container changes', async () => {
+        // Arrange
+        const onContainersUpdated = vi.fn();
+
+        fakeSyncJob();
+
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+            onContainersUpdated,
+        });
+
+        // Act
+        await session.synchronize();
+        await session.synchronize();
+
+        // Assert
+        expect(onContainersUpdated).toHaveBeenCalledOnce();
+        expect(onContainersUpdated).toHaveBeenCalledWith(Post, ['https://alice.example/blog/']);
+    });
+
     it('reads models from containers registered during sync', async () => {
         // Arrange
         const findTypeIndexes = vi.fn(typeIndexes([[Post, 'https://alice.example/blog/']]));
@@ -37,7 +104,7 @@ describe('SyncSession container urls', () => {
             models: [{ model: Post, registration: true }],
         });
 
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/']);
 
         // Act
         await session.synchronize();
@@ -51,7 +118,7 @@ describe('SyncSession container urls', () => {
                 registered: ['https://alice.example/blog/'],
             }),
         });
-        expect(discoveryUrls.get(Post)).toContain('https://alice.example/blog/');
+        expect(Sync.getDiscoveryUrls(Post)).toContain('https://alice.example/blog/');
     });
 
     it('reads models from type indexes created during sync', async () => {
@@ -86,7 +153,7 @@ describe('SyncSession container urls', () => {
         expect(properties.containerUrls).toEqual({
             Post: postContainerUrls({ registered: ['https://alice.example/blog/'] }),
         });
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
     });
 
     it('reads models from all registered containers', async () => {
@@ -110,7 +177,7 @@ describe('SyncSession container urls', () => {
         expect(properties.containerUrls).toEqual({
             Post: postContainerUrls({ registered: ['https://alice.example/blog/', 'https://alice.example/posts/'] }),
         });
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
     });
 
     it('reads singleton models from registered instances', async () => {
@@ -136,7 +203,7 @@ describe('SyncSession container urls', () => {
         // Assert
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/posts/');
         expect(properties.containerUrls).toEqual({ Post: postContainerUrls({ instances: [registeredPostUrl] }) });
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', registeredPostUrl]);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', registeredPostUrl]);
     });
 
     it('reads singleton models from the default container before they are registered', async () => {
@@ -147,7 +214,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Assert
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/']);
         expect(properties.containerUrls).toEqual({ Post: postContainerUrls() });
     });
 
@@ -167,7 +234,7 @@ describe('SyncSession container urls', () => {
         // Assert
         expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);
         expect(properties.containerUrls?.Post?.instances).toEqual([]);
-        expect(discoveryUrls.get(Post)).toContain('https://alice.example/blog/');
+        expect(Sync.getDiscoveryUrls(Post)).toContain('https://alice.example/blog/');
     });
 
     it('reads models from registered instances', async () => {
@@ -192,7 +259,7 @@ describe('SyncSession container urls', () => {
 
         // Assert
         expect(properties.containerUrls?.Post?.instances).toEqual([registeredPostUrl]);
-        expect(discoveryUrls.get(Post)).toEqual([
+        expect(Sync.getDiscoveryUrls(Post)).toEqual([
             'https://alice.example/posts/',
             registeredPostUrl,
             'https://alice.example/drafts/',
@@ -222,7 +289,7 @@ describe('SyncSession container urls', () => {
 
         // Assert
         expect(properties.containerUrls?.Post?.instances).toEqual([registeredPostUrl]);
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', registeredPostUrl]);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', registeredPostUrl]);
     });
 
     it('reads models from registered containers before syncing', async () => {
@@ -233,7 +300,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Assert
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
     });
 
     it('reads models created in unlisted containers', async () => {
@@ -248,7 +315,7 @@ describe('SyncSession container urls', () => {
 
         // Assert
         expect(properties.containerUrls?.Post?.unlisted).toEqual(['https://alice.example/blog/']);
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
     });
 
     it('ignores containers of models created in registered instances', async () => {
@@ -276,7 +343,7 @@ describe('SyncSession container urls', () => {
         });
 
         // Assert
-        expect(discoveryUrls.get(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
+        expect(Sync.getDiscoveryUrls(Post)).toEqual(['https://alice.example/posts/', 'https://alice.example/blog/']);
     });
 
     it('forgets unlisted containers once they are registered', async () => {

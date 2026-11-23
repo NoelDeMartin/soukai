@@ -1,14 +1,9 @@
 import type { CompleteSolidUserProfile } from '@noeldemartin/solid-utils';
-import { Semaphore, coalesce, debounce, fail } from '@noeldemartin/utils';
+import { Semaphore, coalesce, debounce, fail, invade } from '@noeldemartin/utils';
 import type { ListenerPayload, ListenersManager } from '@noeldemartin/utils';
 import type { LocalChangeset } from 'soukai-bis/engines/LocalEngine';
 import { requireLocalEngine } from 'soukai-bis/engines/state';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
-import {
-    assertExternalSourceModelsBooted,
-    getExternalSourceUrl,
-    isInExternalSource,
-} from 'soukai-bis/jobs/sync/external-sources';
 import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type SyncJob from 'soukai-bis/jobs/sync/SyncJob';
 import type {
@@ -22,7 +17,6 @@ import type {
     SyncApplicationModel,
 } from 'soukai-bis/jobs/sync/SyncJob';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
-import { trackLocalChanges } from 'soukai-bis/models/local-changes';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import {
@@ -31,11 +25,11 @@ import {
     trackUnlistedContainerUrls,
 } from './concerns/container-urls';
 import type { ModelContainerUrls } from './concerns/container-urls';
-import { discardExternalSource } from './concerns/external-sources';
 import { updateLocalChanges } from './concerns/local-changes';
 import { isSetupCompleted, runSetup } from './concerns/setup';
 import { runSync } from './concerns/sync';
 import type { SyncTypeIndexes } from './concerns/sync';
+import type { SyncService } from './Sync';
 
 export type { ModelContainerUrls } from './concerns/container-urls';
 export type { SyncTypeIndexes } from './concerns/sync';
@@ -59,7 +53,7 @@ export interface SyncCompletedEvent {
 
 export interface SyncListener {
     onUpdated?(changes: Partial<SyncProperties>): unknown;
-    onContainersUpdated?(modelClass: ModelConstructor, containerUrls: string[]): unknown;
+    onContainersUpdated?(modelClass: ModelConstructor, discoveryUrls: string[]): unknown;
     onFileUpdated?(url: string): unknown;
     onSyncStarted?(): unknown;
     onSyncCompleted?(event: SyncCompletedEvent): unknown;
@@ -81,9 +75,6 @@ export interface SyncSessionConfig extends SyncListener {
     profileManager: UserProfileManager;
     online: boolean;
     autoPush?: boolean;
-    models?: SyncApplicationModel[];
-    containerUrls?: Record<string, ModelContainerUrls>;
-    externalSources?: ExternalSource[];
     resolveDeletionConflict?(conflict: DeletionConflict): Promise<DeletionConflictResolution>;
     resolveFileConflict?(conflict: FileConflict): Promise<FileConflictResolution>;
 }
@@ -91,7 +82,7 @@ export interface SyncSessionConfig extends SyncListener {
 export default class SyncSession {
     public readonly refreshLocalChanges = coalesce(() => updateLocalChanges(this));
     protected readonly config: SyncSessionConfig;
-    protected readonly models: SyncApplicationModel[];
+    protected readonly service: SyncService;
     protected autoPush: boolean;
     protected previousSyncPendingChangesets: LocalChangeset[] = [];
     protected listeners: ListenersManager<SyncListener> | null;
@@ -101,9 +92,6 @@ export default class SyncSession {
     private _syncing = false;
     private _localChangesCount = 0;
     private _error: unknown = null;
-    private _setupCompleted = false;
-    private _containerUrls: Record<string, ModelContainerUrls>;
-    private _externalSources: ExternalSource[];
     private _activeJob: SyncJob | null = null;
     private asyncLock = new Semaphore();
     private disconnection: Promise<void> | null = null;
@@ -111,14 +99,16 @@ export default class SyncSession {
     private unsubscribers: (() => void)[] = [];
     private pushLocalChanges = debounce(() => this.synchronize(), 1000);
 
-    constructor(config: SyncSessionConfig, listeners: ListenersManager<SyncListener> | null = null) {
+    constructor(
+        config: SyncSessionConfig,
+        service: SyncService,
+        listeners: ListenersManager<SyncListener> | null = null,
+    ) {
         this.config = config;
-        this.models = [...(config.models ?? [])];
+        this.service = service;
         this.autoPush = config.autoPush ?? true;
         this.listeners = listeners;
         this._online = config.online;
-        this._containerUrls = { ...config.containerUrls };
-        this._externalSources = [...(config.externalSources ?? [])];
     }
 
     public get connected(): boolean {
@@ -143,18 +133,6 @@ export default class SyncSession {
 
     public get error(): unknown {
         return this._error;
-    }
-
-    public get setupCompleted(): boolean {
-        return this._setupCompleted;
-    }
-
-    public get containerUrls(): Record<string, ModelContainerUrls> {
-        return this._containerUrls;
-    }
-
-    public get externalSources(): ExternalSource[] {
-        return this._externalSources.slice(0);
     }
 
     public get activeJob(): SyncJob | null {
@@ -226,44 +204,14 @@ export default class SyncSession {
         });
     }
 
-    public addExternalSource(source: ExternalSource): void {
-        if (!this.isActive() || this.hasExternalSource(source)) {
-            return;
-        }
-
-        assertExternalSourceModelsBooted(source);
-
-        this._externalSources = [...this._externalSources, source];
-
-        void this.emit('onUpdated', { externalSources: this.externalSources });
-    }
-
-    public hasExternalSource(source: ExternalSource): boolean {
-        const sourceUrl = getExternalSourceUrl(source);
-
-        return this._externalSources.some((externalSource) => getExternalSourceUrl(externalSource) === sourceUrl);
-    }
-
-    public isInExternalSource(url: string): boolean {
-        return this._externalSources.some((source) => isInExternalSource(source, url));
-    }
-
-    public async removeExternalSource(source: ExternalSource): Promise<void> {
-        await this.asyncLock.run(async () => {
-            if (!this.isActive()) {
-                return;
-            }
-
-            await discardExternalSource(this, source);
-        });
-    }
-
     public requireRemoteContainerUrl(modelClass: ModelConstructor): string {
         const syncModel =
             this.getRegisteredModels().find(({ model }) => model === modelClass) ??
             fail<never>(SoukaiError, `Failed resolving remote container for '${modelClass.modelName}' model`);
 
-        return this.containerUrls[modelClass.modelName]?.default ?? getDefaultRemoteContainerUrl(this, syncModel);
+        return (
+            this.service.containerUrls[modelClass.modelName]?.default ?? getDefaultRemoteContainerUrl(this, syncModel)
+        );
     }
 
     protected async connect(onDisconnected: () => unknown): Promise<void> {
@@ -274,15 +222,15 @@ export default class SyncSession {
                 return;
             }
 
-            const setupCompleted = await isSetupCompleted();
+            const setupCompleted = this.service.setupCompleted || (await isSetupCompleted());
 
             if (this.disconnecting) {
                 return;
             }
 
+            setupCompleted && (await invade(this.service, ['completeSetup']).completeSetup());
+
             this._connected = true;
-            this._setupCompleted = setupCompleted;
-            setupCompleted && this.trackLocalChanges();
             this.listen();
 
             await this.emit('onUpdated', {
@@ -291,9 +239,9 @@ export default class SyncSession {
                 syncing: false,
                 localChangesCount: 0,
                 error: null,
-                setupCompleted: this.setupCompleted,
-                containerUrls: this.containerUrls,
-                externalSources: this.externalSources,
+                setupCompleted: this.service.setupCompleted,
+                containerUrls: this.service.containerUrls,
+                externalSources: this.service.externalSources,
                 activeJob: null,
             });
 
@@ -305,20 +253,24 @@ export default class SyncSession {
         await this.refreshLocalChanges();
     }
 
-    protected trackLocalChanges(): void {
-        this.models.forEach(({ model }) => trackLocalChanges(model));
-    }
-
     protected get profileManager(): UserProfileManager {
         return this.config.profileManager;
+    }
+
+    protected get models(): SyncApplicationModel[] {
+        return this.service.models;
     }
 
     protected getRegisteredModels(): SyncApplicationModel[] {
         return this.models.filter((syncModel) => !!syncModel.registration);
     }
 
+    protected lock<T>(operation: () => Promise<T>): Promise<T> {
+        return this.asyncLock.run(operation);
+    }
+
     protected canSynchronize(): boolean {
-        return this.isActive() && this.setupCompleted && this.online && !this.syncing;
+        return this.isActive() && this.service.setupCompleted && this.online && !this.syncing;
     }
 
     protected async emit<TEvent extends keyof SyncListener>(
@@ -376,7 +328,7 @@ export default class SyncSession {
             this.unsubscribers.push(
                 model.on(
                     'created',
-                    ({ model: instance }) => this.setupCompleted && trackUnlistedContainerUrls(this, instance),
+                    ({ model: instance }) => this.service.setupCompleted && trackUnlistedContainerUrls(this, instance),
                 ),
             );
         }

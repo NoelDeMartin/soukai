@@ -10,6 +10,7 @@ function invaded(session: SyncSession) {
         'emit',
         'previousSyncPendingChangesets',
         'pushLocalChanges',
+        'service',
     ]);
 }
 
@@ -21,11 +22,11 @@ export function haveSameChangesets(changesets: LocalChangeset[], otherChangesets
 }
 
 function shouldPushLocalChanges(session: SyncSession, changesets: LocalChangeset[]): boolean {
-    const { autoPush, previousSyncPendingChangesets } = invaded(session);
+    const { autoPush, previousSyncPendingChangesets, service } = invaded(session);
 
     return (
         autoPush &&
-        session.setupCompleted &&
+        service.setupCompleted &&
         !session.syncing &&
         changesets.length > 0 &&
         !haveSameChangesets(changesets, previousSyncPendingChangesets)

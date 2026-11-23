@@ -8,20 +8,22 @@ import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import type { ModelConstructor, ModelWithUrl } from 'soukai-bis/models/types';
 import { newModelContainerUrls } from 'soukai-bis/sync/concerns/container-urls';
 import Sync from 'soukai-bis/sync/Sync';
+import type { SyncBootConfig } from 'soukai-bis/sync/Sync';
 import type SyncSession from 'soukai-bis/sync/SyncSession';
 import type {
     ModelContainerUrls,
     SyncProperties,
     SyncSessionConfig,
     SyncTypeIndexes,
-    UserProfileManager,
 } from 'soukai-bis/sync/SyncSession';
+import FakeSyncStorageProvider from 'soukai-bis/sync/testing/FakeSyncStorageProvider';
+import FakeUserProfileManager from 'soukai-bis/sync/testing/FakeUserProfileManager';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { vi } from 'vite-plus/test';
 
 export let session: SyncSession;
+export let storage: FakeSyncStorageProvider;
 export let properties: Partial<SyncProperties> = {};
-export let discoveryUrls = new Map<ModelConstructor, string[]>();
 
 export const user: CompleteSolidUserProfile = {
     webId: 'https://alice.example/profile/card#me',
@@ -55,34 +57,25 @@ export function typeIndexes(registrations: [ModelConstructor, string][] = []): (
     return async () => ({ publicTypeIndexes: [], privateTypeIndexes: [typeIndexWithRegistrations(registrations)] });
 }
 
-export class FakeUserProfileManager implements UserProfileManager {
-    public profile: CompleteSolidUserProfile = user;
-    public findTypeIndexes: () => Promise<SyncTypeIndexes>;
-    public createPublicTypeIndex = vi.fn(async () => typeIndexWithRegistrations());
-    public createPrivateTypeIndex = vi.fn(async () => typeIndexWithRegistrations());
-
-    constructor(findTypeIndexes?: () => Promise<SyncTypeIndexes>) {
-        this.findTypeIndexes = findTypeIndexes ?? (async () => ({ publicTypeIndexes: [], privateTypeIndexes: [] }));
-    }
-
-    public getProfile(): CompleteSolidUserProfile {
-        return this.profile;
-    }
-}
-
 export async function connect(
-    config: Partial<SyncSessionConfig> & { findTypeIndexes?: () => Promise<SyncTypeIndexes> } = {},
+    config: Partial<SyncSessionConfig> &
+        Partial<SyncBootConfig> & {
+            findTypeIndexes?: () => Promise<SyncTypeIndexes>;
+            containerUrls?: Record<string, ModelContainerUrls>;
+            externalSources?: ExternalSource[];
+        } = {},
 ): Promise<SyncSession> {
-    const { findTypeIndexes, ...sessionConfig } = config;
+    const { findTypeIndexes, containerUrls, externalSources, storageProvider, models, ...sessionConfig } = config;
 
     properties = {};
-    discoveryUrls = new Map();
+    storage = new FakeSyncStorageProvider({ containerUrls, externalSources });
+
+    await Sync.boot({ storageProvider: storageProvider ?? storage, models });
 
     return (session = await Sync.connect({
         profileManager: new FakeUserProfileManager(findTypeIndexes),
         online: true,
         autoPush: false,
-        onContainersUpdated: (modelClass, urls) => discoveryUrls.set(modelClass, urls),
         ...sessionConfig,
         onUpdated: (changes) => {
             properties = { ...properties, ...changes };

@@ -14,7 +14,7 @@ export interface ModelContainerUrls {
 }
 
 function invaded(session: SyncSession) {
-    return invade(session, ['_containerUrls', 'emit', 'getRegisteredModels', 'profileManager']);
+    return invade(session, ['getRegisteredModels', 'profileManager', 'service']);
 }
 
 function pickDefaultContainerUrl(
@@ -23,7 +23,7 @@ function pickDefaultContainerUrl(
     registeredContainerUrls: string[],
     keepCurrent: boolean,
 ): string {
-    const currentContainerUrl = session.containerUrls[syncModel.model.modelName]?.default;
+    const currentContainerUrl = invaded(session).service.containerUrls[syncModel.model.modelName]?.default;
 
     if (
         currentContainerUrl &&
@@ -81,7 +81,9 @@ export function findContainerUrls(
                     registeredContainerUrls,
                     keepDefaults.has(modelClass),
                 );
-                const unlistedContainerUrls = (session.containerUrls[modelClass.modelName]?.unlisted ?? []).filter(
+                const unlistedContainerUrls = (
+                    invaded(session).service.containerUrls[modelClass.modelName]?.unlisted ?? []
+                ).filter(
                     (containerUrl) =>
                         containerUrl !== defaultContainerUrl && !registeredContainerUrls.includes(containerUrl),
                 );
@@ -103,11 +105,12 @@ function findUnlistedContainerUrls(session: SyncSession, model: Model): ModelCon
     const modelClass = model.static();
     const containerUrl = model.getContainerUrl();
     const containerUrls =
-        session.containerUrls[modelClass.modelName] ?? newModelContainerUrls(modelClass.defaultContainerUrl);
+        invaded(session).service.containerUrls[modelClass.modelName] ??
+        newModelContainerUrls(modelClass.defaultContainerUrl);
 
     if (
         !containerUrl ||
-        session.isInExternalSource(model.requireUrl()) ||
+        invaded(session).service.isInExternalSource(model.requireUrl()) ||
         containerUrls.instances.includes(model.requireUrl()) ||
         !invaded(session)
             .getRegisteredModels()
@@ -128,21 +131,7 @@ export async function setContainerUrls(
         return;
     }
 
-    invaded(session)._containerUrls = { ...session.containerUrls, ...containerUrls };
-
-    for (const { model } of invaded(session).getRegisteredModels()) {
-        const modelContainerUrls = containerUrls[model.modelName];
-
-        if (!modelContainerUrls) {
-            continue;
-        }
-
-        model.defaultContainerUrl = modelContainerUrls.default;
-
-        await invaded(session).emit('onContainersUpdated', model, getDiscoveryUrls(modelContainerUrls));
-    }
-
-    await invaded(session).emit('onUpdated', { containerUrls: session.containerUrls });
+    await invade(invaded(session).service, ['updateContainerUrls']).updateContainerUrls(containerUrls);
 }
 
 export async function initializeContainerUrls(session: SyncSession, syncModel: SyncApplicationModel): Promise<void> {
@@ -150,19 +139,17 @@ export async function initializeContainerUrls(session: SyncSession, syncModel: S
         return;
     }
 
-    const containerUrls = session.containerUrls[syncModel.model.modelName];
+    const containerUrls = invaded(session).service.containerUrls[syncModel.model.modelName];
 
     if (containerUrls) {
-        if (session.setupCompleted) {
+        if (invaded(session).service.setupCompleted) {
             syncModel.model.defaultContainerUrl = containerUrls.default;
         }
-
-        await invaded(session).emit('onContainersUpdated', syncModel.model, getDiscoveryUrls(containerUrls));
 
         return;
     }
 
-    if (!session.setupCompleted) {
+    if (!invaded(session).service.setupCompleted) {
         return;
     }
 

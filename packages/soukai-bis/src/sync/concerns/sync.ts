@@ -37,6 +37,7 @@ function invaded(session: SyncSession) {
         'pushLocalChanges',
         'config',
         'profileManager',
+        'service',
     ]);
 }
 
@@ -45,7 +46,7 @@ function getJobConfig(session: SyncSession, typeIndexes: SyncTypeIndexes): SyncJ
 
     return {
         ...typeIndexes,
-        externalSources: session.externalSources,
+        externalSources: invaded(session).service.externalSources,
         userProfile: profileManager.getProfile(),
         createPublicTypeIndex: profileManager.createPublicTypeIndex?.bind(profileManager),
         createPrivateTypeIndex: profileManager.createPrivateTypeIndex?.bind(profileManager),

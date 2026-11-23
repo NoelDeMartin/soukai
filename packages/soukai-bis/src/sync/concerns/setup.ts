@@ -10,7 +10,7 @@ import type { ModelContainerUrls } from './container-urls';
 import { findTypeIndexes } from './sync';
 
 function invaded(session: SyncSession) {
-    return invade(session, ['_setupCompleted', 'emit', 'getRegisteredModels', 'trackLocalChanges']);
+    return invade(session, ['getRegisteredModels', 'service']);
 }
 
 async function migrateLocalUrls(
@@ -32,17 +32,16 @@ async function migrateLocalUrls(
 }
 
 async function completeSetup(session: SyncSession): Promise<void> {
-    if (!session.isActive() || session.setupCompleted) {
+    const service = invaded(session).service;
+
+    if (!session.isActive() || service.setupCompleted) {
         return;
     }
 
-    invaded(session)._setupCompleted = true;
-    invaded(session).trackLocalChanges();
-
-    await invaded(session).emit('onUpdated', { setupCompleted: true });
+    await invade(service, ['completeSetup']).completeSetup();
 
     for (const syncModel of invaded(session).getRegisteredModels()) {
-        if (session.containerUrls[syncModel.model.modelName]) {
+        if (service.containerUrls[syncModel.model.modelName]) {
             continue;
         }
 

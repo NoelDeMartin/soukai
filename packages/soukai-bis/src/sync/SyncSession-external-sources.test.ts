@@ -7,7 +7,8 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 
 import Sync from './Sync';
 import SyncSession from './SyncSession';
-import { connect, fakeSyncJob, postContainerUrls, properties, session } from './testing/helpers';
+import FakeSyncStorageProvider from './testing/FakeSyncStorageProvider';
+import { connect, fakeSyncJob, postContainerUrls, properties, session, storage } from './testing/helpers';
 
 describe('SyncSession external sources', () => {
     const source: ExternalSource = { containerUrl: 'https://bob.example/posts/', models: [Post] };
@@ -20,7 +21,7 @@ describe('SyncSession external sources', () => {
 
         await connect({ models: [{ model: Post, registration: true }] });
 
-        session.addExternalSource(source);
+        await Sync.addExternalSource(source);
 
         // Act
         await session.synchronize();
@@ -34,12 +35,12 @@ describe('SyncSession external sources', () => {
         await connect();
 
         // Act
-        session.addExternalSource(source);
-        session.addExternalSource({ ...source });
+        await Sync.addExternalSource(source);
+        await Sync.addExternalSource({ ...source });
 
         // Assert
-        expect(session.externalSources).toEqual([source]);
-        expect(session.hasExternalSource(source)).toBe(true);
+        expect(Sync.externalSources).toEqual([source]);
+        expect(Sync.hasExternalSource(source)).toBe(true);
     });
 
     it('restores external sources when connecting', async () => {
@@ -47,7 +48,49 @@ describe('SyncSession external sources', () => {
         await connect({ externalSources: [source] });
 
         // Assert
-        expect(session.externalSources).toEqual([source]);
+        expect(Sync.externalSources).toEqual([source]);
+    });
+
+    it('saves external sources', async () => {
+        // Arrange
+        const otherSource: ExternalSource = { containerUrl: 'https://carol.example/posts/', models: [Post] };
+
+        await connect();
+
+        // Act
+        await Sync.addExternalSource(source);
+        await Sync.addExternalSource(otherSource);
+
+        await Sync.removeExternalSource(source);
+
+        // Assert
+        expect(storage.externalSources).toEqual([otherSource]);
+    });
+
+    it('manages external sources without sessions', async () => {
+        // Arrange
+        const storageProvider = new FakeSyncStorageProvider();
+        const otherSource: ExternalSource = { containerUrl: 'https://carol.example/posts/', models: [Post] };
+
+        await Sync.boot({ storageProvider });
+        await Sync.addExternalSource(source);
+        await Sync.addExternalSource(otherSource);
+
+        const externalPost = await new Post({ title: 'Managed' }).save({ containerUrl: source.containerUrl });
+
+        // Act
+        await Sync.removeExternalSource(source);
+
+        // Assert
+        await expect(requireEngine().readDocumentIfExists(externalPost.requireDocumentUrl())).resolves.toBeNull();
+        expect(Sync.externalSources).toEqual([otherSource]);
+        expect(storageProvider.externalSources).toEqual([otherSource]);
+    });
+
+    it('fails adding external sources before booting', async () => {
+        // Act & Assert
+        await expect(Sync.addExternalSource(source)).rejects.toThrow(/hasn't been booted/);
+        expect(Sync.externalSources).toEqual([]);
     });
 
     it('fails adding external sources with models that are not booted', async () => {
@@ -57,8 +100,10 @@ describe('SyncSession external sources', () => {
         await connect();
 
         // Act & Assert
-        expect(() => session.addExternalSource({ ...source, models: [UnbootedPost] })).toThrow(/class isn't booted/);
-        expect(session.externalSources).toEqual([]);
+        await expect(Sync.addExternalSource({ ...source, models: [UnbootedPost] })).rejects.toThrow(
+            /class isn't booted/,
+        );
+        expect(Sync.externalSources).toEqual([]);
     });
 
     it('fails connecting with external sources with models that are not booted', async () => {
@@ -82,7 +127,7 @@ describe('SyncSession external sources', () => {
 
         await connect({ onExternalSourceFailed });
 
-        session.addExternalSource(source);
+        await Sync.addExternalSource(source);
 
         // Act
         await session.synchronize();
@@ -95,7 +140,7 @@ describe('SyncSession external sources', () => {
         // Arrange
         await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
 
-        session.addExternalSource(source);
+        await Sync.addExternalSource(source);
 
         // Act
         await new Post({ title: 'Managed' }).save({ containerUrl: source.containerUrl });
@@ -111,19 +156,19 @@ describe('SyncSession external sources', () => {
         // Arrange
         await connect({ containerUrls: { Post: postContainerUrls() }, models: [{ model: Post, registration: true }] });
 
-        session.addExternalSource(source);
+        await Sync.addExternalSource(source);
 
         const ownPost = await Post.create({ title: 'Mine' });
         const externalPost = await new Post({ title: 'Managed' }).save({ containerUrl: source.containerUrl });
 
         // Act
-        await session.removeExternalSource(source);
+        await Sync.removeExternalSource(source);
 
         // Assert
         await expect(requireEngine().readDocumentIfExists(externalPost.requireDocumentUrl())).resolves.toBeNull();
         await expect(requireEngine().readDocumentIfExists(ownPost.requireDocumentUrl())).resolves.not.toBeNull();
         expect(properties.localChangesCount).toBe(1);
-        expect(session.externalSources).toEqual([]);
+        expect(Sync.externalSources).toEqual([]);
     });
 
     it('removes instance external sources', async () => {
@@ -134,15 +179,15 @@ describe('SyncSession external sources', () => {
         const otherPost = await new Post({ title: 'Other' }).save({ containerUrl: source.containerUrl });
         const instanceSource: ExternalSource = { instanceUrl: externalPost.requireUrl(), models: [Post] };
 
-        session.addExternalSource(instanceSource);
+        await Sync.addExternalSource(instanceSource);
 
         // Act
-        await session.removeExternalSource(instanceSource);
+        await Sync.removeExternalSource(instanceSource);
 
         // Assert
         await expect(requireEngine().readDocumentIfExists(externalPost.requireDocumentUrl())).resolves.toBeNull();
         await expect(requireEngine().readDocumentIfExists(otherPost.requireDocumentUrl())).resolves.not.toBeNull();
-        expect(session.externalSources).toEqual([]);
+        expect(Sync.externalSources).toEqual([]);
     });
 
     it('removes external sources without local documents', async () => {
@@ -151,14 +196,14 @@ describe('SyncSession external sources', () => {
 
         await connect();
 
-        session.addExternalSource(source);
-        session.addExternalSource(otherSource);
+        await Sync.addExternalSource(source);
+        await Sync.addExternalSource(otherSource);
 
         // Act
-        await session.removeExternalSource(otherSource);
+        await Sync.removeExternalSource(otherSource);
 
         // Assert
-        expect(session.externalSources).toEqual([source]);
+        expect(Sync.externalSources).toEqual([source]);
     });
 
     it('removes external sources after running syncs', async () => {
@@ -177,11 +222,11 @@ describe('SyncSession external sources', () => {
 
         await connect({ models: [{ model: Post, registration: true }] });
 
-        session.addExternalSource(source);
+        await Sync.addExternalSource(source);
 
         // Act
         const syncing = session.synchronize();
-        const removing = session.removeExternalSource(source);
+        const removing = Sync.removeExternalSource(source);
 
         await after({ milliseconds: 10 });
 
@@ -195,6 +240,6 @@ describe('SyncSession external sources', () => {
             requireEngine().readDocumentIfExists((pulledPost as unknown as Post).requireDocumentUrl()),
         ).resolves.toBeNull();
         expect(properties.localChangesCount).toBe(0);
-        expect(session.externalSources).toEqual([]);
+        expect(Sync.externalSources).toEqual([]);
     });
 });

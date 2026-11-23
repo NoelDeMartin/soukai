@@ -6,12 +6,30 @@ import { trackLocalChanges, tracksLocalChanges } from 'soukai-bis/models/local-c
 import Post from 'soukai-bis/testing/stubs/Post';
 import { describe, expect, it, vi } from 'vite-plus/test';
 
-import { connect, postContainerUrls, properties, session, typeIndexes, user } from './testing/helpers';
+import Sync from './Sync';
+import FakeSyncStorageProvider from './testing/FakeSyncStorageProvider';
+import { connect, postContainerUrls, properties, session, storage, typeIndexes, user } from './testing/helpers';
 
 describe('SyncSession setup', () => {
     it('completes setup when connecting without local models', async () => {
         // Act
         await connect();
+
+        // Assert
+        expect(properties.setupCompleted).toBe(true);
+        expect(storage.setupCompleted).toBe(true);
+    });
+
+    it('restores saved setup completion when connecting', async () => {
+        // Arrange
+        trackLocalChanges(Post);
+        await Post.create({ title: 'Offline' });
+
+        // Act
+        await connect({
+            models: [{ model: Post, registration: true }],
+            storageProvider: new FakeSyncStorageProvider({ setupCompleted: true }),
+        });
 
         // Assert
         expect(properties.setupCompleted).toBe(true);
@@ -47,6 +65,7 @@ describe('SyncSession setup', () => {
         const posts = await Post.all();
 
         expect(properties.setupCompleted).toBe(true);
+        expect(storage.setupCompleted).toBe(true);
         expect(synchronize).not.toHaveBeenCalled();
         expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
         expect(session.requireRemoteContainerUrl(Post)).toEqual('https://alice.example/blog/');
@@ -152,7 +171,7 @@ describe('SyncSession setup', () => {
         const posts = await Post.all();
 
         expect(session.connected).toBe(false);
-        expect(session.setupCompleted).toBe(false);
+        expect(Sync.setupCompleted).toBe(false);
         expect(properties.setupCompleted).toBe(false);
         expect(posts[0]?.url.startsWith('local://')).toBe(true);
     });

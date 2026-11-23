@@ -9,15 +9,8 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 
 import Sync from './Sync';
 import type { ModelContainerUrls } from './SyncSession';
-import {
-    FakeUserProfileManager,
-    connect,
-    fakeSyncJob,
-    postContainerUrls,
-    properties,
-    session,
-    user,
-} from './testing/helpers';
+import FakeUserProfileManager from './testing/FakeUserProfileManager';
+import { connect, fakeSyncJob, postContainerUrls, properties, session, user } from './testing/helpers';
 
 describe('SyncSession', () => {
     it('passes synced models, type index creation and conflict resolvers to sync jobs', async () => {
@@ -152,9 +145,9 @@ describe('SyncSession', () => {
         expect(session.online).toBe(true);
         expect(session.requireRemoteContainerUrl(Post)).toEqual('https://alice.example/posts/');
         expect(() => session.requireRemoteContainerUrl(PostsCollection)).toThrow(/Failed resolving/);
-        expect(session.containerUrls).toEqual({ Post: postContainerUrls() });
-        expect(session.externalSources).toEqual([]);
-        expect(session.hasExternalSource(source)).toBe(false);
+        expect(Sync.containerUrls).toEqual({ Post: postContainerUrls() });
+        expect(Sync.externalSources).toEqual([]);
+        expect(Sync.hasExternalSource(source)).toBe(false);
     });
 
     it('reads the latest user profile', async () => {
@@ -251,7 +244,6 @@ describe('SyncSession', () => {
 
         // Act
         session.setOnline(true);
-        session.addExternalSource({ containerUrl: 'https://bob.example/posts/', models: [Post] });
         await new Post({ title: 'Elsewhere' }).save({ containerUrl: 'https://alice.example/blog/' });
         await session.refreshLocalChanges();
         await session.synchronize();
@@ -260,7 +252,6 @@ describe('SyncSession', () => {
         expect(onUpdated).not.toHaveBeenCalled();
         expect(onContainersUpdated).not.toHaveBeenCalled();
         expect(synchronize).toHaveBeenCalledOnce();
-        expect(session.externalSources).toEqual([]);
         expect(Sync.session).toBeNull();
     });
 
