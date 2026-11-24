@@ -3,6 +3,7 @@ packages:
     - docs-bis
 allowBuilds:
     esbuild: true
+    puppeteer: false
 catalog:
     '@arethetypeswrong/core': ^0.18.5
     '@noeldemartin/faker': 7.6.0
