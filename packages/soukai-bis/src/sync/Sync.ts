@@ -8,7 +8,7 @@ import {
 } from 'soukai-bis/jobs/sync/external-sources';
 import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type { SyncApplicationModel } from 'soukai-bis/jobs/sync/SyncJob';
-import { trackLocalChanges } from 'soukai-bis/models/local-changes';
+import { trackLocalChanges, stopTrackingLocalChanges } from 'soukai-bis/models/local-changes';
 import type { ModelConstructor } from 'soukai-bis/models/types';
 
 import { getDiscoveryUrls } from './concerns/container-urls';
@@ -44,6 +44,7 @@ export class SyncService {
     private _setupCompleted = false;
     private _containerUrls: Record<string, ModelContainerUrls> = {};
     private _externalSources: ExternalSource[] = [];
+    private _localContainerUrls = new Map<ModelConstructor, string>();
 
     public get session(): SyncSession | null {
         return this._session;
@@ -89,6 +90,12 @@ export class SyncService {
         this._setupCompleted = setupCompleted;
         this._containerUrls = { ...containerUrls };
         this._externalSources = [...externalSources];
+
+        for (const { model } of this._models) {
+            if (!this._localContainerUrls.has(model)) {
+                this._localContainerUrls.set(model, model.defaultContainerUrl);
+            }
+        }
 
         if (!setupCompleted) {
             return;
@@ -198,6 +205,33 @@ export class SyncService {
 
         await this.storageProvider.setSetupCompleted(true);
         await this.emit('onUpdated', { setupCompleted: true });
+    }
+
+    protected async resetState(): Promise<void> {
+        const previousContainerUrls = this._containerUrls;
+
+        this._setupCompleted = false;
+        this._containerUrls = {};
+        this._externalSources = [];
+
+        for (const [model, localContainerUrl] of this._localContainerUrls) {
+            model.defaultContainerUrl = localContainerUrl;
+        }
+
+        this._models.forEach(({ model }) => stopTrackingLocalChanges(model));
+
+        await this.storageProvider.setSetupCompleted(false);
+        await this.storageProvider.setContainerUrls({});
+        await this.storageProvider.setExternalSources([]);
+        await this.emit('onUpdated', { setupCompleted: false, containerUrls: {}, externalSources: [] });
+
+        for (const { model } of this.getRegisteredModels()) {
+            if (!previousContainerUrls[model.modelName]) {
+                continue;
+            }
+
+            await this.emit('onContainersUpdated', model, this.getDiscoveryUrls(model));
+        }
     }
 
     protected async updateContainerUrls(containerUrls: Record<string, ModelContainerUrls>): Promise<void> {

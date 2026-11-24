@@ -88,6 +88,87 @@ describe('SyncSession local changes', () => {
         expect(synchronize).toHaveBeenCalledOnce();
     });
 
+    it('pushes local changes when coming back online', async () => {
+        // Arrange
+        fakeSyncJob();
+
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            autoPush: true,
+            online: false,
+            models: [{ model: Post, registration: true }],
+        });
+
+        vi.useFakeTimers();
+
+        await Post.create({ title: 'Offline' });
+        await session.refreshLocalChanges();
+        await vi.advanceTimersByTimeAsync(1000);
+
+        const synchronize = vi.spyOn(session, 'synchronize');
+
+        // Act
+        session.setOnline(true);
+
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(synchronize).toHaveBeenCalledOnce();
+    });
+
+    it('does not push local changes when coming back online without auto push', async () => {
+        // Arrange
+        fakeSyncJob();
+
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            autoPush: false,
+            online: false,
+            models: [{ model: Post, registration: true }],
+        });
+
+        vi.useFakeTimers();
+
+        await Post.create({ title: 'Offline' });
+        await session.refreshLocalChanges();
+
+        const synchronize = vi.spyOn(session, 'synchronize');
+
+        // Act
+        session.setOnline(true);
+
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(synchronize).not.toHaveBeenCalled();
+    });
+
+    it('cancels pending pushes when going offline', async () => {
+        // Arrange
+        fakeSyncJob();
+
+        await connect({
+            containerUrls: { Post: postContainerUrls() },
+            autoPush: true,
+            models: [{ model: Post, registration: true }],
+        });
+
+        const synchronize = vi.spyOn(session, 'synchronize');
+
+        vi.useFakeTimers();
+
+        await Post.create({ title: 'Hello' });
+        await session.refreshLocalChanges();
+
+        // Act
+        session.setOnline(false);
+
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(synchronize).not.toHaveBeenCalled();
+    });
+
     it('does not push local changes left by the previous sync', async () => {
         // Arrange
         fakeSyncJob();

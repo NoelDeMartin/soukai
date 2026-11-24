@@ -3,12 +3,14 @@ import { requireLocalEngine } from 'soukai-bis/engines/state';
 import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type SyncJob from 'soukai-bis/jobs/sync/SyncJob';
 import type { DeletionConflict, FileConflict, SyncApplicationModel, SyncJobConfig } from 'soukai-bis/jobs/sync/SyncJob';
+import { tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test';
 
 import Sync from './Sync';
-import type { ModelContainerUrls } from './SyncSession';
+import type { ModelContainerUrls, SyncSessionConfig } from './SyncSession';
+import FakeSyncStorageProvider from './testing/FakeSyncStorageProvider';
 import FakeUserProfileManager from './testing/FakeUserProfileManager';
 import { connect, fakeSyncJob, postContainerUrls, properties, session, user } from './testing/helpers';
 
@@ -57,6 +59,48 @@ describe('SyncSession', () => {
         expect(profileManager.createPrivateTypeIndex).toHaveBeenCalledOnce();
     });
 
+    it('notifies profile managers when profiles are updated', async () => {
+        // Arrange
+        const profileManager = new FakeUserProfileManager();
+
+        fakeSyncJob({ updatedProfile: user });
+
+        await connect({ profileManager });
+
+        // Act
+        await session.synchronize();
+
+        // Assert
+        expect(profileManager.onProfileUpdated).toHaveBeenCalledWith(user);
+    });
+
+    it('uses the user profile when the profile manager is missing', async () => {
+        // Arrange
+        let config!: SyncJobConfig;
+        const profile = { ...user, name: 'Alice' };
+
+        fakeSyncJob({ onRun: (job) => (config = (job as unknown as { config: SyncJobConfig }).config) });
+
+        await connect({ user: profile });
+
+        // Act
+        await session.synchronize();
+
+        // Assert
+        expect(config.userProfile).toBe(profile);
+    });
+
+    it('requires a user or a profile manager at the type level', () => {
+        expectTypeOf<{ online: true; user: typeof user }>().toExtend<SyncSessionConfig>();
+        expectTypeOf<{ online: true; profileManager: FakeUserProfileManager }>().toExtend<SyncSessionConfig>();
+        expectTypeOf<{ online: true }>().not.toExtend<SyncSessionConfig>();
+        expectTypeOf<{
+            online: true;
+            user: typeof user;
+            profileManager: FakeUserProfileManager;
+        }>().not.toExtend<SyncSessionConfig>();
+    });
+
     it('reports sync errors', async () => {
         // Arrange
         const error = new Error('Sync failed');
@@ -101,6 +145,28 @@ describe('SyncSession', () => {
         // Assert
         expect(session.online).toBe(false);
         expect(properties.online).toBe(false);
+    });
+
+    it('uses the navigator online status by default', async () => {
+        // Arrange
+        vi.stubGlobal('navigator', { onLine: false });
+
+        // Act
+        await connect({ online: undefined });
+
+        // Assert
+        expect(session.online).toBe(false);
+    });
+
+    it('is online by default without a navigator', async () => {
+        // Arrange
+        vi.stubGlobal('navigator', undefined);
+
+        // Act
+        await connect({ online: undefined });
+
+        // Assert
+        expect(session.online).toBe(true);
     });
 
     it('updates the online status', async () => {
@@ -253,6 +319,124 @@ describe('SyncSession', () => {
         expect(onContainersUpdated).not.toHaveBeenCalled();
         expect(synchronize).toHaveBeenCalledOnce();
         expect(Sync.session).toBeNull();
+    });
+
+    it('resets state when disconnecting', async () => {
+        // Arrange
+        const localContainerUrl = Post.defaultContainerUrl;
+        const source = { containerUrl: 'https://bob.example/posts/', models: [Post] };
+        const storageProvider = new FakeSyncStorageProvider({
+            setupCompleted: true,
+            containerUrls: { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) },
+            externalSources: [source],
+        });
+
+        const onContainersUpdated = vi.fn();
+
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+
+        const remoteContainerUrl = Post.defaultContainerUrl;
+
+        Sync.listeners.add({ onContainersUpdated });
+
+        // Act
+        await session.disconnect({ reset: true });
+
+        // Assert
+        expect(onContainersUpdated).toHaveBeenCalledWith(Post, [localContainerUrl]);
+        expect(tracksLocalChanges(Post)).toBe(false);
+        expect(remoteContainerUrl).toEqual('https://alice.example/blog/');
+        expect(Post.defaultContainerUrl).toEqual(localContainerUrl);
+        expect(Sync.setupCompleted).toBe(false);
+        expect(Sync.containerUrls).toEqual({});
+        expect(Sync.externalSources).toEqual([]);
+        expect(storageProvider.setupCompleted).toBe(false);
+        expect(storageProvider.containerUrls).toEqual({});
+        expect(storageProvider.externalSources).toEqual([]);
+    });
+
+    it('does not reset state from stale sessions', async () => {
+        // Arrange
+        const storageProvider = new FakeSyncStorageProvider({
+            setupCompleted: true,
+            containerUrls: { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) },
+        });
+
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+
+        const staleSession = session;
+
+        await staleSession.disconnect();
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+
+        // Act
+        await staleSession.disconnect({ reset: true });
+
+        // Assert
+        expect(Sync.session).toBe(session);
+        expect(Sync.setupCompleted).toBe(true);
+        expect(storageProvider.setupCompleted).toBe(true);
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
+    });
+
+    it('does not reset state from stale sessions after newer sessions disconnect', async () => {
+        // Arrange
+        const storageProvider = new FakeSyncStorageProvider({
+            setupCompleted: true,
+            containerUrls: { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) },
+        });
+
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+
+        const staleSession = session;
+
+        await staleSession.disconnect();
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+        await session.disconnect();
+
+        // Act
+        await staleSession.disconnect({ reset: true });
+
+        // Assert
+        expect(Sync.session).toBeNull();
+        expect(Sync.setupCompleted).toBe(true);
+        expect(storageProvider.setupCompleted).toBe(true);
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
+    });
+
+    it('resets state before ending sessions', async () => {
+        // Arrange
+        let setupCompletedWhenEnded: boolean | null = null;
+        const storageProvider = new FakeSyncStorageProvider({ setupCompleted: true });
+
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+
+        Sync.listeners.add({ onSessionEnded: () => (setupCompletedWhenEnded = Sync.setupCompleted) });
+
+        // Act
+        await session.disconnect({ reset: true });
+
+        // Assert
+        expect(setupCompletedWhenEnded).toBe(false);
+    });
+
+    it('keeps state when disconnecting', async () => {
+        // Arrange
+        const storageProvider = new FakeSyncStorageProvider({
+            setupCompleted: true,
+            containerUrls: { Post: postContainerUrls({ default: 'https://alice.example/blog/' }) },
+        });
+
+        await connect({ storageProvider, models: [{ model: Post, registration: true }] });
+
+        // Act
+        await session.disconnect();
+
+        // Assert
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/blog/');
+        expect(Sync.setupCompleted).toBe(true);
+        expect(storageProvider.setupCompleted).toBe(true);
+        expect(storageProvider.containerUrls.Post?.default).toEqual('https://alice.example/blog/');
     });
 
     it('finishes disconnecting after running syncs', async () => {

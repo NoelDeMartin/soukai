@@ -58,6 +58,7 @@ beforeEach(async () => {
     forgetAuthorizationProtocols();
     resetModelListeners();
     vi.resetAllMocks();
+    vi.unstubAllGlobals();
     FakeServer.reset();
     ComputedAttribute.reset();
     ComputedAttribute.disableLoadingRelations();

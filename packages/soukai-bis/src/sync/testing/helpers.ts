@@ -65,7 +65,16 @@ export async function connect(
             externalSources?: ExternalSource[];
         } = {},
 ): Promise<SyncSession> {
-    const { findTypeIndexes, containerUrls, externalSources, storageProvider, models, ...sessionConfig } = config;
+    const {
+        findTypeIndexes,
+        containerUrls,
+        externalSources,
+        storageProvider,
+        models,
+        user: sessionUser,
+        profileManager,
+        ...sessionConfig
+    } = config;
 
     properties = {};
     storage = new FakeSyncStorageProvider({ containerUrls, externalSources });
@@ -73,7 +82,9 @@ export async function connect(
     await Sync.boot({ storageProvider: storageProvider ?? storage, models });
 
     return (session = await Sync.connect({
-        profileManager: new FakeUserProfileManager(findTypeIndexes),
+        ...(sessionUser
+            ? { user: sessionUser }
+            : { profileManager: profileManager ?? new FakeUserProfileManager(findTypeIndexes) }),
         online: true,
         autoPush: false,
         ...sessionConfig,
@@ -93,6 +104,7 @@ export function fakeSyncJob(
         onRun?: (job: SyncJob) => unknown;
         pushedFiles?: FilePushedEvent[];
         syncedFileUrls?: string[];
+        updatedProfile?: CompleteSolidUserProfile;
     } = {},
 ): void {
     vi.spyOn(SyncJob.prototype as unknown as { run(): Promise<SyncJobResult> }, 'run').mockImplementation(
@@ -100,6 +112,10 @@ export function fakeSyncJob(
             const { _listeners: listeners } = this as unknown as { _listeners: ListenersManager<SyncJobListener> };
 
             await options.onRun?.(this);
+
+            if (options.updatedProfile) {
+                await listeners.emit('onProfileUpdated', options.updatedProfile);
+            }
 
             if (options.createdTypeIndex) {
                 await listeners.emit('onModelsRegistered', {

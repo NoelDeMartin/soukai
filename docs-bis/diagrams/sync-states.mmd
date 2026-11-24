@@ -1,0 +1,16 @@
+flowchart TB
+    start@{ shape: sm-circ }
+    setupCompleted{"Setup<br>completed?"}
+    Local-only(Local-only)
+    Disconnected(Disconnected)
+    Connected(Connected)
+    Syncing(Syncing)
+
+    start -->|"boot()"| setupCompleted
+    setupCompleted -->|No| Local-only
+    setupCompleted -->|Yes| Disconnected
+    Local-only -->|"connect() + setup()"| Connected
+    Disconnected -->|"connect()"| Connected
+    Connected -->|"disconnect()"| Disconnected
+    Connected -->|"synchronize()"| Syncing
+    Syncing --> Connected

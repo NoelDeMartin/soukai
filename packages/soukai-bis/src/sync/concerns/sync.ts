@@ -75,6 +75,7 @@ async function runJob(
             return invaded(session).emit('onModelsRegistrationFailed', event);
         },
         onExternalSourceFailed: (source, error) => invaded(session).emit('onExternalSourceFailed', source, error),
+        onProfileUpdated: (profile) => invaded(session).profileManager.onProfileUpdated?.(profile),
         onFilePushed: (event) => {
             pushedFileUrls.add(event.url);
 

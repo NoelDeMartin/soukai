@@ -8,6 +8,7 @@ export default class FakeUserProfileManager implements UserProfileManager {
     public findTypeIndexes: () => Promise<SyncTypeIndexes>;
     public createPublicTypeIndex = vi.fn(async () => typeIndexWithRegistrations());
     public createPrivateTypeIndex = vi.fn(async () => typeIndexWithRegistrations());
+    public onProfileUpdated = vi.fn();
 
     constructor(findTypeIndexes?: () => Promise<SyncTypeIndexes>) {
         this.findTypeIndexes = findTypeIndexes ?? (async () => ({ publicTypeIndexes: [], privateTypeIndexes: [] }));

@@ -1,7 +1,7 @@
 import { expandIRI, quadsToJsonLD, turtleToQuadsSync } from '@noeldemartin/solid-utils';
 import { FakeResponse, FakeServer, fakeContainerUrl, fakeDocumentUrl } from '@noeldemartin/testing';
 import type InMemoryEngine from 'soukai-bis/engines/InMemoryEngine';
-import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
+import TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import TypeRegistration from 'soukai-bis/models/interop/TypeRegistration';
 import { bootModels } from 'soukai-bis/models/registry';
 import { defineSchema } from 'soukai-bis/models/schema';
@@ -319,6 +319,53 @@ describe('SyncJob type indexes', () => {
         expect(createPublicTypeIndex).toHaveBeenCalledOnce();
         expect(createPrivateTypeIndex).not.toHaveBeenCalled();
         expect(registeredModels[0]?.[0]).toBe(publicTypeIndex);
+    });
+
+    it('notifies profile updates when creating type indexes', async () => {
+        // Arrange
+        const onProfileUpdated = vi.fn();
+
+        vi.spyOn(TypeIndex, 'createPrivate').mockImplementation(async (profile) => {
+            profile.privateTypeIndexUrls.push(privateTypeIndex.requireUrl());
+
+            return privateTypeIndex as Awaited<ReturnType<typeof TypeIndex.createPrivate>>;
+        });
+
+        // Act
+        await SyncJob.run({
+            ...config,
+            publicTypeIndexes: [],
+            privateTypeIndexes: [],
+            applicationModels: [{ model: User, registration: true }],
+            onProfileUpdated,
+            onModelsRegistered,
+        });
+
+        // Assert
+        expect(onProfileUpdated).toHaveBeenCalledOnce();
+        expect(onProfileUpdated).toHaveBeenCalledWith(config.userProfile);
+        expect(config.userProfile.privateTypeIndexUrls).toEqual([privateTypeIndex.requireUrl()]);
+        expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
+    });
+
+    it('does not notify profile updates when type indexes are created externally', async () => {
+        // Arrange
+        const onProfileUpdated = vi.fn();
+
+        // Act
+        await SyncJob.run({
+            ...config,
+            publicTypeIndexes: [],
+            privateTypeIndexes: [],
+            createPrivateTypeIndex: async () => privateTypeIndex,
+            applicationModels: [{ model: User, registration: true }],
+            onProfileUpdated,
+            onModelsRegistered,
+        });
+
+        // Assert
+        expect(onProfileUpdated).not.toHaveBeenCalled();
+        expect(registeredModels[0]?.[0]).toBe(privateTypeIndex);
     });
 
     it('skips models registered in the other type index', async () => {

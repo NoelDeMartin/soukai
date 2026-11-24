@@ -157,7 +157,7 @@ If you want to do this for all the models of a given class, you can [disable url
 
 ## Namespacing browser storage
 
-In the browser, Soukai stores everything in an IndexedDB database called `soukai`. This includes the documents of the `IndexedDBEngine`, the [local changes](./local-first.md#tracking-local-changes) pending to be synchronized, and the [computed attributes](./caching.md) cache. It also uses a `BroadcastChannel` named after it to keep browser tabs in sync.
+In the browser, Soukai stores everything in an IndexedDB database called `soukai`. This includes the documents of the `IndexedDBEngine`, the [local changes](./local-first.md#synchronizing) pending to be synchronized, and the [computed attributes](./caching.md) cache. It also uses a `BroadcastChannel` named after it to keep browser tabs in sync.
 
 Given that IndexedDB is scoped by origin, this means that different applications served from the same origin will share their data. This is common during development (for example, when you're running multiple apps on `localhost`), or when apps are hosted under different paths in the same domain.
 

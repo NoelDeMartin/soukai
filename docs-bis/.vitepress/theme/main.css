@@ -5,3 +5,15 @@
 .w-full {
     width: 100%;
 }
+
+.diagram {
+    margin: 16px auto;
+    padding: 24px;
+    border-radius: 8px;
+    background-color: var(--vp-c-bg);
+}
+
+html.dark .diagram.light-only,
+html:not(.dark) .diagram.dark-only {
+    display: none;
+}

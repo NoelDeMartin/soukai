@@ -365,4 +365,4 @@ const blob = await readFile(movie.posterUrl);
 const maybeBlob = await readFileIfExists(movie.posterUrl);
 ```
 
-When the default engine is a local engine, files that aren't [stored offline](../advanced/local-first.md#syncing-files) only keep their metadata locally, so their contents will be read from the [remote engine](./engines.md#remote-engine) instead.
+When the default engine is a local engine, files that aren't [stored offline](../advanced/local-first.md#configuration) only keep their metadata locally, so their contents will be read from the [remote engine](./engines.md#remote-engine) instead.

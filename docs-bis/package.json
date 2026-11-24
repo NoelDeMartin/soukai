@@ -3,11 +3,13 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "docs:dev": "vitepress dev",
-        "docs:build": "vitepress build",
-        "docs:preview": "vitepress preview"
+        "docs:dev": "pnpm docs:diagrams && vitepress dev",
+        "docs:build": "pnpm docs:diagrams && vitepress build",
+        "docs:preview": "vitepress preview",
+        "docs:diagrams": "node scripts/render-diagrams.mjs"
     },
     "devDependencies": {
+        "@mermaid-js/mermaid-cli": "^12.2.0",
         "vitepress": "2.0.0-alpha.21"
     }
 }

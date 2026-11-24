@@ -26,12 +26,16 @@ import {
 } from './concerns/container-urls';
 import type { ModelContainerUrls } from './concerns/container-urls';
 import { updateLocalChanges } from './concerns/local-changes';
-import { isSetupCompleted, runSetup } from './concerns/setup';
+import { getDefaultOnlineStatus } from './concerns/online';
+import { autoSetup, runSetup } from './concerns/setup';
+import type { SetupOptions } from './concerns/setup';
 import { runSync } from './concerns/sync';
 import type { SyncTypeIndexes } from './concerns/sync';
 import type { SyncService } from './Sync';
+import SyncProfileManager from './SyncProfileManager';
 
 export type { ModelContainerUrls } from './concerns/container-urls';
+export type { SetupOptions } from './concerns/setup';
 export type { SyncTypeIndexes } from './concerns/sync';
 
 export interface SyncProperties {
@@ -69,20 +73,28 @@ export interface UserProfileManager {
     findTypeIndexes?(): Promise<SyncTypeIndexes>;
     createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
+    onProfileUpdated?(profile: CompleteSolidUserProfile): unknown;
 }
 
-export interface SyncSessionConfig extends SyncListener {
-    profileManager: UserProfileManager;
-    online: boolean;
+export interface SyncDisconnectOptions {
+    reset?: boolean;
+}
+
+export interface SyncSessionBaseConfig extends SyncListener {
+    online?: boolean;
     autoPush?: boolean;
     resolveDeletionConflict?(conflict: DeletionConflict): Promise<DeletionConflictResolution>;
     resolveFileConflict?(conflict: FileConflict): Promise<FileConflictResolution>;
 }
 
+export type SyncSessionConfig = SyncSessionBaseConfig &
+    ({ user: CompleteSolidUserProfile; profileManager?: never } | { profileManager: UserProfileManager; user?: never });
+
 export default class SyncSession {
     public readonly refreshLocalChanges = coalesce(() => updateLocalChanges(this));
-    protected readonly config: SyncSessionConfig;
-    protected readonly service: SyncService;
+    protected config: SyncSessionConfig;
+    protected profileManager: UserProfileManager;
+    protected service: SyncService;
     protected autoPush: boolean;
     protected previousSyncPendingChangesets: LocalChangeset[] = [];
     protected listeners: ListenersManager<SyncListener> | null;
@@ -95,6 +107,7 @@ export default class SyncSession {
     private _activeJob: SyncJob | null = null;
     private asyncLock = new Semaphore();
     private disconnection: Promise<void> | null = null;
+    private resetOnDisconnect = false;
     private onDisconnected: (() => unknown) | null = null;
     private unsubscribers: (() => void)[] = [];
     private pushLocalChanges = debounce(() => this.synchronize(), 1000);
@@ -105,10 +118,11 @@ export default class SyncSession {
         listeners: ListenersManager<SyncListener> | null = null,
     ) {
         this.config = config;
+        this.profileManager = config.profileManager ?? new SyncProfileManager(config.user);
         this.service = service;
         this.autoPush = config.autoPush ?? true;
         this.listeners = listeners;
-        this._online = config.online;
+        this._online = config.online ?? getDefaultOnlineStatus();
     }
 
     public get connected(): boolean {
@@ -143,19 +157,12 @@ export default class SyncSession {
         return this._connected && !this._disconnecting;
     }
 
-    public disconnect(): Promise<void> {
-        if (this.disconnection) {
-            return this.disconnection;
+    public async disconnect(options: SyncDisconnectOptions = {}): Promise<void> {
+        if (options.reset && this.service.session === this) {
+            this.resetOnDisconnect = true;
         }
 
-        this._disconnecting = true;
-        this.pushLocalChanges.cancel();
-        this.unsubscribers.forEach((unsubscribe) => unsubscribe());
-        this.unsubscribers = [];
-
-        void this._activeJob?.cancel();
-
-        return (this.disconnection = this.finishDisconnecting());
+        await this.stopSession();
     }
 
     public setAutoPush(autoPush: boolean): void {
@@ -175,18 +182,28 @@ export default class SyncSession {
             return;
         }
 
+        const wasOnline = this._online;
+
         this._online = online;
 
         void this.emit('onUpdated', { online });
+
+        if (!online) {
+            this.pushLocalChanges.cancel();
+        }
+
+        if (online && !wasOnline && this.autoPush && this._localChangesCount > 0) {
+            this.pushLocalChanges();
+        }
     }
 
-    public async setup(): Promise<void> {
+    public async setup(options: SetupOptions = {}): Promise<void> {
         await this.asyncLock.run(async () => {
             if (!this.isActive()) {
                 return;
             }
 
-            await runSetup(this);
+            await runSetup(this, options);
         });
     }
 
@@ -222,13 +239,11 @@ export default class SyncSession {
                 return;
             }
 
-            const setupCompleted = this.service.setupCompleted || (await isSetupCompleted());
+            await autoSetup(this);
 
             if (this.disconnecting) {
                 return;
             }
-
-            setupCompleted && (await invade(this.service, ['completeSetup']).completeSetup());
 
             this._connected = true;
             this.listen();
@@ -251,10 +266,6 @@ export default class SyncSession {
         });
 
         await this.refreshLocalChanges();
-    }
-
-    protected get profileManager(): UserProfileManager {
-        return this.config.profileManager;
     }
 
     protected get models(): SyncApplicationModel[] {
@@ -283,6 +294,21 @@ export default class SyncSession {
         await (config[event] as ((...args: typeof payload) => unknown) | undefined)?.call(config, ...payload);
     }
 
+    private stopSession(): Promise<void> {
+        if (this.disconnection) {
+            return this.disconnection;
+        }
+
+        this._disconnecting = true;
+        this.pushLocalChanges.cancel();
+        this.unsubscribers.forEach((unsubscribe) => unsubscribe());
+        this.unsubscribers = [];
+
+        void this._activeJob?.cancel();
+
+        return (this.disconnection = this.finishDisconnecting());
+    }
+
     private async finishDisconnecting(): Promise<void> {
         let wasConnected = false;
 
@@ -302,7 +328,13 @@ export default class SyncSession {
             this._error = null;
             this._activeJob = null;
 
-            await this.onDisconnected?.();
+            try {
+                if (this.resetOnDisconnect) {
+                    await invade(this.service, ['resetState']).resetState();
+                }
+            } finally {
+                await this.onDisconnected?.();
+            }
         }
 
         if (!wasConnected) {

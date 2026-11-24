@@ -2,6 +2,7 @@ import { FakeServer } from '@noeldemartin/testing';
 import { urlRoute } from '@noeldemartin/utils';
 import { requireLocalEngine } from 'soukai-bis/engines/state';
 import MigrateLocalUrlsJob from 'soukai-bis/jobs/migrate-local-urls/MigrateLocalUrlsJob';
+import type { MigrateLocalUrlsJobConfig } from 'soukai-bis/jobs/migrate-local-urls/MigrateLocalUrlsJob';
 import { trackLocalChanges, tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import Post from 'soukai-bis/testing/stubs/Post';
 import { describe, expect, it, vi } from 'vite-plus/test';
@@ -11,7 +12,7 @@ import FakeSyncStorageProvider from './testing/FakeSyncStorageProvider';
 import { connect, postContainerUrls, properties, session, storage, typeIndexes, user } from './testing/helpers';
 
 describe('SyncSession setup', () => {
-    it('completes setup when connecting without local models', async () => {
+    it('auto-completes setup when connecting without local models', async () => {
         // Act
         await connect();
 
@@ -128,6 +129,63 @@ describe('SyncSession setup', () => {
         expect(session.localChangesCount).toEqual(1);
     });
 
+    it('migrates local models to custom containers', async () => {
+        // Arrange
+        const localContainerUrl = Post.defaultContainerUrl;
+
+        trackLocalChanges(Post);
+        await Post.create({ title: 'Offline' });
+        await connect({
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Act
+        await session.setup({ migrations: { [localContainerUrl]: 'https://alice.example/articles/' } });
+
+        // Assert
+        const posts = await Post.all();
+
+        expect(Post.defaultContainerUrl).toEqual('https://alice.example/articles/');
+        expect(properties.containerUrls?.Post?.default).toEqual('https://alice.example/articles/');
+        expect(properties.containerUrls?.Post?.registered).toEqual(['https://alice.example/blog/']);
+        expect(posts[0]?.url.startsWith('https://alice.example/articles/')).toBe(true);
+    });
+
+    it('passes migration options to the migration job', async () => {
+        // Arrange
+        let config!: MigrateLocalUrlsJobConfig;
+        const localContainerUrl = Post.defaultContainerUrl;
+
+        vi.spyOn(MigrateLocalUrlsJob.prototype as unknown as { run(): Promise<void> }, 'run').mockImplementation(
+            async function (this: MigrateLocalUrlsJob) {
+                config = (this as unknown as { config: MigrateLocalUrlsJobConfig }).config;
+            },
+        );
+
+        trackLocalChanges(Post);
+        await Post.create({ title: 'Offline' });
+        await connect({
+            findTypeIndexes: typeIndexes([[Post, 'https://alice.example/blog/']]),
+            models: [{ model: Post, registration: true }],
+        });
+
+        // Act
+        await session.setup({
+            migrations: { 'local://drafts/': 'https://alice.example/drafts/' },
+            prefixes: { 'https://schema.org/': 'http://schema.org/' },
+        });
+
+        // Assert
+        expect(config).toEqual({
+            migrations: {
+                [localContainerUrl]: 'https://alice.example/blog/',
+                'local://drafts/': 'https://alice.example/drafts/',
+            },
+            prefixes: { 'https://schema.org/': 'http://schema.org/' },
+        });
+    });
+
     it('only migrates local urls', async () => {
         // Arrange
         const run = vi.spyOn(MigrateLocalUrlsJob.prototype as unknown as { run(): Promise<void> }, 'run');
@@ -218,7 +276,7 @@ describe('SyncSession setup', () => {
         trackLocalChanges(Post);
         await Post.create({ title: 'Offline' });
         await connect({
-            profileManager: { getProfile: () => ({ ...user, privateTypeIndexUrls: [privateTypeIndexUrl] }) },
+            user: { ...user, privateTypeIndexUrls: [privateTypeIndexUrl] },
             models: [{ model: Post, registration: true }],
         });
 

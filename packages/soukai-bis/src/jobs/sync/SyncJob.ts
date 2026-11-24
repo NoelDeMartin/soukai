@@ -176,6 +176,7 @@ export interface SyncJobListener extends JobListener<SyncJobResult, SyncJobResul
     onModelsRegistered?(event: ModelsRegisteredEvent): unknown;
     onModelsRegistrationFailed?(event: ModelsRegistrationFailedEvent): unknown;
     onExternalSourceFailed?(source: ExternalSource, error: unknown): unknown;
+    onProfileUpdated?(profile: CompleteSolidUserProfile): unknown;
 }
 
 export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobStatus, SyncJobListener> {
@@ -187,6 +188,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
             onModelsRegistrationFailed: (event) => config.onModelsRegistrationFailed?.(event),
             onExternalSourceFailed: (source, error) => config.onExternalSourceFailed?.(source, error),
             onFilePushed: (event) => config.onFilePushed?.(event),
+            onProfileUpdated: (profile) => config.onProfileUpdated?.(profile),
             onUpdated: (progress) => config.onUpdated?.(progress),
             onFinished: (result) => config.onFinished?.(result),
             onCancelled: (partialResult) => config.onCancelled?.(partialResult),
@@ -981,21 +983,29 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
     }
 
     private async findOrCreateTypeIndex(visibility: TypeIndexRegistration): Promise<TypeIndex> {
-        if (visibility === 'public') {
-            return (
-                this.config.publicTypeIndexes?.[0] ??
-                (this.config.createPublicTypeIndex
-                    ? await this.config.createPublicTypeIndex()
-                    : await TypeIndex.createPublic(this.config.userProfile))
-            );
+        const existingTypeIndex =
+            visibility === 'public' ? this.config.publicTypeIndexes?.[0] : this.config.privateTypeIndexes?.[0];
+
+        if (existingTypeIndex) {
+            return existingTypeIndex;
         }
 
-        return (
-            this.config.privateTypeIndexes?.[0] ??
-            (this.config.createPrivateTypeIndex
-                ? await this.config.createPrivateTypeIndex()
-                : await TypeIndex.createPrivate(this.config.userProfile))
-        );
+        if (visibility === 'public' && this.config.createPublicTypeIndex) {
+            return this.config.createPublicTypeIndex();
+        }
+
+        if (visibility === 'private' && this.config.createPrivateTypeIndex) {
+            return this.config.createPrivateTypeIndex();
+        }
+
+        const typeIndex =
+            visibility === 'public'
+                ? await TypeIndex.createPublic(this.config.userProfile)
+                : await TypeIndex.createPrivate(this.config.userProfile);
+
+        await this._listeners.emit('onProfileUpdated', this.config.userProfile);
+
+        return typeIndex;
     }
 
     private async markDocumentsAsUnsynced(documentUrls: string[]): Promise<void> {
