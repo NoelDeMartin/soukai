@@ -1,0 +1,1 @@
+var e=`/next/diagrams/sync-states.svg`,t=`/next/diagrams/sync-states-dark.svg`;export{e as n,t};
