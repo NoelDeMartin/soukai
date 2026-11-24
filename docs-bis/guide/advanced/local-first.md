@@ -63,10 +63,6 @@ You can use the `Sync` service to manage the synchronization lifecycle.
 First, you'll need to configure a local engine as the default, and boot the Sync service to manage the lifecycle in the background:
 
 ```ts
-import { IndexedDBEngine, LocalStorageSyncStorageProvider, Sync, setEngine } from 'soukai-bis';
-
-import Task from '@/models/Task';
-
 setEngine(new IndexedDBEngine());
 
 await Sync.boot({
@@ -89,9 +85,11 @@ The `storageProvider` is where the service persists its state between sessions, 
 
 Once the service is booted, users can start using your application without being logged in, and models will be created in local containers (for example, `local://tasks/`).
 
-Once they log in, you can start a session connecting to their POD:
+Once they log in, you can configure a [remote engine](../core-concepts/engines.md#remote-engine) with their authenticated fetch, and start a session connecting to their POD:
 
 ```ts
+setRemoteEngine(new SolidEngine({ fetch: authenticatedFetch }));
+
 const session = await Sync.connect({ user: userProfile });
 ```
 
@@ -118,6 +116,8 @@ await session.synchronize();
 
 This will pull changes from the POD into the local engine, push local changes to the POD, and merge the CRDT operations of documents modified in both places. It will also register the containers of your models in the user's type indexes, if they aren't registered already.
 
+Local changes will also be synchronized automatically in the background. You can disable this with the `autoPush` option when connecting, or calling `session.setAutoPush(false)`.
+
 ### Disconnecting
 
 When the user logs out, remember to disconnect:
@@ -127,6 +127,38 @@ await session.disconnect({ reset: true });
 ```
 
 This will cancel any synchronization in progress, and the `reset` option will reset the sync state as if the setup had never been completed. Local data will be kept, so if a different user may log in next, you should also clear the local engine (for example, calling `clear()` on the `IndexedDBEngine`).
+
+### State & updates
+
+You can use the `Sync` service to check the state that's persisted between sessions, such as `setupCompleted` and `containerUrls`, as well as the active `session` (which will be `null` when disconnected).
+
+Sessions have their own state, which you can use to show the synchronization status in your application:
+
+- `connected`: Whether the session has finished connecting.
+- `online`: Whether the device is online, using `navigator.onLine` by default. You can update it with `setOnline()`.
+- `syncing`: Whether a synchronization is in progress.
+- `localChangesCount`: The number of local changes that haven't been pushed yet.
+- `error`: The error of the last synchronization, if it failed.
+
+In order to be notified when any of these change, you can pass listeners when connecting:
+
+```ts
+await Sync.connect({
+    user: userProfile,
+    onUpdated: (changes) => console.log('Session updated', changes),
+    onSyncCompleted: ({ cancelled, error }) => console.log('Sync completed', { cancelled, error }),
+});
+```
+
+Or add them to the `Sync` service, so that they are preserved across sessions:
+
+```ts
+Sync.listeners.add({
+    onSessionStarted: (session) => console.log('Session started', session),
+    onSessionEnded: (session) => console.log('Session ended', session),
+    onUpdated: (changes) => console.log('Sync updated', changes),
+});
+```
 
 ## Deletions
 
