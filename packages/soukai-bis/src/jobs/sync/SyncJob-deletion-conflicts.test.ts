@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { array, url } from 'zod';
 
 import SyncJob from './SyncJob';
-import type { DeletionConflict, SyncJobConfig } from './SyncJob';
+import type { ResourceConflict, SyncJobConfig } from './SyncJob';
 import { createLocalDocument, setupSyncTest, syncFixture, tombstoneTurtle } from './testing/helpers';
 import type { SyncTestContext } from './testing/helpers';
 import CascadingMovie from './testing/stubs/CascadingMovie';
@@ -48,7 +48,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('deletes local changes on resources deleted remotely', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async (_: DeletionConflict) => 'delete' as const);
+        const resolveConflict = vi.fn(async (_: ResourceConflict) => 'delete' as const);
 
         FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
         FakeServer.respondOnce(
@@ -61,16 +61,16 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
         const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
 
-        expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-remotely', resourceUrl: movieUrl() }),
+        expect(resolveConflict).toHaveBeenCalledTimes(1);
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'resource-deleted-remotely', resourceUrl: movieUrl() }),
         );
-        expect(resolveDeletionConflict.mock.calls[0]?.[0].model?.url).toEqual(movieUrl());
+        expect(resolveConflict.mock.calls[0]?.[0].model?.url).toEqual(movieUrl());
         expect(FakeServer.fetch).toHaveBeenCalledTimes(2);
         expect(localDocument.getQuads()).toHaveLength(0);
         expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
@@ -78,7 +78,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('resolves deletion conflicts without models when they fail to load', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async (_: DeletionConflict) => 'delete' as const);
+        const resolveConflict = vi.fn(async (_: ResourceConflict) => 'delete' as const);
 
         vi.spyOn(CascadingMovie, 'createFromDocument').mockRejectedValue(new Error('Invalid data'));
 
@@ -93,10 +93,10 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(expect.objectContaining({ model: null }));
+        expect(resolveConflict).toHaveBeenCalledWith(expect.objectContaining({ model: null }));
         expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
     });
 
@@ -131,7 +131,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('deletes resources deleted remotely without local changes', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+        const resolveConflict = vi.fn(async () => 'restore' as const);
 
         FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
         FakeServer.respondOnce(
@@ -142,18 +142,18 @@ describe('SyncJob deletion conflicts', () => {
         await createLocalDocument(localEngine, documentUrl, syncFixture('movie-watched.ttl', { documentUrl }), {});
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
         const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
 
-        expect(resolveDeletionConflict).not.toHaveBeenCalled();
+        expect(resolveConflict).not.toHaveBeenCalled();
         expect(localDocument.getQuads()).toHaveLength(0);
     });
 
     it('asks about resources deleted locally when dependants were added remotely', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
+        const resolveConflict = vi.fn(async () => 'delete' as const);
         const remoteContents = syncFixture('movie-watched.ttl', { documentUrl });
 
         FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
@@ -164,12 +164,12 @@ describe('SyncJob deletion conflicts', () => {
         await createLocalDocument(localEngine, documentUrl, '', { [movieUrl()]: { deletedAt: new Date() } });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-locally', resourceUrl: movieUrl() }),
+        expect(resolveConflict).toHaveBeenCalledTimes(1);
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'resource-deleted-locally', resourceUrl: movieUrl() }),
         );
         expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
         expect(FakeServer.fetchSpy.mock.calls[3]?.[1]?.body).toEqualSparql(`
@@ -184,7 +184,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('asks about resources deleted locally with unseen remote operations', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async (_: DeletionConflict) => 'delete' as const);
+        const resolveConflict = vi.fn(async (_: ResourceConflict) => 'delete' as const);
         const remoteContents = [
             syncFixture('movie.ttl', { documentUrl }),
             operationTurtle(movieUrl(), 'Original', '2021-01-01T00:00:00.000Z'),
@@ -201,19 +201,19 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-locally', resourceUrl: movieUrl() }),
+        expect(resolveConflict).toHaveBeenCalledTimes(1);
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'resource-deleted-locally', resourceUrl: movieUrl() }),
         );
-        expect(resolveDeletionConflict.mock.calls[0]?.[0].model?.url).toEqual(movieUrl());
+        expect(resolveConflict.mock.calls[0]?.[0].model?.url).toEqual(movieUrl());
     });
 
     it('deletes resources deleted locally without unseen remote operations', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+        const resolveConflict = vi.fn(async () => 'restore' as const);
         const remoteContents = [
             syncFixture('movie.ttl', { documentUrl }),
             operationTurtle(movieUrl(), 'Original', '2021-01-01T00:00:00.000Z'),
@@ -229,17 +229,17 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).not.toHaveBeenCalled();
+        expect(resolveConflict).not.toHaveBeenCalled();
         expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
         expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
     });
 
     it('deletes resources deleted locally when other resources changed remotely', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+        const resolveConflict = vi.fn(async () => 'restore' as const);
         const commentTurtle = (text: string) => `
             <${documentUrl}#comment> a <https://schema.org/Comment> ; <https://schema.org/text> "${text}" .
         `;
@@ -255,10 +255,10 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).not.toHaveBeenCalled();
+        expect(resolveConflict).not.toHaveBeenCalled();
         expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
     });
 
@@ -291,7 +291,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('deletes resources deleted locally without remote changes', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+        const resolveConflict = vi.fn(async () => 'restore' as const);
         const remoteContents = syncFixture('movie-watched.ttl', { documentUrl });
 
         FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
@@ -305,17 +305,17 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncCascadingMovies(resolveDeletionConflict);
+        await syncCascadingMovies(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).not.toHaveBeenCalled();
+        expect(resolveConflict).not.toHaveBeenCalled();
         expect(FakeServer.fetch).toHaveBeenCalledTimes(4);
         expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
     });
 
     it('restores deletions across documents', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+        const resolveConflict = vi.fn(async () => 'restore' as const);
         const franchiseTombstone = tombstoneTurtle(franchiseUrl(), '2021-06-01T00:00:00.000Z');
         const movieTombstone = tombstoneTurtle(movieUrl(), '2021-06-01T00:00:00.000Z');
 
@@ -333,16 +333,16 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncFranchises(resolveDeletionConflict);
+        await syncFranchises(resolveConflict);
 
         // Assert
         const patches = FakeServer.fetchSpy.mock.calls.filter(([, init]) => init?.method === 'PATCH');
         const franchiseDocument = await localEngine.readDocument(franchiseDocumentUrl());
         const movieDocument = await localEngine.readDocument(documentUrl);
 
-        expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-remotely', resourceUrl: franchiseUrl() }),
+        expect(resolveConflict).toHaveBeenCalledTimes(1);
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'resource-deleted-remotely', resourceUrl: franchiseUrl() }),
         );
         expect(patches).toHaveLength(2);
         expect(patches.every(([, init]) => String(init?.body).includes('-tombstone>'))).toBe(true);
@@ -353,7 +353,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('deletes across documents', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
+        const resolveConflict = vi.fn(async () => 'delete' as const);
         const franchiseTombstone = tombstoneTurtle(franchiseUrl(), '2021-06-01T00:00:00.000Z');
         const movieTombstone = tombstoneTurtle(movieUrl(), '2021-06-01T00:00:00.000Z');
 
@@ -367,7 +367,7 @@ describe('SyncJob deletion conflicts', () => {
         });
 
         // Act
-        await syncFranchises(resolveDeletionConflict);
+        await syncFranchises(resolveConflict);
 
         // Assert
         const franchiseDocument = await localEngine.readDocument(franchiseDocumentUrl(), {
@@ -375,9 +375,9 @@ describe('SyncJob deletion conflicts', () => {
         });
         const movieDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
 
-        expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-remotely', resourceUrl: franchiseUrl() }),
+        expect(resolveConflict).toHaveBeenCalledTimes(1);
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'resource-deleted-remotely', resourceUrl: franchiseUrl() }),
         );
         expect(franchiseDocument.getQuads()).toHaveLength(0);
         expect(movieDocument.getQuads()).toHaveLength(0);
@@ -386,7 +386,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('asks about local deletions across documents', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'delete' as const);
+        const resolveConflict = vi.fn(async () => 'delete' as const);
         const remoteMovie = syncFixture('movie-watched.ttl', { documentUrl });
 
         FakeServer.respondOnce(containerUrl, containerTurtle([franchiseDocumentUrl(), documentUrl]));
@@ -403,12 +403,12 @@ describe('SyncJob deletion conflicts', () => {
         await createLocalDocument(localEngine, documentUrl, '', { [movieUrl()]: { deletedAt: new Date() } });
 
         // Act
-        await syncFranchises(resolveDeletionConflict);
+        await syncFranchises(resolveConflict);
 
         // Assert
-        expect(resolveDeletionConflict).toHaveBeenCalledTimes(1);
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-locally', resourceUrl: franchiseUrl() }),
+        expect(resolveConflict).toHaveBeenCalledTimes(1);
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'resource-deleted-locally', resourceUrl: franchiseUrl() }),
         );
         expect(await localEngine.getDocumentLocalChanges(franchiseDocumentUrl())).toBeNull();
         expect(await localEngine.getDocumentLocalChanges(documentUrl)).toBeNull();
@@ -528,7 +528,7 @@ describe('SyncJob deletion conflicts', () => {
                 { model: MultiRatedMovie, registration: true },
                 { model: Rating, registration: false },
             ],
-            resolveDeletionConflict: async () => 'restore',
+            resolveConflict: async () => 'restore',
         });
 
         // Assert
@@ -546,7 +546,7 @@ describe('SyncJob deletion conflicts', () => {
 
     it('reads documents with deletions again after pulling', async () => {
         // Arrange
-        const resolveDeletionConflict = vi.fn(async () => 'restore' as const);
+        const resolveConflict = vi.fn(async () => 'restore' as const);
         const otherDocumentUrl = `${containerUrl}other`;
 
         FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl, otherDocumentUrl]));
@@ -576,13 +576,13 @@ describe('SyncJob deletion conflicts', () => {
                 { model: CascadingMovie, registration: true },
                 { model: WatchAction, registration: false },
             ],
-            resolveDeletionConflict,
+            resolveConflict,
         });
 
         // Assert
         const localDocument = await localEngine.readDocument(documentUrl, { includeEmptyDocuments: true });
 
-        expect(resolveDeletionConflict).not.toHaveBeenCalled();
+        expect(resolveConflict).not.toHaveBeenCalled();
         expect(localDocument.getQuads()).toHaveLength(0);
     });
 
@@ -594,7 +594,7 @@ describe('SyncJob deletion conflicts', () => {
                 { model: CascadingMovie, registration: true },
                 { model: WatchAction, registration: false },
             ],
-            resolveDeletionConflict: async () => {
+            resolveConflict: async () => {
                 throw new Error('Failed resolving conflict');
             },
         });
@@ -631,7 +631,7 @@ describe('SyncJob deletion conflicts', () => {
                 { model: CascadingMovie, registration: true },
                 { model: WatchAction, registration: false },
             ],
-            resolveDeletionConflict: async () => {
+            resolveConflict: async () => {
                 cancelling = job.cancel();
 
                 return 'delete';
@@ -688,16 +688,14 @@ describe('SyncJob deletion conflicts', () => {
         `;
     }
 
-    async function syncCascadingMovies(
-        resolveDeletionConflict?: SyncJobConfig['resolveDeletionConflict'],
-    ): Promise<void> {
+    async function syncCascadingMovies(resolveConflict?: SyncJobConfig['resolveConflict']): Promise<void> {
         await SyncJob.run({
             ...config,
             applicationModels: [
                 { model: CascadingMovie, registration: true },
                 { model: WatchAction, registration: false },
             ],
-            resolveDeletionConflict,
+            resolveConflict,
         });
     }
 
@@ -718,7 +716,7 @@ describe('SyncJob deletion conflicts', () => {
         `;
     }
 
-    async function syncFranchises(resolveDeletionConflict: SyncJobConfig['resolveDeletionConflict']): Promise<void> {
+    async function syncFranchises(resolveConflict: SyncJobConfig['resolveConflict']): Promise<void> {
         await SyncJob.run({
             ...config,
             applicationModels: [
@@ -726,7 +724,7 @@ describe('SyncJob deletion conflicts', () => {
                 { model: Franchise, registration: false },
                 { model: WatchAction, registration: false },
             ],
-            resolveDeletionConflict,
+            resolveConflict,
         });
     }
 
@@ -767,7 +765,7 @@ describe('SyncJob deletion conflicts', () => {
                 { model: RatedMovie, registration: true },
                 { model: Rating, registration: false },
             ],
-            resolveDeletionConflict: async () => 'restore',
+            resolveConflict: async () => 'restore',
         });
     }
 });

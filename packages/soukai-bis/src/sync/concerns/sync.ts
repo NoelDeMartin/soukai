@@ -50,8 +50,7 @@ function getJobConfig(session: SyncSession, typeIndexes: SyncTypeIndexes): SyncJ
         userProfile: profileManager.getProfile(),
         createPublicTypeIndex: profileManager.createPublicTypeIndex?.bind(profileManager),
         createPrivateTypeIndex: profileManager.createPrivateTypeIndex?.bind(profileManager),
-        resolveDeletionConflict: config.resolveDeletionConflict?.bind(config),
-        resolveFileConflict: config.resolveFileConflict?.bind(config),
+        resolveConflict: config.resolveConflict?.bind(config),
         applicationModels: models,
     };
 }

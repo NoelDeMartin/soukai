@@ -25,7 +25,7 @@ export interface FilePushedEvent {
     blob: Blob;
 }
 
-export type FileConflictType = 'modified-remotely' | 'deleted-remotely' | 'deleted-locally';
+export type FileConflictType = 'file-modified' | 'file-deleted-remotely' | 'file-deleted-locally';
 
 export type FileConflictResolution = 'keep-local' | 'keep-remote';
 
@@ -77,12 +77,12 @@ export function getFileConflictType(
     tolerance: number,
 ): FileConflictType | null {
     if (!localFile.lastModifiedAt) {
-        return !localFile.deleted && isCreatedLocalChange(localChanges) ? 'modified-remotely' : null;
+        return !localFile.deleted && isCreatedLocalChange(localChanges) ? 'file-modified' : null;
     }
 
     if (!remoteFile.updatedAt || isSameTimestamp(localFile.lastModifiedAt, remoteFile.updatedAt, tolerance)) {
         return null;
     }
 
-    return localFile.deleted ? 'deleted-locally' : 'modified-remotely';
+    return localFile.deleted ? 'file-deleted-locally' : 'file-modified';
 }

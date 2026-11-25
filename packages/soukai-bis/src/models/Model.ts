@@ -87,7 +87,15 @@ import type Tombstone from './crdts/Tombstone';
 import type { ModelClassEvent, ModelInstanceEvent, ModelInstanceListener, ModelListener } from './events';
 import { emitModelClassEvent, emitModelInstanceEvent } from './events';
 import { offModelEvent, onModelEvent } from './internals/events';
-import { CLASS_MARKER, SCHEMA, getFieldRDFProperties, getSchema, mintedUrls, replaceSchema } from './internals/model';
+import {
+    CLASS_MARKER,
+    SCHEMA,
+    getFieldRDFProperties,
+    getSchema,
+    mintedUrls,
+    modelsUsingSoftDeletes,
+    replaceSchema,
+} from './internals/model';
 import type { MODEL_TIMESTAMPS_MARKER } from './internals/model';
 import { createWACAuthorization, updatePublicPermissions } from './internals/permissions';
 import { getDocumentQuads, quadsSourceDocumentUrls, convertToRelativeQuads, serializeToRDF } from './internals/rdf';
@@ -203,6 +211,32 @@ export default class Model<
 
     public static reset(): void {
         reset(this);
+    }
+
+    public static useSoftDeletes(enabled: boolean = true): void {
+        if (!enabled) {
+            modelsUsingSoftDeletes.delete(this);
+
+            return;
+        }
+
+        const schema = getSchema(this);
+
+        if (!schema.history || !schema.timestamps) {
+            throw new SoukaiError(
+                `Can't use soft deletes in ${this.modelName} models, only models with history and timestamps can be soft deleted.`,
+            );
+        }
+
+        modelsUsingSoftDeletes.add(this);
+    }
+
+    public static usesSoftDeletes(): boolean {
+        if (modelsUsingSoftDeletes.has(this)) {
+            return true;
+        }
+
+        return this.remote && modelsUsingSoftDeletes.has(Object.getPrototypeOf(this));
     }
 
     public static async updateSchema(other: ModelConstructor): Promise<void> {
@@ -1131,6 +1165,20 @@ export default class Model<
     public async delete(): Promise<this> {
         if (!this.__isCanonical()) {
             await this.__instance().delete();
+
+            return this;
+        }
+
+        if (this.exists() && this.static().usesSoftDeletes()) {
+            return this.softDelete();
+        }
+
+        return this.forceDelete();
+    }
+
+    public async forceDelete(): Promise<this> {
+        if (!this.__isCanonical()) {
+            await this.__instance().forceDelete();
 
             return this;
         }

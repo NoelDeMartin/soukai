@@ -2,7 +2,7 @@ import { after } from '@noeldemartin/utils';
 import { requireLocalEngine } from 'soukai-bis/engines/state';
 import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type SyncJob from 'soukai-bis/jobs/sync/SyncJob';
-import type { DeletionConflict, FileConflict, SyncApplicationModel, SyncJobConfig } from 'soukai-bis/jobs/sync/SyncJob';
+import type { ResourceConflict, FileConflict, SyncApplicationModel, SyncJobConfig } from 'soukai-bis/jobs/sync/SyncJob';
 import { tracksLocalChanges } from 'soukai-bis/models/local-changes';
 import Post from 'soukai-bis/testing/stubs/Post';
 import PostsCollection from 'soukai-bis/testing/stubs/PostsCollection';
@@ -19,15 +19,13 @@ describe('SyncSession', () => {
         // Arrange
         let config!: SyncJobConfig;
         const profileManager = new FakeUserProfileManager();
-        const resolveDeletionConflict = vi.fn();
-        const resolveFileConflict = vi.fn();
+        const resolveConflict = vi.fn();
 
         fakeSyncJob({ onRun: (job) => (config = (job as unknown as { config: SyncJobConfig }).config) });
 
         await connect({
             profileManager,
-            resolveDeletionConflict,
-            resolveFileConflict,
+            resolveConflict,
             models: [
                 { model: Post, registration: { public: true } },
                 { model: PostsCollection, registration: { mode: 'instance' } },
@@ -38,11 +36,11 @@ describe('SyncSession', () => {
         await session.synchronize();
 
         // Assert
-        const deletionConflict = { url: 'https://alice.example/posts/1' } as unknown as DeletionConflict;
+        const deletionConflict = { url: 'https://alice.example/posts/1' } as unknown as ResourceConflict;
         const fileConflict = { url: 'https://alice.example/posts/image.png' } as unknown as FileConflict;
 
-        await config.resolveDeletionConflict?.(deletionConflict);
-        await config.resolveFileConflict?.(fileConflict);
+        await config.resolveConflict?.(deletionConflict);
+        await config.resolveConflict?.(fileConflict);
         await config.createPublicTypeIndex?.();
         await config.createPrivateTypeIndex?.();
 
@@ -53,8 +51,8 @@ describe('SyncSession', () => {
                 { model: PostsCollection, registration: { mode: 'instance' } },
             ],
         });
-        expect(resolveDeletionConflict).toHaveBeenCalledWith(deletionConflict);
-        expect(resolveFileConflict).toHaveBeenCalledWith(fileConflict);
+        expect(resolveConflict).toHaveBeenCalledWith(deletionConflict);
+        expect(resolveConflict).toHaveBeenCalledWith(fileConflict);
         expect(profileManager.createPublicTypeIndex).toHaveBeenCalledOnce();
         expect(profileManager.createPrivateTypeIndex).toHaveBeenCalledOnce();
     });

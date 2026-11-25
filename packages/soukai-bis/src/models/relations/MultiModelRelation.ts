@@ -1,5 +1,6 @@
 import { tap, uuid } from '@noeldemartin/utils';
 import type { Nullable } from '@noeldemartin/utils';
+import { emitModelInstanceEvent } from 'soukai-bis/models/events';
 import { canonicalModel } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
@@ -83,23 +84,7 @@ export default abstract class MultiModelRelation<
     public detach(related: Related | Related[], options: DetachOptions = {}): Related[] {
         this.assertLoaded('detach');
 
-        const detachedModels = (Array.isArray(related) ? related : [related])
-            .filter((model) => this.isRelated(model))
-            .map(canonicalModel);
-
-        if (detachedModels.length === 0) {
-            return [];
-        }
-
-        const detachedUrls = detachedModels.map((model) => model.url);
-        const isDetached = (model: Related) => detachedModels.includes(model);
-
-        this.related = this.related.filter((model) => !isDetached(model));
-        this[NEW_MODELS] = this[NEW_MODELS]?.filter((model) => !isDetached(model));
-        this[MODELS_IN_SAME_DOCUMENT] = this[MODELS_IN_SAME_DOCUMENT]?.filter((model) => !isDetached(model));
-        this[MODELS_IN_OTHER_DOCUMENT_IDS] = this[MODELS_IN_OTHER_DOCUMENT_IDS]?.filter(
-            (url) => !detachedUrls.includes(url),
-        );
+        const detachedModels = this.forgetRelated(related);
 
         for (const model of detachedModels) {
             this.detachModel(model, options);
@@ -111,7 +96,23 @@ export default abstract class MultiModelRelation<
     public async delete(related: Related | Related[]): Promise<void> {
         this.assertLoaded('delete');
 
-        await this.deleteDetachedModels(this.detach(related, { delete: true }));
+        const relatedModels = (Array.isArray(related) ? related : [related]).filter((model) => this.isRelated(model));
+        const softDeletedModels = relatedModels.filter((model) => this.softDeletes(model));
+        const deletedModels = relatedModels.filter((model) => !softDeletedModels.includes(model));
+
+        for (const model of softDeletedModels) {
+            await model.softDelete();
+
+            this.forgetRelated(model);
+        }
+
+        if (deletedModels.length === 0 && softDeletedModels.length > 0) {
+            await emitModelInstanceEvent(this.parent, 'updated');
+
+            return;
+        }
+
+        await this.deleteDetachedModels(this.detach(deletedModels, { delete: true }));
     }
 
     public isEmpty(): boolean | null {
@@ -154,5 +155,27 @@ export default abstract class MultiModelRelation<
 
     protected initializeEmptyRelation(): void {
         this.related = [];
+    }
+
+    protected forgetRelated(related: Related | Related[]): Related[] {
+        const forgottenModels = (Array.isArray(related) ? related : [related])
+            .filter((model) => this.isRelated(model))
+            .map(canonicalModel);
+
+        if (forgottenModels.length === 0) {
+            return [];
+        }
+
+        const forgottenUrls = forgottenModels.map((model) => model.url);
+        const isForgotten = (model: Related) => forgottenModels.includes(model);
+
+        this.related = this.related?.filter((model) => !isForgotten(model)) ?? null;
+        this[NEW_MODELS] = this[NEW_MODELS]?.filter((model) => !isForgotten(model));
+        this[MODELS_IN_SAME_DOCUMENT] = this[MODELS_IN_SAME_DOCUMENT]?.filter((model) => !isForgotten(model));
+        this[MODELS_IN_OTHER_DOCUMENT_IDS] = this[MODELS_IN_OTHER_DOCUMENT_IDS]?.filter(
+            (url) => !forgottenUrls.includes(url),
+        );
+
+        return forgottenModels;
     }
 }

@@ -96,12 +96,12 @@ async function getDependants(store: SolidStore, resourceUrl: string, models: Mod
     return dependants;
 }
 
-export type DeletionConflictType = 'deleted-remotely' | 'deleted-locally';
+export type ResourceConflictType = 'resource-deleted-remotely' | 'resource-deleted-locally';
 
-export type DeletionConflictResolution = 'delete' | 'restore';
+export type ResourceConflictResolution = 'delete' | 'restore';
 
-export interface DeletionConflict {
-    type: DeletionConflictType;
+export interface ResourceConflict {
+    type: ResourceConflictType;
     resourceUrl: string;
     localDocument: SolidDocument;
     remoteDocument: SolidDocument;

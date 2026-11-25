@@ -1,5 +1,6 @@
 import { type Nullable, tap, uuid } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { emitModelInstanceEvent } from 'soukai-bis/models/events';
 import { canonicalModel } from 'soukai-bis/models/internals/model';
 import type Model from 'soukai-bis/models/Model';
 import type { GetModelInput, ModelConstructor } from 'soukai-bis/models/types';
@@ -73,24 +74,10 @@ export default abstract class SingleModelRelation<
     }
 
     public detach(options: DetachOptions = {}): Related | null {
-        const related = this.related;
+        const related = this.forgetRelated();
 
         if (!related) {
             return null;
-        }
-
-        this.related = null;
-
-        if (this[NEW_MODEL] === related) {
-            delete this[NEW_MODEL];
-        }
-
-        if (this[MODEL_IN_SAME_DOCUMENT] === related) {
-            delete this[MODEL_IN_SAME_DOCUMENT];
-        }
-
-        if (this[MODEL_IN_OTHER_DOCUMENT_ID] === related.url) {
-            delete this[MODEL_IN_OTHER_DOCUMENT_ID];
         }
 
         this.detachModel(related, options);
@@ -99,6 +86,16 @@ export default abstract class SingleModelRelation<
     }
 
     public async delete(): Promise<void> {
+        if (this.related && this.softDeletes(this.related)) {
+            await this.related.softDelete();
+
+            this.forgetRelated();
+
+            await emitModelInstanceEvent(this.parent, 'updated');
+
+            return;
+        }
+
         const related = this.detach({ delete: true });
 
         if (!related) {
@@ -150,5 +147,29 @@ export default abstract class SingleModelRelation<
 
     protected initializeEmptyRelation(): void {
         this.related = null;
+    }
+
+    protected forgetRelated(): Related | null {
+        const related = this.related;
+
+        if (!related) {
+            return null;
+        }
+
+        this.related = null;
+
+        if (this[NEW_MODEL] === related) {
+            delete this[NEW_MODEL];
+        }
+
+        if (this[MODEL_IN_SAME_DOCUMENT] === related) {
+            delete this[MODEL_IN_SAME_DOCUMENT];
+        }
+
+        if (this[MODEL_IN_OTHER_DOCUMENT_ID] === related.url) {
+            delete this[MODEL_IN_OTHER_DOCUMENT_ID];
+        }
+
+        return related;
     }
 }

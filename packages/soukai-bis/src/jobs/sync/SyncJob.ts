@@ -70,8 +70,8 @@ import {
     groupDeletions,
 } from './concerns/deletions';
 import type {
-    DeletionConflict,
-    DeletionConflictResolution,
+    ResourceConflict,
+    ResourceConflictResolution,
     DeletionsResolution,
     SyncingDocument,
 } from './concerns/deletions';
@@ -103,7 +103,7 @@ import type {
     ModelsRegistrationFailedEvent,
 } from './concerns/registrations';
 
-export type { DeletionConflict, DeletionConflictResolution, DeletionConflictType } from './concerns/deletions';
+export type { ResourceConflict, ResourceConflictResolution, ResourceConflictType } from './concerns/deletions';
 export { FilesSyncStrategies } from './concerns/files';
 export type {
     FileConflict,
@@ -124,6 +124,17 @@ const DEFAULT_CONCURRENCY = 10;
 const DEFAULT_LAST_MODIFIED_TOLERANCE = 1000;
 const NON_RDF_HTTP_STATUS_CODES = new Set([406, 415, 501]);
 
+export type SyncConflict = ResourceConflict | FileConflict;
+export type SyncConflictResolution = ResourceConflictResolution | FileConflictResolution;
+
+export function isFileConflict(conflict: SyncConflict): conflict is FileConflict {
+    return conflict.type.startsWith('file-');
+}
+
+export function isResourceConflict(conflict: SyncConflict): conflict is ResourceConflict {
+    return conflict.type.startsWith('resource-');
+}
+
 export interface SyncJobConfig {
     userProfile: CompleteSolidUserProfile;
     publicTypeIndexes?: TypeIndex[];
@@ -135,8 +146,7 @@ export interface SyncJobConfig {
     lastModifiedTolerance?: number;
     createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
-    resolveDeletionConflict?: (conflict: DeletionConflict) => Promise<DeletionConflictResolution>;
-    resolveFileConflict?: (conflict: FileConflict) => Promise<FileConflictResolution>;
+    resolveConflict?(conflict: SyncConflict): Promise<SyncConflictResolution>;
 }
 
 export interface SyncJobStatus extends JobStatus {
@@ -1338,8 +1348,8 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
             );
             const { localDocument, remoteDocument } = findDocument(resourceUrl, 'localDocument');
             const answer = hasLocalChanges
-                ? await this.getDeletionConflictResolution({
-                      type: 'deleted-remotely',
+                ? await this.getResourceConflictResolution({
+                      type: 'resource-deleted-remotely',
                       resourceUrl,
                       localDocument,
                       remoteDocument,
@@ -1357,8 +1367,8 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
                 this.hasUnseenRemoteChanges(url, findDocument(url, 'remoteDocument')),
             );
             const answer = hasUnseenRemoteChanges
-                ? await this.getDeletionConflictResolution({
-                      type: 'deleted-locally',
+                ? await this.getResourceConflictResolution({
+                      type: 'resource-deleted-locally',
                       resourceUrl,
                       localDocument,
                       remoteDocument,
@@ -1372,25 +1382,22 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
         return resolution;
     }
 
-    private async getDeletionConflictResolution(
-        conflict: Omit<DeletionConflict, 'model'>,
-    ): Promise<DeletionConflictResolution> {
-        const resolveDeletionConflict = this.config.resolveDeletionConflict;
-
-        if (!resolveDeletionConflict) {
+    private async getResourceConflictResolution(
+        conflict: Omit<ResourceConflict, 'model'>,
+    ): Promise<ResourceConflictResolution> {
+        if (!this.config.resolveConflict) {
             return 'delete';
         }
 
-        const model = await this.findDeletionConflictModel(conflict);
-        const answer = await this.conflictsSemaphore.run(() => resolveDeletionConflict({ ...conflict, model }));
+        const model = await this.findResourceConflictModel(conflict);
+        const answer = await this.getConflictResolution({ ...conflict, model });
 
-        this.assertNotCancelled(this.getResult());
-
-        return answer;
+        return this.validateConflictResolution(conflict.type, conflict.resourceUrl, answer, ['delete', 'restore']);
     }
 
-    private async findDeletionConflictModel(conflict: Omit<DeletionConflict, 'model'>): Promise<Model | null> {
-        const document = conflict.type === 'deleted-remotely' ? conflict.localDocument : conflict.remoteDocument;
+    private async findResourceConflictModel(conflict: Omit<ResourceConflict, 'model'>): Promise<Model | null> {
+        const document =
+            conflict.type === 'resource-deleted-remotely' ? conflict.localDocument : conflict.remoteDocument;
 
         for (const modelClass of this.syncedModels) {
             if (modelClass === Container) {
@@ -1537,7 +1544,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
         for (const localFile of await this.filterSyncedFiles(deletedFiles)) {
             if (isUpdatedLocalChange(this.getFileLocalChanges(localFile.url))) {
                 await this.resolveFileConflict({
-                    type: 'deleted-remotely',
+                    type: 'file-deleted-remotely',
                     url: localFile.url,
                     localFile,
                     remoteUpdatedAt: null,
@@ -1573,7 +1580,12 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
         }
 
         await this.resolveFileConflict(
-            { type: conflictType, url: localFile.url, localFile, remoteUpdatedAt: remoteFile.updatedAt ?? null },
+            {
+                type: conflictType,
+                url: localFile.url,
+                localFile,
+                remoteUpdatedAt: remoteFile.updatedAt ?? null,
+            },
             remoteFile,
         );
     }
@@ -1595,7 +1607,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
 
         await this.localEngine.deleteFile(conflict.url);
 
-        if (conflict.type === 'deleted-remotely') {
+        if (conflict.type === 'file-deleted-remotely') {
             this.syncedFileUrls.add(conflict.url);
 
             return;
@@ -1613,13 +1625,43 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
     }
 
     private async getFileConflictResolution(conflict: FileConflict): Promise<FileConflictResolution> {
-        const resolveFileConflict = this.config.resolveFileConflict;
+        const answer = await this.getConflictResolution(conflict);
 
-        if (!resolveFileConflict) {
-            return 'keep-local';
+        return this.validateConflictResolution(conflict.type, conflict.url, answer, ['keep-local', 'keep-remote']);
+    }
+
+    private validateConflictResolution<T extends SyncConflictResolution>(
+        type: SyncConflict['type'],
+        url: string,
+        answer: SyncConflictResolution | undefined,
+        resolutions: [T, ...T[]],
+    ): T {
+        const [defaultResolution] = resolutions;
+
+        if (!answer) {
+            return defaultResolution;
         }
 
-        const answer = await this.conflictsSemaphore.run(() => resolveFileConflict(conflict));
+        if (!resolutions.includes(answer as T)) {
+            // oxlint-disable-next-line no-console
+            console.warn(
+                `Invalid '${answer}' resolution for ${type} conflict in ${url}, using '${defaultResolution}' instead.`,
+            );
+
+            return defaultResolution;
+        }
+
+        return answer as T;
+    }
+
+    private async getConflictResolution(conflict: SyncConflict): Promise<SyncConflictResolution | undefined> {
+        const { resolveConflict } = this.config;
+
+        if (!resolveConflict) {
+            return;
+        }
+
+        const answer = await this.conflictsSemaphore.run(async () => resolveConflict(conflict));
 
         this.assertNotCancelled(this.getResult());
 
@@ -1764,7 +1806,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
                 }
 
                 await this.resolveFileConflict({
-                    type: file.deleted ? 'deleted-locally' : 'modified-remotely',
+                    type: file.deleted ? 'file-deleted-locally' : 'file-modified',
                     url: file.url,
                     localFile: file,
                     remoteUpdatedAt: null,

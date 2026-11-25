@@ -247,6 +247,10 @@ export default abstract class Relation<
         this[DETACHED_MODELS] = (this[DETACHED_MODELS] ?? []).concat([model]);
     }
 
+    protected softDeletes(model: Related): boolean {
+        return model.exists() && model.static().usesSoftDeletes();
+    }
+
     protected async deleteDetachedModels(models: Related[]): Promise<void> {
         const now = new Date();
         const documentUrl = this.parent.getDocumentUrl();

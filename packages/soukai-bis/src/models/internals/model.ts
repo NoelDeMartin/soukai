@@ -9,6 +9,7 @@ const originalSchemas = new WeakMap<ModelConstructor, Schema | null>();
 
 export const remoteModels = new WeakMap<ModelConstructor, ModelConstructor>();
 export const modelsTrackingLocalChanges = new WeakSet<ModelConstructor>();
+export const modelsUsingSoftDeletes = new WeakSet<ModelConstructor>();
 export const migratedModels = new WeakMap<ModelConstructor, WeakMap<ModelConstructor, ModelConstructor>>();
 export const mintedUrls = new WeakMap<Model, { url: string; options: MintUrlOptions }>();
 

@@ -185,23 +185,6 @@ export default defineSchema({
 });
 ```
 
-### Deletion conflicts
-
-A model may be deleted in one place and modified in another. By default, the deletion wins, but you can decide what to do with the `resolveDeletionConflict` option, returning `'delete'` or `'restore'`:
-
-```ts
-await Sync.connect({
-    // ...
-    resolveDeletionConflict: async (conflict) => {
-        return confirm(`${conflict.resourceUrl} has been deleted in another device, delete it here as well?`)
-            ? 'delete'
-            : 'restore';
-    },
-});
-```
-
-The `type` of the conflict will be `'deleted-remotely'` or `'deleted-locally'`, and the `model` property will hold the affected model, if it could be found.
-
 ### Soft deletes
 
 If you'd rather keep the data around, models with history tracking and timestamps can also be soft deleted. This will store the deletion date in the model metadata, and create a `crdt:DeleteOperation` so that it is merged properly on sync:
@@ -227,8 +210,48 @@ And they can be restored at any time, creating a `crdt:RestoreOperation`:
 await alice.restore();
 ```
 
-Keep in mind that calling `delete()` on a soft deleted model will still delete it permanently, and cascade deletes also include related models that have been soft deleted.
+By default, calling `delete()` on a model will delete it permanently, but you can change this behavior by calling `useSoftDeletes()`:
 
-::: warning TODO
-Document using `delete()` to soft delete models, once it's implemented. In the previous version, `SolidModel.useSoftDeletes(true)` made `delete()` call `softDelete()`, and `forceDelete()` could be used to delete models permanently.
-:::
+```ts
+Person.useSoftDeletes();
+
+await post.delete(); // Deleted permanently.
+await alice.delete(); // Soft deleted.
+await alice.forceDelete(); // Deleted permanently.
+```
+
+## Conflicts
+
+In a pure local-first scenario, there should never be any conflicts (that's what the C in CRDTs stands for!). However, given the privacy considerations of Solid and personal data, this library does allow [deleting data for good](#deletions). That's why one of the design decisions was that "each RDF resource represents its own CRDT history".
+
+By default, deletions are just propagated to other devices; but you may want to ask users before deleting something that was modified locally. You can do that using the `resolveConflict` callback:
+
+```ts
+import { Sync, isFileConflict } from 'soukai-bis';
+
+await Sync.connect({
+    // ...
+    resolveConflict: async (conflict) => {
+        if (isFileConflict(conflict)) {
+            const message = `Keep your local version of ${conflict.url}?`;
+
+            return confirm(message) ? 'keep-local' : 'keep-remote';
+        }
+
+        const message = `${conflict.resourceUrl} has conflicts, delete it?`;
+
+        return confirm(message) ? 'delete' : 'restore';
+    },
+});
+```
+
+Conflicts can affect resources or files, and you can tell them apart with their `type` or using the `isResourceConflict()` and `isFileConflict()` helpers:
+
+- **Resources** (`'resource-deleted-remotely'` or `'resource-deleted-locally'`): An RDF resource has been deleted in one place and modified in another. You can resolve them returning `'delete'` or `'restore'`, and they have the following properties:
+    - `resourceUrl`: The url of the deleted resource.
+    - `model`: The affected model instance, if it could be resolved.
+    - `localDocument` and `remoteDocument`: The local and remote versions of the document containing the resource.
+- **Files** (`'file-modified'`, `'file-deleted-remotely'`, or `'file-deleted-locally'`): A [synchronized file](#configuration) has been modified on one side, and modified or deleted on the other. Since files don't track their history, they can't be merged, so the local version wins by default. You can resolve them returning `'keep-local'` or `'keep-remote'`, and they have the following properties:
+    - `url`: The url of the file.
+    - `localFile`: The local file.
+    - `remoteUpdatedAt`: The date when the remote file was last modified, if it's known.

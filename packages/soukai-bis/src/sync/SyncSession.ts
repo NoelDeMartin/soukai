@@ -7,14 +7,12 @@ import SoukaiError from 'soukai-bis/errors/SoukaiError';
 import type { ExternalSource } from 'soukai-bis/jobs/sync/external-sources';
 import type SyncJob from 'soukai-bis/jobs/sync/SyncJob';
 import type {
-    DeletionConflict,
-    DeletionConflictResolution,
-    FileConflict,
-    FileConflictResolution,
     FilePushedEvent,
     ModelsRegisteredEvent,
     ModelsRegistrationFailedEvent,
     SyncApplicationModel,
+    SyncConflict,
+    SyncConflictResolution,
 } from 'soukai-bis/jobs/sync/SyncJob';
 import type TypeIndex from 'soukai-bis/models/interop/TypeIndex';
 import type { ModelConstructor } from 'soukai-bis/models/types';
@@ -83,8 +81,7 @@ export interface SyncDisconnectOptions {
 export interface SyncSessionBaseConfig extends SyncListener {
     online?: boolean;
     autoPush?: boolean;
-    resolveDeletionConflict?(conflict: DeletionConflict): Promise<DeletionConflictResolution>;
-    resolveFileConflict?(conflict: FileConflict): Promise<FileConflictResolution>;
+    resolveConflict?(conflict: SyncConflict): Promise<SyncConflictResolution>;
 }
 
 export type SyncSessionConfig = SyncSessionBaseConfig &

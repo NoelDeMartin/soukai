@@ -22,6 +22,7 @@ Write this page. Some breaking changes to cover:
 - Primary keys are no longer configurable (`primaryKey` and `ModelKey` have been removed), all models are identified by their `url`.
 - Relation delete strategies are now declared in the schema, using `.onDelete('cascade')` in the relation definition (see [Relations](../core-concepts/relations.md)).
 - The `documents` relation in `SolidContainer` has been replaced by the `resources` relation in `Container`.
+- `useSoftDeletes()` must now be called on each model instead of globally on `SolidModel`, and only models with history and timestamps can be soft deleted. Soft deletes also create a `crdt:DeleteOperation` now, so they are merged properly on sync. Existing soft deleted models will continue working without changes.
 - Some core models and helpers have been renamed: `SolidContainer` is now `Container`, `SolidDocument` and `SolidResource` are now `Resource`, `SolidTypeIndex` is now `TypeIndex`, `SolidTypeRegistration` is now `TypeRegistration`, and `bootSolidModels()` is now `bootCoreModels()`.
 :::
 

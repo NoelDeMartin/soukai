@@ -6,6 +6,7 @@ import {
     getSchema,
     migratedModels,
     modelsTrackingLocalChanges,
+    modelsUsingSoftDeletes,
     remoteModels,
     restoreOriginalSchema,
 } from 'soukai-bis/models/internals/model';
@@ -64,5 +65,6 @@ export function reset(model: ModelConstructor): void {
     store.delete(model);
     remoteModels.delete(model);
     modelsTrackingLocalChanges.delete(model);
+    modelsUsingSoftDeletes.delete(model);
     migratedModels.delete(model);
 }

@@ -38,7 +38,7 @@ describe('SyncJob file conflicts', () => {
 
     it('keeps remote files modified remotely', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-remote' as const);
+        const resolveConflict = vi.fn(async () => 'keep-remote' as const);
 
         respondContainer({ [imageUrl]: remoteModifiedAt });
 
@@ -51,15 +51,15 @@ describe('SyncJob file conflicts', () => {
         await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
         const file = await localEngine.getLocalFile(imageUrl);
 
-        expect(resolveFileConflict).toHaveBeenCalledWith(
+        expect(resolveConflict).toHaveBeenCalledWith(
             expect.objectContaining({
-                type: 'modified-remotely',
+                type: 'file-modified',
                 url: imageUrl,
                 remoteUpdatedAt: remoteModifiedAt,
             }),
@@ -72,7 +72,7 @@ describe('SyncJob file conflicts', () => {
 
     it('keeps local files modified remotely', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-local' as const);
+        const resolveConflict = vi.fn(async () => 'keep-local' as const);
 
         respondContainer({ [imageUrl]: remoteModifiedAt });
         FakeServer.respondOnce(imageUrl, FakeResponse.success());
@@ -86,18 +86,18 @@ describe('SyncJob file conflicts', () => {
         await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
-        expect(resolveFileConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'modified-remotely' }));
+        expect(resolveConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'file-modified' }));
         expect(FakeServer.getRequest('PUT', imageUrl)?.headers).not.toHaveProperty('If-Unmodified-Since');
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
     });
 
     it('detects files created remotely with the same url', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-remote' as const);
+        const resolveConflict = vi.fn(async () => 'keep-remote' as const);
 
         respondContainer({ [imageUrl]: remoteModifiedAt });
 
@@ -109,18 +109,18 @@ describe('SyncJob file conflicts', () => {
         await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
-        expect(resolveFileConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'modified-remotely' }));
+        expect(resolveConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'file-modified' }));
         expect(FakeServer.getRequest('PUT', imageUrl)).toBeNull();
         expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({ lastModifiedAt: remoteModifiedAt });
     });
 
     it('detects files deleted remotely', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-remote' as const);
+        const resolveConflict = vi.fn(async () => 'keep-remote' as const);
 
         respondContainer({});
 
@@ -133,12 +133,12 @@ describe('SyncJob file conflicts', () => {
         await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
-        expect(resolveFileConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-remotely', url: imageUrl }),
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'file-deleted-remotely', url: imageUrl }),
         );
         expect(FakeServer.getRequest('PUT', imageUrl)).toBeNull();
         expect(await localEngine.getLocalFile(imageUrl)).toBeNull();
@@ -147,7 +147,7 @@ describe('SyncJob file conflicts', () => {
 
     it('detects files deleted locally and modified remotely', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-remote' as const);
+        const resolveConflict = vi.fn(async () => 'keep-remote' as const);
 
         respondContainer({ [imageUrl]: remoteModifiedAt });
 
@@ -158,14 +158,14 @@ describe('SyncJob file conflicts', () => {
         await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
         const file = await localEngine.getLocalFile(imageUrl);
 
-        expect(resolveFileConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'deleted-locally', url: imageUrl }),
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'file-deleted-locally', url: imageUrl }),
         );
         expect(FakeServer.getRequest('DELETE', imageUrl)).toBeNull();
         expect(file?.deleted).toBeFalsy();
@@ -175,7 +175,7 @@ describe('SyncJob file conflicts', () => {
 
     it('detects conflicts using conditional requests', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-local' as const);
+        const resolveConflict = vi.fn(async () => 'keep-local' as const);
 
         respondContainer({ [imageUrl]: syncedAt });
         FakeServer.respondOnce(imageUrl, new FakeResponse('', {}, 412));
@@ -190,15 +190,15 @@ describe('SyncJob file conflicts', () => {
         await SyncJob.run({
             ...config,
             applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
         const [conditionalRequest, overwriteRequest] = FakeServer.getRequests(imageUrl);
 
         expect(conditionalRequest?.headers).toHaveProperty('If-Unmodified-Since', 'Tue, 17 Nov 2026 07:00:01 GMT');
-        expect(resolveFileConflict).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'modified-remotely', url: imageUrl, remoteUpdatedAt: null }),
+        expect(resolveConflict).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'file-modified', url: imageUrl, remoteUpdatedAt: null }),
         );
         expect(overwriteRequest?.headers).not.toHaveProperty('If-Unmodified-Since');
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
@@ -206,7 +206,7 @@ describe('SyncJob file conflicts', () => {
 
     it('downloads offline files kept remotely after conditional requests', async () => {
         // Arrange
-        const resolveFileConflict = vi.fn(async () => 'keep-remote' as const);
+        const resolveConflict = vi.fn(async () => 'keep-remote' as const);
 
         respondContainer({ [imageUrl]: syncedAt });
         FakeServer.respondOnce(imageUrl, new FakeResponse('', {}, 412));
@@ -227,17 +227,44 @@ describe('SyncJob file conflicts', () => {
             applicationModels: [
                 { model: User, registration: true, files: [{ strategy: 'container', availableOffline: true }] },
             ],
-            resolveFileConflict,
+            resolveConflict,
         });
 
         // Assert
-        expect(resolveFileConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'modified-remotely' }));
+        expect(resolveConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'file-modified' }));
         expect(await localEngine.getDocumentLocalChanges(imageUrl)).toBeNull();
         expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('remote');
         expect(await localEngine.getLocalFile(imageUrl)).toMatchObject({
             mimeType: 'image/png',
             lastModifiedAt: remoteModifiedAt,
         });
+    });
+
+    it('uses default resolutions when they do not match the conflict', async () => {
+        // Arrange
+        const resolveConflict = vi.fn(async () => 'restore' as const);
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        respondContainer({ [imageUrl]: remoteModifiedAt });
+
+        await localEngine.updateFile(imageUrl, { mimeType: 'image/png', lastModifiedAt: syncedAt });
+        await localEngine.writeFile(imageUrl, new Blob(['local']), {
+            localChanges: fileLocalChanges(imageUrl, 'updated'),
+        });
+
+        // Act
+        await SyncJob.run({
+            ...config,
+            applicationModels: [{ model: User, registration: true, files: [{ strategy: 'container' }] }],
+            resolveConflict,
+        });
+
+        // Assert
+        expect(resolveConflict).toHaveBeenCalledWith(expect.objectContaining({ type: 'file-modified' }));
+        expect(warn).toHaveBeenCalledWith(
+            `Invalid 'restore' resolution for file-modified conflict in ${imageUrl}, using 'keep-local' instead.`,
+        );
+        expect(await (await localEngine.readFile(imageUrl)).text()).toEqual('local');
     });
 
     function respondContainer(files: Record<string, Date>): void {
