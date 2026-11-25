@@ -228,3 +228,7 @@ await alice.restore();
 ```
 
 Keep in mind that calling `delete()` on a soft deleted model will still delete it permanently, and cascade deletes also include related models that have been soft deleted.
+
+::: warning TODO
+Document using `delete()` to soft delete models, once it's implemented. In the previous version, `SolidModel.useSoftDeletes(true)` made `delete()` call `softDelete()`, and `forceDelete()` could be used to delete models permanently.
+:::
