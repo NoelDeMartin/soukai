@@ -1655,13 +1655,11 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
     }
 
     private async getConflictResolution(conflict: SyncConflict): Promise<SyncConflictResolution | undefined> {
-        const { resolveConflict } = this.config;
-
-        if (!resolveConflict) {
+        if (!this.config.resolveConflict) {
             return;
         }
 
-        const answer = await this.conflictsSemaphore.run(async () => resolveConflict(conflict));
+        const answer = await this.conflictsSemaphore.run(async () => this.config.resolveConflict?.(conflict));
 
         this.assertNotCancelled(this.getResult());
 

@@ -18,7 +18,7 @@ const DEFAULT_NEW_BASE_IRI = 'local://document';
 type LoadQuadsOptions = {
     url?: string;
     defaultBaseIRI?: string;
-}
+};
 
 export interface FromRDFOptions {
     sourceDocumentUrl?: string;
