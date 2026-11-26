@@ -251,7 +251,7 @@ describe('Sync document operations', () => {
 
     async function readOperations(document: SolidDocument): Promise<Operation[]> {
         const operations = await Promise.all(
-            getCoreOperationModels().map((operationModel) => operationModel.createManyFromDocument(document)),
+            getCoreOperationModels().map((operationModel) => operationModel.fromDocument(document).all()),
         );
 
         return operations.flat() as Operation[];

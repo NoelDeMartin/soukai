@@ -233,7 +233,7 @@ async function updateWACPublicPermissions(documentUrl: string, permissions: Soli
     const AuthorizationClass = requireBootedModel('ACLAuthorization');
     const engine = requireRemoteEngine();
     const acl = await fetchSolidDocumentACL(documentUrl, { fetch: engine.requireFetch() });
-    const authorizations = await AuthorizationClass.createManyFromRDF(acl.document.getQuads());
+    const authorizations = await AuthorizationClass.fromRDF(acl.document.getQuads()).all();
     const modes = arrayUnique(permissions.map((permission) => modeFromPermission(permission)));
 
     if (acl.url === acl.effectiveUrl) {
@@ -249,7 +249,7 @@ async function createWACDocumentAuthorization(documentUrl: string, input: WACAut
     const AuthorizationClass = requireBootedModel('ACLAuthorization');
     const engine = requireRemoteEngine();
     const acl = await fetchSolidDocumentACL(documentUrl, { fetch: engine.requireFetch() });
-    const existingAuthorizations = await AuthorizationClass.createManyFromRDF(acl.document.getQuads());
+    const existingAuthorizations = await AuthorizationClass.fromRDF(acl.document.getQuads()).all();
     const authorization = new AuthorizationClass({
         ...input,
         accessTo: [documentUrl],

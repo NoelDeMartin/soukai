@@ -130,9 +130,7 @@ export async function fetchPermissions(model: Model, options: FetchPermissionsOp
 
         if (protocol === 'wac') {
             const authorizations = authorizationDocument.document
-                ? await requireBootedModel('ACLAuthorization').createManyFromRDF(
-                      authorizationDocument.document.getQuads(),
-                  )
+                ? await requireBootedModel('ACLAuthorization').fromRDF(authorizationDocument.document.getQuads()).all()
                 : [];
 
             return { protocol, publicPermissions, authorizations };

@@ -33,7 +33,7 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
         const document = await engine.readDocument(documentUrl);
         const modelsCache = this.getDocumentModelsCache();
         const allOperations = (await Promise.all(
-            getCoreOperationModels().map((model) => model.createManyFromDocument(document, { modelsCache })),
+            getCoreOperationModels().map((model) => model.fromDocument(document).all({ modelsCache })),
         )) as ModelWithUrl<Operation>[][];
 
         return allOperations.flat().filter((model) => model.resourceUrl === parentUrl);
@@ -46,7 +46,7 @@ export default class OperationsRelation<Parent extends Model> extends HasManyRel
         const parentUrl = this.parent.url;
         const allOperations = (await Promise.all(
             getCoreOperationModels().map((model) => {
-                return model.createManyFromRDF(quads, { modelsCache: options.modelsCache });
+                return model.fromRDF(quads).all({ modelsCache: options.modelsCache });
             }),
         )) as ModelWithUrl<Operation>[][];
 

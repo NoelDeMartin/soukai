@@ -121,7 +121,7 @@ describe('AddPropertyOperation', () => {
         );
 
         // Act
-        const operations = await AddPropertyOperation.createManyFromRDF(quads);
+        const operations = await AddPropertyOperation.fromRDF(quads).all();
 
         // Assert
         expect(operations).toHaveLength(1);

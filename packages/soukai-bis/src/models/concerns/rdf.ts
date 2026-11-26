@@ -1,13 +1,21 @@
 import { RDFNamedNode, SolidStore } from '@noeldemartin/solid-utils';
-import { deepEquals, hasItems, invade, tap, weakMemo } from '@noeldemartin/utils';
+import { deepEquals, hasItems, invade, isTruthy, tap, weakMemo } from '@noeldemartin/utils';
 import type { Quad, Quad_Object } from '@rdfjs/types';
 import { RDF_TYPE } from 'soukai-bis/lib/internals/rdf';
 import { getRDFIRIVariants, getRDFNamedNodeVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
+import { isChangeTrackingDisabled } from 'soukai-bis/models/change-tracking';
+import { getSoftDeletedResourceUrls } from 'soukai-bis/models/crdts/soft-deletes';
 import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/model';
-import { getDocumentQuads } from 'soukai-bis/models/internals/rdf';
+import { getDocumentQuads, isBlankNodeUrl, quadsSourceDocumentUrls } from 'soukai-bis/models/internals/rdf';
 import type Model from 'soukai-bis/models/Model';
 import type { Relation } from 'soukai-bis/models/relations';
-import { isMultiModelRelation } from 'soukai-bis/models/relations/helpers';
+import { isMultiModelRelation, isSingleModelRelation } from 'soukai-bis/models/relations/helpers';
+import {
+    MODELS_IN_SAME_DOCUMENT,
+    MODEL_IN_SAME_DOCUMENT,
+    NEW_MODEL,
+    NEW_MODELS,
+} from 'soukai-bis/models/relations/internals';
 import type { ModelConstructor, ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 import { buildModelsCache } from 'soukai-bis/models/utils';
 import { castToJavaScript } from 'soukai-bis/zod/utils';
@@ -43,7 +51,57 @@ function getDocumentRelations(model: Model, names?: string[]): Relation[] {
         .map(([name]) => model.getRelation(name));
 }
 
+function collectResettableDocumentModels(rootModel: Model): Model[] {
+    const models = new Set<Model>();
+    const pending: Model[] = [rootModel];
+
+    while (pending.length > 0) {
+        const model = pending.pop()!;
+
+        if (models.has(model)) {
+            continue;
+        }
+
+        models.add(model);
+
+        const relations = invade(model, ['_relations'])._relations;
+
+        for (const [relationName, relation] of Object.entries(relations)) {
+            if (relationName === 'operations' || relationName === 'tombstone') {
+                continue;
+            }
+
+            const documentUrl = model.getDocumentUrl();
+            const candidates = new Set<Model>(relation.getLoadedModels());
+
+            if (isSingleModelRelation(relation) && relation[MODEL_IN_SAME_DOCUMENT]) {
+                candidates.add(relation[MODEL_IN_SAME_DOCUMENT]);
+            }
+
+            if (isMultiModelRelation(relation)) {
+                for (const sameDocumentModel of relation[MODELS_IN_SAME_DOCUMENT] ?? []) {
+                    candidates.add(sameDocumentModel);
+                }
+            }
+
+            for (const related of candidates) {
+                if (isUsingSameDocument(documentUrl, relation, related) || isBlankNodeUrl(related.url)) {
+                    pending.push(related);
+                }
+            }
+        }
+    }
+
+    return Array.from(models);
+}
+
 export type RDFTypeMap = Map<string, Set<string>>;
+
+export interface HydrateFromRDFOptions {
+    modelsCache?: ModelsCache;
+    includeSoftDeleted?: boolean;
+    sourceDocumentUrl?: string;
+}
 
 export function initializeEmptyDocumentRelations(model: Model): void {
     for (const relation of getDocumentRelations(model)) {
@@ -207,4 +265,197 @@ export function createFromRDF<T extends Model>(
     }
 
     return instance;
+}
+
+export function findMatchingRDFResourceUrls(
+    modelClass: ModelConstructor,
+    quads: Quad[],
+    options: { includeSoftDeleted?: boolean } = {},
+): string[] {
+    const typeMap = buildRDFTypeMap(quads);
+    const softDeletedUrls = options.includeSoftDeleted ? null : getSoftDeletedResourceUrls(quads);
+    const candidateUrls = new Set(
+        modelClass
+            .getRDFClasses()
+            .flatMap((rdfClass) => getRDFIRIVariants(rdfClass))
+            .flatMap((rdfClass) => [...(typeMap.get(rdfClass) ?? [])]),
+    );
+
+    return Array.from(candidateUrls).filter(
+        (url) =>
+            !softDeletedUrls?.has(url) && modelClass.matchesRDFClasses((rdfClass) => !!typeMap.get(rdfClass)?.has(url)),
+    );
+}
+
+export async function hydrateModelFromRDF<T extends Model>(
+    modelClass: ModelConstructor<T>,
+    quads: Quad[],
+    url: string,
+    options: HydrateFromRDFOptions = {},
+): Promise<ModelWithUrl<T> | null> {
+    const modelsCache = options.modelsCache ?? new Map();
+    const typeMap = buildRDFTypeMap(quads);
+    const isType = modelClass.matchesRDFClasses((rdfClass) => !!typeMap.get(rdfClass)?.has(url));
+
+    if (!isType || (!options.includeSoftDeleted && getSoftDeletedResourceUrls(quads).has(url))) {
+        return null;
+    }
+
+    const existingClassCache = modelsCache.get(url);
+
+    if (existingClassCache?.has(modelClass)) {
+        return existingClassCache.get(modelClass) as ModelWithUrl<T>;
+    }
+
+    const classCache = existingClassCache ?? new WeakMap();
+    const instance = createFromRDF<T>(modelClass, url, quads, { typeMap });
+
+    instance.setSourceDocumentUrl(options.sourceDocumentUrl ?? quadsSourceDocumentUrls.get(quads) ?? null);
+    modelsCache.set(url, classCache);
+    classCache.set(modelClass, instance);
+
+    for (const [relationName, relationDefinition] of Object.entries(getSchema(modelClass).relations)) {
+        if (relationDefinition.options.autoload === false) {
+            continue;
+        }
+
+        await instance.getRelation(relationName).loadFromDocumentRDF(quads, { modelsCache });
+    }
+
+    invade(instance, ['initializeLegacyTimestamps']).initializeLegacyTimestamps(quads);
+
+    await invade(instance, ['restoreComputedAttributes']).restoreComputedAttributes();
+
+    return instance;
+}
+
+export async function hydrateModelsFromRDF<T extends Model>(
+    modelClass: ModelConstructor<T>,
+    quads: Quad[],
+    options: HydrateFromRDFOptions = {},
+): Promise<ModelWithUrl<T>[]> {
+    const matchingResourceUrls = findMatchingRDFResourceUrls(modelClass, quads, options);
+
+    if (matchingResourceUrls.length === 0) {
+        return [];
+    }
+
+    const modelsCache = options.modelsCache ?? new Map();
+    const models = await Promise.all(
+        matchingResourceUrls.map((resourceUrl) =>
+            hydrateModelFromRDF(modelClass, quads, resourceUrl, {
+                modelsCache,
+                includeSoftDeleted: options.includeSoftDeleted,
+                sourceDocumentUrl: options.sourceDocumentUrl,
+            }),
+        ),
+    );
+
+    return models.filter(isTruthy);
+}
+
+export function resetModelGraph(rootModel: Model): void {
+    const models = collectResettableDocumentModels(rootModel);
+    const modelsSet = new Set(models);
+    const oldUrls = new Set(models.map((model) => model.url).filter(isTruthy));
+
+    for (const model of models) {
+        const invadedModel = invade(model, [
+            '_attributes',
+            '_originalAttributes',
+            '_dirtyAttributes',
+            '_exists',
+            '_documentExists',
+            '_sourceDocumentUrl',
+            '_staleRDFProperties',
+            '_rdfPrefixAliases',
+            '_relations',
+        ]);
+        const attributes = invadedModel._attributes;
+
+        delete attributes.url;
+
+        for (const [field, value] of Object.entries(attributes)) {
+            if (typeof value === 'string' && oldUrls.has(value)) {
+                delete attributes[field];
+            } else if (Array.isArray(value)) {
+                const filtered = value.filter((item) => !(typeof item === 'string' && oldUrls.has(item)));
+
+                if (filtered.length !== value.length) {
+                    attributes[field] = filtered;
+                }
+            }
+        }
+
+        invadedModel._exists = false;
+        invadedModel._documentExists = false;
+        invadedModel._sourceDocumentUrl = null;
+        invadedModel._originalAttributes = {};
+        invadedModel._dirtyAttributes = new Set(Object.keys(attributes));
+        invadedModel._staleRDFProperties = null;
+        invadedModel._rdfPrefixAliases = null;
+
+        for (const [relationName, relation] of Object.entries(invadedModel._relations)) {
+            if (relationName === 'operations') {
+                relation.related = [];
+
+                if (isMultiModelRelation(relation)) {
+                    delete relation[NEW_MODELS];
+                    delete relation[MODELS_IN_SAME_DOCUMENT];
+                }
+
+                continue;
+            }
+
+            if (relationName === 'tombstone') {
+                relation.related = null;
+
+                if (isSingleModelRelation(relation)) {
+                    delete relation[NEW_MODEL];
+                    delete relation[MODEL_IN_SAME_DOCUMENT];
+                }
+
+                continue;
+            }
+
+            if (isSingleModelRelation(relation)) {
+                const candidate = relation.related ?? relation[MODEL_IN_SAME_DOCUMENT];
+
+                delete relation[MODEL_IN_SAME_DOCUMENT];
+
+                if (candidate && modelsSet.has(candidate)) {
+                    relation[NEW_MODEL] = candidate;
+
+                    if (relationName === 'metadata') {
+                        const metadataAttributes = invade(candidate, ['_attributes', '_dirtyAttributes']);
+
+                        delete metadataAttributes._attributes.deletedAt;
+                        metadataAttributes._dirtyAttributes.delete('deletedAt');
+                    }
+                }
+            }
+
+            if (isMultiModelRelation(relation)) {
+                const candidates = relation.related ?? relation[MODELS_IN_SAME_DOCUMENT] ?? [];
+
+                delete relation[MODELS_IN_SAME_DOCUMENT];
+
+                const newRelated = candidates.filter((related) => modelsSet.has(related));
+
+                if (newRelated.length > 0) {
+                    relation[NEW_MODELS] = newRelated;
+                }
+            }
+        }
+    }
+
+    for (const model of models) {
+        if (!model.hasTimestamps() || model.metadata || isChangeTrackingDisabled()) {
+            continue;
+        }
+
+        const invadedModel = invade(model, ['_legacyTimestamps', 'initializeMetadata']);
+
+        invadedModel.initializeMetadata(invadedModel._legacyTimestamps ?? undefined);
+    }
 }

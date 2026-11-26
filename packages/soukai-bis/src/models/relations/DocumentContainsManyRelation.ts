@@ -22,7 +22,7 @@ export default class DocumentContainsManyRelation<
     }
 
     public async loadFromDocumentRDF(quads: Quad[], options: LoadFromDocumentRDFOptions = {}): Promise<void> {
-        this.related = await this.relatedClass.createManyFromRDF(quads, options);
+        this.related = await this.relatedClass.fromRDF(quads).all(options);
         this.documentModelsLoaded = true;
         this[MODELS_IN_SAME_DOCUMENT] = this.related;
     }

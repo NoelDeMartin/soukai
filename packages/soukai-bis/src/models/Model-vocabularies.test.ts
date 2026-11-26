@@ -27,8 +27,8 @@ describe('Model vocabularies', () => {
         `);
 
         // Act
-        const tasks = await Todo.createManyFromRDF(quads);
-        const four = await Todo.createFromRDF(quads, { url: 'solid://tasks#four' });
+        const tasks = await Todo.fromRDF(quads).all();
+        const four = await Todo.fromRDF(quads).find('solid://tasks#four');
 
         // Assert
         expect(tasks.map((task) => task.name).sort()).toEqual(['One', 'Three', 'Two']);
@@ -51,7 +51,7 @@ describe('Model vocabularies', () => {
             await Todo.updateSchema(Schema);
 
             // Act
-            const tasks = await Todo.createManyFromRDF(quads);
+            const tasks = await Todo.fromRDF(quads).all();
 
             // Assert
             expect(tasks.map((task) => task.name)).toEqual(['Two']);
@@ -98,8 +98,8 @@ describe('Model vocabularies', () => {
         `);
 
         // Act
-        const one = required(await Todo.createFromRDF(quads, { url: 'solid://tasks#one' }));
-        const two = required(await Todo.createFromRDF(quads, { url: 'solid://tasks#two' }));
+        const one = required(await Todo.fromRDF(quads).find('solid://tasks#one'));
+        const two = required(await Todo.fromRDF(quads).find('solid://tasks#two'));
 
         // Assert
         expect(one.name).toEqual('One');
@@ -147,7 +147,7 @@ describe('Model vocabularies', () => {
 
         await engine.createDocument(documentUrl, quads);
 
-        const task = required(await Todo.createFromRDF(quads, { url }));
+        const task = required(await Todo.fromRDF(quads).find(url));
 
         // Act
         vi.advanceTimersByTime(1000);
@@ -196,7 +196,7 @@ describe('Model vocabularies', () => {
 
         await engine.createDocument(documentUrl, quads);
 
-        const task = required(await Todo.createFromRDF(quads, { url }));
+        const task = required(await Todo.fromRDF(quads).find(url));
 
         // Act
         await task.update({ priority: '1' });
@@ -224,8 +224,8 @@ describe('Model vocabularies', () => {
         const staleRDFProperties = (todo: Todo) => invade(todo, ['_staleRDFProperties'])._staleRDFProperties;
 
         // Act
-        const one = required(await Todo.createFromRDF(quads, { url: 'solid://todos#one' }));
-        const two = required(await Todo.createFromRDF(quads, { url: 'solid://todos#two' }));
+        const one = required(await Todo.fromRDF(quads).find('solid://todos#one'));
+        const two = required(await Todo.fromRDF(quads).find('solid://todos#two'));
         const three = new Todo({ name: 'Three' });
 
         // Assert
@@ -263,7 +263,7 @@ describe('Model vocabularies', () => {
         `);
 
         // Act
-        const todo = required(await TaggedTodo.createFromRDF(quads, { url: 'solid://todos#one' }));
+        const todo = required(await TaggedTodo.fromRDF(quads).find('solid://todos#one'));
 
         // Assert
         expect(todo.keywords).toEqual(['solid', 'todo']);
@@ -282,7 +282,7 @@ describe('Model vocabularies', () => {
 
         await engine.createDocument(documentUrl, quads);
 
-        const task = required(await Todo.createFromRDF(quads, { url }));
+        const task = required(await Todo.fromRDF(quads).find(url));
 
         // Act
         const hydrated = await Todo.hydrate(task.serialize());
@@ -310,13 +310,13 @@ describe('Model vocabularies', () => {
         bootModels({ ExtendedTodo });
 
         // Act
-        const extendedTask = await ExtendedTodo.createFromRDF(quads, { url: 'solid://tasks#it' });
+        const extendedTask = await ExtendedTodo.fromRDF(quads).find('solid://tasks#it');
 
         await Todo.updateSchema(OverriddenSchema);
 
-        const overriddenTask = await Todo.createFromRDF(quads, { url: 'solid://tasks#it' }).catch(
-            (error: unknown) => error,
-        );
+        const overriddenTask = await Todo.fromRDF(quads)
+            .find('solid://tasks#it')
+            .catch((error: unknown) => error);
 
         // Assert
         expect(extendedTask?.name).toEqual('Learn Solid');
@@ -339,7 +339,7 @@ describe('Model vocabularies', () => {
         await Todo.updateSchema(Schema);
 
         // Act
-        const task = await Todo.createFromRDF(quads, { url: 'solid://tasks#it' });
+        const task = await Todo.fromRDF(quads).find('solid://tasks#it');
 
         // Assert
         expect(task?.name).toEqual('Learn Solid');

@@ -471,7 +471,7 @@ describe('Model CRUD', () => {
         };
 
         // Act
-        const user = await User.createFromJsonLD(jsonld);
+        const user = await User.fromJsonLD(jsonld).find();
 
         // Assert
         expect(user).toBeInstanceOf(User);
@@ -502,7 +502,7 @@ describe('Model CRUD', () => {
         `);
 
         // Act
-        const user = await User.createFromRDF(rdf, { url });
+        const user = await User.fromRDF(rdf).find(url);
 
         // Assert
         expect(user).toBeInstanceOf(User);
@@ -563,7 +563,7 @@ describe('Model CRUD', () => {
         };
 
         // Act
-        const user = await User.createFromJsonLD(jsonld);
+        const user = await User.fromJsonLD(jsonld).find();
 
         // Assert
         expect(user).toBeNull();

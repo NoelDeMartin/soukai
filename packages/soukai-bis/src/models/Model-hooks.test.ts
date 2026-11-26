@@ -42,7 +42,7 @@ describe('Model hooks', () => {
         bootModels({ SpiedTodo });
 
         // Act
-        await SpiedTodo.createFromRDF(quads, { url: 'solid://todos/learn-solid#it' });
+        await SpiedTodo.fromRDF(quads).find('solid://todos/learn-solid#it');
         new SpiedTodo({ name: 'Write docs' });
 
         // Assert
@@ -83,7 +83,7 @@ describe('Model hooks', () => {
         await engine.createDocument(documentUrl, quads);
 
         // Act
-        const todo = required(await TodoWithHooks.createFromRDF(quads, { url }));
+        const todo = required(await TodoWithHooks.fromRDF(quads).find(url));
         const serialized = todo.serialize();
 
         vi.advanceTimersByTime(1000);
@@ -142,7 +142,7 @@ describe('Model hooks', () => {
         bootModels({ TaggedTodo });
 
         // Act
-        const todo = required(await TaggedTodo.createFromRDF(quads, { url }));
+        const todo = required(await TaggedTodo.fromRDF(quads).find(url));
         const newTodo = new TaggedTodo({ name: 'Write docs', keywords });
 
         // Assert
@@ -164,7 +164,7 @@ describe('Model hooks', () => {
 
         await engine.createDocument(documentUrl, quads);
 
-        const todo = required(await TodoWithHooks.createFromRDF(quads, { url }));
+        const todo = required(await TodoWithHooks.fromRDF(quads).find(url));
 
         // Act
         const hydrated = await TodoWithHooks.hydrate(todo.serialize());

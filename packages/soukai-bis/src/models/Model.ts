@@ -1,10 +1,4 @@
-import {
-    SolidDocumentPermissions,
-    jsonldToQuads,
-    quadsToJsonLD,
-    quadsToTurtle,
-    turtleToQuads,
-} from '@noeldemartin/solid-utils';
+import { SolidDocumentPermissions, quadsToJsonLD, quadsToTurtle } from '@noeldemartin/solid-utils';
 import type { JsonLD, SolidDocument, SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import {
     MagicObject,
@@ -71,19 +65,12 @@ import {
     updatedModelsLocalChanges,
 } from './concerns/local-changes';
 import { migrateSchema } from './concerns/migrations';
-import {
-    buildRDFTypeMap,
-    createFromRDF,
-    initializeEmptyDocumentRelations,
-    isUsingSameDocument,
-    loadDocumentRelations,
-} from './concerns/rdf';
+import { initializeEmptyDocumentRelations, isUsingSameDocument, loadDocumentRelations } from './concerns/rdf';
 import { updateModelSchema } from './concerns/schemas';
 import { hydrateModel, serializeModel } from './concerns/serialization';
 import type { SerializedModel } from './concerns/serialization';
 import type Metadata from './crdts/Metadata';
 import type Operation from './crdts/Operation';
-import { getSoftDeletedResourceUrls } from './crdts/soft-deletes';
 import type Tombstone from './crdts/Tombstone';
 import type { ModelClassEvent, ModelInstanceEvent, ModelInstanceListener, ModelListener } from './events';
 import { emitModelClassEvent, emitModelInstanceEvent } from './events';
@@ -99,10 +86,12 @@ import {
 } from './internals/model';
 import type { MODEL_TIMESTAMPS_MARKER } from './internals/model';
 import { createWACAuthorization, updatePublicPermissions } from './internals/permissions';
-import { getDocumentQuads, quadsSourceDocumentUrls, convertToRelativeQuads, serializeToRDF } from './internals/rdf';
+import { convertToRelativeQuads, serializeToRDF } from './internals/rdf';
 import { resolveTypeIndex } from './interop/internals';
 import type TypeIndex from './interop/TypeIndex';
 import type { RDFClassesInput } from './matching/RDFClassesMatcher';
+import ModelBuilder from './ModelBuilder';
+import type { FindFromRDFOptions, FromJsonLDOptions, FromRDFOptions, FromTurtleOptions } from './ModelBuilder';
 import type HasManyRelation from './relations/HasManyRelation';
 import type HasOneRelation from './relations/HasOneRelation';
 import { isContainsRelation, isMultiModelRelation, isSingleModelRelation } from './relations/helpers';
@@ -126,7 +115,6 @@ import type {
     ModelWithTimestamps,
     ModelWithTombstones,
     ModelWithUrl,
-    ModelsCache,
 } from './types';
 
 export interface MintUrlOptions {
@@ -162,12 +150,7 @@ export interface ModelConstructorOptions {
     source?: Nullable<Quad[]>;
 }
 
-export interface CreateFromRDFOptions {
-    modelsCache?: ModelsCache;
-    includeSoftDeleted?: boolean;
-}
-
-export type FindOptions = CreateFromRDFOptions;
+export type FindOptions = FindFromRDFOptions;
 
 export type PendingSoftDeletion = 'soft-delete' | 'restore';
 
@@ -329,7 +312,7 @@ export default class Model<
 
         try {
             const document = await engine.readDocument(urlRoute(url));
-            const model = await this.createFromDocument(document, { ...options, url });
+            const model = await this.fromDocument(document).find(url, options);
 
             return model;
         } catch (error) {
@@ -365,7 +348,7 @@ export default class Model<
             const models = await Promise.all(
                 Object.values(documents).map(async (document) => {
                     try {
-                        return await this.createManyFromDocument(document, {
+                        return await this.fromDocument(document).all({
                             includeSoftDeleted: options.includeSoftDeleted,
                         });
                     } catch (error) {
@@ -421,144 +404,35 @@ export default class Model<
         return model.save();
     }
 
-    public static async createFromRDF<T extends Model>(
+    public static fromRDF<T extends Model>(
         this: ModelConstructor<T>,
         quads: Quad[],
-        options: CreateFromRDFOptions & { url: string; sourceDocumentUrl?: string },
-    ): Promise<ModelWithUrl<T> | null> {
-        const modelsCache = options.modelsCache ?? new Map();
-        const url = options.url;
-        const typeMap = buildRDFTypeMap(quads);
-        const isType = this.matchesRDFClasses((rdfClass) => !!typeMap.get(rdfClass)?.has(url));
-
-        if (!isType || (!options.includeSoftDeleted && getSoftDeletedResourceUrls(quads).has(url))) {
-            return null;
-        }
-
-        const existingClassCache = modelsCache.get(url);
-
-        if (existingClassCache?.has(this)) {
-            return existingClassCache.get(this) as ModelWithUrl<T>;
-        }
-
-        const classCache = existingClassCache ?? new WeakMap();
-        const instance = createFromRDF<T>(this, url, quads, { typeMap });
-
-        instance.setSourceDocumentUrl(options.sourceDocumentUrl ?? quadsSourceDocumentUrls.get(quads) ?? null);
-        modelsCache.set(url, classCache);
-        classCache.set(this, instance);
-
-        for (const [relationName, relationDefinition] of Object.entries(getSchema(this).relations)) {
-            if (relationDefinition.options.autoload === false) {
-                continue;
-            }
-
-            await instance.getRelation(relationName).loadFromDocumentRDF(quads, { modelsCache });
-        }
-
-        instance.initializeLegacyTimestamps(quads);
-
-        await instance.restoreComputedAttributes();
-
-        return instance;
+        options: FromRDFOptions = {},
+    ): ModelBuilder<T, false> {
+        return ModelBuilder.fromRDF(this, quads, options);
     }
 
-    public static async createFromJsonLD<T extends Model>(
-        this: ModelConstructor<T>,
-        json: JsonLD,
-        options: CreateFromRDFOptions & { url?: string } = {},
-    ): Promise<ModelWithUrl<T> | null> {
-        const url = options.url ?? json['@id'] ?? fail<string>('JsonLD is missing @id');
-        const quads = await jsonldToQuads(json);
-
-        return this.createFromRDF(quads, { ...options, url });
-    }
-
-    public static async createFromTurtle<T extends Model>(
+    public static fromTurtle<T extends Model>(
         this: ModelConstructor<T>,
         turtle: string,
-        options: CreateFromRDFOptions & { url: string; baseIRI?: string },
-    ): Promise<ModelWithUrl<T> | null> {
-        const { baseIRI, ...rdfOptions } = options;
-        const quads = await turtleToQuads(turtle, { baseIRI: baseIRI ?? urlRoute(options.url) });
-
-        return this.createFromRDF(quads, rdfOptions);
+        options: FromTurtleOptions = {},
+    ): ModelBuilder<T, false> {
+        return ModelBuilder.fromTurtle(this, turtle, options);
     }
 
-    public static async createFromDocument<T extends Model>(
-        this: ModelConstructor<T>,
-        document: SolidDocument,
-        options: CreateFromRDFOptions & { url?: string } = {},
-    ): Promise<ModelWithUrl<T> | null> {
-        const url = options.url ?? document.url;
-        const quads = getDocumentQuads(document);
-
-        return this.createFromRDF(quads, { ...options, url });
-    }
-
-    public static async createManyFromRDF<T extends Model>(
-        this: ModelConstructor<T>,
-        quads: Quad[],
-        options: CreateFromRDFOptions = {},
-    ): Promise<ModelWithUrl<T>[]> {
-        const typeMap = buildRDFTypeMap(quads);
-        const candidateUrls = new Set(
-            this.getRDFClasses()
-                .flatMap((rdfClass) => getRDFIRIVariants(rdfClass))
-                .flatMap((rdfClass) => [...(typeMap.get(rdfClass) ?? [])]),
-        );
-        const matchingResourceUrls = Array.from(candidateUrls).filter((url) =>
-            this.matchesRDFClasses((rdfClass) => !!typeMap.get(rdfClass)?.has(url)),
-        );
-
-        if (matchingResourceUrls.length === 0) {
-            return [];
-        }
-
-        const modelsCache = options.modelsCache ?? new Map();
-        const models = await Promise.all(
-            matchingResourceUrls.map((resourceUrl) =>
-                this.createFromRDF(quads, {
-                    url: resourceUrl,
-                    modelsCache,
-                    includeSoftDeleted: options.includeSoftDeleted,
-                }),
-            ),
-        );
-
-        return models.filter(isTruthy);
-    }
-
-    public static async createManyFromTurtle<T extends Model>(
-        this: ModelConstructor<T>,
-        turtle: string,
-        options: CreateFromRDFOptions & { baseIRI?: string } = {},
-    ): Promise<ModelWithUrl<T>[]> {
-        const { baseIRI, ...rdfOptions } = options;
-        const quads = await turtleToQuads(turtle, { baseIRI });
-
-        return this.createManyFromRDF(quads, rdfOptions);
-    }
-
-    public static async createManyFromJsonLD<T extends Model>(
+    public static fromJsonLD<T extends Model>(
         this: ModelConstructor<T>,
         json: JsonLD,
-        options: CreateFromRDFOptions & { baseIRI?: string } = {},
-    ): Promise<ModelWithUrl<T>[]> {
-        const { baseIRI, ...rdfOptions } = options;
-        const quads = await jsonldToQuads(json, baseIRI);
-
-        return this.createManyFromRDF(quads, rdfOptions);
+        options: FromJsonLDOptions = {},
+    ): ModelBuilder<T, true> {
+        return ModelBuilder.fromJsonLD(this, json, options);
     }
 
-    public static async createManyFromDocument<T extends Model>(
+    public static fromDocument<T extends Model>(
         this: ModelConstructor<T>,
         document: SolidDocument,
-        options: CreateFromRDFOptions = {},
-    ): Promise<ModelWithUrl<T>[]> {
-        const quads = getDocumentQuads(document);
-
-        return this.createManyFromRDF(quads, options);
+    ): ModelBuilder<T, false> {
+        return ModelBuilder.fromDocument(this, document);
     }
 
     public static async hydrate<T extends Model>(this: ModelConstructor<T>, serialized: SerializedModel): Promise<T> {
@@ -1282,10 +1156,9 @@ export default class Model<
         const sourceDocumentUrl = this.getSourceDocumentUrl();
         const freshInstance =
             sourceDocumentUrl && this.isInAuthoritativeDocument() === false
-                ? await this.static().createFromDocument(
-                      await this.static().requireEngine().readDocument(sourceDocumentUrl),
-                      { url: this.url, includeSoftDeleted: true },
-                  )
+                ? await this.static()
+                      .fromDocument(await this.static().requireEngine().readDocument(sourceDocumentUrl))
+                      .find(this.url, { includeSoftDeleted: true })
                 : await this.static().find(this.url, { includeSoftDeleted: true });
 
         if (!freshInstance) {

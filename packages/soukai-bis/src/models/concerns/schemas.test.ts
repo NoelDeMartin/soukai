@@ -28,7 +28,7 @@ describe('Schemas', () => {
         await Task.updateSchema(TaskICalSchema);
 
         // Assert
-        const task = required(await Task.createFromRDF(quads, { url: 'solid://tasks/learn-solid#task' }));
+        const task = required(await Task.fromRDF(quads).find('solid://tasks/learn-solid#task'));
         const turtle = await new Task({ name: 'Write docs', url: 'solid://tasks/write-docs#task' }).toTurtle();
 
         expect(task.name).toEqual('Learn Solid');

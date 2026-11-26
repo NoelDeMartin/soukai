@@ -80,7 +80,9 @@ describe('SyncJob deletion conflicts', () => {
         // Arrange
         const resolveConflict = vi.fn(async (_: ResourceConflict) => 'delete' as const);
 
-        vi.spyOn(CascadingMovie, 'createFromDocument').mockRejectedValue(new Error('Invalid data'));
+        vi.spyOn(CascadingMovie, 'fromDocument').mockReturnValue({
+            find: vi.fn().mockRejectedValue(new Error('Invalid data')),
+        } as never);
 
         FakeServer.respondOnce(containerUrl, containerTurtle([documentUrl]));
         FakeServer.respondOnce(

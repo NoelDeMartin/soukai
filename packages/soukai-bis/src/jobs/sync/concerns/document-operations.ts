@@ -351,10 +351,10 @@ export async function getSyncDocumentOperations({
     resourceUrls,
     copyTombstones = true,
 }: SyncDocumentOperationsOptions): Promise<EngineOperation[]> {
-    const documentTombstones = await Tombstone.createManyFromDocument(document);
-    const otherDocumentTombstones = await Tombstone.createManyFromDocument(otherDocument);
-    const documentMetadatas = await Metadata.createManyFromDocument(document);
-    const otherDocumentMetadatas = await Metadata.createManyFromDocument(otherDocument);
+    const documentTombstones = await Tombstone.fromDocument(document).all();
+    const otherDocumentTombstones = await Tombstone.fromDocument(otherDocument).all();
+    const documentMetadatas = await Metadata.fromDocument(document).all();
+    const otherDocumentMetadatas = await Metadata.fromDocument(otherDocument).all();
     const documentTombstonesByResourceUrl = objectFromEntries(
         documentTombstones.map((tombstone) => [tombstone.resourceUrl, tombstone]),
     );

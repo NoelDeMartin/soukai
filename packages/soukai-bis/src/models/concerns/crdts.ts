@@ -443,7 +443,7 @@ export async function syncDocumentOperations(documentUrl: string): Promise<{ upd
     }
 
     const promisedOperations = await Promise.all(
-        getCoreOperationModels().map((operationModel) => operationModel.createManyFromDocument(document)),
+        getCoreOperationModels().map((operationModel) => operationModel.fromDocument(document).all()),
     );
 
     const operations = sortedOperations(promisedOperations.flat() as Operation[]);

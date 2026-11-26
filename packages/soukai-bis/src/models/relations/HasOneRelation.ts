@@ -22,7 +22,7 @@ export default class HasOneRelation<
 
     public async loadFromDocumentRDF(quads: Quad[], options: LoadFromDocumentRDFOptions = {}): Promise<void> {
         const localKey = this.parent.getAttribute(this.localKeyName);
-        const allRelated = await this.relatedClass.createManyFromRDF(quads, options);
+        const allRelated = await this.relatedClass.fromRDF(quads).all(options);
         const related = allRelated.find((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
 
         this.related = related;
@@ -57,7 +57,7 @@ export default class HasOneRelation<
 
             const engine = this.parent.static().requireEngine();
             const document = await engine.readDocument(documentUrl);
-            const relatedModels = await this.relatedClass.createManyFromDocument(document, {
+            const relatedModels = await this.relatedClass.fromDocument(document).all({
                 modelsCache: this.getDocumentModelsCache(),
                 includeSoftDeleted: options.includeSoftDeleted,
             });

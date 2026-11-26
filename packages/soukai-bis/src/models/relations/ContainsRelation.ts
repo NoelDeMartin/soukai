@@ -127,7 +127,7 @@ export default class ContainsRelation<
                     return [];
                 }
 
-                return this.relatedClass.createManyFromDocument(document, options);
+                return this.relatedClass.fromDocument(document).all(options);
             }),
         );
 

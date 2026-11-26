@@ -16,8 +16,7 @@ async function loadAccessControlsAs(
             accessControls.map(
                 async (accessControl) =>
                     (accessControl.url &&
-                        (await AccessControlClass.createFromRDF(acr.modelQuads, {
-                            url: accessControl.url,
+                        (await AccessControlClass.fromRDF(acr.modelQuads).find(accessControl.url, {
                             modelsCache,
                         }))) ||
                     accessControl,
@@ -47,7 +46,7 @@ export async function readACPAccessControlResources(
     options: FetchPermissionsOptions = {},
 ): Promise<ModelWithUrl<ACPAccessControlResource>[]> {
     const AccessControlResource = requireBootedModel('ACPAccessControlResource');
-    const accessControlResources = await AccessControlResource.createManyFromRDF(acr.modelQuads);
+    const accessControlResources = await AccessControlResource.fromRDF(acr.modelQuads).all();
 
     if (options.accessControlClass) {
         await loadAccessControlsAs(accessControlResources, acr, options.accessControlClass);

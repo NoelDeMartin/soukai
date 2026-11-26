@@ -160,7 +160,7 @@ describe('RemovePropertyOperation', () => {
         );
 
         // Act
-        const operations = await RemovePropertyOperation.createManyFromRDF(quads);
+        const operations = await RemovePropertyOperation.fromRDF(quads).all();
 
         // Assert
         expect(operations).toHaveLength(1);

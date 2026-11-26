@@ -61,7 +61,7 @@ export default class HasManyRelation<
 
             const engine = this.parent.static().requireEngine();
             const document = await engine.readDocument(documentUrl);
-            const relatedModels = await this.relatedClass.createManyFromDocument(document, {
+            const relatedModels = await this.relatedClass.fromDocument(document).all({
                 modelsCache: this.getDocumentModelsCache(),
                 includeSoftDeleted: options.includeSoftDeleted,
             });
@@ -79,7 +79,7 @@ export default class HasManyRelation<
         options: LoadFromDocumentRDFOptions = {},
     ): Promise<Related[]> {
         const localKey = this.parent.getAttribute(this.localKeyName);
-        const allRelated = await this.relatedClass.createManyFromRDF(quads, options);
+        const allRelated = await this.relatedClass.fromRDF(quads).all(options);
 
         return allRelated.filter((model) => model.getAttribute(this.requireForeignKeyName()) === localKey);
     }

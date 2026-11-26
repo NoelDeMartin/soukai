@@ -75,34 +75,37 @@ console.log(await user.toTurtle());
 console.log(await user.toJsonLD());
 ```
 
-To go the other way around, there are a few static methods that create models from different RDF representations:
+To go the other way around, there are four static entry points for the different RDF representations:
+
+- `Model.fromRDF(quads)` — from an array of RDF/JS quads
+- `Model.fromTurtle(turtle, { baseIRI? })` — from Turtle (relative IRIs resolve against the url passed to `find()`, unless `baseIRI` is specified)
+- `Model.fromJsonLD(json, { baseIRI? })` — from JSON-LD
+- `Model.fromDocument(document)` — from a `SolidDocument` (from `@noeldemartin/solid-utils`)
+
+Each returns a builder with methods for restoring existing models, instantiating new unsaved models, or importing and saving them directly:
 
 ```ts
-// From an array of RDF/JS quads, indicating the url of the resource.
-const user = await User.createFromRDF(quads, { url: 'https://example.org/users/john#it' });
+// Restore existing models (exists() === true, keeps original urls)
+const user = await User.fromRDF(quads).find('https://example.org/users/john#it');
+const user = await User.fromTurtle(turtle).find('https://example.org/users/john#it');
+const user = await User.fromJsonLD(json).find(); // defaults to "@id", or pass a url
+const user = await User.fromDocument(document).find('https://example.org/users/john#it');
 
-// From Turtle (relative IRIs are resolved against the document url, unless you pass the `baseIRI` option).
-const user = await User.createFromTurtle(turtle, { url: 'https://example.org/users/john#it' });
+const users = await User.fromRDF(quads).all();
+const users = await User.fromTurtle(turtle, { baseIRI }).all();
+const users = await User.fromJsonLD(json).all();
+const users = await User.fromDocument(document).all();
 
-// From JSON-LD (the url is taken from "@id", unless you pass the `url` option).
-const user = await User.createFromJsonLD(json);
+// Create new unsaved models in memory (exists() === false, urls will be minted on save)
+const draft = await User.fromJsonLD(externalJson).newInstance();
+const drafts = await User.fromTurtle(turtle).newInstances();
 
-// From a SolidDocument (from @noeldemartin/solid-utils), using the document url unless you pass `url`.
-const user = await User.createFromDocument(document, { url: 'https://example.org/users/john#it' });
+// Import and save directly to the engine (mints fresh urls)
+const saved = await User.fromJsonLD(externalJson).create();
+const savedMany = await User.fromTurtle(turtle).createMany();
 ```
 
-These return `null` if the resource doesn't match the [RDF classes](../core-concepts/models.md#rdf-classes) of the model, and relations stored in the same document will be [autoloaded](../core-concepts/relations.md#autoloading) as usual.
-
-If you don't know the urls in advance, each of these methods has a `createMany` counterpart that returns all the resources matching the RDF classes of the model:
-
-```ts
-const users = await User.createManyFromRDF(quads);
-const users = await User.createManyFromTurtle(turtle);
-const users = await User.createManyFromJsonLD(json);
-const users = await User.createManyFromDocument(document);
-```
-
-Given that there isn't a model url to resolve relative IRIs against, you can use the `baseIRI` option when parsing Turtle or JSON-LD that contains them.
+Single-model methods return `null` if the resource doesn't match the [RDF classes](../core-concepts/models.md#rdf-classes) of the model, and relations stored in the same document will be [autoloaded](../core-concepts/relations.md#autoloading) as usual. With `newInstance()` / `newInstances()` (and `create()` / `createMany()`), blank nodes and missing `@id`s are supported and same-document relations are reset so saving mints fresh urls for the whole graph.
 
 Soft deleted models will be ignored unless you pass the `includeSoftDeleted` option, same as [when reading models](./local-first.md#soft-deletes).
 

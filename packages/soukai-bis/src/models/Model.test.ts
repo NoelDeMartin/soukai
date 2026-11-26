@@ -96,7 +96,7 @@ describe('Model', () => {
 
         // Act
         const quads = await user.toRDF();
-        const parsedUser = await User.createFromRDF(quads, { url: user.url });
+        const parsedUser = await User.fromRDF(quads).find(user.url);
 
         // Assert
         expectTypeOf(quads).toEqualTypeOf<Quad[]>();
@@ -119,8 +119,8 @@ describe('Model', () => {
         `;
 
         // Act
-        const user = await User.createFromTurtle(turtle, { url: `${documentUrl}#it` });
-        const missing = await User.createFromTurtle(turtle, { url: `${documentUrl}#other` });
+        const user = await User.fromTurtle(turtle).find(`${documentUrl}#it`);
+        const missing = await User.fromTurtle(turtle).find(`${documentUrl}#other`);
 
         // Assert
         expect(user).toBeInstanceOf(User);
@@ -143,7 +143,7 @@ describe('Model', () => {
         `;
 
         // Act
-        const users = await User.createManyFromTurtle(turtle, { baseIRI: documentUrl });
+        const users = await User.fromTurtle(turtle, { baseIRI: documentUrl }).all();
 
         // Assert
         expect(users.map(({ url, name }) => [url, name])).toEqual([
@@ -177,7 +177,7 @@ describe('Model', () => {
         };
 
         // Act
-        const users = await User.createManyFromJsonLD(json);
+        const users = await User.fromJsonLD(json).all();
 
         // Assert
         expect(users.map(({ url, name }) => [url, name])).toEqual([
@@ -291,7 +291,7 @@ describe('Model', () => {
 
         // Act
         const recipe = new Recipe({ name: 'Ramen' });
-        const legacyRecipe = required(await Recipe.createFromRDF(legacyQuads, { url: `${documentUrl}#it` }));
+        const legacyRecipe = required(await Recipe.fromRDF(legacyQuads).find(`${documentUrl}#it`));
 
         // Assert
         expect(recipe.nameLength).toBe(5);
@@ -656,8 +656,8 @@ describe('Model', () => {
 
         // Act
         const modelsCache = new Map();
-        const user = await User.createFromRDF(rdf, { url, modelsCache });
-        const guest = await Guest.createFromRDF(rdf, { url, modelsCache });
+        const user = await User.fromRDF(rdf).find(url, { modelsCache });
+        const guest = await Guest.fromRDF(rdf).find(url, { modelsCache });
 
         // Assert
         expect(user).toBeInstanceOf(User);
@@ -701,8 +701,8 @@ describe('Model', () => {
         bootModels({ Person });
 
         // Act
-        const people = await Person.createManyFromRDF(rdf);
-        const bob = await Person.createFromRDF(rdf, { url: 'https://bob.example/profile#me' });
+        const people = await Person.fromRDF(rdf).all();
+        const bob = await Person.fromRDF(rdf).find('https://bob.example/profile#me');
 
         // Assert
         expect(people.map(({ url }) => url)).toEqual(['https://alice.example/profile#me']);
@@ -733,8 +733,8 @@ describe('Model', () => {
         bootModels({ Person, Manager, Guest });
 
         // Act
-        const people = await Person.createManyFromRDF(rdf);
-        const managers = await Manager.createManyFromRDF(rdf);
+        const people = await Person.fromRDF(rdf).all();
+        const managers = await Manager.fromRDF(rdf).all();
 
         // Assert
         expect(Manager.getRDFClasses()).toEqual(['https://example.org/vocab#Manager']);

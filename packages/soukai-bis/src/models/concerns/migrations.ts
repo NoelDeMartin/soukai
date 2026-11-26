@@ -428,7 +428,7 @@ async function readOperations(model: ModelWithUrl, quads: Quad[]): Promise<Opera
     }
 
     const operations = await Promise.all(
-        getCoreOperationModels().map((operationModel) => operationModel.createManyFromRDF(quads)),
+        getCoreOperationModels().map((operationModel) => operationModel.fromRDF(quads).all()),
     );
 
     return (operations.flat() as Operation[]).filter((operation) => operation.resourceUrl === model.url);
@@ -483,7 +483,9 @@ async function createMigratedModel(
     quads: Quad[],
 ): Promise<ModelWithUrl> {
     const migratedModel = required(
-        await MigratedModel.createFromRDF(quads, { url, sourceDocumentUrl: documentUrl, includeSoftDeleted: true }),
+        await MigratedModel.fromRDF(quads, { sourceDocumentUrl: documentUrl }).find(url, {
+            includeSoftDeleted: true,
+        }),
     );
 
     if (migratedModel.tracksChanges()) {

@@ -22,11 +22,8 @@ export default class BelongsToOneRelation<
     public async loadFromDocumentRDF(quads: Quad[], options: LoadFromDocumentRDFOptions = {}): Promise<void> {
         const foreignKey = this.parent.getAttribute(this.requireForeignKeyName());
         const related = foreignKey
-            ? await this.relatedClass.createFromRDF(quads, {
-                  ...options,
-                  // oxlint-disable-next-line typescript/no-base-to-string
-                  url: String(foreignKey),
-              })
+            ? // oxlint-disable-next-line typescript/no-base-to-string
+              await this.relatedClass.fromRDF(quads).find(String(foreignKey), options)
             : null;
 
         this.documentModelsLoaded = true;

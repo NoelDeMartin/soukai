@@ -72,8 +72,7 @@ async function getDependants(store: SolidStore, resourceUrl: string, models: Mod
 
     for (let url = pendingUrls.pop(); url; url = pendingUrls.pop()) {
         for (const modelClass of models) {
-            const model = await modelClass.createFromRDF(getStoreQuads(store), {
-                url,
+            const model = await modelClass.fromRDF(getStoreQuads(store)).find(url, {
                 modelsCache,
                 includeSoftDeleted: true,
             });

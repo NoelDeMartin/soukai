@@ -436,7 +436,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
         resourceUrls: string[],
     ): Promise<Map<string, ModelWithUrl<Operation>>> {
         const allOperations = (await Promise.all(
-            getCoreOperationModels().map((model) => model.createManyFromDocument(document)),
+            getCoreOperationModels().map((model) => model.fromDocument(document).all()),
         )) as ModelWithUrl<Operation>[][];
 
         const operations = allOperations.flat().filter((operation) => resourceUrls.includes(operation.resourceUrl));
@@ -824,7 +824,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
         const remoteDocument = await this.remoteEngine.readDocumentIfExists(documentUrl);
 
         if (remoteDocument && documentUrl.endsWith('/')) {
-            const container = await Container.createFromDocument(remoteDocument, { url: documentUrl });
+            const container = await Container.fromDocument(remoteDocument).find(documentUrl);
             const resources = container?.resources ?? [];
             const resourcesByUrl = objectFromEntries(
                 resources.map((document) => [document.url, document]).filter(([url]) => !!url) as [string, Resource][],
@@ -893,7 +893,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
 
         try {
             const document = await this.localEngine.readDocumentIfExists(url, { includeEmptyDocuments: true });
-            const container = document && (await Container.createFromDocument(document, { url }));
+            const container = document && (await Container.fromDocument(document).find(url));
 
             if (!container) {
                 return;
@@ -1405,7 +1405,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
             }
 
             const model = await silenced(
-                modelClass.createFromDocument(document, { url: conflict.resourceUrl, includeSoftDeleted: true }),
+                modelClass.fromDocument(document).find(conflict.resourceUrl, { includeSoftDeleted: true }),
             );
 
             if (model) {
@@ -1985,7 +1985,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
                 }
 
                 for (const { model, files } of models) {
-                    const instances = await model.createManyFromDocument(document);
+                    const instances = await model.fromDocument(document).all();
 
                     for (const instance of instances) {
                         for (const config of files) {

@@ -44,7 +44,7 @@ describe('SetPropertyOperation', () => {
         );
 
         // Act
-        const operations = await SetPropertyOperation.createManyFromRDF(quads);
+        const operations = await SetPropertyOperation.fromRDF(quads).all();
 
         // Assert
         expect(operations).toHaveLength(3);

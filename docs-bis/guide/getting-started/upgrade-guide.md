@@ -26,12 +26,12 @@ Write this page. Some breaking changes to cover:
 - Some core models and helpers have been renamed: `SolidContainer` is now `Container`, `SolidDocument` and `SolidResource` are now `Resource`, `SolidTypeIndex` is now `TypeIndex`, `SolidTypeRegistration` is now `TypeRegistration`, and `bootSolidModels()` is now `bootCoreModels()`.
 - Some model methods have been removed: `Model.first()`, `clone()`, `wasRecentlyCreated()`, and `wasRecentlyDeleted()`.
 - `withoutTimestamps()` (static and instance) and `withoutTrackingHistory()` have been replaced by `runWithChangeTrackingDisabled()`, which disables both automatic timestamp updates and CRDT history tracking across all models modified inside the callback (using the configured `AsyncContextManager`).
+- `newFromJsonLD()` and `createFromJsonLD()` have been replaced by the fluent `fromRDF()`, `fromTurtle()`, `fromJsonLD()`, and `fromDocument()` builders (with `.find()`, `.all()`, `.newInstance()`, `.newInstances()`, `.create()`, and `.createMany()`).
 :::
 
 ::: warning TODO
 Review functionality that hasn't been migrated yet, and either implement it or document it as a breaking change above:
 
-- Missing model methods: `newFromJsonLD()`.
 - `createInDocument()` and `saveInDocument()`.
 - Malformed attributes handling: `getMalformedDocumentAttributes()` and `fixMalformedAttributes()`.
 - `SolidModel.synchronize(a, b)`, for merging two copies of a model manually.

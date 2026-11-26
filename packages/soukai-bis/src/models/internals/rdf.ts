@@ -7,7 +7,49 @@ import { getFieldRDFProperties, getSchema } from 'soukai-bis/models/internals/mo
 import type Model from 'soukai-bis/models/Model';
 import { castToRDF } from 'soukai-bis/zod/utils';
 
+const BLANK_NODE_IRI_PREFIX = 'local://blank-node#';
+
 export const quadsSourceDocumentUrls = new WeakMap<Quad[], string>();
+
+export function isBlankNodeUrl(url: string | null | undefined): boolean {
+    return !!url?.startsWith(BLANK_NODE_IRI_PREFIX);
+}
+
+export function normalizeBlankNodes(quads: Quad[]): Quad[] {
+    const hasBlankNodes = quads.some(
+        (quad) => quad.subject.termType === 'BlankNode' || quad.object.termType === 'BlankNode',
+    );
+
+    if (!hasBlankNodes) {
+        return quads;
+    }
+
+    const blankNodes = new Map<string, RDFNamedNode>();
+    const mapBlankNode = (value: string): RDFNamedNode => {
+        const existing = blankNodes.get(value);
+
+        if (existing) {
+            return existing;
+        }
+
+        const node = new RDFNamedNode(`${BLANK_NODE_IRI_PREFIX}${encodeURIComponent(value)}`);
+
+        blankNodes.set(value, node);
+
+        return node;
+    };
+
+    return quads.map((quad) => {
+        const subject = quad.subject.termType === 'BlankNode' ? mapBlankNode(quad.subject.value) : quad.subject;
+        const object = quad.object.termType === 'BlankNode' ? mapBlankNode(quad.object.value) : quad.object;
+
+        if (subject === quad.subject && object === quad.object) {
+            return quad;
+        }
+
+        return new RDFQuad(subject, quad.predicate, object);
+    });
+}
 
 export function convertToRelativeQuads(quads: Quad[], documentUrl: string): Quad[] {
     const toRelative = <T extends Term>(term: T): T =>

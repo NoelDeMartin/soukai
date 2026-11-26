@@ -32,7 +32,7 @@ describe('RDF prefix aliases', () => {
         setRDFPrefixAliases({ [HTTPS_SCHEMA]: HTTP_SCHEMA });
     });
 
-    it('reads resources using alias classes and properties via find, all, and createManyFromRDF', async () => {
+    it('reads resources using alias classes and properties via find, all, and fromRDF', async () => {
         // Arrange
         const containerUrl = 'https://alice.example.org/movies/';
         const docUrl = `${containerUrl}movie-1`;
@@ -56,7 +56,7 @@ describe('RDF prefix aliases', () => {
         // Act
         const found = await Movie.findOrFail(resourceUrl);
         const all = await Movie.all({ $in: [docUrl] });
-        const fromRDF = await Movie.createManyFromRDF(await turtleToQuads(turtle));
+        const fromRDF = await Movie.fromRDF(await turtleToQuads(turtle)).all();
 
         // Assert
         expect(found.title).toBe('Spirited Away');

@@ -23,7 +23,7 @@ export default class BelongsToManyRelation<
         const foreignKeyValue = this.parent.getAttribute(this.requireForeignKeyName());
         // oxlint-disable-next-line typescript/no-base-to-string
         const foreignKeys = arrayFrom(foreignKeyValue, { ignoreEmptyValues: true }).map((value) => String(value));
-        const allRelated = await this.relatedClass.createManyFromRDF(quads, options);
+        const allRelated = await this.relatedClass.fromRDF(quads).all(options);
         const related = allRelated.filter((model) =>
             foreignKeys.includes(model.getAttribute(this.localKeyName) as string),
         );
@@ -86,8 +86,7 @@ export default class BelongsToManyRelation<
 
                 return (
                     document &&
-                    this.relatedClass.createFromDocument(document, {
-                        url,
+                    this.relatedClass.fromDocument(document).find(url, {
                         modelsCache,
                         includeSoftDeleted: options.includeSoftDeleted,
                     })
