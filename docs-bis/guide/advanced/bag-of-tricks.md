@@ -109,6 +109,37 @@ Single-model methods return `null` if the resource doesn't match the [RDF classe
 
 Soft deleted models will be ignored unless you pass the `includeSoftDeleted` option, same as [when reading models](./local-first.md#soft-deletes).
 
+## Fixing malformed attributes
+
+When reading documents created by other applications, RDF values may use the wrong term type or datatype (for example, storing a `z.url()` field as a string literal `"https://..."` instead of a named node `<https://...>`, or an untyped literal for a `z.date()`). Soukai still parses these values leniently, and tracks which fields were malformed so you can fix them when needed:
+
+```ts
+const movie = await Movie.find('https://example.org/movies/spirited-away#it');
+
+if (movie?.hasMalformedAttributes()) {
+    console.log(movie.getMalformedAttributes()); // ['imageUrl']
+
+    movie.fixMalformedAttributes();
+
+    await runWithChangeTrackingDisabled(() => movie.save());
+}
+```
+
+Calling `fixMalformedAttributes()` marks the malformed fields as dirty so the next `save()` rewrites them with their canonical RDF representation. Wrapping `save()` in [`runWithChangeTrackingDisabled`](#disabling-change-tracking) avoids bumping timestamps or recording CRDT history operations for the cleanup.
+
+If you're using [local-first synchronization](./local-first.md), you can opt in to fixing malformed attributes automatically during sync — either globally in `Sync.boot()` or per model:
+
+```ts
+await Sync.boot({
+    storageProvider,
+    fixMalformedAttributes: true,
+    models: [
+        { model: Movie, registration: true },
+        { model: Note, registration: true, fixMalformedAttributes: false },
+    ],
+});
+```
+
 ## Disabling computed attribute refreshes
 
 When you're doing a lot of changes at once, refreshing [computed attributes](./caching.md) after each operation can be wasteful. In those cases, you can disable refreshes and relation loading temporarily, and update the values once you're done:

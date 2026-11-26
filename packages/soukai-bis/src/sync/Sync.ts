@@ -34,6 +34,7 @@ export interface SyncStorageProvider {
 export interface SyncBootConfig {
     storageProvider: SyncStorageProvider;
     models?: SyncApplicationModel[];
+    fixMalformedAttributes?: boolean;
 }
 
 export class SyncService {
@@ -41,6 +42,7 @@ export class SyncService {
     private _listeners = new ListenersManager<SyncServiceListener>();
     private _storageProvider: SyncStorageProvider | null = null;
     private _models: SyncApplicationModel[] = [];
+    private _fixMalformedAttributes = false;
     private _setupCompleted = false;
     private _containerUrls: Record<string, ModelContainerUrls> = {};
     private _externalSources: ExternalSource[] = [];
@@ -60,6 +62,10 @@ export class SyncService {
 
     public get models(): SyncApplicationModel[] {
         return this._models.slice(0);
+    }
+
+    public get fixMalformedAttributes(): boolean {
+        return this._fixMalformedAttributes;
     }
 
     public get setupCompleted(): boolean {
@@ -87,6 +93,7 @@ export class SyncService {
 
         this._storageProvider = config.storageProvider;
         this._models = [...(config.models ?? [])];
+        this._fixMalformedAttributes = config.fixMalformedAttributes ?? false;
         this._setupCompleted = setupCompleted;
         this._containerUrls = { ...containerUrls };
         this._externalSources = [...externalSources];

@@ -95,6 +95,7 @@ import type {
     RemoteFile,
     SyncFilesConfig,
 } from './concerns/files';
+import { getFixMalformedAttributesModels, getMalformedDocumentUpdates } from './concerns/malformed-attributes';
 import { addRegisteredModels, syncContainerRegistration, syncInstanceRegistration } from './concerns/registrations';
 import type {
     ModelRegistration,
@@ -144,6 +145,7 @@ export interface SyncJobConfig {
     maxErrors?: number;
     concurrency?: number;
     lastModifiedTolerance?: number;
+    fixMalformedAttributes?: boolean;
     createPublicTypeIndex?(): Promise<TypeIndex>;
     createPrivateTypeIndex?(): Promise<TypeIndex>;
     resolveConflict?(conflict: SyncConflict): Promise<SyncConflictResolution>;
@@ -158,6 +160,7 @@ export interface SyncApplicationModel {
     model: ModelConstructor;
     registration: boolean | { path?: string; public?: boolean; mode?: ModelRegistrationMode };
     files?: SyncFilesConfig[];
+    fixMalformedAttributes?: boolean;
 }
 
 export function getSyncModelRemoteContainerUrl(
@@ -214,6 +217,7 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
     private syncSemaphore: Semaphore;
     private conflictsSemaphore: Semaphore;
     private syncedModels: ModelConstructor[];
+    private fixMalformedAttributesModels: ModelConstructor[];
     private modelRegistrations: Map<ModelConstructor, ModelRegistration>;
     private ownDocumentsWithErrors = new Set<string>();
     private registeredContainers = new Map<string, Set<ModelConstructor>>();
@@ -261,6 +265,10 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
             .map((model) => model.model)
             .concat(this.getExternalSources().flatMap((source) => source.models))
             .concat([Container]);
+        this.fixMalformedAttributesModels = getFixMalformedAttributesModels(
+            this.config.applicationModels,
+            this.config.fixMalformedAttributes,
+        );
     }
 
     private get syncsFiles(): boolean {
@@ -716,11 +724,30 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
                     return childrenSyncTasks;
                 }
 
-                const lastModifiedAt = remoteDocument.url.endsWith('/')
-                    ? this.deferPulledFilesLastModifiedAt(documentUrl, this.getContainerLastModifiedAt(remoteDocument))
-                    : remoteDocument.getLastModified();
+                let pulledDocument = remoteDocument;
+                let lastModifiedAt: Date | null;
+                const malformedUpdates =
+                    this.fixMalformedAttributesModels.length > 0 && !this.findExternalSource(documentUrl)
+                        ? await getMalformedDocumentUpdates(remoteDocument, this.fixMalformedAttributesModels)
+                        : [];
 
-                await this.localEngine.createDocument(documentUrl, withoutTombstones(remoteDocument.getQuads()), {
+                if (malformedUpdates.length > 0) {
+                    const start = new Date();
+                    const response = await this.remoteEngine.updateDocument(remoteDocument.url, malformedUpdates);
+                    const end = new Date();
+
+                    pulledDocument = applyOperationsToDocument(remoteDocument, malformedUpdates);
+                    lastModifiedAt = this.getDocumentLastModifiedAt(start, end, response);
+                } else {
+                    lastModifiedAt = remoteDocument.url.endsWith('/')
+                        ? this.deferPulledFilesLastModifiedAt(
+                              documentUrl,
+                              this.getContainerLastModifiedAt(remoteDocument),
+                          )
+                        : remoteDocument.getLastModified();
+                }
+
+                await this.localEngine.createDocument(documentUrl, withoutTombstones(pulledDocument.getQuads()), {
                     lastModifiedAt,
                 });
 
@@ -1287,10 +1314,21 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
             })),
         ];
 
+        const shouldFixMalformed =
+            this.fixMalformedAttributesModels.length > 0 && !this.findExternalSource(remoteDocument.url);
+        const allRemoteUpdates = remoteUpdates.concat(
+            shouldFixMalformed
+                ? await getMalformedDocumentUpdates(
+                      applyOperationsToDocument(remoteMergeDocument, remoteUpdates),
+                      this.fixMalformedAttributesModels,
+                  )
+                : [],
+        );
+
         const start = new Date();
-        const response = await this.remoteEngine.updateDocument(remoteDocument.url, remoteUpdates);
+        const response = await this.remoteEngine.updateDocument(remoteDocument.url, allRemoteUpdates);
         const end = new Date();
-        const updatedRemoteDocument = applyOperationsToDocument(remoteMergeDocument, remoteUpdates);
+        const updatedRemoteDocument = applyOperationsToDocument(remoteMergeDocument, allRemoteUpdates);
         const updatedRemoteOperations = await this.getDocumentOperations(updatedRemoteDocument, resourceUrls);
 
         const lastModifiedAt = localDocument.url.endsWith('/')
@@ -1310,8 +1348,16 @@ export default class SyncJob extends Job<SyncJobResult, SyncJobResult, SyncJobSt
             ),
             copyTombstones: false,
         });
+        const allLocalUpdates = localUpdates.concat(
+            shouldFixMalformed
+                ? await getMalformedDocumentUpdates(
+                      applyOperationsToDocument(localDocument, localUpdates),
+                      this.fixMalformedAttributesModels,
+                  )
+                : [],
+        );
 
-        await this.updateSyncedDocument(localDocument, localUpdates, {
+        await this.updateSyncedDocument(localDocument, allLocalUpdates, {
             lastModifiedAt,
             pushedChanges: localChanges,
             resolvedUrls: new Set([...resolution.discardedLocalResources, ...resolution.restoredLocalResources]),

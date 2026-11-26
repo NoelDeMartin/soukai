@@ -18,7 +18,7 @@ import {
 } from 'soukai-bis/models/relations/internals';
 import type { ModelConstructor, ModelWithUrl, ModelsCache } from 'soukai-bis/models/types';
 import { buildModelsCache } from 'soukai-bis/models/utils';
-import { castToJavaScript } from 'soukai-bis/zod/utils';
+import { castToJavaScript, hasMalformedRDFObjects } from 'soukai-bis/zod/utils';
 
 function buildSubjectStore(subject: string, quads: Quad[]): SolidStore {
     const subjectQuadsIndex = weakMemo('subject-quads-index', quads, () => {
@@ -179,12 +179,18 @@ export function readRDFAttributes(
     modelClass: ModelConstructor,
     url: string,
     quads: Quad[],
-): { attributes: Record<string, unknown>; staleRDFProperties: string[]; aliasedRDFProperties: string[] } {
+): {
+    attributes: Record<string, unknown>;
+    staleRDFProperties: string[];
+    aliasedRDFProperties: string[];
+    malformedAttributes: string[];
+} {
     const { fields } = getSchema(modelClass);
     const subject = new RDFNamedNode(url);
     const attributes: Record<string, unknown> = {};
     const staleRDFProperties: string[] = [];
     const aliasedRDFProperties: string[] = [];
+    const malformedAttributes: string[] = [];
     const store = buildSubjectStore(url, quads);
 
     for (const [field, type] of Object.entries(fields.shape)) {
@@ -213,19 +219,24 @@ export function readRDFAttributes(
 
             return {
                 property: property.value,
+                objects,
                 value: objects ? castToJavaScript(objects, type) : undefined,
             };
         });
-        const value = values.find((propertyValue) => propertyValue.value !== undefined)?.value;
+        const matchedProperty = values.find((propertyValue) => propertyValue.value !== undefined);
 
-        if (value === undefined) {
+        if (!matchedProperty) {
             continue;
         }
 
-        attributes[field] = value;
+        attributes[field] = matchedProperty.value;
+
+        if (matchedProperty.objects && hasMalformedRDFObjects(matchedProperty.objects, type)) {
+            malformedAttributes.push(field);
+        }
 
         for (const propertyValue of values) {
-            if (rdfValuesEqual(propertyValue.value, value)) {
+            if (rdfValuesEqual(propertyValue.value, matchedProperty.value)) {
                 continue;
             }
 
@@ -233,7 +244,38 @@ export function readRDFAttributes(
         }
     }
 
-    return { attributes, staleRDFProperties, aliasedRDFProperties };
+    return { attributes, staleRDFProperties, aliasedRDFProperties, malformedAttributes };
+}
+
+export function hasMalformedRDFAttributes(modelClass: ModelConstructor, url: string, quads: Quad[]): boolean {
+    const { fields } = getSchema(modelClass);
+    const subject = new RDFNamedNode(url);
+    const store = buildSubjectStore(url, quads);
+
+    for (const [field, type] of Object.entries(fields.shape)) {
+        for (const property of getFieldRDFProperties(modelClass, field)) {
+            let objects: Quad_Object[] | undefined;
+
+            for (const variant of getRDFNamedNodeVariants(property)) {
+                const variantObjects = store.statements(subject, variant).map((statement) => statement.object);
+
+                if (hasItems(variantObjects)) {
+                    objects = variantObjects;
+                    break;
+                }
+            }
+
+            if (objects) {
+                if (hasMalformedRDFObjects(objects, type)) {
+                    return true;
+                }
+
+                break;
+            }
+        }
+    }
+
+    return false;
 }
 
 export function createFromRDF<T extends Model>(
@@ -242,7 +284,11 @@ export function createFromRDF<T extends Model>(
     quads: Quad[],
     options: { typeMap?: RDFTypeMap } = {},
 ): ModelWithUrl<T> {
-    const { attributes, staleRDFProperties, aliasedRDFProperties } = readRDFAttributes(modelClass, url, quads);
+    const { attributes, staleRDFProperties, aliasedRDFProperties, malformedAttributes } = readRDFAttributes(
+        modelClass,
+        url,
+        quads,
+    );
     const instance = modelClass.newInstance(
         { url, ...attributes },
         { exists: true, initializeMetadata: false, source: quads },
@@ -256,6 +302,10 @@ export function createFromRDF<T extends Model>(
         });
 
     invade(instance, ['addStaleRDFProperties']).addStaleRDFProperties(staleRDFProperties);
+
+    if (malformedAttributes.length > 0) {
+        invade(instance, ['_malformedAttributes'])._malformedAttributes = new Set(malformedAttributes);
+    }
 
     if (aliasedRDFClasses || aliasedRDFProperties.length > 0) {
         invade(instance, ['setRDFPrefixAliasesInUse']).setRDFPrefixAliasesInUse(
@@ -369,6 +419,8 @@ export function resetModelGraph(rootModel: Model): void {
             '_sourceDocumentUrl',
             '_staleRDFProperties',
             '_rdfPrefixAliases',
+            '_malformedAttributes',
+            '_pendingMalformedAttributeFixes',
             '_relations',
         ]);
         const attributes = invadedModel._attributes;
@@ -394,6 +446,8 @@ export function resetModelGraph(rootModel: Model): void {
         invadedModel._dirtyAttributes = new Set(Object.keys(attributes));
         invadedModel._staleRDFProperties = null;
         invadedModel._rdfPrefixAliases = null;
+        invadedModel._malformedAttributes = null;
+        invadedModel._pendingMalformedAttributeFixes = null;
 
         for (const [relationName, relation] of Object.entries(invadedModel._relations)) {
             if (relationName === 'operations') {

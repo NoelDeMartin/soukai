@@ -34,6 +34,7 @@ export interface SerializedModelNode {
     computed: Record<string, unknown>;
     staleRDFProperties: string[] | null;
     rdfPrefixAliases: { classes: boolean; properties: string[] } | null;
+    malformedAttributes?: string[] | null;
 }
 
 export interface SerializedModel {
@@ -47,6 +48,7 @@ function invaded(model: Model) {
         '_computedAttributes',
         '_staleRDFProperties',
         '_rdfPrefixAliases',
+        '_malformedAttributes',
         'restoreComputedAttributes',
     ]);
 }
@@ -114,6 +116,7 @@ function serializeModelNode(model: Model, serialized: SerializedModel, indexes: 
             classes: rdfPrefixAliases.classes,
             properties: Array.from(rdfPrefixAliases.properties),
         },
+        malformedAttributes: arrayFromNullable(invaded(model)._malformedAttributes),
         relations: {},
         computed: serializeComputedAttributes(model),
     };
@@ -225,6 +228,7 @@ export async function hydrateModel(serialized: SerializedModel): Promise<Model> 
         model.setSourceDocumentUrl(node.sourceDocumentUrl);
         invaded(model)._legacyTimestamps = node.legacyTimestamps;
         invaded(model)._staleRDFProperties = node.staleRDFProperties && new Set(node.staleRDFProperties);
+        invaded(model)._malformedAttributes = node.malformedAttributes ? new Set(node.malformedAttributes) : null;
         invaded(model)._rdfPrefixAliases = node.rdfPrefixAliases
             ? {
                   classes: node.rdfPrefixAliases.classes,

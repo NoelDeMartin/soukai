@@ -121,8 +121,17 @@ function rewriteRDFPrefixAliases(
     }
 }
 
-function usesArrayPropertyOperations(model: Model, field: string, fieldDefinition: ZodType): boolean {
-    if (!model.exists() || !model.tracksChanges() || isChangeTrackingDisabled() || !isArrayField(fieldDefinition)) {
+function usesArrayPropertyOperations(
+    model: Model,
+    field: string,
+    fieldDefinition: ZodType,
+    trackHistory: boolean,
+): boolean {
+    if (!model.exists() || !model.tracksChanges() || !trackHistory || !isArrayField(fieldDefinition)) {
+        return false;
+    }
+
+    if (invade(model, ['_pendingMalformedAttributeFixes'])._pendingMalformedAttributeFixes?.has(field)) {
         return false;
     }
 
@@ -194,11 +203,13 @@ export function getDirtyDocumentsUpdates({
     restoredModels = [],
     newOperations,
     date,
+    trackHistory = !isChangeTrackingDisabled(),
 }: {
     updatedModels: Model[];
     restoredModels?: Model[];
     newOperations?: Map<string, string[]>;
     date?: Date;
+    trackHistory?: boolean;
 }): Operation[] {
     const SetPropertyOperation = requireBootedModel('SetPropertyOperation');
     const UnsetPropertyOperation = requireBootedModel('UnsetPropertyOperation');
@@ -239,7 +250,7 @@ export function getDirtyDocumentsUpdates({
                 continue;
             }
 
-            if (usesArrayPropertyOperations(model, attribute, fieldDefinition)) {
+            if (usesArrayPropertyOperations(model, attribute, fieldDefinition, trackHistory)) {
                 modelOperations.push(
                     ...createArrayPropertyOperations(
                         model as ModelWithUrl,
@@ -287,7 +298,7 @@ export function getDirtyDocumentsUpdates({
     for (const model of updatedModels) {
         const restored = restoredModels.includes(model);
 
-        if (!model.url || !model.tracksChanges() || isChangeTrackingDisabled() || (!model.exists() && !restored)) {
+        if (!model.url || !model.tracksChanges() || !trackHistory || (!model.exists() && !restored)) {
             continue;
         }
 

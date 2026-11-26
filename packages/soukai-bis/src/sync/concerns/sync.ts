@@ -42,11 +42,12 @@ function invaded(session: SyncSession) {
 }
 
 function getJobConfig(session: SyncSession, typeIndexes: SyncTypeIndexes): SyncJobConfig {
-    const { config, profileManager, models } = invaded(session);
+    const { config, profileManager, models, service } = invaded(session);
 
     return {
         ...typeIndexes,
-        externalSources: invaded(session).service.externalSources,
+        externalSources: service.externalSources,
+        fixMalformedAttributes: service.fixMalformedAttributes,
         userProfile: profileManager.getProfile(),
         createPublicTypeIndex: profileManager.createPublicTypeIndex?.bind(profileManager),
         createPrivateTypeIndex: profileManager.createPrivateTypeIndex?.bind(profileManager),

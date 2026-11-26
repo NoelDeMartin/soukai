@@ -34,6 +34,44 @@ export function isUrlField(fieldDefinition: ZodType): boolean {
     );
 }
 
+export function hasMalformedRDFObjects(objects: Quad_Object[], definition: SomeType): boolean {
+    if (deepMeta(definition as ZodType, 'rdfCast')) {
+        return false;
+    }
+
+    let finalType = getFinalType(definition);
+
+    while (finalType instanceof ZodArray) {
+        if (deepMeta(finalType.def.element as ZodType, 'rdfCast')) {
+            return false;
+        }
+
+        finalType = getFinalType(finalType.def.element);
+    }
+
+    if (finalType instanceof ZodURL) {
+        return objects.some((object) => object.termType !== 'NamedNode');
+    }
+
+    if (finalType instanceof ZodDate) {
+        return objects.some((object) => object.termType !== 'Literal' || object.datatype?.value !== XSD_DATE_TIME);
+    }
+
+    if (finalType instanceof ZodNumber) {
+        return objects.some(
+            (object) =>
+                object.termType !== 'Literal' ||
+                (object.datatype?.value !== XSD_INTEGER && object.datatype?.value !== XSD_DECIMAL),
+        );
+    }
+
+    if (finalType instanceof ZodBoolean) {
+        return objects.some((object) => object.termType !== 'Literal' || object.datatype?.value !== XSD_BOOLEAN);
+    }
+
+    return false;
+}
+
 export function castTermToJavaScript(term: Quad_Object): unknown {
     if (term.termType === 'Literal') {
         switch (term.datatype?.value) {

@@ -27,13 +27,13 @@ Write this page. Some breaking changes to cover:
 - Some model methods have been removed: `Model.first()`, `clone()`, `wasRecentlyCreated()`, and `wasRecentlyDeleted()`.
 - `withoutTimestamps()` (static and instance) and `withoutTrackingHistory()` have been replaced by `runWithChangeTrackingDisabled()`, which disables both automatic timestamp updates and CRDT history tracking across all models modified inside the callback (using the configured `AsyncContextManager`).
 - `newFromJsonLD()` and `createFromJsonLD()` have been replaced by the fluent `fromRDF()`, `fromTurtle()`, `fromJsonLD()`, and `fromDocument()` builders (with `.find()`, `.all()`, `.newInstance()`, `.newInstances()`, `.create()`, and `.createMany()`).
+- `createInDocument()` and `saveInDocument()` have been removed. Use `mintUrl({ documentUrl, resourceHash })` followed by `save()` instead.
+- `getMalformedDocumentAttributes()` has been renamed to `getMalformedAttributes()` (returning an array of field names, along with `hasMalformedAttributes()`). `fixMalformedAttributes()` still marks them dirty for saving, and local-first apps can enable automatic fixing during sync via `fixMalformedAttributes: true` on `Sync.boot()` or per model.
 :::
 
 ::: warning TODO
 Review functionality that hasn't been migrated yet, and either implement it or document it as a breaking change above:
 
-- `createInDocument()` and `saveInDocument()`.
-- Malformed attributes handling: `getMalformedDocumentAttributes()` and `fixMalformedAttributes()`.
 - `SolidModel.synchronize(a, b)`, for merging two copies of a model manually.
 - History helpers: `rebuildAttributesFromHistory()`, `getHistoryHash()`, and enabling or disabling history and tombstones at runtime (`enableHistory()`, `disableHistory()`, `enableTombstone()`, `disableTombstone()`).
 - Overriding `ignoreRdfPropertyHistory()`.

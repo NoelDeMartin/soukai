@@ -494,6 +494,8 @@ export default class Model<
     declare protected _attributes: Attributes;
     declare protected _originalAttributes: Attributes;
     declare protected _dirtyAttributes: Set<FieldName>;
+    declare protected _malformedAttributes: Set<FieldName> | null;
+    declare protected _pendingMalformedAttributeFixes: Set<FieldName> | null;
     declare protected _staleRDFProperties: Set<string> | null;
     declare protected _rdfPrefixAliases: ModelRDFPrefixAliases | null;
     declare protected _computedAttributes: Record<string, ComputedAttribute>;
@@ -508,6 +510,8 @@ export default class Model<
             this._attributes = {} as unknown as Attributes;
             this._originalAttributes = {} as unknown as Attributes;
             this._dirtyAttributes = new Set();
+            this._malformedAttributes = null;
+            this._pendingMalformedAttributeFixes = null;
             this._staleRDFProperties = null;
             this._rdfPrefixAliases = null;
         }
@@ -526,6 +530,8 @@ export default class Model<
         this._relations = {};
         this._legacyTimestamps = null;
         this._permissions = null;
+        this._malformedAttributes = null;
+        this._pendingMalformedAttributeFixes = null;
         this._staleRDFProperties = null;
         this._rdfPrefixAliases = null;
 
@@ -599,7 +605,17 @@ export default class Model<
 
         Object.assign(this._attributes, newAttributes);
         Object.keys(newAttributes).forEach((field) => this._dirtyAttributes.add(field as FieldName));
-        modifiedFields.forEach((field) => this.removeStaleRDFProperties(this.getFieldRDFPropertyValues(field)));
+        modifiedFields.forEach((field) => {
+            this.removeStaleRDFProperties(this.getFieldRDFPropertyValues(field));
+
+            if (this._malformedAttributes?.delete(field as FieldName)) {
+                (this._pendingMalformedAttributeFixes ??= new Set()).add(field as FieldName);
+            }
+        });
+
+        if (this._malformedAttributes?.size === 0) {
+            this._malformedAttributes = null;
+        }
 
         for (const field of modifiedFields) {
             // oxlint-disable-next-line typescript/no-floating-promises
@@ -783,6 +799,8 @@ export default class Model<
             documentModel._attributes = freshInstance._attributes;
             documentModel._originalAttributes = freshInstance._originalAttributes;
             documentModel._dirtyAttributes = new Set();
+            documentModel._malformedAttributes = freshInstance._malformedAttributes;
+            documentModel._pendingMalformedAttributeFixes = null;
 
             if (freshInstance._relations.metadata?.loaded) {
                 documentModel.getRelation('metadata').related = freshInstance._relations.metadata.related;
@@ -864,6 +882,29 @@ export default class Model<
 
     public getDirtyAttributes(): FieldName[] {
         return Array.from(this._dirtyAttributes);
+    }
+
+    public getMalformedAttributes(): FieldName[] {
+        return this._malformedAttributes ? Array.from(this._malformedAttributes) : [];
+    }
+
+    public hasMalformedAttributes(): boolean {
+        return (this._malformedAttributes?.size ?? 0) > 0;
+    }
+
+    public fixMalformedAttributes(): void {
+        if (!this._malformedAttributes) {
+            return;
+        }
+
+        this._pendingMalformedAttributeFixes ??= new Set();
+
+        for (const field of this._malformedAttributes) {
+            this._dirtyAttributes.add(field);
+            this._pendingMalformedAttributeFixes.add(field);
+        }
+
+        this._malformedAttributes = null;
     }
 
     public getDocumentModels(): Model[] {
@@ -953,6 +994,7 @@ export default class Model<
         }
 
         this._dirtyAttributes.clear();
+        this._pendingMalformedAttributeFixes = null;
         this._originalAttributes = objectDeepClone(this._attributes);
     }
 
