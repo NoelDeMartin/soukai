@@ -1,5 +1,6 @@
 import { fail } from '@noeldemartin/utils';
 import SoukaiError from 'soukai-bis/errors/SoukaiError';
+import { getAsyncContext, runWithAsyncContext } from 'soukai-bis/lib/context';
 
 import type Engine from './Engine';
 import type LocalEngine from './LocalEngine';
@@ -8,16 +9,6 @@ import { isLocalEngine, isSolidEngine } from './utils';
 
 let defaultEngine: Engine | undefined;
 let remoteEngine: SolidEngine | null = null;
-let asyncContextManager: AsyncContextManager<Engine> | undefined;
-
-export interface AsyncContextManager<T> {
-    runWithValue<TResult>(value: T, operation: () => TResult): TResult;
-    getValue(): T | undefined;
-}
-
-export function setAsyncContextManager(manager: AsyncContextManager<Engine>): void {
-    asyncContextManager = manager;
-}
 
 export function setEngine(engine: Engine): void {
     defaultEngine = engine;
@@ -28,15 +19,11 @@ export function setRemoteEngine(engine: SolidEngine | null): void {
 }
 
 export function runWithEngine<T>(engine: Engine, operation: () => T): T {
-    if (!asyncContextManager) {
-        throw new SoukaiError("Async context manager hasn't been initialized");
-    }
-
-    return asyncContextManager.runWithValue(engine, operation);
+    return runWithAsyncContext({ engine }, operation);
 }
 
 export function getEngine(): Engine | undefined {
-    return asyncContextManager?.getValue() ?? defaultEngine;
+    return getAsyncContext().engine ?? defaultEngine;
 }
 
 export function requireEngine(): Engine {

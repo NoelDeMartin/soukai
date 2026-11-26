@@ -1,3 +1,4 @@
+export * from './context';
 export * from './files';
 export * from './namespace';
 export * from './rdf-prefix-aliases';

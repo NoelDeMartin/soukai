@@ -18,6 +18,7 @@ import {
     RDF_TYPE_PREDICATE,
 } from 'soukai-bis/lib/internals/rdf';
 import { getRDFIRIVariants } from 'soukai-bis/lib/internals/rdf-prefix-aliases';
+import { isChangeTrackingDisabled } from 'soukai-bis/models/change-tracking';
 import { getCoreOperationModels } from 'soukai-bis/models/crdts/core-lazy';
 import {
     createPropertyResetOperation,
@@ -121,7 +122,7 @@ function rewriteRDFPrefixAliases(
 }
 
 function usesArrayPropertyOperations(model: Model, field: string, fieldDefinition: ZodType): boolean {
-    if (!model.exists() || !model.tracksChanges() || !isArrayField(fieldDefinition)) {
+    if (!model.exists() || !model.tracksChanges() || isChangeTrackingDisabled() || !isArrayField(fieldDefinition)) {
         return false;
     }
 
@@ -286,7 +287,7 @@ export function getDirtyDocumentsUpdates({
     for (const model of updatedModels) {
         const restored = restoredModels.includes(model);
 
-        if (!model.url || !model.tracksChanges() || (!model.exists() && !restored)) {
+        if (!model.url || !model.tracksChanges() || isChangeTrackingDisabled() || (!model.exists() && !restored)) {
             continue;
         }
 

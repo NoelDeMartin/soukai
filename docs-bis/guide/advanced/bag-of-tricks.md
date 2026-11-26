@@ -41,16 +41,26 @@ If you need to use a different engine for a particular operation, you can use th
 ```ts
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import type { Engine } from 'soukai-bis';
+import type { SoukaiAsyncContext } from 'soukai-bis';
 
-const storage = new AsyncLocalStorage<Engine>();
+const storage = new AsyncLocalStorage<SoukaiAsyncContext>();
 
 setAsyncContextManager({
-    runWithValue: (engine, operation) => storage.run(engine, operation),
+    runWithValue: (context, operation) => storage.run(context, operation),
     getValue: () => storage.getStore(),
 });
 
 await runWithEngine(new InMemoryEngine(), () => User.create({ name: 'John Doe' }));
+```
+
+## Disabling change tracking
+
+If you need to modify models without updating automatic timestamps or recording CRDT history operations (for example, during background maintenance or migrations), you can use `runWithChangeTrackingDisabled`. Like `runWithEngine`, this relies on the configured `AsyncContextManager` and applies to all models modified inside the callback:
+
+```ts
+await runWithChangeTrackingDisabled(async () => {
+    await user.update({ name: 'Jane Doe' });
+});
 ```
 
 ## Converting to and from RDF

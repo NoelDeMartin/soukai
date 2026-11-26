@@ -2,7 +2,7 @@ import 'soukai-bis/patch-zod';
 import 'fake-indexeddb/auto';
 import { installVitestSolidMatchers } from '@noeldemartin/solid-utils/vitest';
 import { FakeServer } from '@noeldemartin/testing';
-import { ComputedAttribute, bootCoreModels, bootModels, setRDFPrefixAliases } from 'soukai-bis';
+import { ComputedAttribute, bootCoreModels, bootModels, setAsyncContextManager, setRDFPrefixAliases } from 'soukai-bis';
 import CascadingMovie from 'soukai-bis/jobs/sync/testing/stubs/CascadingMovie';
 import Franchise from 'soukai-bis/jobs/sync/testing/stubs/Franchise';
 import RatedMovie from 'soukai-bis/jobs/sync/testing/stubs/RatedMovie';
@@ -52,18 +52,26 @@ import WatchAction from 'soukai-bis/testing/stubs/WatchAction';
 import { resetTestingEngines } from 'soukai-bis/testing/utils/engines';
 import { beforeEach, vi } from 'vite-plus/test';
 
+installVitestSolidMatchers();
+
 beforeEach(async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    setRDFPrefixAliases({});
-    forgetAuthorizationProtocols();
-    resetModelListeners();
     vi.resetAllMocks();
     vi.unstubAllGlobals();
+
+    Sync.reset();
     FakeServer.reset();
+    SoukaiIndexedDB.reset();
+    ComputedAttributesCache.reset();
     ComputedAttribute.reset();
     ComputedAttribute.disableLoadingRelations();
 
+    resetModelListeners();
     resetTestingEngines();
+    setRDFPrefixAliases({});
+    forgetAuthorizationProtocols();
+    setAsyncContextManager(undefined);
+
     bootCoreModels({ reset: true });
     bootModels(
         {
@@ -113,10 +121,4 @@ beforeEach(async () => {
     );
 
     await SoukaiIndexedDB.clear();
-
-    Sync.reset();
-    SoukaiIndexedDB.reset();
-    ComputedAttributesCache.reset();
 });
-
-installVitestSolidMatchers();

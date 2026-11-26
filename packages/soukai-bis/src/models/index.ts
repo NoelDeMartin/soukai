@@ -1,5 +1,6 @@
 export * from './acl';
 export * from './acp';
+export * from './change-tracking';
 export * from './computed-attributes';
 export * from './core';
 export * from './crdts';

@@ -46,6 +46,7 @@ import { ZodError } from 'zod';
 
 import type ACLAuthorization from './acl/ACLAuthorization';
 import type ACPAccessControlResource from './acp/ACPAccessControlResource';
+import { isChangeTrackingDisabled } from './change-tracking';
 import ComputedAttribute from './computed-attributes/ComputedAttribute';
 import { refreshComputedAttributes } from './computed-attributes/registry';
 import { newACPAccessControlResource } from './concerns/acp';
@@ -666,7 +667,7 @@ export default class Model<
         this._originalAttributes = (exists ? objectDeepClone(this._attributes) : {}) as Attributes;
         this._dirtyAttributes = exists ? new Set() : new Set(Object.keys(this._attributes) as FieldName[]);
 
-        if (options.initializeMetadata ?? true) {
+        if ((options.initializeMetadata ?? true) && !isChangeTrackingDisabled()) {
             this.__instance().initializeMetadata();
         }
     }
@@ -681,6 +682,10 @@ export default class Model<
 
     public setAttribute(field: FieldName, value: unknown): void {
         this.setAttributes({ [field]: value } as Partial<Attributes>);
+    }
+
+    public unsetAttribute(field: FieldName): void {
+        this.setAttribute(field, undefined);
     }
 
     public setAttributes(attributes: Partial<Attributes>): void {
@@ -815,7 +820,7 @@ export default class Model<
                 mintedUrls.set(this.__instance(), { url: this.url, options });
             }
 
-            if (this.hasTimestamps()) {
+            if (this.hasTimestamps() && this.metadata) {
                 this.metadata.setAttribute('resourceUrl', this.url);
                 this.metadata.mintUrl(options);
             }
@@ -1250,6 +1255,25 @@ export default class Model<
         return this.save();
     }
 
+    public touch(now?: Nullable<Date>): void {
+        if (!this.hasTimestamps()) {
+            return;
+        }
+
+        now ??= new Date();
+
+        if (!this.metadata) {
+            this.initializeMetadata({ createdAt: this._legacyTimestamps?.createdAt ?? now, updatedAt: now });
+        } else {
+            this.exists() || !this.hasTimestamp('createdAt') || this.metadata.setAttribute('createdAt', now);
+            this.hasTimestamp('updatedAt') && this.metadata.setAttribute('updatedAt', now);
+        }
+
+        if (this._pendingSoftDeletion) {
+            this.metadata.setAttribute('deletedAt', this._pendingSoftDeletion === 'soft-delete' ? now : undefined);
+        }
+    }
+
     public async fresh(): Promise<this> {
         if (!this.url) {
             throw new SoukaiError(`Couldn't get fresh ${this.static('modelName')} instance, url missing.`);
@@ -1580,7 +1604,9 @@ export default class Model<
                 continue;
             }
 
-            documentModel.touch(date);
+            if (!isChangeTrackingDisabled()) {
+                documentModel.touch(date);
+            }
 
             for (const relation of Object.values(documentModel._relations)) {
                 relation.getLoadedModels().forEach((model) => relation.setForeignAttributes(model));
@@ -1601,7 +1627,9 @@ export default class Model<
                 (model): model is ModelWithUrl<Model> => model._markedForDeletion && model.exists(),
             );
 
-            await loadDocumentRelations(this, { models: updatedModels, relations: ['operations'] });
+            if (!isChangeTrackingDisabled()) {
+                await loadDocumentRelations(this, { models: updatedModels, relations: ['operations'] });
+            }
 
             const createdModels = updatedModels.filter((model) => !model.exists());
             const documentLocalChanges =
@@ -1819,31 +1847,18 @@ export default class Model<
             .filter((computedAttribute) => computedAttribute.value === undefined);
     }
 
-    protected touch(now?: Nullable<Date>): void {
-        if (!this.hasTimestamps()) {
-            return;
-        }
-
-        now ??= new Date();
-
-        if (!this.metadata) {
-            this.initializeMetadata({ createdAt: this._legacyTimestamps?.createdAt ?? now, updatedAt: now });
-        } else {
-            this.exists() || !this.hasTimestamp('createdAt') || this.metadata.setAttribute('createdAt', now);
-            this.hasTimestamp('updatedAt') && this.metadata.setAttribute('updatedAt', now);
-        }
-
-        if (this._pendingSoftDeletion) {
-            this.metadata.setAttribute('deletedAt', this._pendingSoftDeletion === 'soft-delete' ? now : undefined);
-        }
-    }
-
     protected async updateSoftDeletion(pendingSoftDeletion: PendingSoftDeletion): Promise<this> {
         const action = pendingSoftDeletion === 'soft-delete' ? 'soft delete' : 'restore';
 
         if (!this.tracksChanges() || !this.hasTimestamps()) {
             throw new SoukaiError(
                 `Can't ${action} ${this.static('modelName')} models, only models with history and timestamps can be soft deleted.`,
+            );
+        }
+
+        if (isChangeTrackingDisabled()) {
+            throw new SoukaiError(
+                `Can't ${action} ${this.static('modelName')} models while change tracking is disabled.`,
             );
         }
 
@@ -1856,6 +1871,12 @@ export default class Model<
         }
 
         const metadata = this.metadata;
+
+        if (!metadata) {
+            throw new SoukaiError(
+                `Can't ${action} ${this.static('modelName')} model, its metadata hasn't been initialized.`,
+            );
+        }
         const previousDeletedAt = metadata.deletedAt;
         const deletedAtWasDirty = metadata.isDirty('deletedAt');
 

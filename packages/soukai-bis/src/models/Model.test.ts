@@ -610,6 +610,36 @@ describe('Model', () => {
         expect(user.getDirtyAttributes()).not.toContain('email');
     });
 
+    it('unsets attributes', async () => {
+        // Arrange
+        const user = await User.create({ name: 'John Doe', email: 'john@example.com' });
+
+        // Act
+        user.unsetAttribute('email');
+
+        // Assert
+        expect(user.email).toBeUndefined();
+        expect(user.getAttributes()).not.toHaveProperty('email');
+        expect(user.isDirty('email')).toBe(true);
+    });
+
+    it('touches timestamps', async () => {
+        // Arrange
+        const createdAt = new Date('2020-01-01T00:00:00.000Z');
+        const touchedAt = new Date('2020-01-02T00:00:00.000Z');
+        const user = new User({ name: 'John Doe' });
+
+        await user.save({ date: createdAt });
+
+        // Act
+        user.touch(touchedAt);
+
+        // Assert
+        expect(user.createdAt).toEqual(createdAt);
+        expect(user.updatedAt).toEqual(touchedAt);
+        expect(user.isDirty()).toBe(true);
+    });
+
     it('caches instances by model class, not only url', async () => {
         // Arrange
         const Guest = defineSchema(User, {});

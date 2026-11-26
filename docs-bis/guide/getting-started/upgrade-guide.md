@@ -24,16 +24,18 @@ Write this page. Some breaking changes to cover:
 - The `documents` relation in `SolidContainer` has been replaced by the `resources` relation in `Container`.
 - `useSoftDeletes()` must now be called on each model instead of globally on `SolidModel`, and only models with history and timestamps can be soft deleted. Soft deletes also create a `crdt:DeleteOperation` now, so they are merged properly on sync. Existing soft deleted models will continue working without changes.
 - Some core models and helpers have been renamed: `SolidContainer` is now `Container`, `SolidDocument` and `SolidResource` are now `Resource`, `SolidTypeIndex` is now `TypeIndex`, `SolidTypeRegistration` is now `TypeRegistration`, and `bootSolidModels()` is now `bootCoreModels()`.
+- Some model methods have been removed: `Model.first()`, `clone()`, `wasRecentlyCreated()`, and `wasRecentlyDeleted()`.
+- `withoutTimestamps()` (static and instance) and `withoutTrackingHistory()` have been replaced by `runWithChangeTrackingDisabled()`, which disables both automatic timestamp updates and CRDT history tracking across all models modified inside the callback (using the configured `AsyncContextManager`).
 :::
 
 ::: warning TODO
 Review functionality that hasn't been migrated yet, and either implement it or document it as a breaking change above:
 
-- Missing model methods: `clone()`, `unsetAttribute()`, `touch()` (now protected), `wasRecentlyCreated()`, `wasRecentlyDeleted()`, `Model.first()`, `newFromJsonLD()`, and `withoutTimestamps()` (static and instance).
+- Missing model methods: `newFromJsonLD()`.
 - `createInDocument()` and `saveInDocument()`.
 - Malformed attributes handling: `getMalformedDocumentAttributes()` and `fixMalformedAttributes()`.
 - `SolidModel.synchronize(a, b)`, for merging two copies of a model manually.
-- History helpers: `rebuildAttributesFromHistory()`, `getHistoryHash()`, `withoutTrackingHistory()`, and enabling or disabling history and tombstones at runtime (`enableHistory()`, `disableHistory()`, `enableTombstone()`, `disableTombstone()`).
+- History helpers: `rebuildAttributesFromHistory()`, `getHistoryHash()`, and enabling or disabling history and tombstones at runtime (`enableHistory()`, `disableHistory()`, `enableTombstone()`, `disableTombstone()`).
 - Overriding `ignoreRdfPropertyHistory()`.
 - Relation methods: `associate()` and `disassociate()` (belongs to one), `remove()` (has one), `clone()`, and `enable()`/`disable()`.
 - Errors: `IncompleteDocument`, `ResourceNotFound`, `InvalidModelDefinition`, and `InvalidModelAttributes` (replaced by `InvalidAttributesError`?).
