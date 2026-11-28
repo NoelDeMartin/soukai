@@ -141,7 +141,7 @@ export default class TypeIndex extends Model {
         this: ModelConstructor<T>,
         user: CompleteSolidUserProfile,
     ): Promise<ModelWithUrl<T>> {
-        if (user.writableProfileUrl === null) {
+        if (!user.writableProfileUrl) {
             throw new SoukaiError("Can't create public type index without a writable profile document");
         }
 
